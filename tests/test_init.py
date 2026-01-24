@@ -1,9 +1,26 @@
-"""Test component setup."""
+"""Test integration setup and services."""
+from unittest.mock import patch
 from homeassistant.core import HomeAssistant
-from custom_components.entity_duplicates_manager.const import DOMAIN
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+from custom_components.entity_duplicates_manager.const import DOMAIN, SERVICE_SCAN
 
-async def test_setup_entry(hass: HomeAssistant) -> None:
-    """Test setting up the integration."""
-    # This is a placeholder test to ensure pytest runs.
-    # In a real scenario, we'd mock config entries and test setup.
-    assert True
+async def test_setup_entry_and_scan_service(hass: HomeAssistant):
+    """Test setup and service call."""
+    entry = MockConfigEntry(domain=DOMAIN, data={})
+    entry.add_to_hass(hass)
+    
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert DOMAIN in hass.data
+    assert "scanner" in hass.data[DOMAIN]
+
+    # Verify entities are created
+    state = hass.states.get("sensor.duplicates_found")
+    assert state is not None
+    assert state.state == "0"
+
+    # Call service
+    with patch("custom_components.entity_duplicates_manager.scanner.DuplicatesScanner.scan") as mock_scan:
+        await hass.services.async_call(DOMAIN, SERVICE_SCAN, {}, blocking=True)
+        mock_scan.assert_called_once()
