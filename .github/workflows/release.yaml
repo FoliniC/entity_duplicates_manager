@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create ZIP
+        run: |
+          mkdir -p build/custom_components
+          cp -r custom_components/entity_duplicates_manager build/custom_components/
+          cp README.md build/ 2>/dev/null || true
+          cp info.md build/ 2>/dev/null || true
+          cp LICENSE build/ 2>/dev/null || true
+          
+          cd build
+          zip -r ../entity_duplicates_manager.zip .
+          cd ..
+          ls -lh entity_duplicates_manager.zip
+          
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ${{ github.ref_name }} \
+            --title "Release ${{ github.ref_name }}" \
+            --generate-notes \
+            entity_duplicates_manager.zip
