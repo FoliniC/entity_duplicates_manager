@@ -1,6 +1,4 @@
 """Test the duplicate scanner logic."""
-from unittest.mock import patch, MagicMock
-import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from custom_components.entity_duplicates_manager.scanner import DuplicatesScanner
@@ -96,7 +94,7 @@ async def test_delete_entity(hass: HomeAssistant):
     scanner = DuplicatesScanner(hass)
     entity_registry = er.async_get(hass)
     
-    entry = entity_registry.async_get_or_create(
+    entity_registry.async_get_or_create(
         "sensor", "test_platform", "unique_del", suggested_object_id="delete_me"
     )
     

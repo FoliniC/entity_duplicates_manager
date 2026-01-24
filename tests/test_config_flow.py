@@ -1,5 +1,4 @@
 """Test the config flow."""
-from unittest.mock import patch
 from homeassistant import config_entries, data_entry_flow
 from homeassistant.core import HomeAssistant
 from custom_components.entity_duplicates_manager.const import DOMAIN
@@ -23,7 +22,7 @@ async def test_config_flow_success(hass: HomeAssistant):
 async def test_single_instance(hass: HomeAssistant):
     """Test we only allow one instance."""
     # Create one
-    MockConfigEntry = await _create_mock_entry(hass)
+    await _create_mock_entry(hass)
     
     # Try to create another
     result = await hass.config_entries.flow.async_init(

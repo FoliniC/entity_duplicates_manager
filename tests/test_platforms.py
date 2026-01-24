@@ -1,9 +1,7 @@
 """Test the entity platforms."""
-from unittest.mock import patch, MagicMock
 from homeassistant.core import HomeAssistant, State
-from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry, mock_restore_cache
-from custom_components.entity_duplicates_manager.const import DOMAIN, EVENT_SCAN_COMPLETE
+from custom_components.entity_duplicates_manager.const import DOMAIN
 
 async def test_number_platform(hass: HomeAssistant):
     """Test the number entity."""
