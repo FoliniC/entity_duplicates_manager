@@ -1,11 +1,11 @@
 """Switch platform for Entity Duplicates Manager."""
+
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from .const import DOMAIN
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -14,6 +14,7 @@ async def async_setup_entry(
 ) -> None:
     """Initialize Switch Platform."""
     async_add_entities([ConfirmDeletionSwitch(hass)])
+
 
 class ConfirmDeletionSwitch(RestoreEntity, SwitchEntity):
     """Representation of the Confirm Deletion Switch."""
@@ -31,7 +32,7 @@ class ConfirmDeletionSwitch(RestoreEntity, SwitchEntity):
         """Run when entity about to be added."""
         await super().async_added_to_hass()
         if (last_state := await self.async_get_last_state()) is not None:
-             self._attr_is_on = last_state.state == "on"
+            self._attr_is_on = last_state.state == "on"
 
     async def async_turn_on(self, **kwargs) -> None:
         """Turn the entity on."""

@@ -1,11 +1,13 @@
 """Number platform for Entity Duplicates Manager."""
+
 from homeassistant.components.number import NumberEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from .const import DOMAIN, DEFAULT_SUFFIX_MAX
+from .const import DEFAULT_SUFFIX_MAX
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -14,6 +16,7 @@ async def async_setup_entry(
 ) -> None:
     """Initialize Number Platform."""
     async_add_entities([DuplicateSuffixFilter(hass)])
+
 
 class DuplicateSuffixFilter(RestoreEntity, NumberEntity):
     """Representation of the Suffix Max Filter."""
@@ -34,10 +37,10 @@ class DuplicateSuffixFilter(RestoreEntity, NumberEntity):
         """Run when entity about to be added."""
         await super().async_added_to_hass()
         if (last_state := await self.async_get_last_state()) is not None:
-             try:
-                 self._attr_native_value = float(last_state.state)
-             except ValueError:
-                 pass
+            try:
+                self._attr_native_value = float(last_state.state)
+            except ValueError:
+                pass
 
     async def async_set_native_value(self, value: float) -> None:
         """Update the current value."""

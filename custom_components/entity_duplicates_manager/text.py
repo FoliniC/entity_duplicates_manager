@@ -1,11 +1,13 @@
 """Text platform for Entity Duplicates Manager."""
+
 from homeassistant.components.text import TextEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from .const import DOMAIN, DEFAULT_EXCLUDE_PATTERN
+from .const import DEFAULT_EXCLUDE_PATTERN
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -14,6 +16,7 @@ async def async_setup_entry(
 ) -> None:
     """Initialize Text Platform."""
     async_add_entities([DuplicateExcludePattern(hass)])
+
 
 class DuplicateExcludePattern(RestoreEntity, TextEntity):
     """Representation of the Exclude Pattern Text."""
@@ -31,7 +34,7 @@ class DuplicateExcludePattern(RestoreEntity, TextEntity):
         """Run when entity about to be added."""
         await super().async_added_to_hass()
         if (last_state := await self.async_get_last_state()) is not None:
-             self._attr_native_value = last_state.state
+            self._attr_native_value = last_state.state
 
     async def async_set_value(self, value: str) -> None:
         """Update the current value."""

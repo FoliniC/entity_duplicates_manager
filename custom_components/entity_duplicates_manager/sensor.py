@@ -1,11 +1,13 @@
 """Sensor platform for Entity Duplicates Manager."""
+
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from .const import DOMAIN, EVENT_SCAN_COMPLETE
+from .const import EVENT_SCAN_COMPLETE
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -14,6 +16,7 @@ async def async_setup_entry(
 ) -> None:
     """Initialize Sensor Platform."""
     async_add_entities([DuplicatesCountSensor(hass)])
+
 
 class DuplicatesCountSensor(RestoreEntity, SensorEntity):
     """Representation of the Duplicates Count Sensor."""
@@ -32,11 +35,11 @@ class DuplicatesCountSensor(RestoreEntity, SensorEntity):
         """Run when entity about to be added."""
         await super().async_added_to_hass()
         if (last_state := await self.async_get_last_state()) is not None:
-             try:
+            try:
                 self._attr_native_value = int(last_state.state)
-             except ValueError:
+            except ValueError:
                 pass
-        
+
         self.async_on_remove(
             self.hass.bus.async_listen(EVENT_SCAN_COMPLETE, self._handle_scan_complete)
         )
