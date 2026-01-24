@@ -1,0 +1,28 @@
+scan_duplicates:
+  name: Scan for duplicates
+  description: Scans all entities to find potential duplicates based on naming patterns.
+
+fix_entity:
+  name: Fix Entity ID
+  description: Renames an entity to a target entity ID.
+  fields:
+    entity_id:
+      description: The current entity ID to rename.
+      required: true
+      selector:
+        entity:
+    new_entity_id:
+      description: The desired new entity ID.
+      required: true
+      selector:
+        text:
+
+delete_entity:
+  name: Delete Entity
+  description: Removes an entity from the registry.
+  fields:
+    entity_id:
+      description: The entity ID to remove.
+      required: true
+      selector:
+        entity:

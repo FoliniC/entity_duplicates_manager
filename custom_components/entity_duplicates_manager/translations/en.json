@@ -1,0 +1,24 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Entity Duplicates Manager",
+                "description": "Set up the Entity Duplicates Manager to clean up your Home Assistant instance."
+            }
+        },
+        "abort": {
+            "single_instance_allowed": "Only one instance of Entity Duplicates Manager is allowed."
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Options",
+                "data": {
+                    "suffix_max": "Max Suffix Depth",
+                    "exclude_pattern": "Exclude Patterns (comma separated)"
+                }
+            }
+        }
+    }
+}
