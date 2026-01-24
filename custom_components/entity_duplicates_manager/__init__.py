@@ -53,13 +53,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # No, that's not easy.
 
         # Best guess entity IDs (assuming single instance)
-        # We used name="Suffix Filter Max" -> number.entity_duplicates_manager_suffix_filter_max
-        # Wait, I named them:
-        # Number: "Suffix Filter Max" -> suffix_filter_max
-        # Text: "Exclude Patterns" -> exclude_patterns
-
+        # We used name="Suffix Filter Max" -> number.suffix_filter_max
+        # Text: "Exclude Patterns" -> text.exclude_patterns
+        
         limit_state = hass.states.get(
-            "number.entity_duplicates_manager_suffix_filter_max"
+            "number.suffix_filter_max"
         )
         if limit_state:
             try:
@@ -68,11 +66,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 pass
 
         exclude_state = hass.states.get(
-            "text.entity_duplicates_manager_exclude_patterns"
+            "text.exclude_patterns"
         )
         if exclude_state:
             exclude = [p.strip() for p in exclude_state.state.split(",") if p.strip()]
-
         _LOGGER.info(f"Scanning with limit={limit} and exclude={exclude}")
         scanner.scan(limit, exclude)
 
