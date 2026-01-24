@@ -33,5 +33,7 @@ jobs:
           # Install integration requirements if any (none for now)
           
       - name: Run tests
+        env:
+          PYTHONPATH: .
         run: |
           pytest -v --cov=custom_components/entity_duplicates_manager --cov-report=term-missing

@@ -82,7 +82,7 @@ class DuplicatesScanner:
     def _match_pattern(self, entity_id, pattern):
         """Simple wildcard matching."""
         # Convert simple wildcard to regex
-        regex = pattern.replace(".", "\.").replace("*", ".*")
+        regex = pattern.replace(".", r"\.").replace("*", ".*")
         return re.match(f"^{regex}$", entity_id) is not None
 
     async def async_fix_entity_id(self, entity_id, new_entity_id):
