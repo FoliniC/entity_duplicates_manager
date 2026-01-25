@@ -1,4 +1,4 @@
-console.log("Entity Duplicates Manager Card loaded v1.0.5");
+console.log("Entity Duplicates Manager Card loaded v1.0.8");
 
 class EntityDuplicatesManagerCard extends HTMLElement {
   set hass(hass) {
@@ -13,6 +13,16 @@ class EntityDuplicatesManagerCard extends HTMLElement {
     this.config = config;
   }
 
+  static getConfigElement() {
+    return document.createElement("entity-duplicates-manager-card-editor");
+  }
+
+  static getStubConfig() {
+    return {
+      type: "custom:entity-duplicates-manager-card"
+    };
+  }
+
   init() {
     this.innerHTML = `
       <style>
@@ -25,10 +35,6 @@ class EntityDuplicatesManagerCard extends HTMLElement {
           align-items: center;
           margin-bottom: 16px;
         }
-        .actions {
-          display: flex;
-          gap: 8px;
-        }
         .duplicate-list {
           max-height: 400px;
           overflow-y: auto;
@@ -40,13 +46,6 @@ class EntityDuplicatesManagerCard extends HTMLElement {
           justify-content: space-between;
           align-items: center;
         }
-        .item-info {
-          flex-grow: 1;
-        }
-        .item-actions {
-          display: flex;
-          gap: 4px;
-        }
         .secondary {
             color: var(--secondary-text-color);
             font-size: 0.9em;
@@ -54,19 +53,15 @@ class EntityDuplicatesManagerCard extends HTMLElement {
       </style>
       <ha-card>
         <div class="header">
-          <div class="title">Duplicates Manager</div>
-          <div class="actions">
-            <mwc-button id="scan-btn" raised>Scan</mwc-button>
-          </div>
+          <div class="title" style="font-size: 1.2em; font-weight: bold;">Duplicates Manager</div>
+          <mwc-button id="scan-btn" raised>Scan</mwc-button>
         </div>
-        <div id="status"></div>
-        <div class="duplicate-list" id="list">
-          <!-- Items will be injected here -->
-        </div>
+        <div id="status" style="margin-bottom: 8px;"></div>
+        <div class="duplicate-list" id="list"></div>
       </ha-card>
     `;
 
-    this.content = this.querySelector(".card-content");
+    this.content = this.querySelector("ha-card");
     this.list = this.querySelector("#list");
     this.status = this.querySelector("#status");
     
@@ -77,30 +72,23 @@ class EntityDuplicatesManagerCard extends HTMLElement {
   }
 
   updateContent() {
-    // Assuming the sensor entity is predictable or configured
-    // We try to find it
+    if (!this._hass) return;
     const sensorId = "sensor.duplicates_found"; 
-    // Note: The unique_id was 'duplicate_count_sensor', but HA generates entity_id from name.
-    // Name was "Duplicates Found" -> "sensor.duplicates_found" likely.
-    
     const stateObj = this._hass.states[sensorId];
     
     if (!stateObj) {
-        this.status.innerText = "Sensor not found (sensor.duplicates_found). Waiting...";
+        this.status.innerText = "Sensor not found (sensor.duplicates_found).";
         return;
     }
 
     const count = stateObj.state;
     const duplicates = stateObj.attributes.duplicates || [];
 
-    this.status.innerText = `Found ${count} duplicates.`;
-
-    // Simple render (in a real LitElement this would be more efficient)
-    // Only update if changed (naive check)
     if (this._lastCount === count && this._lastLen === duplicates.length) return;
     this._lastCount = count;
     this._lastLen = duplicates.length;
 
+    this.status.innerText = `Found ${count} duplicates.`;
     this.list.innerHTML = "";
     
     duplicates.forEach(dup => {
@@ -110,11 +98,10 @@ class EntityDuplicatesManagerCard extends HTMLElement {
             <div class="item-info">
                 <div><strong>${dup.entity_id}</strong></div>
                 <div class="secondary">Matches: ${dup.base_entity}</div>
-                <div class="secondary">Integration: ${dup.integration}</div>
             </div>
-            <div class="item-actions">
+            <div style="display: flex; gap: 4px;">
                 <mwc-button class="fix-btn" data-ent="${dup.entity_id}" data-base="${dup.base_entity}">Fix</mwc-button>
-                <mwc-button class="del-btn" data-ent="${dup.entity_id}">Del</mwc-button>
+                <mwc-button class="del-btn" data-ent="${dup.entity_id}" style="--mdc-theme-primary: var(--error-color);">Del</mwc-button>
             </div>
         `;
         this.list.appendChild(div);
@@ -130,11 +117,6 @@ class EntityDuplicatesManagerCard extends HTMLElement {
   }
 
   handleFix(entityId, baseEntity) {
-      // Logic to ask user or just do it? 
-      // For now, let's assume we rename TO the base entity (merging/replacing?)
-      // Or maybe renaming the duplicate to something else?
-      // The prompt implied "Fix Entity ID".
-      // Let's prompt.
       const newId = prompt("Enter new Entity ID for " + entityId, baseEntity);
       if (newId) {
           this._hass.callService("entity_duplicates_manager", "fix_entity", {
@@ -151,7 +133,19 @@ class EntityDuplicatesManagerCard extends HTMLElement {
           });
       }
   }
+}
 
+class EntityDuplicatesManagerCardEditor extends HTMLElement {
+  setConfig(config) {
+    this._config = config;
+  }
+  set hass(hass) {
+    this._hass = hass;
+  }
+  connectedCallback() {
+    this.innerHTML = `<div style="padding: 16px;">This card manages duplicate entities automatically. No configuration needed.</div>`;
+  }
 }
 
 customElements.define("entity-duplicates-manager-card", EntityDuplicatesManagerCard);
+customElements.define("entity-duplicates-manager-card-editor", EntityDuplicatesManagerCardEditor);
