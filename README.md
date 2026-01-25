@@ -7,13 +7,15 @@ Entity Duplicates Manager is a Home Assistant integration designed to identify, 
 ## Features
 
 *   **Scan for Duplicates**: Automatically scans your entity registry for potential duplicates based on configurable naming patterns.
-*   **Interactive Card**: A custom Lovelace card to view results, rename entities ("Fix"), or delete them directly from the dashboard.
-*   **Configurable Filters**:
-    *   **Suffix Depth**: Control how deep to look for suffixes (e.g., `_2` to `_5`).
-    *   **Exclude Patterns**: Prevent specific entities or domains (like `sensor.uptime*`) from being flagged.
-*   **Safe Operations**:
-    *   **Fix**: Renames the duplicate entity to a desired ID (e.g., merging it back to the original name).
-    *   **Delete**: Removes the entity from the registry.
+*   **Interactive Management Card**: A powerful Lovelace card to view results, manage settings, and perform actions.
+*   **Advanced Filtering**: 
+    *   Support for the `%` wildcard in search filters (e.g., `sensor.%_2`).
+    *   Configurable **Suffix Depth** (optional, leave empty to scan all).
+    *   Configurable **Exclusion Patterns** (e.g., `switch_%, group.%`).
+*   **Permanent Exclusions**: Select specific entities to be permanently hidden from all future scans.
+*   **Intelligent Renaming**: Automatically cleans up the entity's Friendly Name during the "Fix" process if it contains the old suffix.
+*   **Persistent Storage**: Settings and exclusions are stored safely in `/config/entity_duplicates_manager/config.json`, preserving them during updates.
+*   **Internationalization**: Full support for **English** and **Italian**.
 
 ## Installation
 
@@ -21,13 +23,13 @@ Entity Duplicates Manager is a Home Assistant integration designed to identify, 
 
 1.  Open HACS in Home Assistant.
 2.  Go to "Integrations" > "Explore & Download Repositories".
-3.  Search for "Entity Duplicates Manager" (or add this repository as a custom repository).
+3.  Search for "Entity Duplicates Manager" (add this repository as a custom repository if not found).
 4.  Click "Download".
 5.  Restart Home Assistant.
 
 ### Manual Installation
 
-1.  Download the `entity_duplicates_manager` folder.
+1.  Download the `entity_duplicates_manager` folder from `custom_components`.
 2.  Copy it to your `custom_components` directory in Home Assistant.
 3.  Restart Home Assistant.
 
@@ -41,23 +43,28 @@ Entity Duplicates Manager is a Home Assistant integration designed to identify, 
 
 ### Lovelace Card
 
-Add the custom card to your dashboard:
+You can easily add the management interface to your dashboard using the **Card Picker**:
 
+1.  Edit your Dashboard.
+2.  Click **Add Card**.
+3.  Search for **Entity Duplicates Manager**.
+4.  The card supports the Visual Editor for a seamless setup.
+
+Alternatively, via YAML:
 ```yaml
 type: custom:entity-duplicates-manager-card
 ```
 
-### Services
+### Key Operations
 
-The integration exposes the following services:
+*   **SCAN**: Start a search based on current Max Suffix and Exclusion patterns.
+*   **EXCLUDE**: Permanently hide selected entities from future scan results.
+*   **FIX**: Rename the duplicate entity back to its base ID (merging it).
+*   **DELETE**: Permanently remove the selected entities from the registry.
+*   **WILDCARD**: Use `%` in filters to match any string of characters.
 
-*   `entity_duplicates_manager.scan_duplicates`: Triggers a new scan based on current settings.
-*   `entity_duplicates_manager.fix_entity`: Renames an entity.
-*   `entity_duplicates_manager.delete_entity`: Deletes an entity.
+## Data Persistence
 
-### Settings
-
-You can adjust the scan behavior via the created entities:
-
-*   `number.suffix_filter_max`: Max suffix number to scan for.
-*   `text.exclude_patterns`: Comma-separated list of wildcard patterns to ignore.
+Configuration and exclusion lists are stored in:
+`{your_config_dir}/entity_duplicates_manager/config.json`
+This file is NOT deleted when the integration is updated.

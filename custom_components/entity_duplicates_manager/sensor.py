@@ -6,7 +6,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from .const import EVENT_SCAN_COMPLETE
+from .const import DOMAIN
 
 
 async def async_setup_entry(
@@ -30,6 +30,7 @@ class DuplicatesCountSensor(RestoreEntity, SensorEntity):
     def __init__(self, hass):
         self.hass = hass
         self._attr_native_value = 0
+        self._duplicates = []
 
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added."""
@@ -37,18 +38,27 @@ class DuplicatesCountSensor(RestoreEntity, SensorEntity):
         if (last_state := await self.async_get_last_state()) is not None:
             try:
                 self._attr_native_value = int(last_state.state)
-            except ValueError:
+                self._duplicates = last_state.attributes.get("duplicates", [])
+            except (ValueError, TypeError):
                 pass
 
         self.async_on_remove(
-            self.hass.bus.async_listen(EVENT_SCAN_COMPLETE, self._handle_scan_complete)
+            self.hass.bus.async_listen(f"{DOMAIN}_scan_complete", self._handle_scan_complete)
         )
+
+    @property
+    def extra_state_attributes(self):
+        """Return entity specific state attributes."""
+        storage = self.hass.data.get(DOMAIN, {}).get("storage")
+        config = storage.config if storage else {}
+        return {
+            "duplicates": self._duplicates,
+            "config": config
+        }
 
     @callback
     def _handle_scan_complete(self, event):
         """Update state when scan is complete."""
-        self._attr_native_value = event.data.get("count", 0)
-        self._attr_extra_state_attributes = {
-            "duplicates": event.data.get("duplicates", [])
-        }
+        self._duplicates = event.data.get("duplicates", [])
+        self._attr_native_value = len(self._duplicates)
         self.async_write_ha_state()

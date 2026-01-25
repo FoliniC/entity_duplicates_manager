@@ -2,6 +2,7 @@
 
 import logging
 import re
+from typing import Optional
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
@@ -18,9 +19,9 @@ class DuplicatesScanner:
         self.hass = hass
         self._duplicates = []
 
-    def scan(self, suffix_limit: int, exclude_patterns: list[str]):
+    def scan(self, suffix_limit: Optional[int], exclude_patterns: list[str]):
         """Scan for duplicates."""
-        _LOGGER.info("Starting duplicate scan...")
+        _LOGGER.info(f"Starting duplicate scan (limit={suffix_limit})...")
         all_states = self.hass.states.async_all()
         ent_reg = er.async_get(self.hass)
 
@@ -41,7 +42,14 @@ class DuplicatesScanner:
                 base_name = match.group(1)
                 suffix = int(match.group(2))
 
-                if suffix <= suffix_limit + 10:  # Look a bit beyond to be safe
+                # If suffix_limit is None or negative, we don't filter by suffix depth
+                should_add = False
+                if suffix_limit is None or suffix_limit < 0:
+                    should_add = True
+                elif suffix <= suffix_limit + 10:  # Original safety buffer
+                    should_add = True
+
+                if should_add:
                     if base_name not in candidates:
                         candidates[base_name] = []
                     candidates[base_name].append(state)
@@ -86,15 +94,33 @@ class DuplicatesScanner:
         return re.match(f"^{regex}$", entity_id) is not None
 
     async def async_fix_entity_id(self, entity_id, new_entity_id):
-        """Rename an entity."""
+        """Rename an entity and update attributes if necessary."""
         ent_reg = er.async_get(self.hass)
         entry = ent_reg.async_get(entity_id)
 
         if not entry:
             raise ValueError(f"Entity {entity_id} not found in registry.")
 
-        _LOGGER.info(f"Renaming {entity_id} to {new_entity_id}")
-        ent_reg.async_update_entity(entity_id, new_entity_id=new_entity_id)
+        current_state = self.hass.states.get(entity_id)
+        current_name = entry.name or (current_state.attributes.get("friendly_name") if current_state else None)
+        
+        new_name = None
+        if current_name:
+            if entity_id in current_name:
+                new_name = current_name.replace(entity_id, new_entity_id)
+            
+            suffix_match = re.search(r"(.+)[ _]([0-9]+)$", current_name)
+            if suffix_match and not new_name:
+                base_part = suffix_match.group(1).strip()
+                new_name = base_part
+
+        _LOGGER.info(f"Renaming {entity_id} to {new_entity_id} (New name: {new_name})")
+        
+        ent_reg.async_update_entity(
+            entity_id, 
+            new_entity_id=new_entity_id,
+            name=new_name if new_name else entry.name
+        )
 
     async def async_delete_entity(self, entity_id):
         """Delete an entity."""
@@ -103,5 +129,4 @@ class DuplicatesScanner:
             _LOGGER.info(f"Removing {entity_id} from registry")
             ent_reg.async_remove(entity_id)
         else:
-            # Maybe it's just a state without registry entry?
             self.hass.states.async_remove(entity_id)

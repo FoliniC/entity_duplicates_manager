@@ -1,0 +1,254 @@
+/**
+ * Entity Duplicates Manager Card (fix_duplicates_entities)
+ */
+class EntityDuplicatesManagerCard extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+    this._selected = new Set();
+    this._duplicates = [];
+    this._orphans = [];
+    this._loading = false;
+    this._max_suffix = 9;
+    this._exclusion_patterns = "switch_%, input_boolean.sel_%";
+    this._scrollTop = 0;
+    this._initialized = false;
+    this._infoFilter = "";
+  }
+
+  setConfig(config) {
+    this._config = config;
+    if (config.max_suffix !== undefined) this._max_suffix = config.max_suffix;
+    if (config.exclusion_patterns !== undefined) this._exclusion_patterns = config.exclusion_patterns;
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    if (!this._eventListenerAdded && hass.connection) {
+      hass.connection.subscribeEvents((e) => this._handleScanComplete(e), 'entity_duplicates_manager_scan_complete');
+      hass.connection.subscribeEvents((e) => this._handleDeleteComplete(e), 'entity_duplicates_manager_delete_complete');
+      this._eventListenerAdded = true;
+    }
+    if (!this._initialized) { this._initialized = true; this._render("Init"); }
+  }
+
+  _handleScanComplete(event) {
+    this._duplicates = event.data.duplicates || [];
+    this._orphans = event.data.orphans || [];
+    this._selected.clear();
+    this._loading = false;
+    this._render("ScanComplete");
+  }
+
+  _handleDeleteComplete(event) {
+    this._loading = false;
+    this._render("ActionComplete");
+    this._scan(); 
+  }
+
+  async _scan() {
+    this._loading = true;
+    this._render("StartScan");
+    try {
+      await this._hass.callService('entity_duplicates_manager', 'scan_duplicates', {
+        max_suffix: parseInt(this._max_suffix), exclusion_patterns: this._exclusion_patterns
+      });
+    } catch (err) { this._loading = false; this._render(); }
+  }
+
+  async _deleteSelected() {
+    if (this._selected.size === 0) return;
+    if (!confirm(`Eliminare ${this._selected.size} entità?`)) return;
+    this._loading = true;
+    this._render();
+    try {
+      await this._hass.callService('entity_duplicates_manager', 'delete_entities', {
+        entity_ids: Array.from(this._selected)
+      });
+    } catch (err) { this._loading = false; this._render(); }
+  }
+
+  async _renameSelected() {
+    if (this._selected.size === 0) return;
+    const allFound = [...this._duplicates, ...this._orphans];
+    const renameable = Array.from(this._selected).filter(id => {
+        const item = allFound.find(d => d.entity_id === id);
+        return item && item.can_rename;
+    });
+    if (renameable.length === 0) {
+        alert("Nessuna delle entità selezionate può essere rinominata.");
+        return;
+    }
+    if (!confirm(`Ripristinare l'ID originale per ${renameable.length} entità?`)) return;
+    this._loading = true;
+    this._render();
+    try {
+      await this._hass.callService('entity_duplicates_manager', 'rename_entities_to_base', {
+        entity_ids: renameable
+      });
+    } catch (err) { this._loading = false; this._render(); }
+  }
+
+  _toggleEntity(entityId) {
+    if (this._selected.has(entityId)) this._selected.delete(entityId);
+    else this._selected.add(entityId);
+    this._render();
+  }
+
+  _showInfo(entityId) { this._infoFilter = entityId; this._render(); }
+
+  _render(reason = "") {
+    if (!this._hass) return;
+    const listEl = this.shadowRoot.querySelector('.list-container');
+    const scrollPos = listEl ? listEl.scrollTop : 0;
+    const total = this._duplicates.length + this._orphans.length;
+    
+    const allFound = [...this._duplicates, ...this._orphans];
+    const canRenameCount = Array.from(this._selected).filter(id => {
+        const item = allFound.find(d => d.entity_id === id);
+        return item && item.can_rename;
+    }).length;
+
+    this.shadowRoot.innerHTML = `
+      <style>
+        ha-card { padding: 16px; display: flex; flex-direction: column; gap: 12px; user-select: text !important; }
+        .header { display: flex; justify-content: space-between; align-items: center; }
+        .main-layout { display: flex; gap: 12px; flex-wrap: wrap; }
+        .list-section { flex: 1; min-width: 300px; max-width: 50%; resize: horizontal; overflow: hidden; display: flex; flex-direction: column; }
+        .info-section { flex: 1; min-width: 300px; background: var(--secondary-background-color); border-radius: 8px; padding: 12px; border: 1px solid var(--divider-color); }
+        .filter-section { background: var(--secondary-background-color); padding: 10px; border-radius: 8px; display: flex; flex-direction: column; gap: 6px; }
+        .filter-row { display: flex; gap: 8px; align-items: center; font-size: 0.8rem; }
+        .filter-row label { min-width: 90px; }
+        .filter-row input { flex: 1; padding: 6px; border-radius: 4px; border: 1px solid var(--divider-color); background: var(--card-background-color); color: var(--primary-text-color); }
+        .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+        .btn { padding: 8px 12px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; font-size: 0.75rem; }
+        .btn-main { background: var(--primary-color); color: white; }
+        .btn-outline { background: transparent; border: 1px solid var(--primary-color); color: var(--primary-color); }
+        .btn-danger { background: var(--error-color); color: white; }
+        .btn-success { background: #4caf50; color: white; }
+        .list-container { flex: 1; max-height: 500px; overflow-y: auto; border: 1px solid var(--divider-color); border-radius: 4px; background: var(--card-background-color); }
+        .section-header { background: var(--secondary-background-color); padding: 6px 10px; font-weight: bold; font-size: 0.75rem; position: sticky; top: 0; z-index: 2; }
+        .item { display: flex; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--divider-color); cursor: pointer; }
+        .item:hover { background: var(--secondary-background-color); }
+        .item-content { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+        .item-id { font-family: monospace; font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rename-hint { color: var(--success-color); font-weight: bold; font-size: 0.7rem; font-family: monospace; }
+        .checkbox { margin-right: 8px; width: 16px; height: 16px; flex-shrink: 0; }
+        .item-icons { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+        .help-icon { padding: 4px 8px; cursor: help; color: var(--primary-color); font-size: 1rem; }
+        .warning-icon { color: #f4b400; font-size: 1.1rem; cursor: help; }
+        .info-attrs { font-size: 0.75rem; white-space: pre-wrap; background: rgba(0,0,0,0.05); padding: 6px; border-radius: 4px; font-family: monospace; border: 1px solid var(--divider-color); }
+        .item.can-rename { border-left: 4px solid var(--success-color); padding-left: 8px; }
+      </style>
+      <ha-card>
+        <div class="header">
+          <div style="font-weight:bold">🔍 Entity Duplicates Manager</div>
+          ${this._loading ? '<ha-circular-progress active size="small"></ha-circular-progress>' : ''}
+        </div>
+
+        <div class="filter-section">
+          <div class="filter-row"><label>Max Suffisso:</label><input type="number" id="inpMax" value="${this._max_suffix}"></div>
+          <div class="filter-row"><label>Esclusioni:</label><input type="text" id="inpExc" value="${this._exclusion_patterns}"></div>
+        </div>
+
+        <div class="actions">
+          <button id="btnScan" class="btn btn-main">SCANSIONA</button>
+          <button id="btnAll" class="btn btn-outline" ${total === 0 ? 'disabled' : ''}>TUTTI</button>
+          <button id="btnNone" class="btn btn-outline" ${this._selected.size === 0 ? 'disabled' : ''}>NESSUNO</button>
+          <button id="btnDel" class="btn btn-danger" ${this._selected.size === 0 ? 'disabled' : ''}>ELIMINA (${this._selected.size})</button>
+          ${canRenameCount > 0 ? `<button id="btnRename" class="btn btn-success">RINOMINA (${canRenameCount})</button>` : ''}
+        </div>
+
+        <div class="main-layout">
+          <div class="list-section">
+            <div class="list-container">
+              ${total === 0 ? '<div style="padding:20px;text-align:center;font-size:0.8rem">Nessun duplicato.</div>' : ''}
+              ${this._duplicates.length > 0 ? `<div class="section-header">📋 1. Duplicati (Con Base)</div>${this._duplicates.map(d => this._renderItem(d)).join('')}` : ''}
+              ${this._orphans.length > 0 ? `<div class="section-header">❓ 2. Orfani Numerati</div>${this._orphans.map(item => this._renderItem(item)).join('')}` : ''}
+            </div>
+          </div>
+          <div class="info-section">
+            <div style="font-weight:bold;font-size:0.8rem;margin-bottom:8px">ℹ️ Dettagli Entità</div>
+            <input type="text" id="infoFilterInput" placeholder="Filtra..." style="width:100%;padding:4px;margin-bottom:8px" value="${this._infoFilter}">
+            <div style="overflow-y:auto;max-height:450px">${this._renderInfo()}</div>
+          </div>
+        </div>
+      </ha-card>
+    `;
+
+    requestAnimationFrame(() => {
+        const nl = this.shadowRoot.querySelector('.list-container');
+        if (nl) nl.scrollTop = scrollPos;
+    });
+
+    this.shadowRoot.getElementById('btnScan').onclick = () => {
+      this._max_suffix = this.shadowRoot.getElementById('inpMax').value;
+      this._exclusion_patterns = this.shadowRoot.getElementById('inpExc').value;
+      this._scan();
+    };
+    this.shadowRoot.getElementById('btnAll').onclick = () => {
+      [...this._duplicates.map(d=>d.entity_id), ...this._orphans.map(d=>d.entity_id)].forEach(id => this._selected.add(id));
+      this._render();
+    };
+    this.shadowRoot.getElementById('btnNone').onclick = () => { this._selected.clear(); this._render(); };
+    this.shadowRoot.getElementById('btnDel').onclick = () => this._deleteSelected();
+    if (this.shadowRoot.getElementById('btnRename')) this.shadowRoot.getElementById('btnRename').onclick = () => this._renameSelected();
+
+    this.shadowRoot.querySelectorAll('.item').forEach(el => {
+      el.onclick = (e) => {
+        if (e.target.closest('.item-icons') || e.target.tagName === 'INPUT') return;
+        if (window.getSelection().toString()) return;
+        this._toggleEntity(el.dataset.id);
+      };
+      el.querySelector('input').onclick = (e) => { e.stopPropagation(); this._toggleEntity(el.dataset.id); };
+      el.querySelector('.help-icon').onclick = (e) => { e.stopPropagation(); this._showInfo(el.dataset.id); };
+    });
+
+    this.shadowRoot.getElementById('infoFilterInput').oninput = (e) => {
+        this._infoFilter = e.target.value;
+        this.shadowRoot.querySelector('.info-section div:last-child').innerHTML = this._renderInfo();
+    };
+  }
+
+  _renderItem(item) {
+    const id = item.entity_id;
+    const checked = this._selected.has(id) ? 'checked' : '';
+    const renameHint = item.can_rename ? `<div class="rename-hint">➔ ${item.base_id}</div>` : '';
+    const canRenameClass = item.can_rename ? 'can-rename' : '';
+    const warningIcon = item.diff_attrs ? `<div class="warning-icon" title="Attenzione: attributi diversi dalla base.">⚠️</div>` : '';
+    
+    return `
+      <div class="item ${canRenameClass}" data-id="${id}">
+        <input type="checkbox" class="checkbox" ${checked}>
+        <div class="item-content">
+            <div class="item-id" title="${id}">${id}</div>
+            ${renameHint}
+        </div>
+        <div class="item-icons">
+            ${warningIcon}
+            <div class="help-icon">❓</div>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderInfo() {
+    if (!this._hass || !this._infoFilter) return "<div style='font-size:0.75rem;text-align:center;padding:10px'>Usa ❓ per i dettagli.</div>";
+    const filter = this._infoFilter.toLowerCase();
+    const matches = Object.keys(this._hass.states).filter(eid => eid.toLowerCase().includes(filter)).sort().slice(0, 30);
+    return matches.map(eid => {
+      const s = this._hass.states[eid];
+      let attrs = "";
+      for (const [k, v] of Object.entries(s.attributes)) attrs += `${k}: ${JSON.stringify(v)}
+`;
+      return `<div style="margin-bottom:10px;border-bottom:1px solid var(--divider-color);padding-bottom:5px">
+        <div style="font-weight:bold;font-size:0.75rem;color:var(--accent-color)">${eid}</div>
+        <div style="font-size:0.8rem">Stato: ${s.state}</div>
+        <div class="info-attrs">${attrs}</div>
+      </div>`;
+    }).join("");
+  }
+}
+customElements.define('entity-duplicates-manager-card', EntityDuplicatesManagerCard);
+window.customCards = window.customCards || [];
+window.customCards.push({ type: 'entity-duplicates-manager-card', name: 'Entity Duplicates Manager Card', description: 'Gestione e rinomina entità.' });
