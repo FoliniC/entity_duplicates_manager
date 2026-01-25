@@ -2,6 +2,8 @@
 
 import logging
 from pathlib import Path
+
+import homeassistant.helpers.config_validation as cv
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.typing import ConfigType
@@ -20,6 +22,8 @@ from .scanner import DuplicatesScanner
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[str] = ["number", "text", "switch", "sensor"]
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
