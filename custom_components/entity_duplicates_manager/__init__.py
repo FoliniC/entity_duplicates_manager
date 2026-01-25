@@ -82,8 +82,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def _setup_static_resources(hass: HomeAssistant) -> None:
     """Register static resources for Lovelace card."""
     try:
-        # The path where the card is located
-        www_path = Path(__file__).parent / "www"
+        # Match Cronostar structure: custom_components/DOMAIN/www/DOMAIN_card
+        www_path = Path(hass.config.path(f"custom_components/{DOMAIN}/www/{DOMAIN}_card"))
 
         if not www_path.exists():
             _LOGGER.error("Frontend resources not found at %s", www_path)
@@ -93,11 +93,11 @@ async def _setup_static_resources(hass: HomeAssistant) -> None:
         if "http" in hass.config.components:
             if HAS_STATIC_PATH_CONFIG:
                 await hass.http.async_register_static_paths(
-                    [StaticPathConfig(url_path="/entity_duplicates_manager", path=www_path)]
+                    [StaticPathConfig(url_path=f"/{DOMAIN}_card", path=www_path)]
                 )
             else:
                 hass.http.async_register_static_path(
-                    url_path="/entity_duplicates_manager", path=str(www_path)
+                    url_path=f"/{DOMAIN}_card", path=str(www_path)
                 )
         
         # Get integration version for cache busting
@@ -108,13 +108,13 @@ async def _setup_static_resources(hass: HomeAssistant) -> None:
         if "frontend" in hass.config.components:
             add_extra_js_url(
                 hass, 
-                f"/entity_duplicates_manager/entity-duplicates-manager-card.js?v={version}"
+                f"/{DOMAIN}_card/entity-duplicates-manager-card.js?v={version}"
             )
             add_extra_js_url(
                 hass, 
-                f"/entity_duplicates_manager/card-picker-metadata.js?v={version}"
+                f"/{DOMAIN}_card/card-picker-metadata.js?v={version}"
             )
-            _LOGGER.info("✅ Lovelace card registered: /entity_duplicates_manager/entity-duplicates-manager-card.js")
+            _LOGGER.info("✅ Lovelace card registered: /%s_card/entity-duplicates-manager-card.js", DOMAIN)
 
     except Exception as e:
         _LOGGER.error("Failed to setup static resources: %s", e, exc_info=True)
