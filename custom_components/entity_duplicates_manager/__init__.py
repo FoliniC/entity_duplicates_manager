@@ -106,6 +106,10 @@ async def _setup_static_resources(hass: HomeAssistant) -> None:
                 hass, 
                 f"/entity_duplicates_manager/entity-duplicates-manager-card.js?v={version}"
             )
+            add_extra_js_url(
+                hass, 
+                f"/entity_duplicates_manager/card-picker-metadata.js?v={version}"
+            )
             _LOGGER.info("✅ Lovelace card registered: /entity_duplicates_manager/entity-duplicates-manager-card.js")
 
     except Exception as e:
