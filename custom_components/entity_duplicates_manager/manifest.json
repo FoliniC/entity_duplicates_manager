@@ -4,9 +4,9 @@
   "codeowners": [],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/FoliniC/cronostar",
+  "documentation": "https://github.com/FoliniC/entity_duplicates_manager",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/FoliniC/cronostar/issues",
+  "issue_tracker": "https://github.com/FoliniC/entity_duplicates_manager/issues",
   "requirements": [],
   "version": "1.0.0"
 }
