@@ -1,4 +1,4 @@
-console.log("Entity Duplicates Manager Card loaded v1.0.0");
+console.log("Entity Duplicates Manager Card loaded v1.0.5");
 
 class EntityDuplicatesManagerCard extends HTMLElement {
   set hass(hass) {
