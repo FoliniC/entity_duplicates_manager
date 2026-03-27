@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "entity_prefix": "cronostar_termostato_appartamento_",
+    "preset_type": "thermostat",
+    "created_at": 1765842286.2487361,
+    "updated_at": "2025-12-17T10:33:07.260378"
+  },
+  "profiles": {
+    "Comfort": {
+      "schedule": [
+        {
+          "index": 0,
+          "value": 20
+        },
+        {
+          "index": 1,
+          "value": 20
+        },
+        {
+          "index": 2,
+          "value": 24
+        },
+        {
+          "index": 3,
+          "value": 24
+        }
+      ],
+      "updated_at": "2025-12-17T10:33:07.260406"
+    }
+  },
+  "saved_at": 1765963987.260467,
+  "version": 2
+}

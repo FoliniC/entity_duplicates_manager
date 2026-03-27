@@ -1,0 +1,18 @@
+- switch:
+    entity_category: None
+    friendly_name: Switch
+    icon: ''
+    id: '1'
+    platform: switch
+- switch:
+    entity_category: config
+    friendly_name: Child Lock
+    icon: mdi:account-lock
+    id: '41'
+    platform: switch
+- switch:
+    entity_category: config
+    friendly_name: Temperature
+    icon: mdi:thermometer 
+    id: '47'
+    platform: switch

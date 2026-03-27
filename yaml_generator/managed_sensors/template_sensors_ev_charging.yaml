@@ -1,0 +1,149 @@
+- name: "Selected Vehicle SOC"
+  unique_id: selected_vehicle_soc
+  state: >
+    {% if states('input_select.selected_vehicle') == 'MG4' %}
+      {{ states('sensor.mg_mg4_electric_state_of_charge') | float(0) }}
+    {% elif states('input_select.selected_vehicle') == 'BYD' %}
+      {{ states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) }}
+    {% else %}
+      0
+    {% endif %}
+  unit_of_measurement: "%"
+  device_class: battery
+
+- name: "Current Target SOC"
+  unique_id: current_target_soc
+  state: >
+    {% if states('input_select.selected_vehicle') == 'MG4' %}
+      {{ states('input_number.mg4_target_soc') | float(0) }}
+    {% elif states('input_select.selected_vehicle') == 'BYD' %}
+      {{ states('input_number.byd_target_soc') | float(0) }}
+    {% else %}
+      0
+    {% endif %}
+  unit_of_measurement: "%"
+
+- name: "Remaining Charging Time"
+  unique_id: remaining_charging_time
+  state: >
+    {% set end_time_str = states('input_datetime.charging_end_time') %}
+    {% if states('input_boolean.ev_charging_scheduled_active') == 'on' and end_time_str != 'unknown' %}
+      {% set end_time = as_datetime(end_time_str).astimezone(now().tzinfo) %}
+      {% set remaining = (end_time - now()).total_seconds() / 60 %}
+      {{ [0, remaining] | max | round(0) }}
+    {% else %}
+      0
+    {% endif %}
+  unit_of_measurement: "min"
+  icon: mdi:timer-sand
+
+- name: "Estimated Time to Full Charge"
+  unique_id: estimated_time_to_full_charge
+  unit_of_measurement: "h"
+  state: >
+    {% set current_soc = states('sensor.selected_vehicle_soc') | float(0) %}
+    {% set target_soc = states('sensor.current_target_soc') | float(0) %}
+    {% set charging_power = states('sensor.current_charging_power_calculated') | float(0) %}
+    {% set battery_capacity_kwh = 51 %} {# Default to 51 kWh as provided by user #}
+
+    {% if current_soc >= target_soc or charging_power <= 0 %}
+      0
+    {% else %}
+      {% set remaining_kwh = (target_soc - current_soc) / 100 * battery_capacity_kwh %}
+      {{ (remaining_kwh / charging_power) | round(2) }}
+    {% endif %}
+  availability: >
+    {{ states('sensor.selected_vehicle_soc') not in ['unavailable', 'unknown', 'none'] and
+        states('sensor.current_target_soc') not in ['unavailable', 'unknown', 'none'] and
+        states('sensor.current_charging_power_calculated') not in ['unavailable', 'unknown', 'none'] }}
+
+- name: "Max Charging Power kW"
+  unique_id: max_charging_power_kw
+  state: "{{ state_attr('input_number.charging_power_kw', 'max') | float(7) }}"
+  unit_of_measurement: "kW"
+
+- name: "Current Charging Power Calculated"
+  unique_id: current_charging_power_calculated
+  unit_of_measurement: "kW"
+  state_class: measurement
+  device_class: power
+  state: >
+    {% set soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) %}
+    {% set power_production = states('sensor.envoy_122134037538_current_power_production') | float(0) %}
+    {% set consumo_pdc = states('sensor.consumo_netto_pdc_template') | float(50) %}
+    {% set consumo_appartamento = states('sensor.consumo_appartamento_template') | float(100) %}
+    {% set w_battery = ((30 - soc) / 30 * -4500) if soc < 30 else ((soc - 30) / 70 * 4500) if soc <= 100 else 0 %}
+    {% set w_totale = (power_production + w_battery - (consumo_pdc + consumo_appartamento)) | round(2) %}
+    {{ (w_totale / 1000) | round(2) }}
+
+- name: "Charging Progress"
+  unique_id: charging_progress
+  unit_of_measurement: "%"
+  state_class: measurement
+  state: >
+    {% set current_soc = states('sensor.selected_vehicle_soc') | float(0) %}
+    {% set target_soc = states('sensor.current_target_soc') | float(0) %}
+    {% if target_soc > 0 %}
+      {{ (current_soc / target_soc * 100) | round(1) }}
+    {% else %}
+      0
+    {% endif %}
+
+- name: "Calculated W Battery"
+  unique_id: calculated_w_battery
+  unit_of_measurement: "W"
+  state_class: measurement
+  device_class: power
+  state: >
+    {% set soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) %}
+    {{ (((30 - soc) / 30 * -4500) if soc < 30 else ((soc - 30) / 70 * 4500) if soc <= 100 else 0) | round(0) }}
+
+- name: "Battery Power Discharging"
+  unique_id: battery_power_discharging
+  unit_of_measurement: "W"
+  state_class: measurement
+  device_class: power
+  state: >
+    {% set soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) %}
+    {% set w_battery = ((30 - soc) / 30 * -4500) if soc < 30 else ((soc - 30) / 70 * 4500) if soc <= 100 else 0 %}
+    {{ [0, w_battery] | max | round(0) }}
+
+- name: "Battery Power Charging"
+  unique_id: battery_power_charging
+  unit_of_measurement: "W"
+  state_class: measurement
+  device_class: power
+  state: >
+    {% set soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) %}
+    {% set w_battery = ((30 - soc) / 30 * -4500) if soc < 30 else ((soc - 30) / 70 * 4500) if soc <= 100 else 0 %}
+    {{ [0, -w_battery] | max | round(0) }}
+
+- name: "Net Grid Power"
+  unique_id: net_grid_power
+  unit_of_measurement: "W"
+  state_class: measurement
+  device_class: power
+  state: >
+    {% set solar = states('sensor.envoy_122134037538_current_power_production') | float(0) %}
+    {% set battery_discharging = states('sensor.battery_power_discharging') | float(0) %}
+    {% set heat_pump = states('sensor.consumo_netto_pdc_template') | float(0) %}
+    {% set apartment = states('sensor.consumo_appartamento_template') | float(0) %}
+    {% set battery_charging = states('sensor.battery_power_charging') | float(0) %}
+    {% set ev_charger = states('sensor.prism_potenza') | float(0) %}
+    {% set dishwasher = states('sensor.lavastoviglie_wifi_digital_meter_lavastoviglie_potenza') | float(0) %}
+    {{ (solar + battery_discharging - (heat_pump + apartment + battery_charging + ev_charger + dishwasher)) | round(0) }}
+
+- name: "Battery Contribution Explanation"
+  unique_id: battery_contribution_explanation
+  state: >
+    {% set soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) %}
+    {% set w_battery = (((30 - soc) / 30 * -4500) if soc < 30 else ((soc - 30) / 70 * 4500) if soc <= 100 else 0) | round(0) %}
+    {% set message = '' %}
+    {% if w_battery < 0 %}
+      {% set message = 'Batteria in fase di ricarica (' ~ (-w_battery) ~ ' W di ricarica) fino al raggiungimento del 30%' %}
+    {% elif w_battery > 0 %}
+      {% set message = 'Batteria utilizzata (' ~ w_battery ~ ' W di scarica)' %}
+    {% else %}
+      {% set message = 'Batteria in stato neutro (0 W)' %}
+    {% endif %}
+    Batteria al {{ soc | round(0) }}% - {{ message }}

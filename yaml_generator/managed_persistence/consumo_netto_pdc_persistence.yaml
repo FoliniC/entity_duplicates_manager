@@ -1,0 +1,13 @@
+trigger:
+  - platform: state
+    entity_id: sensor.smart_meter_power_a
+  - platform: homeassistant
+    event: start
+sensor:
+  - name: "Consumo netto PDC"
+    unique_id: sensor.consumo_netto_pdc
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    state: >-
+      {{ states('sensor.smart_meter_power_a') | float(0) }}

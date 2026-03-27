@@ -1,0 +1,7 @@
+# File: input_boolean_schedule_controls.yaml
+# Controlli per la programmazione oraria della temperatura
+
+temperature_schedule_paused:
+  name: Programmazione Temperatura Pausa
+  initial: false
+  icon: mdi:pause-circle-outline

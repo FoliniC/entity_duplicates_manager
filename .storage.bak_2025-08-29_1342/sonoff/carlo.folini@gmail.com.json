@@ -1,0 +1,372 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "sonoff/carlo.folini@gmail.com.json",
+  "data": [
+    {
+      "name": "DUALR3 Lite via Fancoli",
+      "deviceid": "10024f7cec",
+      "apikey": "50c430fa-0a9c-411d-bb89-eb2d7cfe3b1f",
+      "extra": {
+        "model": "E32-2SW-P0",
+        "mac": "d0:27:04:15:b9:aa",
+        "apmac": "d0:27:04:15:b9:ab",
+        "uiid": 165,
+        "ui": "多功能双通道开关_支持电机模式",
+        "modelInfo": "60ed2f366745108b0f44d627",
+        "brandId": "5c4c1aee3a7d24c7100be054",
+        "itCredential": "1RVQfrhbwNRlKI63",
+        "description": "",
+        "manufacturer": "深圳松诺技术有限公司",
+        "staMac": "2043A8C940F0"
+      },
+      "brandName": "SONOFF",
+      "brandLogo": "https://eu-ota.coolkit.cc/logo/q62PevoglDNmwUJ9oPE7kRrpt1nL1CoA.png",
+      "showBrand": true,
+      "productModel": "DUALR3 Lite",
+      "tags": {
+        "m_3b1f_carl": "on",
+        "disable_timers": [],
+        "channelSplit": {}
+      },
+      "devConfig": {
+        "timerCount": "16/28"
+      },
+      "settings": {
+        "opsNotify": 0,
+        "opsHistory": 1,
+        "alarmNotify": 1,
+        "wxAlarmNotify": 0,
+        "wxOpsNotify": 0,
+        "wxDoorbellNotify": 0,
+        "appDoorbellNotify": 1
+      },
+      "devGroups": [],
+      "family": {
+        "familyid": "67cade6c6bc9e5d32d973bb3",
+        "index": -1,
+        "members": [],
+        "guests": []
+      },
+      "shareTo": [],
+      "devicekey": "1e629f5b-9af0-4977-b634-41ffde3100a5",
+      "online": false,
+      "params": {
+        "bindInfos": {},
+        "version": 8,
+        "bssid": "8A:12:4C:11:2E:90",
+        "fwVersion": "1.6.1",
+        "ssid": "CPE_2.4G_112E90",
+        "actPow_00": 0,
+        "actPow_01": 0,
+        "apparentPow_00": 0,
+        "apparentPow_01": 0,
+        "calibState": 0,
+        "currLocation": 0,
+        "current_00": 0,
+        "current_01": 0,
+        "endTime_00": "",
+        "endTime_01": "",
+        "location": 0,
+        "motorSwMode": 2,
+        "motorSwReverse": 0,
+        "motorTurn": 0,
+        "oneKwhData_00": 0,
+        "oneKwhData_01": 0,
+        "oneKwhState_00": 0,
+        "oneKwhState_01": 0,
+        "outputReverse": 0,
+        "overload_00": {
+          "minActPow": {
+            "enabled": 0,
+            "value": 10
+          },
+          "maxVoltage": {
+            "enabled": 0,
+            "value": 24000
+          },
+          "minVoltage": {
+            "enabled": 0,
+            "value": 10
+          },
+          "maxCurrent": {
+            "enabled": 0,
+            "value": 1500
+          },
+          "maxActPow": {
+            "enabled": 0,
+            "value": 360000
+          }
+        },
+        "overload_01": {
+          "minActPow": {
+            "enabled": 0,
+            "value": 10
+          },
+          "maxVoltage": {
+            "enabled": 0,
+            "value": 24000
+          },
+          "minVoltage": {
+            "enabled": 0,
+            "value": 10
+          },
+          "maxCurrent": {
+            "enabled": 0,
+            "value": 1500
+          },
+          "maxActPow": {
+            "enabled": 0,
+            "value": 360000
+          }
+        },
+        "reactPow_00": 0,
+        "reactPow_01": 0,
+        "rssi": -51,
+        "sledBright": 100,
+        "staMac": "2043A8C940F0",
+        "startTime_00": "",
+        "startTime_01": "",
+        "voltage_00": 0,
+        "voltage_01": 0,
+        "workMode": 1,
+        "timeZone": 2,
+        "initSetting": 1,
+        "swMode_00": 2,
+        "swMode_01": 2,
+        "swReverse_00": 0,
+        "swReverse_01": 0,
+        "timers": [],
+        "zyx_clear_timers": true,
+        "configure": [
+          {
+            "startup": "off",
+            "outlet": 0
+          },
+          {
+            "startup": "off",
+            "outlet": 1
+          }
+        ],
+        "pulses": [
+          {
+            "pulse": "off",
+            "width": 1000,
+            "outlet": 0
+          },
+          {
+            "pulse": "off",
+            "width": 1000,
+            "outlet": 1
+          }
+        ],
+        "switches": [
+          {
+            "switch": "off",
+            "outlet": 0
+          },
+          {
+            "switch": "off",
+            "outlet": 1
+          }
+        ],
+        "only_device": {
+          "ota": "success",
+          "ota_fail_reason": 0
+        },
+        "TZ": "Europe/Rome",
+        "addSubDevState": "off",
+        "addTimeOut": 10
+      },
+      "isSupportGroup": false,
+      "isSupportedOnMP": false,
+      "isSupportChannelSplit": true,
+      "deviceFeature": {}
+    },
+    {
+      "name": "DUALR3",
+      "deviceid": "10024024c4",
+      "apikey": "50c430fa-0a9c-411d-bb89-eb2d7cfe3b1f",
+      "extra": {
+        "model": "E32-2SW-P0",
+        "mac": "d0:27:03:f7:09:5a",
+        "apmac": "d0:27:03:f7:09:5b",
+        "uiid": 126,
+        "ui": "多功能双通道电量检测开关",
+        "modelInfo": "5f1e478208bb4f51db013bc5",
+        "brandId": "5c4c1aee3a7d24c7100be054",
+        "itCredential": "YrN4hJ9AKhDY3eee",
+        "description": "",
+        "manufacturer": "深圳松诺技术有限公司",
+        "staMac": "9454C5EDD200"
+      },
+      "brandName": "SONOFF",
+      "brandLogo": "https://eu-ota.coolkit.cc/logo/q62PevoglDNmwUJ9oPE7kRrpt1nL1CoA.png",
+      "showBrand": true,
+      "productModel": "DUALR3",
+      "tags": {
+        "m_3b1f_carl": "on",
+        "disable_timers": [],
+        "channelSplit": {}
+      },
+      "devConfig": {
+        "timerCount": "16/28"
+      },
+      "settings": {
+        "opsNotify": 0,
+        "opsHistory": 1,
+        "alarmNotify": 1,
+        "wxAlarmNotify": 0,
+        "wxOpsNotify": 0,
+        "wxDoorbellNotify": 0,
+        "appDoorbellNotify": 1
+      },
+      "devGroups": [],
+      "family": {
+        "familyid": "67cade6c6bc9e5d32d973bb3",
+        "index": 0,
+        "members": [],
+        "guests": []
+      },
+      "shareTo": [],
+      "devicekey": "a8e8441a-5198-4b63-8af5-e18d5c49584c",
+      "online": true,
+      "params": {
+        "bindInfos": {},
+        "version": 8,
+        "demNextFetchTime": 1756508400000,
+        "getKwh_00": 2,
+        "ssid": "CPE_2.4G_112E90",
+        "bssid": "8A:12:4C:11:2E:90",
+        "fwVersion": "1.6.1",
+        "getKwh_01": 2,
+        "workMode": 1,
+        "motorSwMode": 2,
+        "motorSwReverse": 0,
+        "outputReverse": 0,
+        "motorTurn": 1,
+        "calibState": 0,
+        "currLocation": 0,
+        "location": 0,
+        "sledBright": 100,
+        "staMac": "9454C5EDD200",
+        "rssi": -68,
+        "overload_00": {
+          "minActPow": {
+            "enabled": 0,
+            "value": 10
+          },
+          "maxVoltage": {
+            "enabled": 0,
+            "value": 24000
+          },
+          "minVoltage": {
+            "enabled": 0,
+            "value": 10
+          },
+          "maxCurrent": {
+            "enabled": 0,
+            "value": 1500
+          },
+          "maxActPow": {
+            "enabled": 0,
+            "value": 360000
+          }
+        },
+        "overload_01": {
+          "minActPow": {
+            "enabled": 0,
+            "value": 10
+          },
+          "maxVoltage": {
+            "enabled": 0,
+            "value": 24000
+          },
+          "minVoltage": {
+            "enabled": 0,
+            "value": 10
+          },
+          "maxCurrent": {
+            "enabled": 0,
+            "value": 1500
+          },
+          "maxActPow": {
+            "enabled": 0,
+            "value": 360000
+          }
+        },
+        "oneKwhState_00": 0,
+        "startTime_00": "",
+        "endTime_00": "",
+        "oneKwhState_01": 0,
+        "startTime_01": "",
+        "endTime_01": "",
+        "oneKwhData_00": 0,
+        "oneKwhData_01": 0,
+        "current_00": 0,
+        "voltage_00": 23070,
+        "actPow_00": 0,
+        "reactPow_00": 0,
+        "apparentPow_00": 0,
+        "current_01": 0,
+        "voltage_01": 23070,
+        "actPow_01": 0,
+        "reactPow_01": 0,
+        "apparentPow_01": 0,
+        "timeZone": 1,
+        "swMode_00": 2,
+        "swMode_01": 2,
+        "swReverse_00": 0,
+        "swReverse_01": 0,
+        "zyx_clear_timers": true,
+        "initSetting": 1,
+        "switches": [
+          {
+            "switch": "on",
+            "outlet": 0
+          },
+          {
+            "switch": "off",
+            "outlet": 1
+          }
+        ],
+        "configure": [
+          {
+            "startup": "off",
+            "outlet": 0
+          },
+          {
+            "startup": "off",
+            "outlet": 1
+          }
+        ],
+        "pulses": [
+          {
+            "pulse": "off",
+            "width": 1000,
+            "outlet": 0
+          },
+          {
+            "pulse": "off",
+            "width": 1000,
+            "outlet": 1
+          }
+        ],
+        "timers": [],
+        "uiActive": {
+          "all": 1,
+          "time": 60
+        },
+        "only_device": {
+          "ota": "success",
+          "ota_fail_reason": 0
+        },
+        "TZ": "Europe/Rome"
+      },
+      "isSupportGroup": false,
+      "isSupportedOnMP": false,
+      "isSupportChannelSplit": true,
+      "deviceFeature": {}
+    }
+  ]
+}

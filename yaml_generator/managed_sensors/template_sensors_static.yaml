@@ -1,0 +1,150 @@
+- name: "Consumo appartamento template"
+  unique_id: sensor.consumo_appartamento_template
+  device_class: power
+  state_class: measurement
+  unit_of_measurement: "W"
+  state: >
+    {% set p = states('sensor.wifi_dual_meter_b_new_a_old_power_a') %}
+    {{ p | float(0) if p not in ['unavailable', 'unknown', 'none'] else 0 }}
+- name: Potenza prelevata attuale
+  unique_id: potenza_prelevata_attuale
+  device_class: power
+  unit_of_measurement: W
+  state_class: measurement
+  state: >
+    {% set smart_meter = states('sensor.smart_meter_ts_100a_1_potenza_reale') %}
+    {% if smart_meter not in ['unavailable', 'unknown', 'none'] %}
+      {% set prelevata_raw = smart_meter | float(0) %}
+      {% set unit_prelevata = state_attr('sensor.smart_meter_ts_100a_1_potenza_reale', 'unit_of_measurement') %}
+    {% else %}
+      {% set prelevata_raw = states('sensor.alfa_new_potenza_importata') | float(0) %}
+      {% set unit_prelevata = state_attr('sensor.alfa_new_potenza_importata', 'unit_of_measurement') %}
+    {% endif %}
+    {{ ((prelevata_raw * 1000) if unit_prelevata == 'kW' else prelevata_raw) | round(2) }}
+
+- name: Potenza consumata attuale
+  unique_id: potenza_consumata_attuale
+  state: >
+    {# Sorgente 1: Solare #}
+    {% set solare = states('sensor.produzione_solare') | float(0) %}
+
+    {# Sorgente 2: Prelievo dalla Rete #}
+    {% set p_prelevata = states('sensor.potenza_prelevata_attuale') | float(0) %}
+
+    {# Sorgente 3: Batteria (Scarica) #}
+    {% set p_battery_dis = states('sensor.solarnet_power_battery_discharge') | float(0) %}
+
+    {# La Potenza Consumata Attuale (Distribuzione) è la somma di tutte le sorgenti #}
+    {{ (solare + p_prelevata + p_battery_dis) | round(2) }}
+  unit_of_measurement: W
+  device_class: power
+
+- name: "Consumo impianto nuovo (template)"
+  unique_id: consumo_impianto_nuovo
+  device_class: power
+  state_class: measurement
+  unit_of_measurement: "W"
+  state: >
+    {# Priorità 1: Misuratore Totale Impianto Nuovo #}
+    {% set p_tot = states('sensor.wifi_dual_meter_b_new_a_old_power_b') %}
+    {% if p_tot not in ['unavailable', 'unknown', 'none'] %}
+      {{ p_tot | float(0) | round(2) }}
+    {% else %}
+      {# Fallback: Somma dei carichi noti #}
+      {% set pdc = states('sensor.consumo_netto_pdc_template') | float(0) %}
+      {% set lava = states('sensor.lavastoviglie_wifi_digital_meter_lavastoviglie_potenza') | float(0) %}
+      {% set indu = states('sensor.potenza_misuratore') | float(0) %}
+      {{ (pdc + lava + indu) | round(2) }}
+    {% endif %}
+
+- name: "Produzione Solare"
+  unique_id: produzione_solare_combined
+  state: >-
+    {# Priorità 1: Envoy #}
+    {% if states('sensor.envoy_122134037538_current_power_production') not in ['unavailable', 'unknown', 'none'] %}
+      {% set value = states('sensor.envoy_122134037538_current_power_production') | float %}
+      {% if 'kW' in state_attr('sensor.envoy_122134037538_current_power_production', 'unit_of_measurement') | string %}
+        {{ (value * 1000) | round(1) }}
+      {% else %}
+        {{ value }}
+      {% endif %}
+    {# Priorità 2: Alfa New #}
+    {% elif states('sensor.alfa_new_potenza_prodotta') not in ['unavailable', 'unknown', 'none'] %}
+      {% set value = states('sensor.alfa_new_potenza_prodotta') | float %}
+      {% if 'kW' in state_attr('sensor.alfa_new_potenza_prodotta', 'unit_of_measurement') | string %}
+        {{ (value * 1000) | round(1) }}
+      {% else %}
+        {{ value }}
+      {% endif %}
+    {% else %}
+      {{ 0 }}
+    {% endif %}
+  unit_of_measurement: "W"
+  device_class: power
+  state_class: measurement
+  availability: >-
+    {{ states('sensor.alfa_new_potenza_prodotta') not in ['unavailable', 'unknown', 'none']
+        or states('sensor.envoy_122134037538_current_power_production') not in ['unavailable', 'unknown', 'none'] }}
+  attributes:
+    fonte_dati: >-
+      {% if states('sensor.envoy_122134037538_current_power_production') not in ['unavailable', 'unknown', 'none'] %}
+        envoy
+      {% elif states('sensor.alfa_new_potenza_prodotta') not in ['unavailable', 'unknown', 'none'] %}
+        alfa_new
+      {% else %}
+        nessuna
+      {% endif %}
+    ultimo_aggiornamento: "{{ now() }}"
+- name: Minutes Remaining
+  unique_id: minutes_remaining_sensor
+  state: >
+    {% set start_time_raw = state_attr('automation.blocca_ricarica_temporaneamente', 'last_triggered') %}
+    {% set start_time = as_datetime(start_time_raw) if start_time_raw else None %}
+    {% if start_time and is_state('automation.regola_carica_colonnina', 'off') %}
+      {{ ([0, (states('input_number.MinutiColonnina_input') | int - ((now() - start_time).total_seconds() / 60))] | max) | round }}
+    {% else %}
+      0
+    {% endif %}
+  unit_of_measurement: "min"
+- name: "sonoff state"
+  unique_id: "cover_sonoff_state"
+  state: "{{ states('cover.sonoff_10024024c4') }}"
+- name: "sonoff current position"
+  unique_id: "cover_sonoff_current_position"
+  state: "{{ state_attr('cover.sonoff_10024024c4', 'current_position') }}"
+- name: "Prism Potenza kW"
+  unique_id: "prism_potenza_kw"
+  state_class: "measurement"
+  device_class: "power"
+  unit_of_measurement: "kW"
+  state: >
+    {% set p = states('sensor.prism_potenza') | float(0) %}
+    {% set unit = state_attr('sensor.prism_potenza', 'unit_of_measurement') %}
+    {{ (p / 1000 if unit == 'W' else p) | round(3) }}
+- name: "Consumo totale casa"
+  unique_id: "consumo_totale_casa"
+  state_class: "measurement"
+  device_class: "power"
+  unit_of_measurement: "kW"
+  state: >
+    {% set prelevata_kw = states('sensor.alfa_new_potenza_importata') | float(0) %}
+    {{ (prelevata_kw * 1000 +
+        states('sensor.alfa_potenza_attiva_prodotta_istantanea')|float(0) +
+        states('sensor.solarnet_power_battery_charge')|float(0)) / 1000 }}
+- name: "Consumo stox scale (template)"
+  unique_id: consumo_stox_scale
+  device_class: power
+  state_class: measurement
+  unit_of_measurement: "W"
+  state: >
+    {% set misuratore_energia_dual_consumo_impianto_nuovo = state_attr('switch.misuratore_energia_dual_consumo_impianto_nuovo', 'current_consumption') | float(0) %}
+    {{ misuratore_energia_dual_consumo_impianto_nuovo }}
+
+# - name: "Consumo sonoff scale (template)"
+#   unique_id: consumo_sonoff_scale
+#   device_class: power
+#   state_class: measurement
+#   unit_of_measurement: "W"
+#   state: >
+#     {% set switch_scale_corrente_scale = state_attr('switch.switch_scale_corrente_scale', 'current_consumption') | float(0) %}
+#     {{ switch_scale_corrente_scale }}

@@ -1,0 +1,7 @@
+fancoil_verbosity_level_master:
+  name: "Fancoil appartamento Verbosity Level"
+  options:
+    - "off"
+    - "error"
+    - "info"
+    - "verbose"

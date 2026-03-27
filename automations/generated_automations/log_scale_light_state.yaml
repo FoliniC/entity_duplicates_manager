@@ -1,0 +1,35 @@
+- id: "log_scale_light_switch_events"
+  alias: "Log Scale Light Switch Events"
+  description: "Logs physical and HA switching events for Scale Light (Switches)"
+  triggers:
+    - trigger: state
+      entity_id: 
+        - switch.sonoff_10024024c4_1
+        - switch.sonoff_10024024c4_2
+  conditions: []
+  actions:
+    - choose:
+        # Case 1: HA Command (Boolean is ON)
+        - conditions:
+            - condition: state
+              entity_id: input_boolean.scale_light_ha_command
+              state: "on"
+          sequence:
+            - action: pyscript.scale_events_write
+              data:
+                message: "Switch {{ trigger.entity_id }} cambiato a {{ trigger.to_state.state }} (Origine: HA)"
+                level: INFO
+                action: "{{ 'acceso' if trigger.to_state.state == 'on' else 'spento' }}"
+        
+        # Case 2: Physical/External (Boolean is OFF)
+        - conditions:
+            - condition: state
+              entity_id: input_boolean.scale_light_ha_command
+              state: "off"
+          sequence:
+            - action: pyscript.scale_events_write
+              data:
+                message: "Switch {{ trigger.entity_id }} cambiato a {{ trigger.to_state.state }} (Origine: Interruttore Fisico)"
+                level: INFO
+                action: "{{ 'acceso' if trigger.to_state.state == 'on' else 'spento' }}"
+  mode: queued

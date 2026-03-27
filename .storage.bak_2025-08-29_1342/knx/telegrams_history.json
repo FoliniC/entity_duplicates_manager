@@ -1,0 +1,3502 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "knx/telegrams_history.json",
+  "data": [
+    {
+      "destination": "2/1/7",
+      "destination_name": "Indicates whether the system is in \"Hot water\" mode",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:37:04.016295+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/1/6",
+      "destination_name": "Indicates whether the system is in \"Cooling\" mode",
+      "direction": "Incoming",
+      "dpt_main": 1,
+      "dpt_sub": 11,
+      "dpt_name": "state",
+      "payload": 1,
+      "source": "1.1.18",
+      "source_name": "ise GmbH ise KNX Vaillant",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:37:04.033447+02:00",
+      "unit": null,
+      "value": "active"
+    },
+    {
+      "destination": "2/1/7",
+      "destination_name": "Indicates whether the system is in \"Hot water\" mode",
+      "direction": "Incoming",
+      "dpt_main": 1,
+      "dpt_sub": 11,
+      "dpt_name": "state",
+      "payload": 0,
+      "source": "1.1.18",
+      "source_name": "ise GmbH ise KNX Vaillant",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:37:04.064544+02:00",
+      "unit": null,
+      "value": "inactive"
+    },
+    {
+      "destination": "2/0/51",
+      "destination_name": "heartbit",
+      "direction": "Incoming",
+      "dpt_main": 1,
+      "dpt_sub": 17,
+      "dpt_name": "trigger",
+      "payload": 1,
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:06.846781+02:00",
+      "unit": null,
+      "value": "trigger"
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        46
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:08.586786+02:00",
+      "unit": "°C",
+      "value": 21.4
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:08.897766+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        238
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:09.034284+02:00",
+      "unit": "°C",
+      "value": 20.3
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:09.036044+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:09.049080+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        46
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:18.592813+02:00",
+      "unit": "°C",
+      "value": 21.4
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:18.892533+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        228
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:18.998514+02:00",
+      "unit": "°C",
+      "value": 20.2
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:19.023178+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:19.046068+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        46
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:28.582576+02:00",
+      "unit": "°C",
+      "value": 21.4
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:28.890889+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        228
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:28.996585+02:00",
+      "unit": "°C",
+      "value": 20.2
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:29.021491+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:29.044365+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        46
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:38.580127+02:00",
+      "unit": "°C",
+      "value": 21.4
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:38.888611+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        228
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:38.994507+02:00",
+      "unit": "°C",
+      "value": 20.2
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:39.019343+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:39.043183+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        46
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:48.578088+02:00",
+      "unit": "°C",
+      "value": 21.4
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:48.886799+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        228
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:48.992574+02:00",
+      "unit": "°C",
+      "value": 20.2
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:49.017306+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:49.040614+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        41
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:58.576290+02:00",
+      "unit": "°C",
+      "value": 21.3
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:58.885015+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        228
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:58.996029+02:00",
+      "unit": "°C",
+      "value": 20.2
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:59.018948+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:37:59.041757+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:38:01.725768+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:38:01.746311+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:38:01.790457+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:38:01.811036+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:38:01.833882+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        228
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:38:01.854645+02:00",
+      "unit": "°C",
+      "value": 20.2
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:38:01.877670+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:38:01.898293+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "2/0/46",
+      "destination_name": "temperatura fancoil camera grande",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:38:03.704321+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "3/2/10",
+      "destination_name": "temperatura corrente",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:38:03.757026+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "3/2/10",
+      "destination_name": "temperatura corrente",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        213
+      ],
+      "source": "1.1.18",
+      "source_name": "ise GmbH ise KNX Vaillant",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:38:03.784803+02:00",
+      "unit": "°C",
+      "value": 20.05
+    },
+    {
+      "destination": "2/1/20",
+      "destination_name": "Provides the accumulated environmental yield which was read during the last query",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:38:03.807747+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/1/20",
+      "destination_name": "Provides the accumulated environmental yield which was read during the last query",
+      "direction": "Incoming",
+      "dpt_main": 13,
+      "dpt_sub": 13,
+      "dpt_name": "active_energy_kwh",
+      "payload": [
+        0,
+        0,
+        67,
+        96
+      ],
+      "source": "1.1.18",
+      "source_name": "ise GmbH ise KNX Vaillant",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:38:03.839151+02:00",
+      "unit": "kWh",
+      "value": 17248
+    },
+    {
+      "destination": "2/1/36",
+      "destination_name": "Provides the accumulated electricity consumption for hot water which was read during the last query",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:38:03.861788+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/1/36",
+      "destination_name": "Provides the accumulated electricity consumption for hot water which was read during the last query",
+      "direction": "Incoming",
+      "dpt_main": 13,
+      "dpt_sub": 13,
+      "dpt_name": "active_energy_kwh",
+      "payload": [
+        0,
+        0,
+        2,
+        186
+      ],
+      "source": "1.1.18",
+      "source_name": "ise GmbH ise KNX Vaillant",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:38:03.892702+02:00",
+      "unit": "kWh",
+      "value": 698
+    },
+    {
+      "destination": "2/1/35",
+      "destination_name": "Provides the accumulated current consumption for heating which was read during the last query",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:38:03.915165+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/1/35",
+      "destination_name": "Provides the accumulated current consumption for heating which was read during the last query",
+      "direction": "Incoming",
+      "dpt_main": 13,
+      "dpt_sub": 13,
+      "dpt_name": "active_energy_kwh",
+      "payload": [
+        0,
+        0,
+        16,
+        99
+      ],
+      "source": "1.1.18",
+      "source_name": "ise GmbH ise KNX Vaillant",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:38:03.945523+02:00",
+      "unit": "kWh",
+      "value": 4195
+    },
+    {
+      "destination": "2/0/51",
+      "destination_name": "heartbit",
+      "direction": "Incoming",
+      "dpt_main": 1,
+      "dpt_sub": 17,
+      "dpt_name": "trigger",
+      "payload": 1,
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:06.827472+02:00",
+      "unit": null,
+      "value": "trigger"
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        41
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:08.573897+02:00",
+      "unit": "°C",
+      "value": 21.3
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:08.882695+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        228
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:08.994197+02:00",
+      "unit": "°C",
+      "value": 20.2
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:09.017421+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:09.040482+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        41
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:18.572074+02:00",
+      "unit": "°C",
+      "value": 21.3
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:18.881609+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        228
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:18.991757+02:00",
+      "unit": "°C",
+      "value": 20.2
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:19.014996+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:19.037952+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        41
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:28.569793+02:00",
+      "unit": "°C",
+      "value": 21.3
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:28.878894+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        238
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:28.990445+02:00",
+      "unit": "°C",
+      "value": 20.3
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:29.013463+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:29.036064+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        41
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:38.567376+02:00",
+      "unit": "°C",
+      "value": 21.3
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:38.876889+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        228
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:38.988540+02:00",
+      "unit": "°C",
+      "value": 20.2
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:39.011364+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:39.034381+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        41
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:48.565399+02:00",
+      "unit": "°C",
+      "value": 21.3
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:48.874779+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        228
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:48.986405+02:00",
+      "unit": "°C",
+      "value": 20.2
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:49.009716+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:49.032276+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        41
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:58.563292+02:00",
+      "unit": "°C",
+      "value": 21.3
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:58.872741+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        228
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:58.984461+02:00",
+      "unit": "°C",
+      "value": 20.2
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:59.007667+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:38:59.031712+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:39:01.768568+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:39:01.789416+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:39:01.833401+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:39:01.854917+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:39:01.876912+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        228
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:39:01.897714+02:00",
+      "unit": "°C",
+      "value": 20.2
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:39:01.920681+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:39:01.940872+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "3/2/10",
+      "destination_name": "temperatura corrente",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:39:03.807198+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "3/2/10",
+      "destination_name": "temperatura corrente",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        213
+      ],
+      "source": "1.1.18",
+      "source_name": "ise GmbH ise KNX Vaillant",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:39:03.837624+02:00",
+      "unit": "°C",
+      "value": 20.05
+    },
+    {
+      "destination": "2/1/20",
+      "destination_name": "Provides the accumulated environmental yield which was read during the last query",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:39:03.861488+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/1/20",
+      "destination_name": "Provides the accumulated environmental yield which was read during the last query",
+      "direction": "Incoming",
+      "dpt_main": 13,
+      "dpt_sub": 13,
+      "dpt_name": "active_energy_kwh",
+      "payload": [
+        0,
+        0,
+        67,
+        96
+      ],
+      "source": "1.1.18",
+      "source_name": "ise GmbH ise KNX Vaillant",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:39:03.891909+02:00",
+      "unit": "kWh",
+      "value": 17248
+    },
+    {
+      "destination": "2/1/36",
+      "destination_name": "Provides the accumulated electricity consumption for hot water which was read during the last query",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:39:03.914529+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/1/36",
+      "destination_name": "Provides the accumulated electricity consumption for hot water which was read during the last query",
+      "direction": "Incoming",
+      "dpt_main": 13,
+      "dpt_sub": 13,
+      "dpt_name": "active_energy_kwh",
+      "payload": [
+        0,
+        0,
+        2,
+        186
+      ],
+      "source": "1.1.18",
+      "source_name": "ise GmbH ise KNX Vaillant",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:39:03.945294+02:00",
+      "unit": "kWh",
+      "value": 698
+    },
+    {
+      "destination": "2/1/35",
+      "destination_name": "Provides the accumulated current consumption for heating which was read during the last query",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:39:03.968046+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/1/35",
+      "destination_name": "Provides the accumulated current consumption for heating which was read during the last query",
+      "direction": "Incoming",
+      "dpt_main": 13,
+      "dpt_sub": 13,
+      "dpt_name": "active_energy_kwh",
+      "payload": [
+        0,
+        0,
+        16,
+        99
+      ],
+      "source": "1.1.18",
+      "source_name": "ise GmbH ise KNX Vaillant",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:39:03.998113+02:00",
+      "unit": "kWh",
+      "value": 4195
+    },
+    {
+      "destination": "2/0/46",
+      "destination_name": "temperatura fancoil camera grande",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:39:05.706387+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/0/51",
+      "destination_name": "heartbit",
+      "direction": "Incoming",
+      "dpt_main": 1,
+      "dpt_sub": 17,
+      "dpt_name": "trigger",
+      "payload": 1,
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:06.815595+02:00",
+      "unit": null,
+      "value": "trigger"
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        41
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:08.560909+02:00",
+      "unit": "°C",
+      "value": 21.3
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:08.870586+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        228
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:08.982623+02:00",
+      "unit": "°C",
+      "value": 20.2
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:09.006737+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:09.029615+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        41
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:18.564789+02:00",
+      "unit": "°C",
+      "value": 21.3
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:18.869041+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        228
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:18.980761+02:00",
+      "unit": "°C",
+      "value": 20.2
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:19.004763+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:19.027725+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        41
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:28.557105+02:00",
+      "unit": "°C",
+      "value": 21.3
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:28.866804+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        228
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:28.978948+02:00",
+      "unit": "°C",
+      "value": 20.2
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:29.009313+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:29.025908+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        41
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:38.554653+02:00",
+      "unit": "°C",
+      "value": 21.3
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:38.864788+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        228
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:38.978011+02:00",
+      "unit": "°C",
+      "value": 20.2
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        151
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:39.001703+02:00",
+      "unit": "°C",
+      "value": 23.5
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:39.024738+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        36
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:48.552872+02:00",
+      "unit": "°C",
+      "value": 21.2
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:48.862745+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        238
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:48.975451+02:00",
+      "unit": "°C",
+      "value": 20.3
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        151
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:49.000205+02:00",
+      "unit": "°C",
+      "value": 23.5
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:49.022987+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        36
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:58.550901+02:00",
+      "unit": "°C",
+      "value": 21.2
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:58.860717+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        238
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:58.973500+02:00",
+      "unit": "°C",
+      "value": 20.3
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        151
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:58.998366+02:00",
+      "unit": "°C",
+      "value": 23.5
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:39:59.021530+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:40:01.812379+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:40:01.833036+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:40:01.877494+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:40:01.898464+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:40:01.920978+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        238
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:40:01.941558+02:00",
+      "unit": "°C",
+      "value": 20.3
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:40:01.964635+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        151
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:40:01.985079+02:00",
+      "unit": "°C",
+      "value": 23.5
+    },
+    {
+      "destination": "3/2/10",
+      "destination_name": "temperatura corrente",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:40:03.859803+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "3/2/10",
+      "destination_name": "temperatura corrente",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        213
+      ],
+      "source": "1.1.18",
+      "source_name": "ise GmbH ise KNX Vaillant",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:40:03.890392+02:00",
+      "unit": "°C",
+      "value": 20.05
+    },
+    {
+      "destination": "2/1/20",
+      "destination_name": "Provides the accumulated environmental yield which was read during the last query",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:40:03.914263+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/1/20",
+      "destination_name": "Provides the accumulated environmental yield which was read during the last query",
+      "direction": "Incoming",
+      "dpt_main": 13,
+      "dpt_sub": 13,
+      "dpt_name": "active_energy_kwh",
+      "payload": [
+        0,
+        0,
+        67,
+        96
+      ],
+      "source": "1.1.18",
+      "source_name": "ise GmbH ise KNX Vaillant",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:40:03.944659+02:00",
+      "unit": "kWh",
+      "value": 17248
+    },
+    {
+      "destination": "2/1/36",
+      "destination_name": "Provides the accumulated electricity consumption for hot water which was read during the last query",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:40:03.967283+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/1/36",
+      "destination_name": "Provides the accumulated electricity consumption for hot water which was read during the last query",
+      "direction": "Incoming",
+      "dpt_main": 13,
+      "dpt_sub": 13,
+      "dpt_name": "active_energy_kwh",
+      "payload": [
+        0,
+        0,
+        2,
+        186
+      ],
+      "source": "1.1.18",
+      "source_name": "ise GmbH ise KNX Vaillant",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:40:04.006733+02:00",
+      "unit": "kWh",
+      "value": 698
+    },
+    {
+      "destination": "2/1/35",
+      "destination_name": "Provides the accumulated current consumption for heating which was read during the last query",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:40:04.039845+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/1/35",
+      "destination_name": "Provides the accumulated current consumption for heating which was read during the last query",
+      "direction": "Incoming",
+      "dpt_main": 13,
+      "dpt_sub": 13,
+      "dpt_name": "active_energy_kwh",
+      "payload": [
+        0,
+        0,
+        16,
+        99
+      ],
+      "source": "1.1.18",
+      "source_name": "ise GmbH ise KNX Vaillant",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:40:04.060012+02:00",
+      "unit": "kWh",
+      "value": 4195
+    },
+    {
+      "destination": "2/0/51",
+      "destination_name": "heartbit",
+      "direction": "Incoming",
+      "dpt_main": 1,
+      "dpt_sub": 17,
+      "dpt_name": "trigger",
+      "payload": 1,
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:06.803633+02:00",
+      "unit": null,
+      "value": "trigger"
+    },
+    {
+      "destination": "2/0/46",
+      "destination_name": "temperatura fancoil camera grande",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:40:07.709087+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        36
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:08.548504+02:00",
+      "unit": "°C",
+      "value": 21.2
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:08.858971+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        228
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:08.972104+02:00",
+      "unit": "°C",
+      "value": 20.2
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:08.996621+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        151
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:09.019863+02:00",
+      "unit": "°C",
+      "value": 23.5
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        36
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:18.546248+02:00",
+      "unit": "°C",
+      "value": 21.2
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:18.856820+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        228
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:18.969974+02:00",
+      "unit": "°C",
+      "value": 20.2
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:18.994630+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:19.017727+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        36
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:28.544156+02:00",
+      "unit": "°C",
+      "value": 21.2
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:28.854811+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        228
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:28.968213+02:00",
+      "unit": "°C",
+      "value": 20.2
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:28.994467+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:29.017143+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        36
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:38.542392+02:00",
+      "unit": "°C",
+      "value": 21.2
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:38.852784+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        238
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:38.965923+02:00",
+      "unit": "°C",
+      "value": 20.3
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:38.991305+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:39.013701+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        36
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:48.540066+02:00",
+      "unit": "°C",
+      "value": 21.2
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:48.850690+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        238
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:48.964160+02:00",
+      "unit": "°C",
+      "value": 20.3
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:48.988885+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:49.012159+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        36
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:58.538153+02:00",
+      "unit": "°C",
+      "value": 21.2
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:58.848967+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        238
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:58.962595+02:00",
+      "unit": "°C",
+      "value": 20.3
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:58.989745+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:40:59.010298+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:41:01.856988+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:41:01.876535+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:41:01.922754+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:41:01.944749+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:41:01.966893+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        238
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:41:01.987428+02:00",
+      "unit": "°C",
+      "value": 20.3
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:41:02.009713+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:41:02.030466+02:00",
+      "unit": "°C",
+      "value": 23.6
+    },
+    {
+      "destination": "3/2/10",
+      "destination_name": "temperatura corrente",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:41:03.914182+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "3/2/10",
+      "destination_name": "temperatura corrente",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        213
+      ],
+      "source": "1.1.18",
+      "source_name": "ise GmbH ise KNX Vaillant",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:41:03.944281+02:00",
+      "unit": "°C",
+      "value": 20.05
+    },
+    {
+      "destination": "2/1/20",
+      "destination_name": "Provides the accumulated environmental yield which was read during the last query",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:41:03.967257+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/1/20",
+      "destination_name": "Provides the accumulated environmental yield which was read during the last query",
+      "direction": "Incoming",
+      "dpt_main": 13,
+      "dpt_sub": 13,
+      "dpt_name": "active_energy_kwh",
+      "payload": [
+        0,
+        0,
+        67,
+        96
+      ],
+      "source": "1.1.18",
+      "source_name": "ise GmbH ise KNX Vaillant",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:41:03.997419+02:00",
+      "unit": "kWh",
+      "value": 17248
+    },
+    {
+      "destination": "2/1/36",
+      "destination_name": "Provides the accumulated electricity consumption for hot water which was read during the last query",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:41:04.029742+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/1/36",
+      "destination_name": "Provides the accumulated electricity consumption for hot water which was read during the last query",
+      "direction": "Incoming",
+      "dpt_main": 13,
+      "dpt_sub": 13,
+      "dpt_name": "active_energy_kwh",
+      "payload": [
+        0,
+        0,
+        2,
+        186
+      ],
+      "source": "1.1.18",
+      "source_name": "ise GmbH ise KNX Vaillant",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:41:04.059927+02:00",
+      "unit": "kWh",
+      "value": 698
+    },
+    {
+      "destination": "2/1/35",
+      "destination_name": "Provides the accumulated current consumption for heating which was read during the last query",
+      "direction": "Outgoing",
+      "dpt_main": null,
+      "dpt_sub": null,
+      "dpt_name": null,
+      "payload": null,
+      "source": "1.1.252",
+      "source_name": "Home Assistant",
+      "telegramtype": "GroupValueRead",
+      "timestamp": "2025-08-29T13:41:04.082908+02:00",
+      "unit": null,
+      "value": null
+    },
+    {
+      "destination": "2/1/35",
+      "destination_name": "Provides the accumulated current consumption for heating which was read during the last query",
+      "direction": "Incoming",
+      "dpt_main": 13,
+      "dpt_sub": 13,
+      "dpt_name": "active_energy_kwh",
+      "payload": [
+        0,
+        0,
+        16,
+        99
+      ],
+      "source": "1.1.18",
+      "source_name": "ise GmbH ise KNX Vaillant",
+      "telegramtype": "GroupValueResponse",
+      "timestamp": "2025-08-29T13:41:04.113323+02:00",
+      "unit": "kWh",
+      "value": 4195
+    },
+    {
+      "destination": "2/0/51",
+      "destination_name": "heartbit",
+      "direction": "Incoming",
+      "dpt_main": 1,
+      "dpt_sub": 17,
+      "dpt_name": "trigger",
+      "payload": 1,
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:41:06.792284+02:00",
+      "unit": null,
+      "value": "trigger"
+    },
+    {
+      "destination": "2/0/4",
+      "destination_name": "Temperatura bagno",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        36
+      ],
+      "source": "1.1.13",
+      "source_name": "Zennio QUAD Plus Bagno",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:41:08.535391+02:00",
+      "unit": "°C",
+      "value": 21.2
+    },
+    {
+      "destination": "2/0/1",
+      "destination_name": "Temperatura camera grande",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        111
+      ],
+      "source": "1.1.10",
+      "source_name": "Zennio QUAD Plus Camera grande",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:41:08.846784+02:00",
+      "unit": "°C",
+      "value": 22.7
+    },
+    {
+      "destination": "2/0/62",
+      "destination_name": "Temperatura camera ovest prova",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        7,
+        238
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:41:08.960302+02:00",
+      "unit": "°C",
+      "value": 20.3
+    },
+    {
+      "destination": "2/0/2",
+      "destination_name": "Temperatura camera ovest",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        31
+      ],
+      "source": "1.1.9",
+      "source_name": "Zennio QUAD Plus Camera ",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:41:08.985602+02:00",
+      "unit": "°C",
+      "value": 21.1
+    },
+    {
+      "destination": "2/0/3",
+      "destination_name": "Temperatura sala finestra",
+      "direction": "Incoming",
+      "dpt_main": 9,
+      "dpt_sub": 1,
+      "dpt_name": "temperature",
+      "payload": [
+        12,
+        156
+      ],
+      "source": "1.1.12",
+      "source_name": "Zennio QUAD Plus temperatura sala",
+      "telegramtype": "GroupValueWrite",
+      "timestamp": "2025-08-29T13:41:09.008718+02:00",
+      "unit": "°C",
+      "value": 23.6
+    }
+  ]
+}

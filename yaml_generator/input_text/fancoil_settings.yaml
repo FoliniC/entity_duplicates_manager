@@ -1,0 +1,4 @@
+fancoil_cucina_add_temp_entity:
+  name: "Cucina: Aggiungi Sensore ID"
+  icon: mdi:plus-box
+  initial: ""

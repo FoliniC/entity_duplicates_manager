@@ -1,0 +1,7 @@
+ev_charge_2025_mode:
+  name: "Modalità Ricarica"
+  options:
+    - "Manuale"
+    - "Automatico"
+  initial: "Automatico"
+  icon: mdi:ev-station

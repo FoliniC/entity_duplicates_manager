@@ -1,0 +1,103 @@
+{
+  "profile_name": "Comfort",
+  "preset_type": "temp",
+  "schedule": [
+    {
+      "hour": 0,
+      "value": 20
+    },
+    {
+      "hour": 1,
+      "value": 20
+    },
+    {
+      "hour": 2,
+      "value": 20
+    },
+    {
+      "hour": 3,
+      "value": 20
+    },
+    {
+      "hour": 4,
+      "value": 20
+    },
+    {
+      "hour": 5,
+      "value": 26
+    },
+    {
+      "hour": 6,
+      "value": 26
+    },
+    {
+      "hour": 7,
+      "value": 26
+    },
+    {
+      "hour": 8,
+      "value": 26
+    },
+    {
+      "hour": 9,
+      "value": 26
+    },
+    {
+      "hour": 10,
+      "value": 26
+    },
+    {
+      "hour": 11,
+      "value": 26
+    },
+    {
+      "hour": 12,
+      "value": 26
+    },
+    {
+      "hour": 13,
+      "value": 26
+    },
+    {
+      "hour": 14,
+      "value": 26
+    },
+    {
+      "hour": 15,
+      "value": 26
+    },
+    {
+      "hour": 16,
+      "value": 26
+    },
+    {
+      "hour": 17,
+      "value": 26
+    },
+    {
+      "hour": 18,
+      "value": 26
+    },
+    {
+      "hour": 19,
+      "value": 26
+    },
+    {
+      "hour": 20,
+      "value": 26
+    },
+    {
+      "hour": 21,
+      "value": 26
+    },
+    {
+      "hour": 22,
+      "value": 26
+    },
+    {
+      "hour": 23,
+      "value": 26
+    }
+  ],
+  "saved_at": 228659.038430316
+}

@@ -1,0 +1,24 @@
+{
+  "domain": "dual_smart_thermostat",
+  "name": "Dual Smart Thermostat",
+  "codeowners": [
+    "@swingerman"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "climate",
+    "sensor",
+    "switch",
+    "template",
+    "binary_sensor",
+    "input_select",
+    "input_boolean",
+    "input_number"
+  ],
+  "documentation": "https://github.com/swingerman/ha-dual-smart-thermostat.git",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/swingerman/ha-dual-smart-thermostat/issues",
+  "requirements": [],
+  "version": "v0.11.2"
+}

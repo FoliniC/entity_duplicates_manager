@@ -1,0 +1,172 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configurazione Connessione Alfa",
+        "description": "Se hai bisogno di aiuto con la configurazione, consulta la documentazione.",
+        "data": {
+          "name": "Nome dispositivo (usato come prefisso dei sensori)",
+          "host": "IP o hostname",
+          "port": "Porta TCP",
+          "scan_interval": "Intervallo di polling (min: 30s max: 600s)",
+          "timeout": "Timeout connessione (min: 5s max: 60s)",
+          "skip_mac_detection": "Salta rilevamento MAC"
+        },
+        "data_description": {
+          "skip_mac_detection": "Abilita per connessioni VPN. Usa ID basato su host invece dell'indirizzo MAC (avvio piu veloce)."
+        }
+      },
+      "reconfigure": {
+        "title": "Riconfigura Connessione Alfa",
+        "description": "Aggiorna le impostazioni di connessione del dispositivo",
+        "data": {
+          "name": "Nome dispositivo (usato come prefisso dei sensori)",
+          "host": "IP o hostname",
+          "port": "Porta TCP",
+          "skip_mac_detection": "Salta rilevamento MAC"
+        },
+        "data_description": {
+          "skip_mac_detection": "Abilita per connessioni VPN. Usa ID basato su host invece dell'indirizzo MAC (avvio piu veloce)."
+        }
+      }
+    },
+    "error": {
+      "already_configured": "Il dispositivo è gia configurato",
+      "invalid_host": "Indirizzo host non valido",
+      "cannot_connect": "Impossibile connettersi al dispositivo"
+    },
+    "abort": {
+      "already_configured": "Il dispositivo è gia configurato",
+      "reconfigure_successful": "Riconfigurazione riuscita",
+      "modbus_conflict": "L'integrazione Modbus nativa è già configurata per questo dispositivo.\n\n**La tua config:** {host}\n**Config Modbus:** {modbus_host}\n\nEntrambi puntano allo stesso dispositivo, che supporta un solo client Modbus TCP alla volta.\n\nRimuovi la configurazione Modbus prima di configurare questa integrazione. Controlla configuration.yaml per le voci 'modbus:', oppure rimuovila da Impostazioni → Dispositivi e Servizi → Modbus."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opzioni Runtime Alfa",
+        "description": "Configura le opzioni di runtime.\n\n**Variabili Script di Recupero:**\nQuando configurato, lo script di recupero riceve queste variabili:\n- `device_name`: Nome dispositivo\n- `host`: Indirizzo IP/hostname\n- `port`: Porta TCP\n- `serial_number`: Numero seriale\n- `mac_address`: Indirizzo MAC\n- `failures_count`: Numero di errori consecutivi",
+        "data": {
+          "scan_interval": "Intervallo di polling (secondi)",
+          "timeout": "Timeout connessione (secondi)",
+          "enable_repair_notification": "Abilita notifiche di riparazione",
+          "failures_threshold": "Errori prima della notifica (1-10)",
+          "recovery_script": "Script di recupero (opzionale, eseguito quando il dispositivo smette di rispondere)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "potenza_prelevata": {
+        "name": "Potenza Importata"
+      },
+      "potenza_prelevata_media_15m": {
+        "name": "Potenza Importata Media 15m"
+      },
+      "potenza_immessa": {
+        "name": "Potenza Esportata"
+      },
+      "potenza_immessa_media_15m": {
+        "name": "Potenza Esportata Media 15m"
+      },
+      "potenza_prodotta": {
+        "name": "Potenza Prodotta"
+      },
+      "energia_prelevata": {
+        "name": "Energia Importata"
+      },
+      "energia_immessa": {
+        "name": "Energia Esportata"
+      },
+      "energia_prodotta": {
+        "name": "Energia Prodotta"
+      },
+      "energia_prelevata_giornaliera_f1": {
+        "name": "Energia Importata Giornaliera F1"
+      },
+      "energia_prelevata_giornaliera_f2": {
+        "name": "Energia Importata Giornaliera F2"
+      },
+      "energia_prelevata_giornaliera_f3": {
+        "name": "Energia Importata Giornaliera F3"
+      },
+      "energia_prelevata_giornaliera_f4": {
+        "name": "Energia Importata Giornaliera F4"
+      },
+      "energia_prelevata_giornaliera_f5": {
+        "name": "Energia Importata Giornaliera F5"
+      },
+      "energia_prelevata_giornaliera_f6": {
+        "name": "Energia Importata Giornaliera F6"
+      },
+      "energia_immessa_giornaliera_f1": {
+        "name": "Energia Esportata Giornaliera F1"
+      },
+      "energia_immessa_giornaliera_f2": {
+        "name": "Energia Esportata Giornaliera F2"
+      },
+      "energia_immessa_giornaliera_f3": {
+        "name": "Energia Esportata Giornaliera F3"
+      },
+      "energia_immessa_giornaliera_f4": {
+        "name": "Energia Esportata Giornaliera F4"
+      },
+      "energia_immessa_giornaliera_f5": {
+        "name": "Energia Esportata Giornaliera F5"
+      },
+      "energia_immessa_giornaliera_f6": {
+        "name": "Energia Esportata Giornaliera F6"
+      },
+      "fascia_oraria_attuale": {
+        "name": "Fascia Oraria Attuale"
+      },
+      "tempo_residuo_distacco": {
+        "name": "Tempo Residuo Distacco"
+      },
+      "data_evento": {
+        "name": "Data Evento"
+      },
+      "potenza_consumata": {
+        "name": "Potenza Consumata"
+      },
+      "potenza_auto_consumata": {
+        "name": "Potenza Auto Consumata"
+      },
+      "energia_consumata": {
+        "name": "Energia Consumata"
+      },
+      "energia_auto_consumata": {
+        "name": "Energia Auto Consumata"
+      }
+    }
+  },
+  "exceptions": {
+    "connection_timeout": {
+      "message": "Timeout nella connessione a {device_name}. Verificare che il dispositivo sia acceso e raggiungibile all'indirizzo IP configurato."
+    },
+    "connection_failed": {
+      "message": "Impossibile connettersi al dispositivo su {host}:{port}. Verificare che il dispositivo sia online e che le impostazioni di connessione siano corrette."
+    },
+    "modbus_error": {
+      "message": "Errore di comunicazione Modbus con {device_name}. Il dispositivo potrebbe essere occupato o avere problemi."
+    }
+  },
+  "issues": {
+    "connection_failed": {
+      "title": "Impossibile connettersi a {device_name}",
+      "description": "L'integrazione non riesce a connettersi al dispositivo Sinapsi Alfa su {host}:{port}.\n\n**Possibili cause:**\n- Il dispositivo e spento o non connesso alla rete\n- L'indirizzo IP e cambiato\n- Un firewall sta bloccando la connessione\n- La porta Modbus TCP (502) non e accessibile\n\n**Per risolvere:**\n1. Verificare che il dispositivo sia acceso e connesso alla rete\n2. Controllare l'indirizzo IP nella tabella DHCP del router\n3. Provare ad accedere direttamente all'interfaccia web del dispositivo\n4. Se l'IP e cambiato, riconfigurare l'integrazione con il nuovo indirizzo"
+    },
+    "modbus_conflict": {
+      "title": "Conflitto integrazione Modbus per {device_name}",
+      "description": "L'integrazione Modbus nativa è configurata anche per questo dispositivo:\n\n- **Questa integrazione:** {host}\n- **Integrazione Modbus:** {modbus_host}\n\nEntrambi puntano allo stesso dispositivo, che supporta **un solo client Modbus TCP** alla volta. Questa è probabilmente la causa dei problemi di connessione.\n\n**Per risolvere:**\n1. Vai su Impostazioni → Dispositivi e Servizi → Modbus\n2. Rimuovi o disabilita l'hub Modbus configurato per {modbus_host}\n3. Controlla configuration.yaml per le voci 'modbus:'\n4. Riavvia Home Assistant\n\nQuesto problema scomparirà automaticamente quando il conflitto sarà risolto."
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "device_unreachable": "{device_name} non raggiungibile (problema di rete)",
+      "device_not_responding": "{device_name} non risponde (errore Modbus)",
+      "device_recovered": "{device_name} ripristinato"
+    }
+  }
+}

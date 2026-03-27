@@ -1,0 +1,86 @@
+task_name: fancoil_full_package
+description: "Full package of all files related to the automatic generation of fancoil climate entities and dashboard for Home Assistant, including the generator script, its configuration, templates, generated output files, and relevant Home Assistant configuration."
+output_type: txt        # Default: 'txt' oppure 'zip'
+output_dir: "/home/carlo"
+output_filename_prefix: fancoil_full_package
+base_dir: "."
+files:
+  - path: ./generate_fancoil_climates.py
+  - path: ./fancoil_vars.yaml
+  - path: ./templates/fancoil_automation.j2
+  - path: ./templates/fancoil_climate.j2
+  - path: ./templates/fancoil_dashboard.j2
+  - path: ./templates/fancoil_input_boolean.j2
+  - path: ./templates/fancoil_master_climate.j2
+  - path: ./templates/fancoil_master_input_numbers.j2
+#  - path: ./templates/fancoil_master_input_selects.j2
+  - path: ./templates/fancoil_room_input_booleans.j2
+  - path: ./templates/fancoil_room_input_numbers.j2
+  - path: ./templates/fancoil_room_input_selects.j2
+  - path: ./templates/fancoil_sensors.j2
+  - path: ./generated_climates/bagno.yaml
+    process_yaml: true
+  - path: ./generated_climates/camera_grande.yaml
+    process_yaml: true
+  - path: ./generated_climates/camera.yaml
+    process_yaml: true
+  - path: ./generated_climates/corridoio.yaml
+    process_yaml: true
+  - path: ./generated_climates/cucina.yaml
+    process_yaml: true
+  - path: ./generated_climates/generated_master_climate.yaml
+    process_yaml: true
+  - path: ./generated_climates/sala.yaml
+    process_yaml: true
+  - path: ../automations/fancoil_generated_automations/bagno_automation.yaml
+    process_yaml: true
+  - path: ../automations/fancoil_generated_automations/camera_automation.yaml
+    process_yaml: true
+  - path: ../automations/fancoil_generated_automations/camera_grande_automation.yaml
+    process_yaml: true
+  - path: ../automations/fancoil_generated_automations/corridoio_automation.yaml
+    process_yaml: true
+  - path: ../automations/fancoil_generated_automations/cucina_automation.yaml
+    process_yaml: true
+  - path: ../automations/fancoil_generated_automations/sala_automation.yaml
+    process_yaml: true
+  - path: ./managed_sensors/bagno_sensors.yaml
+    process_yaml: true
+  - path: ./managed_sensors/camera_grande_sensors.yaml
+    process_yaml: true
+  - path: ./managed_sensors/camera_sensors.yaml
+    process_yaml: true
+  - path: ./managed_sensors/corridoio_sensors.yaml
+    process_yaml: true
+  - path: ./managed_sensors/cucina_sensors.yaml
+    process_yaml: true
+  - path: ./managed_sensors/sala_sensors.yaml
+    process_yaml: true
+  - path: ./input_boolean/generated_input_booleans.yaml
+    process_yaml: true
+  - path: ./input_select/generated_input_selects.yaml
+    process_yaml: true
+  - path: ./input_number/generated_input_numbers.yaml
+    process_yaml: true
+  - path: ./generated_dashboards/generated_riscaldamento_dashboard.yaml
+    process_yaml: true
+  - path: ../configuration.yaml
+    process_yaml: true
+    sections_to_remove:
+      - "conversation"
+      - "intent_script"
+      - "light"
+      - "knx"
+      - "modbus"
+      - "scheduler"
+  - path: ../pyscript/fancoil_events_write.py
+  - path: ./generator.log
+    tail_lines: 50
+  - path: ./scripts/scripts.yaml
+    process_yaml: true
+  - path: ./input_number/input_numbers.yaml
+    process_yaml: true
+  - path: ./input_select/inpur_select.yaml
+    process_yaml: true
+  - path: ./input_select/generated_input_selects.yaml
+    process_yaml: true

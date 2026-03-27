@@ -1,0 +1,171 @@
+# File: input_number_schedule.yaml
+# Contiene gli input_number per la programmazione oraria della temperatura
+
+temperature_hour_00:
+  name: Temperatura Ora 00
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 18
+  unit_of_measurement: "°C"
+temperature_hour_01:
+  name: Temperatura Ora 01
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 18
+  unit_of_measurement: "°C"
+temperature_hour_02:
+  name: Temperatura Ora 02
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 18
+  unit_of_measurement: "°C"
+temperature_hour_03:
+  name: Temperatura Ora 03
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 18
+  unit_of_measurement: "°C"
+temperature_hour_04:
+  name: Temperatura Ora 04
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 18
+  unit_of_measurement: "°C"
+temperature_hour_05:
+  name: Temperatura Ora 05
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 18
+  unit_of_measurement: "°C"
+temperature_hour_06:
+  name: Temperatura Ora 06
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 18
+  unit_of_measurement: "°C"
+temperature_hour_07:
+  name: Temperatura Ora 07
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 18
+  unit_of_measurement: "°C"
+temperature_hour_08:
+  name: Temperatura Ora 08
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 18
+  unit_of_measurement: "°C"
+temperature_hour_09:
+  name: Temperatura Ora 09
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 18
+  unit_of_measurement: "°C"
+temperature_hour_10:
+  name: Temperatura Ora 10
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 18
+  unit_of_measurement: "°C"
+temperature_hour_11:
+  name: Temperatura Ora 11
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 23
+  unit_of_measurement: "°C"
+temperature_hour_12:
+  name: Temperatura Ora 12
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 23
+  unit_of_measurement: "°C"
+temperature_hour_13:
+  name: Temperatura Ora 13
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 23
+  unit_of_measurement: "°C"
+temperature_hour_14:
+  name: Temperatura Ora 14
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 23
+  unit_of_measurement: "°C"
+temperature_hour_15:
+  name: Temperatura Ora 15
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 23
+  unit_of_measurement: "°C"
+temperature_hour_16:
+  name: Temperatura Ora 16
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 23
+  unit_of_measurement: "°C"
+temperature_hour_17:
+  name: Temperatura Ora 17
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 23
+  unit_of_measurement: "°C"
+temperature_hour_18:
+  name: Temperatura Ora 18
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 23
+  unit_of_measurement: "°C"
+temperature_hour_19:
+  name: Temperatura Ora 19
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 23
+  unit_of_measurement: "°C"
+temperature_hour_20:
+  name: Temperatura Ora 20
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 20
+  unit_of_measurement: "°C"
+temperature_hour_21:
+  name: Temperatura Ora 21
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 20
+  unit_of_measurement: "°C"
+temperature_hour_22:
+  name: Temperatura Ora 22
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 20
+  unit_of_measurement: "°C"
+temperature_hour_23:
+  name: Temperatura Ora 23
+  min: 15
+  max: 30
+  step: 0.5
+  initial: 20
+  unit_of_measurement: "°C"

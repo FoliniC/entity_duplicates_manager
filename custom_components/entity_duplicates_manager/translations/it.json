@@ -1,0 +1,24 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Entity Duplicates Manager",
+                "description": "Configura Entity Duplicates Manager per pulire la tua istanza di Home Assistant."
+            }
+        },
+        "abort": {
+            "single_instance_allowed": "È consentita una sola istanza di Entity Duplicates Manager."
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Opzioni",
+                "data": {
+                    "suffix_max": "Profondità Massima Suffisso",
+                    "exclude_pattern": "Pattern di Esclusione (separati da virgola)"
+                }
+            }
+        }
+    }
+}

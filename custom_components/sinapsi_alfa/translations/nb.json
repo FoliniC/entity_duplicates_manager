@@ -1,0 +1,172 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Alfa-tilkoblingskonfigurasjon",
+        "description": "Hvis du trenger hjelp med konfigurasjonen, se dokumentasjonen.",
+        "data": {
+          "name": "Enhetsnavn (brukes som sensorprefiks)",
+          "host": "IP eller vertsnavn",
+          "port": "TCP-port",
+          "scan_interval": "Avsporringsintervall (min: 30s maks: 600s)",
+          "timeout": "Tilkoblingstidsavbrudd (min: 5s maks: 60s)",
+          "skip_mac_detection": "Hopp over MAC-deteksjon"
+        },
+        "data_description": {
+          "skip_mac_detection": "Aktiver for VPN-tilkoblinger. Bruker vertsbasert enhets-ID i stedet for MAC-adresse (raskere oppstart)."
+        }
+      },
+      "reconfigure": {
+        "title": "Rekonfigurer Alfa-tilkobling",
+        "description": "Oppdater enhetens tilkoblingsinnstillinger",
+        "data": {
+          "name": "Enhetsnavn (brukes som sensorprefiks)",
+          "host": "IP eller vertsnavn",
+          "port": "TCP-port",
+          "skip_mac_detection": "Hopp over MAC-deteksjon"
+        },
+        "data_description": {
+          "skip_mac_detection": "Aktiver for VPN-tilkoblinger. Bruker vertsbasert enhets-ID i stedet for MAC-adresse (raskere oppstart)."
+        }
+      }
+    },
+    "error": {
+      "already_configured": "Enheten er allerede konfigurert",
+      "invalid_host": "Ugyldig vertsadresse",
+      "cannot_connect": "Kan ikke koble til enheten"
+    },
+    "abort": {
+      "already_configured": "Enheten er allerede konfigurert",
+      "reconfigure_successful": "Rekonfigurering vellykket",
+      "modbus_conflict": "Den innebygde Modbus-integrasjonen er allerede konfigurert for denne enheten.\n\n**Din konfigurasjon:** {host}\n**Modbus-konfigurasjon:** {modbus_host}\n\nBegge peker til samme enhet, som bare støtter én Modbus TCP-klient om gangen.\n\nVennligst fjern Modbus-integrasjonsoppføringen før du setter opp denne integrasjonen. Sjekk configuration.yaml for 'modbus:'-oppføringer, eller fjern via Innstillinger → Enheter & Tjenester → Modbus."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Alfa kjortidsalternativer",
+        "description": "Configure runtime options.\n\n**Recovery Script Variables:**\nWhen configured, the recovery script receives these variables:\n- `device_name`: Device name\n- `host`: IP address/hostname\n- `port`: TCP port\n- `serial_number`: Device serial number\n- `mac_address`: Device MAC address\n- `failures_count`: Number of consecutive failures",
+        "data": {
+          "recovery_script": "Recovery script (optional)",
+          "enable_repair_notification": "Enable repair notifications",
+          "failures_threshold": "Failures before notification (1-10)",
+          "scan_interval": "Polling interval (seconds)",
+          "timeout": "Connection timeout (seconds)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "potenza_prelevata": {
+        "name": "Importert effekt"
+      },
+      "potenza_prelevata_media_15m": {
+        "name": "Importert effekt snitt 15m"
+      },
+      "potenza_immessa": {
+        "name": "Eksportert effekt"
+      },
+      "potenza_immessa_media_15m": {
+        "name": "Eksportert effekt snitt 15m"
+      },
+      "potenza_prodotta": {
+        "name": "Produsert effekt"
+      },
+      "energia_prelevata": {
+        "name": "Importert energi"
+      },
+      "energia_immessa": {
+        "name": "Eksportert energi"
+      },
+      "energia_prodotta": {
+        "name": "Produsert energi"
+      },
+      "energia_prelevata_giornaliera_f1": {
+        "name": "Daglig importert energi F1"
+      },
+      "energia_prelevata_giornaliera_f2": {
+        "name": "Daglig importert energi F2"
+      },
+      "energia_prelevata_giornaliera_f3": {
+        "name": "Daglig importert energi F3"
+      },
+      "energia_prelevata_giornaliera_f4": {
+        "name": "Daglig importert energi F4"
+      },
+      "energia_prelevata_giornaliera_f5": {
+        "name": "Daglig importert energi F5"
+      },
+      "energia_prelevata_giornaliera_f6": {
+        "name": "Daglig importert energi F6"
+      },
+      "energia_immessa_giornaliera_f1": {
+        "name": "Daglig eksportert energi F1"
+      },
+      "energia_immessa_giornaliera_f2": {
+        "name": "Daglig eksportert energi F2"
+      },
+      "energia_immessa_giornaliera_f3": {
+        "name": "Daglig eksportert energi F3"
+      },
+      "energia_immessa_giornaliera_f4": {
+        "name": "Daglig eksportert energi F4"
+      },
+      "energia_immessa_giornaliera_f5": {
+        "name": "Daglig eksportert energi F5"
+      },
+      "energia_immessa_giornaliera_f6": {
+        "name": "Daglig eksportert energi F6"
+      },
+      "fascia_oraria_attuale": {
+        "name": "Gjeldende tidssone"
+      },
+      "tempo_residuo_distacco": {
+        "name": "Frakoblingstimer"
+      },
+      "data_evento": {
+        "name": "Hendelsesdato"
+      },
+      "potenza_consumata": {
+        "name": "Forbrukt effekt"
+      },
+      "potenza_auto_consumata": {
+        "name": "Egenforbruk effekt"
+      },
+      "energia_consumata": {
+        "name": "Forbrukt energi"
+      },
+      "energia_auto_consumata": {
+        "name": "Egenforbruk energi"
+      }
+    }
+  },
+  "exceptions": {
+    "connection_timeout": {
+      "message": "Tidsavbrudd ved tilkobling til {device_name}. Sjekk at enheten er slatt pa og tilgjengelig pa den konfigurerte IP-adressen."
+    },
+    "connection_failed": {
+      "message": "Kunne ikke koble til enheten pa {host}:{port}. Bekreft at enheten er online og at tilkoblingsinnstillingene er riktige."
+    },
+    "modbus_error": {
+      "message": "Modbus-kommunikasjonsfeil med {device_name}. Enheten kan vare opptatt eller oppleve problemer."
+    }
+  },
+  "issues": {
+    "modbus_conflict": {
+      "title": "Modbus-integrasjonskonflikt for {device_name}",
+      "description": "Den innebygde Modbus-integrasjonen er også konfigurert for denne enheten:\n\n- **Denne integrasjonen:** {host}\n- **Modbus-integrasjon:** {modbus_host}\n\nBegge peker til samme enhet, som bare støtter **én Modbus TCP-klient** om gangen. Dette forårsaker sannsynligvis tilkoblingsproblemene dine.\n\n**For å fikse:**\n1. Gå til Innstillinger → Enheter & Tjenester → Modbus\n2. Fjern eller deaktiver Modbus-huben konfigurert for {modbus_host}\n3. Sjekk configuration.yaml for 'modbus:'-oppføringer\n4. Start Home Assistant på nytt\n\nDette problemet forsvinner automatisk når konflikten er løst."
+    },
+    "connection_failed": {
+      "title": "Kan ikke koble til {device_name}",
+      "description": "Integrasjonen kan ikke koble til Sinapsi Alfa-enheten din pa {host}:{port}.\n\n**Mulige arsaker:**\n- Enheten er slatt av eller ikke koblet til nettverket\n- IP-adressen har endret seg\n- En brannmur blokkerer tilkoblingen\n- Modbus TCP-porten (502) er ikke tilgjengelig\n\n**For a lose:**\n1. Sjekk at enheten er slatt pa og koblet til nettverket\n2. Verifiser IP-adressen i ruterens DHCP-tabell\n3. Prov a fa tilgang til enhetens webgrensesnitt direkte\n4. Hvis IP har endret seg, rekonfigurer integrasjonen med den nye adressen"
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "device_unreachable": "{device_name} is unreachable (network issue)",
+      "device_not_responding": "{device_name} is not responding (Modbus error)",
+      "device_recovered": "{device_name} recovered"
+    }
+  }
+}

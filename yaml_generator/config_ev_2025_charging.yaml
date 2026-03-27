@@ -1,0 +1,36 @@
+task_name: "EV Charging 2025 Configuration"
+description: "Configuration for Home Assistant EV Charging 2025 Control."
+base_dir: "/usr/share/hassio/homeassistant"
+output_type: txt # Default: 'txt' oppure 'zip'
+output_filename_prefix: ha_ev_2025_charging
+output_dir: "temp/for_IA"
+files:
+  - path: "configuration.yaml"
+    process_yaml: true
+    sections_to_remove:
+      - "conversation"
+      - "intent_script"
+      - "light"
+      - "knx"
+      - "modbus"
+      - "scheduler"
+  - path: "yaml_generator/managed_sensors/template_sensors_static.yaml"
+    process_yaml: true
+  - path: "automations/generated_automations/automations_not_generated_keep_it.yaml"
+    process_yaml: true
+  - path: "yaml_generator/input_boolean/ev_charge_2025.yaml"
+    process_yaml: true
+  - path: "yaml_generator/input_datetime/ev_charge_2025.yaml"
+    process_yaml: true
+  - path: "yaml_generator/input_number/ev_charge_2025.yaml"
+    process_yaml: true
+  - path: "yaml_generator/input_select/ev_charge_2025.yaml"
+    process_yaml: true
+  - path: "automations/generated_automations/ev_charge_2025_automation.yaml"
+    process_yaml: true
+  - path: "yaml_generator/managed_sensors/ev_charge_2025.yaml"
+    process_yaml: true
+  - path: "yaml_generator/managed_binary_sensors/ev_charge_2025.yaml"
+    process_yaml: true
+  - path: "ui/ev_charge_control_2025.yaml"
+    process_yaml: true

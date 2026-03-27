@@ -1,0 +1,28 @@
+schedule:
+- actions:
+  - service: input_number.set_value
+    service_data:
+      entity_id: input_number.setpoint_soggiorno
+      value: 21
+  entity_id: input_number.setpoint_soggiorno
+  modes:
+  - value
+  name: Setpoint Soggiorno
+- actions:
+  - service: input_number.set_value
+    service_data:
+      entity_id: input_number.setpoint_camera
+      value: 20
+  entity_id: input_number.setpoint_camera
+  modes:
+  - value
+  name: Setpoint Camera
+- actions:
+  - service: input_number.set_value
+    service_data:
+      entity_id: input_number.setpoint_studio
+      value: 22
+  entity_id: input_number.setpoint_studio
+  modes:
+  - value
+  name: Setpoint Studio

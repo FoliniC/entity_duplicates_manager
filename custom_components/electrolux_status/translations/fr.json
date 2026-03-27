@@ -1,0 +1,41 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Le périphérique est déjà configuré",
+            "already_configured_account": "Le compte est déjà configuré",
+            "reconfigure_successful": "La reconfiguration a réussi",
+            "single_instance_allowed": "Déjà configuré. Une seule configuration possible."
+        },
+        "error": {
+            "invalid_auth": "Authentification non valide"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "language": "Langue",
+                    "notifications": "Emettre des notifications pour pour le niveau d'alerte",
+                    "notifications_diagnostic": "Emettre Des notifications pour le niveau diagnostic",
+                    "notifications_warning": "Emettre des notifications pour le niveau d'avertissement",
+                    "password": "Mot de passe",
+                    "username": "Nom d'utilisateur"
+                },
+                "description": "Si vous avez besoin d'aide pour la configuration, visitez: https://github.com/albaintor/HomeasSistant_electrolux_status",
+                "title": "Electrolux Status"
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "user": {
+                "data": {
+                    "language": "Langue",
+                    "notifications": "Emettre des notifications pour le niveau d'alerte",
+                    "notifications_diagnostic": "Emettre des notifications pour le niveau diagnostic",
+                    "notifications_warning": "Emettre des notifications pour le niveau d'avertissement",
+                    "password": "Mot de passe",
+                    "renew_interval": "Intervalle de renouvellement de WebSocket (secondes)"
+                }
+            }
+        }
+    }
+}

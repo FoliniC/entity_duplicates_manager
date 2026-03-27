@@ -1,0 +1,2637 @@
+# Task Name: fancoil_full_package_2026
+# Description: Full package 2026 of the fancoil climate system SOURCE FILES.  Includes only scripts, variables, templates and core system configurations. All room-specific entities and automations are generated from these sources.
+ENTITIES PERSISTED ACROSS REBOOT: - Local Room Settings (via Pyscript/JSON): Offset, Local Setpoint, Follow Toggles. - Calculated Sensors (via Trigger-based Templates): Last Temperature, HVAC Mode, Delta. - Global Parameters: Fan distance thresholds, Master Setpoints.
+
+# User Comment: Full package 2026 of the fancoil climate system SOURCE FILES.  Includes only scripts, variables, templates and core system configurations. All room-specific entities and automations are generated from these sources.
+ENTITIES PERSISTED ACROSS REBOOT: - Local Room Settings (via Pyscript/JSON): Offset, Local Setpoint, Follow Toggles. - Calculated Sensors (via Trigger-based Templates): Last Temperature, HVAC Mode, Delta. - Global Parameters: Fan distance thresholds, Master Setpoints.
+
+# Generated On: 2026-01-17 22:50:32.077697
+
+# --- File: ./generate_fancoil_climates.py ---
+# File: yaml_generator/generate_fancoil_climates.py
+# MODIFIED to build a list of room sensor IDs for the master climate template
+import os
+import re
+import yaml
+import logging
+
+# CONFIGURATION
+LOGGING_FILE = "yaml_generator/generator.log"
+CONFIG_PATH = "yaml_generator/fancoil_vars.yaml"
+
+# Templates (input)
+CLIMATE_TEMPLATE_PATH = "yaml_generator/templates/fancoil_climate.j2"
+AUTOMATION_TEMPLATE_PATH = "yaml_generator/templates/fancoil_automation.j2"
+SENSORS_TEMPLATE_PATH = "yaml_generator/templates/fancoil_sensors.j2"
+BINARY_SENSORS_TEMPLATE_PATH = "yaml_generator/templates/fancoil_binary_sensors.j2"
+ROOM_INPUT_BOOLEAN_TEMPLATE_PATH = (
+    "yaml_generator/templates/fancoil_room_input_booleans.j2"
+)
+MASTER_INPUT_BOOLEAN_TEMPLATE_PATH = (
+    "yaml_generator/templates/fancoil_master_input_booleans.j2"
+)
+ROOM_INPUT_SELECT_TEMPLATE_PATH = (
+    "yaml_generator/templates/fancoil_room_input_selects.j2"
+)
+ROOM_INPUT_NUMBER_TEMPLATE_PATH = (
+    "yaml_generator/templates/fancoil_room_input_numbers.j2"
+)
+MASTER_INPUT_SELECT_TEMPLATE_PATH = (
+    "yaml_generator/templates/fancoil_master_input_selects.j2"
+)
+MASTER_INPUT_NUMBER_TEMPLATE_PATH = (
+    "yaml_generator/templates/fancoil_master_input_numbers.j2"
+)
+MASTER_CLIMATE_TEMPLATE_PATH = "yaml_generator/templates/fancoil_master_climate.j2"
+
+# Outputs (generated)
+CLIMATE_OUTPUT_DIR = "yaml_generator/generated_climates"
+AUTOMATION_OUTPUT_DIR = "automations/fancoil_generated_automations"
+SENSORS_OUTPUT_DIR = "yaml_generator/managed_sensors"
+BINARY_SENSORS_OUTPUT_DIR = "yaml_generator/managed_binary_sensors"
+PERSISTENCE_OUTPUT_DIR = "yaml_generator/managed_persistence"
+INPUT_BOOLEAN_OUTPUT_FILE = "yaml_generator/input_boolean/generated_input_booleans.yaml"
+INPUT_SELECT_OUTPUT_FILE = "yaml_generator/input_select/generated_input_selects.yaml"
+INPUT_NUMBER_OUTPUT_FILE = "yaml_generator/input_number/generated_input_numbers.yaml"
+MASTER_CLIMATE_OUTPUT_FILE = (
+    "yaml_generator/generated_climates/generated_master_climate.yaml"
+)
+DASHBOARD_OUTPUT_FILE = "ui/riscaldamento.yaml"
+
+
+# Setup logging
+os.makedirs(os.path.dirname(LOGGING_FILE), exist_ok=True)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger(__name__)
+file_handler = logging.FileHandler(LOGGING_FILE)
+file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s: %(message)s"))
+logger.addHandler(file_handler)
+
+
+def ensure_dir(path: str):
+    """Ensure the directory for the given file or directory path exists."""
+    if os.path.splitext(path)[1]:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+    else:
+        os.makedirs(path, exist_ok=True)
+
+
+def load_fancoil_vars(config_path):
+    """Load room variables from YAML."""
+    logger.info(f"Loading vars from {config_path}")
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f) or {}
+    except Exception as e:
+        logger.error(f"Error loading YAML config: {e}")
+        raise
+
+    if not isinstance(config, dict):
+        raise ValueError("Top-level YAML must be a mapping")
+
+    if "fancoil_vars" in config and isinstance(config["fancoil_vars"], dict):
+        vars_map = config["fancoil_vars"]
+    else:
+        vars_map = config
+
+    for k, v in vars_map.items():
+        if not isinstance(v, dict):
+            raise ValueError(f"Item '{k}' must be a mapping, got {type(v)}")
+
+    logger.info(f"Loaded fancoil_vars data: {vars_map}")
+    logger.info("Successfully loaded vars")
+    return vars_map
+
+
+def substitute_tags(template_text: str, context: dict) -> str:
+    """Replace every %%key%% with its context value. Signals error if spaces are found."""
+    def replace_match(match):
+        raw_tag = match.group(0)
+        inner = match.group(1)
+        key = inner.strip()
+        
+        if inner != key:
+            logger.error(f"Malformed tag found with spaces: '{raw_tag}'. "
+                         f"Spaces are NOT allowed inside %%. Use %%{key}%%")
+        
+        if key in context:
+            return str(context[key])
+        return raw_tag
+
+    # Regex matching %%any_content%%
+    return re.sub(r"%%(.*?)%%", replace_match, template_text)
+
+
+def resolve_output_name(context: dict, default_key: str, suffix: str) -> str:
+    """Use context['filename'] as base name; otherwise default_key. Append suffix and '.yaml'."""
+    raw = str(context.get("filename", default_key)).strip()
+    raw = os.path.basename(raw)
+    base, _ext = os.path.splitext(raw)
+    if not base:
+        base = default_key
+    base = re.sub(r"[^A-Za-z0-9_.-]+", "_", base)
+    return f"{base}{suffix}.yaml"
+
+
+def read_template(path: str) -> str:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    except UnicodeDecodeError:
+        # Try with latin-1 if utf-8 fails
+        try:
+            with open(path, "r", encoding="latin-1") as f:
+                return f.read()
+        except Exception as e:
+            logger.error(f"Error reading template file {path}: {e}")
+            raise
+    except Exception as e:
+        logger.error(f"Error reading template file {path}: {e}")
+        raise
+
+
+def clean_yaml_content(text: str) -> str:
+    """Remove leading spaces from each line and trim trailing whitespace."""
+    lines = text.split("\n")
+    cleaned_lines = []
+    for line in lines:
+        # Remove trailing whitespace
+        line = line.rstrip()
+        # Don't remove all leading spaces - preserve YAML indentation
+        # Just ensure no extra spaces before the YAML structure
+        if line and not line.startswith(" "):
+            # This is a top-level line, ensure it starts at column 0
+            line = line.lstrip()
+        cleaned_lines.append(line)
+    return "\n".join(cleaned_lines)
+
+
+def write_text_file(path: str, text: str):
+    ensure_dir(path)
+    try:
+        # Clean the content before writing
+        cleaned_text = clean_yaml_content(text)
+        with open(path, "w", encoding="utf-8", newline="\n") as of:
+            of.write(cleaned_text)
+        logger.info(f"Wrote {path}")
+    except Exception as e:
+        logger.error(f"Failed to write {path}: {e}")
+        raise
+
+
+def append_text_file(path: str, text: str):
+    ensure_dir(path)
+    try:
+        # Clean the content before appending
+        cleaned_text = clean_yaml_content(text)
+        with open(path, "a", encoding="utf-8", newline="\n") as of:
+            of.write(cleaned_text)
+        logger.info(f"Appended to {path}")
+    except Exception as e:
+        logger.error(f"Failed appending {path}: {e}")
+        raise
+
+
+def generate_from_template(template_path, output_dir, vars_map, suffix):
+    logger.info(f"Generating files from template: {template_path}")
+    template_text = read_template(template_path)
+    ensure_dir(output_dir)
+    for key, context in vars_map.items():
+        rendered = substitute_tags(template_text, context).strip() + "\n"
+        out_name = resolve_output_name(context, key, suffix)
+        out_path = os.path.join(output_dir, out_name)
+        write_text_file(out_path, rendered)
+
+
+def generate_aggregated(template_path, output_file, vars_map):
+    logger.info(f"Generating aggregated from {template_path} -> {output_file}")
+    template_text = read_template(template_path)
+    pieces = []
+    for _, context in vars_map.items():
+        pieces.append(substitute_tags(template_text, context).strip())
+    result = "\n".join(pieces).strip() + "\n"
+    write_text_file(output_file, result)
+
+
+def build_master_context(vars_map):
+    """Build dynamic context for master climate."""
+    sensors_exprs = [
+        f"states('sensor.stox_fancoil_{ctx['id']}') | float(0)"
+        for ctx in vars_map.values()
+    ]
+    sensors_list = ", ".join(sensors_exprs) if sensors_exprs else ""
+
+    # Build rooms array for master climate
+    rooms_array = []
+    climate_entities_list = []
+    room_sensor_ids = []  # <-- NEW
+    for ctx in vars_map.values():
+        room_id = ctx["id"]
+        rooms_array.append(
+            f"{{'id': '{room_id}', "
+            f"'climate': 'climate.controllo_temperatura_{room_id}', "
+            f"'follow': 'input_boolean.fancoil_{room_id}_hvac_mode_follow_master'}}"
+        )
+        climate_entities_list.append(f"'climate.controllo_temperatura_{room_id}'")
+        room_sensor_ids.append(f"'sensor.stox_fancoil_{room_id}'")  # <-- NEW
+
+    rooms_array_str = "[" + ", ".join(rooms_array) + "]"
+    climate_entities_list_str = "[" + ", ".join(climate_entities_list) + "]"
+    room_sensors_list_str = "[" + ", ".join(room_sensor_ids) + "]"  # <-- NEW
+
+    return {
+        "sensors_list": sensors_list,
+        "rooms_array": rooms_array_str,
+        "climate_entities_list": climate_entities_list_str,
+        "room_sensors_list": room_sensors_list_str,  # <-- NEW
+    }
+
+
+def generate_master_and_rooms(
+    master_template_path, room_template_path, output_file, vars_map, extra_context=None
+):
+    """Write master block then append every room block."""
+    logger.info(f"Generating combined master+rooms -> {output_file}")
+    master_text = read_template(master_template_path)
+    if extra_context:
+        master_rendered = substitute_tags(master_text, extra_context).strip()
+    else:
+        master_rendered = master_text.strip()
+    write_text_file(output_file, master_rendered + "\n")
+
+    room_text = read_template(room_template_path)
+    for _, context in vars_map.items():
+        append_text_file(
+            output_file, substitute_tags(room_text, context).strip() + "\n"
+        )
+
+
+# ------------------------ DASHBOARD GENERATION ------------------------
+def generate_dashboard(vars_map):
+    """Generates the full dashboard YAML."""
+    logger.info("Generating dashboard")
+    
+    main_tpl = read_template("yaml_generator/templates/dashboard_main.j2")
+    termostati_tpl = read_template("yaml_generator/templates/dashboard_termostati_card.j2")
+    impostazioni_tpl = read_template("yaml_generator/templates/dashboard_impostazioni_card.j2")
+
+    termostati_cards = []
+    impostazioni_cards = []
+
+    for _, context in vars_map.items():
+        # Ensure friendly_name is available
+        local_ctx = dict(context)
+        if "friendly_name" not in local_ctx:
+            local_ctx["friendly_name"] = local_ctx.get("id", "").replace("_", " ").title()
+
+        termostati_cards.append(substitute_tags(termostati_tpl, local_ctx))
+        impostazioni_cards.append(substitute_tags(impostazioni_tpl, local_ctx))
+
+    # Join the cards with the correct indentation
+    termostati_section = "\n".join(termostati_cards)
+    impostazioni_section = "\n".join(impostazioni_cards)
+    
+    # Substitute the placeholders in the main template
+    final_dashboard = main_tpl.replace("%%TERMOSTATI_CARDS%%", termostati_section)
+    final_dashboard = final_dashboard.replace("%%IMPOSTAZIONI_CARDS%%", impostazioni_section)
+
+    write_text_file(DASHBOARD_OUTPUT_FILE, final_dashboard)
+    logger.info(f"Dashboard written to {DASHBOARD_OUTPUT_FILE}")
+
+
+def main():
+    logger.info("Generate fancoil files started")
+    vars_map = load_fancoil_vars(CONFIG_PATH)
+
+    # Per-room climate
+    generate_from_template(CLIMATE_TEMPLATE_PATH, CLIMATE_OUTPUT_DIR, vars_map, "")
+
+    # Per-room automations
+    generate_from_template(
+        AUTOMATION_TEMPLATE_PATH, AUTOMATION_OUTPUT_DIR, vars_map, "_automation"
+    )
+
+    # Per-room sensors (NEW)
+    generate_from_template(
+        SENSORS_TEMPLATE_PATH, SENSORS_OUTPUT_DIR, vars_map, "_sensors"
+    )
+
+    # Per-room binary sensors (NEW)
+    generate_from_template(
+        BINARY_SENSORS_TEMPLATE_PATH,
+        BINARY_SENSORS_OUTPUT_DIR,
+        vars_map,
+        "_binary_sensors",
+    )
+
+    # Aggregated helpers
+    generate_master_and_rooms(
+        MASTER_INPUT_BOOLEAN_TEMPLATE_PATH,
+        ROOM_INPUT_BOOLEAN_TEMPLATE_PATH,
+        INPUT_BOOLEAN_OUTPUT_FILE,
+        vars_map,
+        extra_context=None,
+    )
+    generate_master_and_rooms(
+        MASTER_INPUT_SELECT_TEMPLATE_PATH,
+        ROOM_INPUT_SELECT_TEMPLATE_PATH,
+        INPUT_SELECT_OUTPUT_FILE,
+        vars_map,
+        extra_context=None,
+    )
+    generate_master_and_rooms(
+        MASTER_INPUT_NUMBER_TEMPLATE_PATH,
+        ROOM_INPUT_NUMBER_TEMPLATE_PATH,
+        INPUT_NUMBER_OUTPUT_FILE,
+        vars_map,
+        extra_context=None,
+    )
+
+    # Master climate (single file)
+    master_ctx = build_master_context(vars_map)
+    master_template = read_template(MASTER_CLIMATE_TEMPLATE_PATH)
+    write_text_file(
+        MASTER_CLIMATE_OUTPUT_FILE,
+        substitute_tags(master_template, master_ctx).strip() + "\n",
+    )
+
+    # Per-room persistence sensors (NEW)
+    generate_from_template(
+        "yaml_generator/templates/fancoil_persistence.j2",
+        PERSISTENCE_OUTPUT_DIR,
+        vars_map,
+        "_persistence",
+    )
+
+    # Generate master include file for Home Assistant
+    master_lines = [
+        "- sensor: !include_dir_merge_list managed_sensors/",
+        "- binary_sensor: !include_dir_merge_list managed_binary_sensors/",
+        "- !include ev_charge_2025_triggers.yaml",
+        "- !include luce_scale_template.yaml"
+    ]
+    for key in vars_map.keys():
+        master_lines.append(f"- !include managed_persistence/{key}_persistence.yaml")
+    
+    write_text_file("yaml_generator/fancoil_templates_master.yaml", "\n".join(master_lines))
+
+    # New dashboard generation
+    generate_dashboard(vars_map)
+
+    logger.info("Generate fancoil files terminated")
+
+
+if __name__ == "__main__":
+    main()
+
+
+# --- File: ./fancoil_vars.yaml ---
+fancoil_vars:
+  cucina:
+    id: cucina
+    friendly_name: Cucina
+    filename: cucina
+    unique_id: cucina
+  camera_grande:
+    id: camera_grande
+    friendly_name: Camera grande
+    filename: camera_grande
+    unique_id: camera_grande
+  camera:
+    id: camera
+    friendly_name: Camera
+    filename: camera
+    unique_id: camera
+  corridoio:
+    id: corridoio
+    friendly_name: Corridoio
+    filename: corridoio
+    unique_id: corridoio
+  bagno:
+    id: bagno
+    friendly_name: Bagno
+    filename: bagno
+    unique_id: bagno
+  sala:
+    id: sala
+    friendly_name: Sala
+    filename: sala
+    unique_id: sala
+# NO_NEWLINE_AT_EOF
+
+
+# --- File: ../configuration.yaml ---
+# ============================================================================
+# HOME ASSISTANT CONFIGURATION
+# Versione: 2025.12
+# Ultimo aggiornamento: 2025-12-06
+# ============================================================================
+
+# Core Configuration
+default_config:
+
+# Frontend
+frontend:
+  themes: !include_dir_merge_named themes
+  extra_module_url:
+    - /hacsfiles/lovelace-card-mod/card-mod.js
+    #- /local/cronostar_card/cronostar-card.js
+# Automation & Scripts
+automation: !include_dir_merge_list automations
+script: !include_dir_merge_named yaml_generator/scripts
+shell_command: !include_dir_merge_named yaml_generator/shell_command/
+
+# Media
+ffmpeg:
+stream:
+
+# ============================================================================
+# HOMEASSISTANT CORE
+# ============================================================================
+homeassistant:
+  customize: !include customize.yaml
+  #allowlist_external_dirs:
+  #  - /config/cronostar
+  #  - /config/www/cronostar_profiles
+  packages: !include_dir_named packages
+
+# ============================================================================
+# TEMPLATE ENTITIES (CONSOLIDATO)
+# ============================================================================
+template: !include yaml_generator/fancoil_templates_master.yaml
+
+# ============================================================================
+# CLIMATE
+# ============================================================================
+climate: !include_dir_merge_list yaml_generator/generated_climates/
+
+# ============================================================================
+# SENSORS (PLATFORM)
+# ============================================================================
+sensor:
+  # Reboot Service
+  - platform: reboot_service
+
+  # Statistics Sensors
+  - platform: statistics
+    name: statistics_temperatura_bagno_variance
+    state_characteristic: variance
+    entity_id: sensor.temperatura_bagno
+    unique_id: sensor.temperatura_bagno_variance
+    max_age:
+      minutes: 4
+
+  - platform: statistics
+    name: statistics_temperatura_cucina_variance
+    state_characteristic: variance
+    entity_id: sensor.th1a_temperature
+    unique_id: sensor.temperatura_cucina_variance
+    max_age:
+      minutes: 2
+
+  - platform: statistics
+    name: statistics_temperatura_camera_grande_variance
+    state_characteristic: variance
+    entity_id: sensor.temperatura_camera_grande
+    unique_id: sensor.temperatura_camera_grande_variance
+    max_age:
+      minutes: 4
+
+  - platform: statistics
+    name: statistics_temperatura_camera_variance
+    state_characteristic: variance
+    entity_id: sensor.temperatura_camera
+    unique_id: sensor.temperatura_camera_variance
+    max_age:
+      minutes: 4
+
+  - platform: statistics
+    name: statistics_temperatura_sala_variance
+    state_characteristic: variance
+    entity_id: sensor.temperatura_sala
+    unique_id: sensor.temperatura_sala_variance
+    max_age:
+      minutes: 4
+
+  # InfluxDB
+  - platform: influxdb
+    api_version: 2
+    token: !secret influxdb_token
+    organization: ViaGrande50
+    bucket: HAData
+    ssl: false
+    host: homeassistant.local
+    port: 8086
+    queries_flux:
+      - range_start: "-10d"
+        name: "How long have I been here"
+        query: >
+          filter(fn: (r) => r["_measurement"] == "climate.camera_grande" )
+          |> filter(fn: (r) => r["_field"] == "current_temperature")
+
+# ============================================================================
+# BINARY SENSORS
+# ============================================================================
+#binary_sensor:
+#  - platform: template
+#    sensors:
+#
+#  - platform: ffmpeg_motion
+#    name: DroidCam Motion
+#    input: http://192.168.0.212:4747/video
+#    changes: 10
+#    reset: 5
+#
+#  - platform: reboot_service
+
+# ============================================================================
+# SQL SENSORS
+# ============================================================================
+sql: !include_dir_merge_list sql_sensors/
+
+# ============================================================================
+# INPUT HELPERS
+# ============================================================================
+input_boolean: !include_dir_merge_named yaml_generator/input_boolean
+input_button: !include_dir_merge_named yaml_generator/input_buttons
+input_select: !include_dir_merge_named yaml_generator/input_select
+input_number: !include_dir_merge_named yaml_generator/input_number
+input_text: !include_dir_merge_named yaml_generator/input_text
+input_datetime: !include_dir_merge_named yaml_generator/input_datetime
+
+timer:
+  delay_esecuzione_corto:
+    duration: "00:01:00"
+  delay_esecuzione_lungo:
+    duration: "00:10:00"
+
+counter:
+  reboot_router:
+    name: Reboot Router Counter
+    initial: 0
+    step: 1
+    icon: mdi:counter
+    restore: false
+
+# ============================================================================
+# VOICE & CONVERSATION
+# ============================================================================
+python_script:
+
+logger:
+  default: info
+  logs:
+    #homeassistant.components.shell_command: debug
+    #homeassistant.components.python_script: debug
+    #homeassistant.components.script: info
+    custom_components.cronostar: debug
+    custom_components.azure_openai_sdk_conversation: error
+    homeassistant.core: error
+    homeassistant.components: error
+    homeassistant.bootstrap: error
+    homeassistant.loader: error
+    esphome: error
+    homeassistant.helpers.script: warning
+    #custom_components.sinapsi_alfa: debug
+    #homeassistant.components.http: debug
+    #homeassistant.components.frontend: debug
+    #homeassistant.components.automation: debug
+# ============================================================================
+# LOGBOOK & RECORDER
+# ============================================================================
+logbook:
+  include:
+    entities:
+      - light.luce_scale_switch
+
+recorder:
+  exclude:
+    entities:
+      - automation.fancoil_bagno_fanmode_dinamica
+      - automation.fancoil_camera_grande_fanmode_dinamica
+      - automation.fancoil_cucina_fanmode_dinamica_2
+      - automation.fancoil_corridoio_fanmode_dinamica
+      - automation.fancoil_sala_fanmode_dinamica
+      - automation.fancoil_camera_fanmode_dinamica
+      - sensor.lavastoviglie_wifi_digital_meter_lavastoviglie_voltaggio
+    entity_globs:
+      - automation.fancoil_*sincronizza_switch_principale
+      - sensor.watchman_*
+      - sensor.statistics_*variance
+      - sensor.*_voltaggio
+      - sensor.*_voltage
+
+# ============================================================================
+# INFLUXDB
+# ============================================================================
+influxdb:
+  api_version: 2
+  ssl: false
+  host: homeassistant.local
+  port: 8086
+  token: !secret influxdb_token
+  organization: ViaGrande50
+  max_retries: 3
+  bucket: HAData
+  include:
+    domains:
+      - sensor
+  tags_attributes:
+    - area
+
+# ============================================================================
+# LOVELACE
+# ============================================================================
+lovelace:
+  mode: yaml
+  resources:
+    #    - url: /local/cronostar_card/cronostar-card.js?v=3.10.5
+    #      type: module
+    - url: /local/power-wheel-card.js?v=2
+      type: module
+    - url: /hacsfiles/mini-graph-card/mini-graph-card-bundle.js
+      type: module
+    - url: /local/uptime-card.ko.js
+      type: module
+    #- url: /local/apexcharts-card/apexcharts-card.js
+    #  type: module
+    - url: /hacsfiles/power-flow-card-plus/power-flow-card-plus.js
+      type: module
+    - url: /hacsfiles/scheduler-card/scheduler-card.js
+      type: module
+    - url: /hacsfiles/ha-sankey-chart/ha-sankey-chart.js
+      type: module
+    - url: /hacsfiles/charger-card/charger-card.js
+      type: module
+    - url: /hacsfiles/lovelace-mushroom/mushroom.js
+      type: module
+    - url: /hacsfiles/numberbox-card/numberbox-card.js
+      type: module
+  dashboards:
+    ev-charging:
+      mode: yaml
+      title: EV Charging
+      icon: mdi:ev-station
+      show_in_sidebar: true
+      filename: ui/charge_control.yaml
+    ev-charging-1:
+      mode: yaml
+      title: EV Charging new
+      icon: mdi:ev-station
+      show_in_sidebar: true
+      filename: ui/charge_control_new.yaml
+    ev-charging-2:
+      mode: yaml
+      title: EV Charging claude
+      icon: mdi:ev-station
+      show_in_sidebar: true
+      filename: ui/charge_control_claude.yaml
+    ev-charging-3:
+      mode: yaml
+      title: EV Charging 2025
+      icon: mdi:ev-station
+      show_in_sidebar: true
+      filename: ui/ev_charge_control_2025.yaml
+    riscaldamento-2026:
+      mode: yaml
+      title: Riscaldamento 2026 bbb
+      icon: mdi:hvac
+      show_in_sidebar: true
+      filename: ui/riscaldamento_2026.yaml
+    riscaldamento-1:
+      mode: yaml
+      title: Riscaldamento aaa
+      icon: mdi:hvac
+      show_in_sidebar: true
+      filename: ui/riscaldamento.yaml
+
+# ============================================================================
+# SCENES
+# ============================================================================
+scene: !include scenes.yaml
+
+# ============================================================================
+# PYSCRIPT
+# ============================================================================
+pyscript:
+  allow_all_imports: true
+  hass_is_global: true
+  config: pyscript.toml
+
+# ============================================================================
+# SAVER
+# ============================================================================
+
+# ============================================================================
+# HTTP & NETWORKING
+# ============================================================================
+http:
+  use_x_forwarded_for: true
+  cors_allowed_origins:
+    - https://folini.duckdns.org:9443
+    - https://home.vialeformica.org:9443
+    - https://google.com
+    - https://www.home-assistant.io
+  trusted_proxies:
+    - ::1
+    - 172.30.33.0/24
+    - 192.168.0.0/24
+  ip_ban_enabled: false
+
+duckdns:
+  domain: !secret duckdns_domain
+  access_token: !secret duckdns_token
+
+namecheapdns:
+  host: home
+  domain: vialeformica.org
+  password: !secret namecheap_password
+
+# ============================================================================
+# KNX INTEGRATION
+# ============================================================================
+mqtt: !include mqtt_config.yaml
+
+# ============================================================================
+# MODBUS INTEGRATION
+# ============================================================================
+# modbus: !include modbus_config.yaml
+
+# ============================================================================
+# SCHEDULER
+# ============================================================================
+reboot_service:
+  password: !secret KuWfiAdmin
+  server: "192.168.0.11"
+  port: 88
+  wifi_profiles:
+    - ssid: "wifi domotica"
+      password: !secret wifi_domotica_pass
+      bssid: "c2:9d:1d:65:f0:f6"
+    - ssid: "Redmi Note 13 Pro 5G"
+      password: !secret redmi13pro_pass
+      bssid: "9a:ea:f5:55:6a:ef"
+
+# ============================================================================
+# AZURE OPENAI
+# ============================================================================
+azure_openai_sdk_conversation:
+  stats_enable: true
+
+# ============================================================================
+# API
+# ============================================================================
+api:
+
+
+# --- File: ../pyscript/fancoil_events_write.py ---
+# Pyscript service for logging and state persistence
+import os
+import json
+from datetime import datetime
+
+LOG_DIR = "/config/logs/fancoil_events"
+LOG_FILE = f"{LOG_DIR}/fancoil_events.log"
+STATE_FILE = f"{LOG_DIR}/fancoil_states.json"
+
+def sync_archive_log():
+    try:
+        if os.path.exists(LOG_FILE):
+            mtime = datetime.fromtimestamp(os.path.getmtime(LOG_FILE))
+            ts_str = mtime.strftime("%Y-%m-%d_%H%M%S")
+            new_name = f"{LOG_DIR}/fancoil_events_{ts_str}.log"
+            os.rename(LOG_FILE, new_name)
+    except Exception as e:
+        print(f"Archive error: {e}")
+
+def sync_write_log(line):
+    try:
+        if not os.path.exists(LOG_DIR):
+            os.makedirs(LOG_DIR)
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(line)
+    except Exception as e:
+        print(f"Write log error: {e}")
+
+def sync_save_state(entity_id, value):
+    try:
+        if not os.path.exists(LOG_DIR):
+            os.makedirs(LOG_DIR)
+        states_data = {}
+        if os.path.exists(STATE_FILE):
+            with open(STATE_FILE, "r", encoding="utf-8") as f:
+                states_data = json.load(f)
+        states_data[entity_id] = value
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(states_data, f, indent=4)
+    except Exception as e:
+        print(f"Save state error: {e}")
+
+def sync_read_states():
+    try:
+        if os.path.exists(STATE_FILE):
+            with open(STATE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"Read states error: {e}")
+    return {{}}
+
+@service
+def fancoil_events_write(message="", level="INFO"):
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line = f"{ts} [{level}] {message}\n"
+    task.executor(sync_write_log, line)
+
+@service
+def fancoil_state_save(entity_id=None, value=None):
+    if not entity_id: return
+    task.executor(sync_save_state, entity_id, value)
+
+@service
+def fancoil_states_restore():
+    states_data = task.executor(sync_read_states)
+    if not states_data: return
+    for entity_id, value in states_data.items():
+        domain = entity_id.split(".")[0]
+        try:
+            if domain == "input_number":
+                input_number.set_value(entity_id=entity_id, value=float(value))
+            elif domain == "input_boolean":
+                if value in ["on", "True", True]:
+                    input_boolean.turn_on(entity_id=entity_id)
+                else:
+                    input_boolean.turn_off(entity_id=entity_id)
+        except Exception: pass
+    fancoil_events_write("Ripristino stati da file completato", "SYSTEM")
+
+# Trigger di inizializzazione nativo di Pyscript
+@time_trigger("startup")
+def startup_logic():
+    task.executor(sync_archive_log)
+    fancoil_events_write("=== Home Assistant / Pyscript started (New Log Session) ===", "SYSTEM")
+
+
+# --- File: ./templates/fancoil_automation.j2 ---
+# Template: /usr/share/hassio/homeassistant/yaml_generator/templates/fancoil_automation.j2
+# MODIFIED for HA 2025.10 syntax, template sensors, and preserved comments
+- id: "fancoil_%%id%%_fanmode_dynamics"
+  alias: "Fancoil %%friendly_name%% fanmode dinamica"
+  mode: restart
+  description: >-
+    Regola la velocità ventola del fan-coil %%friendly_name%% in base alla distanza dal setpoint e alla modalità caldo/freddo.
+  triggers:
+    - trigger: state
+      entity_id:
+        - climate.controllo_temperatura_%%id%%
+        - sensor.fancoil_%%id%%_hvac_temp_mode
+        - sensor.fancoil_%%id%%_temperature_difference
+        - binary_sensor.fancoil_%%id%%_stop_condition
+        - binary_sensor.pdc_acqua_calda
+        - input_number.master_setpoint_heat
+        - input_number.master_setpoint_cool
+        - input_boolean.fancoil_%%id%%_sp_follow_master
+        - input_number.fancoil_%%id%%_sp_offset
+        - input_number.fan_distance_stop
+        - input_number.fan_distance_high
+        - input_number.fan_distance_medium
+        - input_number.fan_distance_low
+        - input_number.fan_distance_idle
+        - input_number.fan_distance_resume
+        - input_number.fancoil_resume_delay_minutes
+        - input_datetime.fancoil_%%id%%_last_main_off
+      for: "00:00:05"
+    - trigger: time_pattern
+      minutes: "/10"
+    - trigger: homeassistant
+      event: start
+  conditions:
+    - condition: state
+      entity_id: input_boolean.fancoil_%%id%%_enabled
+      state: "on"
+  actions:
+    - if:
+        - condition: template
+          value_template: "{{ trigger.platform == 'homeassistant' or (trigger.event is defined and trigger.event == 'start') }}"
+      then:
+        - wait_template: >-
+            {{ states('input_select.fancoil_system_hvac_mode') not in ['unknown', 'unavailable', None] and
+               states('input_number.master_setpoint_heat') not in ['unknown', 'unavailable', None] }}
+          timeout: "00:00:30"
+    - variables:
+        verbosity_level: "{{ states('input_select.fancoil_verbosity_level_master') | default('info') }}"
+        raw_hvac_mode: "{{ states('sensor.fancoil_%%id%%_hvac_temp_mode') }}"
+        hvac_temp_mode: "{{ raw_hvac_mode if raw_hvac_mode in ['heat', 'cool', 'dry', 'fan_only', 'off'] else 'off' }}"
+        diff: "{{ states('sensor.fancoil_%%id%%_temperature_difference') | float(0) }}"
+        stop_condition: "{{ is_state('binary_sensor.fancoil_%%id%%_stop_condition', 'on') }}"
+        soglia_high: "{{ states('input_number.fan_distance_high') | float(3) }}"
+        soglia_medium: "{{ states('input_number.fan_distance_medium') | float(2) }}"
+        soglia_low: "{{ states('input_number.fan_distance_low') | float(1) }}"
+        soglia_idle: "{{ states('input_number.fan_distance_idle') | float(0.3) }}"
+        soglia_stop: "{{ states('input_number.fan_distance_stop') | float(-1) }}"
+        # Isteresi di ripartenza (ampiezza) e ritardo minimo (temporale)
+        soglia_resume: "{{ states('input_number.fan_distance_resume') | float(0.5) }}"
+        resume_delay_minutes: "{{ states('input_number.fancoil_resume_delay_minutes') | float(3) }}"
+        # Stato hardware attuale delle velocità
+        fan_attuale_hw: >-
+          {% set s1 = is_state('switch.fancoil_%%id%%_switch_1','on') %}
+          {% set s2 = is_state('switch.fancoil_%%id%%_switch_2','on') %}
+          {% set s3 = is_state('switch.fancoil_%%id%%_switch_3','on') %}
+          {% set s4 = is_state('switch.fancoil_%%id%%_switch_4','on') %}
+          {% if (not s1 and not s2 and not s3 and not s4) %} off
+          {% elif (not s1 and not s2 and not s3 and s4) %} idle
+          {% elif (s1 and not s2 and not s3 and s4) %} low
+          {% elif (not s1 and s2 and not s3 and s4) %} medium
+          {% elif (not s1 and not s2 and s3 and s4) %} high
+          {% else %} unknown
+          {% endif %}
+        # Determinazione velocità target (include STOP)
+        fan_target: >-
+          {% if hvac_temp_mode == 'off' %}
+            off
+          {% elif is_state('binary_sensor.pdc_acqua_calda', 'on') %}
+            idle
+          {% elif stop_condition %}
+            off
+          {% elif diff >= soglia_high %}
+            high
+          {% elif diff >= soglia_medium %}
+            medium
+          {% elif diff >= soglia_low %}
+            low
+          {% elif diff >= soglia_idle %}
+            idle
+          {% else %}
+            idle
+          {% endif %}
+        # Stati attuali climate e main
+        hvac_attuale: "{{ states('climate.controllo_temperatura_%%id%%') | default('off') }}"
+        main_on: "{{ is_state('switch.stox_fancoil_%%id%%_switch','on') }}"
+        # Disponibilità hardware: procediamo se lo stox o la valvola rispondono
+        main_available: >-
+          {% set stox = states('switch.stox_fancoil_%%id%%_switch') %}
+          {% set vlv = states('switch.fancoil_%%id%%_switch_4') %}
+          {{ stox not in ['unavailable','unknown'] or vlv not in ['unavailable','unknown'] }}
+        # Disponibilità climate: esclude STOP e main OFF
+        hvac_unavail: >-
+          {% if stop_condition %}
+            false
+          {% elif not main_on %}
+            false
+          {% else %}
+            {% set sens = states('sensor.stox_fancoil_%%id%%') %}
+            {{ sens in ['unavailable','unknown', None, ''] or hvac_attuale in ['unavailable','unknown', None, ''] }}
+          {% endif %}
+        # Prima esecuzione dopo avvio/caricamento: last_triggered assente
+        first_run: >-
+          {{ this.attributes.last_triggered is none
+              or (trigger.platform == 'homeassistant' and trigger.event == 'start') }}
+        # Isteresi temporale per la ripartenza: minuti trascorsi dall'ultimo STOP main
+        minutes_since_off: >-
+          {% set ts = states('input_datetime.fancoil_%%id%%_last_main_off') %}
+          {{ ((as_timestamp(now()) - as_timestamp(ts)) / 60) | default(9999) | float(9999) if ts not in ['unavailable', 'unknown', '', None] and as_timestamp(ts) > 0 else 9999 }}
+        resume_allowed: "{{ diff >= soglia_resume and minutes_since_off >= resume_delay_minutes }}"
+        logging_active: >-
+          {% set follow = is_state('input_boolean.fancoil_%%id%%_logging_follow_master', 'on') %}
+          {% set master_on = is_state('input_boolean.fancoil_logging_master_enabled', 'on') %}
+          {% set local_on = is_state('input_boolean.fancoil_%%id%%_logging_enabled', 'on') %}
+          {{ (follow and master_on) or (not follow and local_on) }}
+    - if:
+        - condition: template
+          value_template: "{{ logging_active }}"
+      then:
+        - action: pyscript.fancoil_events_write
+          continue_on_error: true
+          data:
+            message: >
+              [%%friendly_name%%] State Dump: Trigger={{ trigger.to_state.entity_id if trigger.to_state is defined else 'periodic/manual' }}, Temp={{ states('sensor.fancoil_%%id%%_last_temperature') | float(0) | round(2) }}°C, Setpoint={{ state_attr('climate.controllo_temperatura_%%id%%', 'temperature') | float(21) | round(1) }}°C, Delta={{ diff | round(2) }}°C, Offset={{ states('input_number.fancoil_%%id%%_sp_offset') | float(0) }}°C, Target={{ fan_target }}, HvacMode={{ hvac_temp_mode }}, StopCond={{ stop_condition }}, Comm={{ states('sensor.fancoil_%%id%%_status_comunicazione') }}, T_Circ={{ states('sensor.temperatura_circuito_riscaldamento') | default('N/A') }}°C, Main={{ states('switch.stox_fancoil_%%id%%_switch') }}, Soglie=[S:{{ soglia_stop }}, I:{{ soglia_idle }}, L:{{ soglia_low }}, M:{{ soglia_medium }}, H:{{ soglia_high }}], SW=[{% for i in range(1,5) %}{% set s = states('switch.fancoil_%%id%%_switch_' ~ i) %}{{ '1' if s == 'on' else ('0' if s == 'off' else ('U' if s == 'unavailable' else ('?' if s == 'unknown' else 'N'))) }}{{ ',' if not loop.last }}{% endfor %}]
+            level: "INFO"
+    # Log di debug (solo verbose) esclusi quando climate è OFF o main è OFF o climate non disponibile
+    - if:
+        - condition: template
+          value_template: "{{ verbosity_level in ['verbose'] and hvac_temp_mode != 'off' and main_on and hvac_attuale not in ['unavailable','unknown'] }}"
+      then:
+        - action: persistent_notification.create
+          data:
+            title: "Fancoil %%friendly_name%% (debug)"
+            message: >-
+              Stato: hvac={{ hvac_attuale }}, temp={{ states('sensor.stox_fancoil_%%id%%') | float(0) }}°C, setpoint={{ state_attr('climate.controllo_temperatura_%%id%%', 'temperature') | float(21) }}°C,
+              calcolo_mode={{ hvac_temp_mode }}, diff={{ diff | round(2) }}°C,
+              fan_hw={{ fan_attuale_hw }}, fan_target={{ fan_target }}
+        - action: pyscript.fancoil_events_write
+          data:
+            message: "[%%friendly_name%%] DEBUG: hvac={{ hvac_attuale }}, temp={{ states('sensor.stox_fancoil_%%id%%') | float(0) }}°C, sp={{ state_attr('climate.controllo_temperatura_%%id%%', 'temperature') | float(21) }}°C, mode={{ hvac_temp_mode }}, diff={{ diff | round(2) }}°C, fan_hw={{ fan_attuale_hw }}, fan_target={{ fan_target }}"
+            level: "DEBUG"
+    # Verifica disponibilità climate
+    - if:
+        - condition: template
+          value_template: "{{ hvac_unavail }}"
+      then:
+        - if:
+            - condition: template
+              value_template: "{{ verbosity_level in ['error', 'info', 'verbose'] }}"
+          then:
+            - action: persistent_notification.create
+              data:
+                title: "Fancoil %%friendly_name%%"
+                message: "Climate non disponibile ({{ hvac_attuale }}). Automazione sospesa."
+            - action: pyscript.fancoil_events_write
+              data:
+                message: "[%%friendly_name%%] Climate UNAVAILABLE - stato={{ hvac_attuale }}, main_on={{ main_on }}"
+                level: "WARN"
+        - stop: "Climate unavailable"
+    # Inizializzazione prima esecuzione
+    - if:
+        - condition: template
+          value_template: "{{ first_run }}"
+      then:
+        - action: pyscript.fancoil_events_write
+          data:
+            message: >
+              [%%friendly_name%%] INITIALIZATION - Global Config: MasterMode={{ states('input_select.fancoil_system_hvac_mode') }}, MasterSP=[H:{{ states('input_number.master_setpoint_heat') }}, C:{{ states('input_number.master_setpoint_cool') }}], Soglie=[S:{{ soglia_stop }}, I:{{ soglia_idle }}, L:{{ soglia_low }}, M:{{ soglia_medium }}, H:{{ soglia_high }}], Verbosity={{ verbosity_level }}, MasterLog={{ states('input_boolean.fancoil_logging_master_enabled') }} | Local Config: Offset={{ states('input_number.fancoil_%%id%%_sp_offset') }}, FollowSP={{ is_state('input_boolean.fancoil_%%id%%_sp_follow_master', 'on') }}, FollowHVAC={{ is_state('input_boolean.fancoil_%%id%%_hvac_mode_follow_master', 'on') }}
+            level: "INFO"
+        # DEBUG: Log the value of hvac_temp_mode before using it
+        - action: persistent_notification.create
+          data:
+            title: "DEBUG FANCOIL (%%friendly_name%%) - First Run"
+            message: "Valore raw_hvac_mode: '{{ raw_hvac_mode }}'. Valore pulito hvac_temp_mode: '{{ hvac_temp_mode }}'. Azione: imposto hvac_mode a '{{ hvac_temp_mode if hvac_temp_mode != 'off' else 'heat' }}'"
+        - action: pyscript.fancoil_events_write
+          data:
+            message: "[%%friendly_name%%] DEBUG First Run: raw_hvac_mode='{{ raw_hvac_mode }}', hvac_temp_mode='{{ hvac_temp_mode }}'"
+            level: "INFO"
+        - action: climate.set_hvac_mode
+          target:
+            entity_id: climate.controllo_temperatura_%%id%%
+          data:
+            hvac_mode: "{{ hvac_temp_mode if hvac_temp_mode != 'off' else 'heat' }}"
+        - delay: "00:00:02"
+    # Gestione STOP: se la differenza è sotto soglia_stop spegni il fancoil (velocità+valvola) e termina
+    # Se PDC acqua calda è attiva, non spegnere tutto (la ventola sarà comunque idle via fan_target)
+    - if:
+        - condition: template
+          value_template: "{{ stop_condition and is_state('binary_sensor.pdc_acqua_calda', 'off') }}"
+      then:
+        # Esegui STOP solo se il fancoil è realmente attivo; in caso contrario evita log ripetuti
+        - if:
+            - condition: template
+              value_template: >-
+                {{ is_state('switch.fancoil_%%id%%_switch_1','on') or
+                   is_state('switch.fancoil_%%id%%_switch_2','on') or
+                   is_state('switch.fancoil_%%id%%_switch_3','on') or
+                   is_state('switch.fancoil_%%id%%_switch_4','on') }}
+          then:
+            - action: switch.turn_off
+              target:
+                entity_id:
+                  - switch.fancoil_%%id%%_switch_1
+                  - switch.fancoil_%%id%%_switch_2
+                  - switch.fancoil_%%id%%_switch_3
+                  - switch.fancoil_%%id%%_switch_4
+            - delay: "00:00:02"
+            # Memorizza timestamp STOP e logga su file SOLO quando si è effettuato lo spegnimento
+            - action: input_datetime.set_datetime
+              target:
+                entity_id: input_datetime.fancoil_%%id%%_last_main_off
+              data:
+                date: "{{ now().strftime('%Y-%m-%d') }}"
+                time: "{{ now().strftime('%H:%M:%S') }}"
+            - action: pyscript.fancoil_events_write
+              data:
+                message: "[%%friendly_name%%] STOP fancoil: diff={{ diff | round(2) }}°C ≤ {{ soglia_stop }}, mode={{ hvac_temp_mode }}"
+                level: "INFO"
+            - if:
+                - condition: template
+                  value_template: "{{ verbosity_level in ['verbose'] }}"
+              then:
+                - action: persistent_notification.create
+                  data:
+                    title: "Fancoil %%friendly_name%%"
+                    message: >-
+                      STOP attivo: diff={{ diff | round(2) }}°C ≤ {{ soglia_stop }},
+                      spengo switch velocità/valvola.
+                - action: pyscript.fancoil_events_write
+                  data:
+                    message: "[%%friendly_name%%] STOP attivo: diff={{ diff | round(2) }}°C ≤ {{ soglia_stop }}"
+                    level: "INFO"
+        - stop: "STOP threshold reached"
+    # Riaccendi il main (RESUME) solo se disponibile e con isteresi (bypass ritardo al primo avvio)
+    - if:
+        - condition: template
+          value_template: "{{ hvac_temp_mode != 'off' and not main_on and main_available and (first_run or resume_allowed) }}"
+      then:
+        - action: switch.turn_on
+          target:
+            entity_id: switch.stox_fancoil_%%id%%_switch
+        - delay: "00:00:07" # attesa per disponibilità degli switch 1/2/3/4
+        # Log di ripartenza e traccia timestamp
+        - action: input_datetime.set_datetime
+          target:
+            entity_id: input_datetime.fancoil_%%id%%_last_main_on
+          data:
+            date: "{{ now().strftime('%Y-%m-%d') }}"
+            time: "{{ now().strftime('%H:%M:%S') }}"
+        - action: pyscript.fancoil_events_write
+          data:
+            message: "[%%friendly_name%%] RESUME main: diff={{ diff | round(2) }}°C ≥ {{ soglia_resume }}, attesa={{ resume_delay_minutes }} min"
+            level: "INFO"
+    # Aggiornamento velocità ventola se necessario
+    - if:
+        - condition: template
+          value_template: "{{ fan_target != fan_attuale_hw and hvac_temp_mode != 'off' and main_available }}"
+      then:
+        - action: pyscript.fancoil_events_write
+          data:
+            message: "[%%friendly_name%%] Cambiamento velocità: {{ fan_attuale_hw }} -> {{ fan_target }} (Delta: {{ diff | round(2) }}°C)"
+            level: "INFO"
+        - action: climate.set_fan_mode
+          target:
+            entity_id: climate.controllo_temperatura_%%id%%
+          data:
+            fan_mode: "{{ fan_target }}"
+
+- id: "fancoil_%%id%%_master_off_handler"
+  alias: "Fancoil %%friendly_name%%: spegnimento quando master OFF"
+  mode: restart
+  triggers:
+    - trigger: state
+      entity_id: input_select.fancoil_system_hvac_mode
+      to: "off"
+  conditions:
+    - condition: state
+      entity_id: input_boolean.fancoil_%%id%%_hvac_mode_follow_master
+      state: "on"
+    - condition: not
+      conditions:
+        - condition: state
+          entity_id: climate.controllo_temperatura_%%id%%
+          state: "unavailable"
+  actions:
+    - action: climate.turn_off
+      target:
+        entity_id: climate.controllo_temperatura_%%id%%
+    - delay: "00:00:01"
+
+- id: "fancoil_%%id%%_unfollow_on_manual_setpoint"
+  alias: "Fancoil %%friendly_name%%: disattiva Follow su cambio setpoint manuale"
+  mode: single
+  triggers:
+    - trigger: state
+      entity_id: input_number.fancoil_%%id%%_setpoint
+  conditions:
+    - condition: state
+      entity_id: input_boolean.fancoil_%%id%%_sp_follow_master
+      state: "on"
+    - condition: template
+      value_template: "{{ trigger.to_state.context.user_id is not none }}"
+  actions:
+    - action: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.fancoil_%%id%%_sp_follow_master
+
+- id: "fancoil_%%id%%_allinea_master"
+  alias: "Fancoil %%friendly_name%%: allinea al master quando Follow Mode ON"
+  mode: restart
+  triggers:
+    - trigger: state
+      entity_id: input_boolean.fancoil_%%id%%_hvac_mode_follow_master
+      to: "on"
+    - trigger: state
+      entity_id: input_boolean.fancoil_%%id%%_sp_follow_master
+      to: "on"
+    - trigger: state
+      entity_id: input_select.fancoil_system_hvac_mode
+    - trigger: state
+      entity_id:
+        - input_number.master_setpoint_heat
+        - input_number.master_setpoint_cool
+        - input_number.fancoil_%%id%%_sp_offset
+    - trigger: homeassistant
+      event: start
+  conditions:
+    - condition: state
+      entity_id: input_boolean.fancoil_%%id%%_hvac_mode_follow_master
+      state: "on"
+  actions:
+    - if:
+        - condition: template
+          value_template: "{{ trigger.platform == 'homeassistant' or (trigger.event is defined and trigger.event == 'start') }}"
+      then:
+        - wait_template: >-
+            {{ states('input_select.fancoil_system_hvac_mode') not in ['unknown', 'unavailable', None] and
+               states('input_number.master_setpoint_heat') not in ['unknown', 'unavailable', None] }}
+          timeout: "00:00:30"
+    - variables:
+        master_hvac_mode: "{{ states('input_select.fancoil_system_hvac_mode') | default('off') }}"
+        room_state: "{{ states('climate.controllo_temperatura_%%id%%') | default('off') }}"
+    - if:
+        - condition: template
+          value_template: "{{ master_hvac_mode != room_state and room_state not in ['unavailable','unknown'] }}"
+      then:
+        - choose:
+            - conditions:
+                - condition: template
+                  value_template: "{{ master_hvac_mode == 'off' }}"
+              sequence:
+                - action: climate.turn_off
+                  target:
+                    entity_id: climate.controllo_temperatura_%%id%%
+            - conditions:
+                - condition: template
+                  value_template: "{{ master_hvac_mode != 'off' }}"
+              sequence:
+                - action: climate.set_hvac_mode
+                  target:
+                    entity_id: climate.controllo_temperatura_%%id%%
+                  data:
+                    hvac_mode: "{{ master_hvac_mode }}"
+    # Aggiorna setpoint se follow è attivo
+    - if:
+        - condition: state
+          entity_id: input_boolean.fancoil_%%id%%_sp_follow_master
+          state: "on"
+      then:
+        - variables:
+            sp_heat: "{{ states('input_number.master_setpoint_heat') | float(20) }}"
+            sp_cool: "{{ states('input_number.master_setpoint_cool') | float(26) }}"
+            offset: "{{ states('input_number.fancoil_%%id%%_sp_offset') | float(0) }}"
+            new_sp: >-
+              {% if master_hvac_mode == 'heat' %}
+                {{ (sp_heat + offset) | round(1) }}
+              {% elif master_hvac_mode == 'cool' %}
+                {{ (sp_cool + offset) | round(1) }}
+              {% else %}
+                {{ state_attr('climate.controllo_temperatura_%%id%%','temperature') | float(21) }}
+              {% endif %}
+        - action: climate.set_temperature
+          target:
+            entity_id: climate.controllo_temperatura_%%id%%
+          data:
+            temperature: "{{ new_sp }}"
+
+- id: "fancoil_%%id%%_state_save"
+  alias: "Fancoil %%friendly_name%%: Salva stati (Pyscript)"
+  mode: restart
+  triggers:
+    - trigger: state
+      entity_id:
+        - input_number.fancoil_%%id%%_sp_offset
+        - input_number.fancoil_%%id%%_setpoint
+        - input_boolean.fancoil_%%id%%_enabled
+        - input_boolean.fancoil_%%id%%_sp_follow_master
+        - input_boolean.fancoil_%%id%%_hvac_mode_follow_master
+  actions:
+    - delay: "00:00:02"
+    - action: pyscript.fancoil_state_save
+      continue_on_error: true
+      data:
+        entity_id: "{{ trigger.entity_id }}"
+        value: "{{ trigger.to_state.state }}"
+
+- id: "fancoil_%%id%%_state_restore"
+  alias: "Fancoil %%friendly_name%%: Ripristina stati (Pyscript)"
+  mode: single
+  triggers:
+    - trigger: homeassistant
+      event: start
+  actions:
+    - delay: "00:00:15"
+    - action: pyscript.fancoil_states_restore
+      continue_on_error: true
+
+- id: "fancoil_%%id%%_main_power_sync"
+  alias: "Fancoil %%friendly_name%%: sincronizza switch principale"
+  mode: restart
+  triggers:
+    - trigger: state
+      entity_id:
+        - switch.fancoil_%%id%%_switch_1
+        - switch.fancoil_%%id%%_switch_2
+        - switch.fancoil_%%id%%_switch_3
+        - switch.fancoil_%%id%%_switch_4
+    - trigger: time_pattern
+      minutes: "/30"
+  actions:
+    - variables:
+        stop_condition: "{{ is_state('binary_sensor.fancoil_%%id%%_stop_condition', 'on') }}"
+        any_speed_on: >-
+          {{ is_state('switch.fancoil_%%id%%_switch_1','on') or
+             is_state('switch.fancoil_%%id%%_switch_2','on') or
+             is_state('switch.fancoil_%%id%%_switch_3','on') or
+             is_state('switch.fancoil_%%id%%_switch_4','on') }}
+        main_on: "{{ is_state('switch.stox_fancoil_%%id%%_switch','on') }}"
+        main_available: "{{ states('switch.stox_fancoil_%%id%%_switch') not in ['unavailable','unknown', None, ''] }}"
+    - choose:
+        # Se qualche velocità è ON ma main è OFF → accendi main (solo se non STOP e main disponibile)
+        - conditions:
+            - condition: template
+              value_template: "{{ any_speed_on and not main_on and not stop_condition and main_available }}"
+          sequence:
+            - action: switch.turn_on
+              target:
+                entity_id: switch.stox_fancoil_%%id%%_switch
+            - delay: "00:00:02"
+            - action: pyscript.fancoil_events_write
+              data:
+                message: "[%%friendly_name%%] MAIN ON (sync): speed_on={{ any_speed_on }}, stop_condition={{ stop_condition }}, diff={{ states('sensor.fancoil_%%id%%_temperature_difference') | float(0) | round(2) }}°C"
+                level: "INFO"
+        # Se tutte le velocità sono OFF ma main è ON → non spegnere main (log solo se disponibile)
+        - conditions:
+            - condition: template
+              value_template: "{{ not any_speed_on and main_on and main_available }}"
+          sequence:
+            - action: pyscript.fancoil_events_write
+              data:
+                message: "[%%friendly_name%%] (sync): tutte le velocità OFF, main resta ON. diff={{ states('sensor.fancoil_%%id%%_temperature_difference') | float(0) | round(2) }}°C, stop_condition={{ stop_condition }}"
+                level: "INFO"
+
+- id: "fancoil_%%id%%_entity_monitor"
+  alias: "Fancoil %%friendly_name%%: Monitor disponibilità entità"
+  mode: single
+  triggers:
+    - trigger: homeassistant
+      event: start
+    - trigger: time_pattern
+      hours: "/12"
+  actions:
+    - variables:
+        critical_entities:
+          - sensor.stox_fancoil_%%id%%
+          - switch.stox_fancoil_%%id%%_switch
+          - climate.controllo_temperatura_%%id%%
+          - input_number.fan_distance_stop
+        unavailable: >-
+          {% set ns = namespace(items=[]) %}
+          {% for entity in critical_entities %}
+            {% if states(entity) in ['unavailable','unknown'] %}
+              {% set ns.items = ns.items + [entity] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.items }}
+    - if:
+        - condition: template
+          value_template: "{{ unavailable | length > 0 }}"
+      then:
+        - action: persistent_notification.create
+          data:
+            title: "Fancoil %%friendly_name%%: Problema Entità"
+            message: >-
+              Entità non disponibili:
+              {% for entity in unavailable %}
+              - {{ entity }}
+              {% endfor %}
+        - action: pyscript.fancoil_events_write
+          data:
+            message: "[%%friendly_name%%] Entità UNAVAILABLE: {{ unavailable }}"
+            level: "WARN"
+
+- id: "fancoil_%%id%%_recovery_unavailable"
+  alias: "Fancoil %%friendly_name%%: Ripristino entità non disponibili"
+  mode: single
+  triggers:
+    - trigger: state
+      entity_id:
+        - switch.fancoil_%%id%%_switch_1
+        - switch.fancoil_%%id%%_switch_2
+        - switch.fancoil_%%id%%_switch_3
+        - switch.fancoil_%%id%%_switch_4
+      to:
+        - "unavailable"
+        - "unknown"
+      for: "00:00:30"
+    - trigger: homeassistant
+      event: start
+  actions:
+    - if:
+        - condition: template
+          value_template: >-
+            {{ states('switch.fancoil_%%id%%_switch_1') in ['unavailable', 'unknown'] or
+               states('switch.fancoil_%%id%%_switch_2') in ['unavailable', 'unknown'] or
+               states('switch.fancoil_%%id%%_switch_3') in ['unavailable', 'unknown'] or
+               states('switch.fancoil_%%id%%_switch_4') in ['unavailable', 'unknown'] }}
+      then:
+        - action: pyscript.fancoil_events_write
+          data:
+            message: "[%%friendly_name%%] Rilevate entità unavailable/unknown. Avvio procedura di ripristino (Power Cycle Stox)."
+            level: "WARN"
+        - action: switch.turn_off
+          target:
+            entity_id: switch.stox_fancoil_%%id%%_switch
+        - delay: "00:00:05"
+        - action: switch.turn_on
+          target:
+            entity_id: switch.stox_fancoil_%%id%%_switch
+        - delay: "00:00:45"
+        - if:
+            - condition: template
+              value_template: >-
+                {{ states('switch.fancoil_%%id%%_switch_1') in ['unavailable', 'unknown'] or
+                   states('switch.fancoil_%%id%%_switch_2') in ['unavailable', 'unknown'] or
+                   states('switch.fancoil_%%id%%_switch_3') in ['unavailable', 'unknown'] or
+                   states('switch.fancoil_%%id%%_switch_4') in ['unavailable', 'unknown'] }}
+          then:
+            - action: pyscript.fancoil_events_write
+              data:
+                message: "[%%friendly_name%%] Ripristino FALLITO. Gli switch sono ancora non disponibili."
+                level: "ERROR"
+          else:
+            - action: pyscript.fancoil_events_write
+              data:
+                message: "[%%friendly_name%%] Ripristino COMPLETATO. Gli switch sono tornati disponibili."
+                level: "INFO"
+
+
+# --- File: ./templates/fancoil_climate.j2 ---
+# File: yaml_generator/templates/fancoil_climate.j2
+# MODIFIED for HA 2025.10 syntax, template sensors, and preserved comments
+
+- platform: climate_template
+  name: "controllo temperatura %%friendly_name%%"
+  unique_id: controllo_temperatura_%%unique_id%%_template
+  temp_step: 0.1
+  # Sempre disponibile per evitare sparizioni in UI durante i timeout Tuya
+  availability_template: "{{ True }}"
+
+  modes:
+    - "off"
+    - "cool"
+    - "heat"
+    - "dry"
+    - "fan_only"
+  fan_modes:
+    - "off"
+    - "idle"
+    - "low"
+    - "medium"
+    - "high"
+  min_temp: 5
+  max_temp: 35
+
+  # Temperatura attuale basata sull'ultimo valore noto stabile
+  current_temperature_template: >-
+    {{ states('sensor.fancoil_%%id%%_last_temperature') | float(21.0) }}
+
+  # Temperatura target con gestione follow master
+  target_temperature_template: >-
+    {% set follow = is_state('input_boolean.fancoil_%%id%%_sp_follow_master','on') %}
+    {% set offset = states('input_number.fancoil_%%id%%_sp_offset') | float(0) %}
+    {% set local = states('input_number.fancoil_%%id%%_setpoint') | float(21) %}
+    {% set master_hvac_mode = states('input_select.fancoil_system_hvac_mode') %}
+    {% set sp_heat = states('input_number.master_setpoint_heat') | float(20) %}
+    {% set sp_cool = states('input_number.master_setpoint_cool') | float(26) %}
+    {% if follow and master_hvac_mode not in ['unknown', 'unavailable', None] %}
+      {% if master_hvac_mode == 'heat' %}
+        {{ (sp_heat + offset) | round(1) }}
+      {% elif master_hvac_mode == 'cool' %}
+        {{ (sp_cool + offset) | round(1) }}
+      {% else %}
+        {{ local | round(1) }}
+      {% endif %}
+    {% else %}
+      {{ local | round(1) }}
+    {% endif %}
+
+  # Modalità HVAC con gestione follow master e stato main
+  hvac_mode_template: >-
+    {% set stox_state = states('switch.stox_fancoil_%%id%%_switch') %}
+    {% if stox_state == 'off' %}
+      off
+    {% else %}
+      {{ states('sensor.fancoil_%%id%%_hvac_temp_mode') }}
+    {% endif %}
+
+  # Modalità ventola basata sugli switch hardware
+  # Nota: per la VISUALIZZAZIONE mappiamo 'idle' -> 'off' (ventola disabilitata)
+  #       Le automazioni possono comunque impostare 'idle' via set_fan_mode.
+  fan_mode_template: >-
+    {% set s1 = is_state('switch.fancoil_%%id%%_switch_1', 'on') %}
+    {% set s2 = is_state('switch.fancoil_%%id%%_switch_2', 'on') %}
+    {% set s3 = is_state('switch.fancoil_%%id%%_switch_3', 'on') %}
+    {% set s4 = is_state('switch.fancoil_%%id%%_switch_4', 'on') %}
+    {% if not s4 %}       off
+    {% elif s3 %}       high
+    {% elif s2 %}       medium
+    {% elif s1 %}       low
+    {% elif s4 and not (s1 or s2 or s3) %} off
+    {% else %}           off
+    {% endif %}
+
+  # Impostazione velocità ventola
+  set_fan_mode:
+    - variables:
+        verbosity_level: "{{ states('input_select.fancoil_verbosity_level_master') | default('info') }}"
+        main_state: "{{ states('switch.stox_fancoil_%%id%%_switch') }}"
+
+    # Accendi lo stox solo se è esplicitamente OFF. Se è unavailable, procediamo comunque con gli switch velocità.
+    - if:
+        - condition: template
+          value_template: "{{ fan_mode != 'off' and main_state == 'off' }}"
+      then:
+        - action: switch.turn_on
+          target:
+            entity_id: switch.stox_fancoil_%%id%%_switch
+        - delay: "00:00:02"
+
+    # Gestione velocità ventola
+    - choose:
+        # OFF: spegni le velocità e la valvola
+        - conditions:
+            - condition: template
+              value_template: "{{ fan_mode == 'off' }}"
+          sequence:
+            - action: switch.turn_off
+              target:
+                entity_id:
+                  - switch.fancoil_%%id%%_switch_1
+                  - switch.fancoil_%%id%%_switch_2
+                  - switch.fancoil_%%id%%_switch_3
+                  - switch.fancoil_%%id%%_switch_4
+
+        # IDLE: solo valvola (switch 4)
+        - conditions:
+            - condition: template
+              value_template: "{{ fan_mode == 'idle' }}"
+          sequence:
+            - action: switch.turn_on
+              target:
+                entity_id: switch.fancoil_%%id%%_switch_4
+            - delay: "00:00:01"
+            - action: switch.turn_off
+              target:
+                entity_id:
+                  - switch.fancoil_%%id%%_switch_1
+                  - switch.fancoil_%%id%%_switch_2
+                  - switch.fancoil_%%id%%_switch_3
+
+        # LOW: velocità 1 + valvola
+        - conditions:
+            - condition: template
+              value_template: "{{ fan_mode == 'low' }}"
+          sequence:
+            - action: switch.turn_on
+              target:
+                entity_id: switch.fancoil_%%id%%_switch_4
+            - delay: "00:00:01"
+            - action: switch.turn_on
+              target:
+                entity_id: switch.fancoil_%%id%%_switch_1
+            - action: switch.turn_off
+              target:
+                entity_id:
+                  - switch.fancoil_%%id%%_switch_2
+                  - switch.fancoil_%%id%%_switch_3
+
+        # MEDIUM: velocità 2 + valvola
+        - conditions:
+            - condition: template
+              value_template: "{{ fan_mode == 'medium' }}"
+          sequence:
+            - action: switch.turn_on
+              target:
+                entity_id: switch.fancoil_%%id%%_switch_4
+            - delay: "00:00:01"
+            - action: switch.turn_on
+              target:
+                entity_id: switch.fancoil_%%id%%_switch_2
+            - action: switch.turn_off
+              target:
+                entity_id:
+                  - switch.fancoil_%%id%%_switch_1
+                  - switch.fancoil_%%id%%_switch_3
+
+        # HIGH: velocità 3 + valvola
+        - conditions:
+            - condition: template
+              value_template: "{{ fan_mode == 'high' }}"
+          sequence:
+            - action: switch.turn_on
+              target:
+                entity_id: switch.fancoil_%%id%%_switch_4
+            - delay: "00:00:01"
+            - action: switch.turn_on
+              target:
+                entity_id: switch.fancoil_%%id%%_switch_3
+            - action: switch.turn_off
+              target:
+                entity_id:
+                  - switch.fancoil_%%id%%_switch_1
+                  - switch.fancoil_%%id%%_switch_2
+
+    # Log verbose se richiesto
+    - if:
+        - condition: template
+          value_template: "{{ verbosity_level in ['verbose'] }}"
+      then:
+        - action: persistent_notification.create
+          data:
+            title: "Fancoil %%friendly_name%%"
+            message: "Velocità impostata: {{ fan_mode }}"
+        - action: pyscript.fancoil_events_write
+          data:
+            message: "[%%friendly_name%%] Set fan mode: {{ fan_mode }}"
+            level: "DEBUG"
+
+  # Impostazione temperatura
+  set_temperature:
+    - variables:
+        called_from_user: "{{ context is not none and context.user_id is not none and context.parent_id is none }}"
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.fancoil_%%id%%_setpoint
+      data:
+        value: "{{ temperature | round(1) }}"
+    # Se in follow master e la chiamata è manuale, disattiva follow
+    - if:
+        - condition: template
+          value_template: "{{ called_from_user }}"
+        - condition: state
+          entity_id: input_boolean.fancoil_%%id%%_sp_follow_master
+          state: "on"
+      then:
+        - action: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.fancoil_%%id%%_sp_follow_master
+
+  # Impostazione modalità HVAC
+  set_hvac_mode:
+    - variables:
+        called_from_user: "{{ context is not none and context.user_id is not none and context.parent_id is none }}"
+        follow_master: "{{ is_state('input_boolean.fancoil_%%id%%_hvac_mode_follow_master', 'on') }}"
+    - choose:
+        # Modalità OFF
+        - conditions:
+            - condition: template
+              value_template: "{{ hvac_mode == 'off' }}"
+          sequence:
+            # Spegni le velocità e la valvola, non lo stox
+            - action: switch.turn_off
+              target:
+                entity_id:
+                  - switch.fancoil_%%id%%_switch_1
+                  - switch.fancoil_%%id%%_switch_2
+                  - switch.fancoil_%%id%%_switch_3
+                  - switch.fancoil_%%id%%_switch_4
+            # Se chiamato dall'utente, disattiva follow e imposta local su off
+            - if:
+                - condition: template
+                  value_template: "{{ called_from_user }}"
+              then:
+                - action: input_boolean.turn_off
+                  target:
+                    entity_id: input_boolean.fancoil_%%id%%_hvac_mode_follow_master
+                - action: input_select.select_option
+                  target:
+                    entity_id: input_select.fancoil_%%id%%_hvac_mode_local
+                  data:
+                    option: "off"
+
+        # Altre modalità (heat, cool, dry, fan_only)
+        - conditions:
+            - condition: template
+              value_template: "{{ hvac_mode in ['heat','cool','dry','fan_only'] }}"
+          sequence:
+            # Assicura che main switch sia acceso
+            - if:
+                - condition: template
+                  value_template: "{{ is_state('switch.stox_fancoil_%%id%%_switch', 'off') }}"
+              then:
+                - action: switch.turn_on
+                  target:
+                    entity_id: switch.stox_fancoil_%%id%%_switch
+                - delay: "00:00:02"
+            # Se chiamato dall'utente, disattiva follow e aggiorna modalità locale
+            - if:
+                - condition: template
+                  value_template: "{{ called_from_user }}"
+              then:
+                - action: input_boolean.turn_off
+                  target:
+                    entity_id: input_boolean.fancoil_%%id%%_hvac_mode_follow_master
+                - action: input_select.select_option
+                  target:
+                    entity_id: input_select.fancoil_%%id%%_hvac_mode_local
+                  data:
+                    option: "{{ hvac_mode }}"
+
+
+# --- File: ./templates/fancoil_sensors.j2 ---
+# Template for simple fancoil sensors (live data)
+
+- name: "Fancoil %%friendly_name%% Status Comunicazione"
+  unique_id: fancoil_%%id%%_status_comunicazione
+  state: >-
+    {% set t = states('sensor.stox_fancoil_%%id%%') in ['unavailable', 'unknown'] %}
+    {% set m = states('switch.stox_fancoil_%%id%%_switch') in ['unavailable', 'unknown'] %}
+    {% set s1 = states('switch.fancoil_%%id%%_switch_1') in ['unavailable', 'unknown'] %}
+    {% set s2 = states('switch.fancoil_%%id%%_switch_2') in ['unavailable', 'unknown'] %}
+    {% set s3 = states('switch.fancoil_%%id%%_switch_3') in ['unavailable', 'unknown'] %}
+    {% set s4 = states('switch.fancoil_%%id%%_switch_4') in ['unavailable', 'unknown'] %}
+    {% set ns = namespace(errors=[]) %}
+    {% if t %}{% set ns.errors = ns.errors + ['Sensore'] %}{% endif %}
+    {% if m %}{% set ns.errors = ns.errors + ['Stox'] %}{% endif %}
+    {% if s1 or s2 or s3 or s4 %}{% set ns.errors = ns.errors + ['Attuatori'] %}{% endif %}
+    {% if ns.errors | length > 0 %}
+      Errore: {{ ns.errors | join('+') }}
+    {% else %}
+      OK
+    {% endif %}
+
+
+# --- File: ./templates/fancoil_binary_sensors.j2 ---
+- name: "Fancoil %%friendly_name%% Stop Condition"
+  unique_id: fancoil_%%id%%_stop_condition
+  state: >-
+    {% set hvac_temp_mode = states('sensor.fancoil_%%id%%_hvac_temp_mode') %}
+    {% set diff = states('sensor.fancoil_%%id%%_temperature_difference') | float(0) %}
+    {% set soglia_stop = states('input_number.fan_distance_stop') | float(-1) %}
+    {% set circuit_temp = states('sensor.temperatura_circuito_riscaldamento') | float(0) %}
+    {% set circuit_threshold_heat = states('input_number.circuit_temp_threshold_heat') | float(30) %}
+    {% set circuit_threshold_cool = states('input_number.circuit_temp_threshold_cool') | float(20) %}
+
+    {% set stop_by_diff = (hvac_temp_mode != 'off' and diff <= soglia_stop) %}
+    {% set stop_by_circuit_temp = false %}
+
+    {% if hvac_temp_mode == 'heat' and circuit_temp < circuit_threshold_heat %}
+      {% set stop_by_circuit_temp = true %}
+    {% elif hvac_temp_mode == 'cool' and circuit_temp > circuit_threshold_cool %}
+      {% set stop_by_circuit_temp = true %}
+    {% endif %}
+
+    {{ stop_by_diff or stop_by_circuit_temp }}
+
+
+# --- File: ./templates/fancoil_persistence.j2 ---
+# Trigger-based sensors for better persistence across restarts
+trigger:
+    - trigger: state
+      entity_id: 
+        - sensor.stox_fancoil_%%id%%
+    - trigger: state
+      entity_id: 
+        - sensor.fancoil_%%id%%_hvac_temp_mode
+    - trigger: state
+      entity_id:
+        - climate.controllo_temperatura_%%id%%
+      attribute: temperature
+    - trigger: homeassistant
+      event: start
+sensor:
+    - name: "Fancoil %%friendly_name%% Last Temperature"
+      unique_id: fancoil_%%id%%_last_temperature
+      unit_of_measurement: "°C"
+      state: >-
+        {% set current = states('sensor.stox_fancoil_%%id%%') %}
+        {% if current not in ['unavailable', 'unknown', None] %}
+          {{ current | float(0) }}
+        {% else %}
+          {% set old = states('sensor.fancoil_%%id%%_last_temperature') %}
+          {{ old | float(21.0) if old not in ['unavailable', 'unknown'] else 21.0 }}
+        {% endif %}
+
+    - name: "Fancoil %%friendly_name%% HVAC Temp Mode"
+      unique_id: fancoil_%%id%%_hvac_temp_mode
+      state: >-
+        {% set follow_master = is_state('input_boolean.fancoil_%%id%%_hvac_mode_follow_master','on') %}
+        {% set master_hvac_mode = states('input_select.fancoil_system_hvac_mode') %}
+        {% set local_mode = states('input_select.fancoil_%%id%%_hvac_mode_local') %}
+        {% set current_mode = master_hvac_mode if follow_master else local_mode %}
+        
+        {% if current_mode in ['heat', 'cool', 'off', 'dry', 'fan_only'] %}
+          {{ current_mode }}
+        {% else %}
+          {% set old = states('sensor.fancoil_%%id%%_hvac_temp_mode') %}
+          {{ old if old not in ['unavailable', 'unknown'] else 'off' }}
+        {% endif %}
+
+    - name: "Fancoil %%friendly_name%% Temperature Difference"
+      unique_id: fancoil_%%id%%_temperature_difference
+      unit_of_measurement: "°C"
+      state: >-
+        {% set hvac_mode = states('sensor.fancoil_%%id%%_hvac_temp_mode') %}
+        {% if hvac_mode == 'off' %}
+          0
+        {% else %}
+          {% set t_curr = states('sensor.fancoil_%%id%%_last_temperature') | float(None) %}
+          
+          {# Calcoliamo il setpoint teorico invece di leggerlo dal climate per velocità di avvio #}
+          {% set master_hvac = states('input_select.fancoil_system_hvac_mode') %}
+          {% set sp_heat = states('input_number.master_setpoint_heat') | float(None) %}
+          {% set sp_cool = states('input_number.master_setpoint_cool') | float(None) %}
+          {% set offset = states('input_number.fancoil_%%id%%_sp_offset') | float(0) %}
+          {% set follow = is_state('input_boolean.fancoil_%%id%%_sp_follow_master', 'on') %}
+          {% set local_sp = states('input_number.fancoil_%%id%%_setpoint') | float(21) %}
+          
+          {% set target_sp = local_sp %}
+          {% if follow and master_hvac not in ['unknown', 'unavailable', None] %}
+             {% if master_hvac == 'heat' and sp_heat is not none %}
+               {% set target_sp = sp_heat + offset %}
+             {% elif master_hvac == 'cool' and sp_cool is not none %}
+               {% set target_sp = sp_cool + offset %}
+             {% endif %}
+          {% endif %}
+
+          {% if t_curr is not none and target_sp is not none %}
+            {% if hvac_mode == 'heat' %}
+              {{ (target_sp - t_curr) | round(2) }}
+            {% elif hvac_mode == 'cool' %}
+              {{ (t_curr - target_sp) | round(2) }}
+            {% else %}
+              0
+            {% endif %}
+          {% else %}
+            {% set old = states('sensor.fancoil_%%id%%_temperature_difference') %}
+            {{ old | float(0) if old not in ['unavailable', 'unknown'] else 0 }}
+          {% endif %}
+        {% endif %}
+
+
+# --- File: ./templates/fancoil_master_climate.j2 ---
+# Template: /usr/share/hassio/homeassistant/yaml_generator/templates/fancoil_master_climate.j2
+# MODIFIED to use min/max for current temperature
+- platform: climate_template
+  name: "Climatizzazione Appartamento"
+  unique_id: hvac_master_template
+  temp_step: 0.1
+  modes: ["off", "cool", "heat", "dry", "fan_only"]
+
+  current_temperature_template: >-
+    {% set hvac_mode = states('input_select.fancoil_system_hvac_mode') %}
+    {% set room_sensors = %%room_sensors_list%% %}
+    {# Filter out unavailable/unknown sensors before calculating #}
+    {% set temps = room_sensors | map('states') | map('float', 'unavailable') | reject('==', 'unavailable') | list %}
+    {% if temps | length > 0 %}
+      {% if hvac_mode == 'heat' %}
+        {{ temps | min }}
+      {% elif hvac_mode == 'cool' %}
+        {{ temps | max }}
+      {% else %}
+        {{ (temps | sum / (temps | length)) | round(1) }}
+      {% endif %}
+    {% else %}
+      21 {# Fallback value if no sensors are available #}
+    {% endif %}
+
+  hvac_mode_template: >-
+    {{ states('input_select.fancoil_system_hvac_mode') | default('off') }}
+
+  target_temperature_template: >-
+    {% set hvac_mode = states('input_select.fancoil_system_hvac_mode') %}
+    {% set profile = states('input_select.hvac_profile') %}
+    {% set sp_heat = states('input_number.master_setpoint_heat') | float(20) %}
+    {% set sp_cool = states('input_number.master_setpoint_cool') | float(26) %}
+    {% if profile == 'Eco' %}
+      {% set sp_heat = sp_heat + (states('input_number.profile_delta_eco_heat') | float(-2)) %}
+      {% set sp_cool = sp_cool + (states('input_number.profile_delta_eco_cool') | float(2)) %}
+    {% elif profile == 'Night' %}
+      {% set sp_heat = sp_heat - 1 %}
+      {% set sp_cool = sp_cool + 1 %}
+    {% elif profile == 'Away' %}
+      {% set sp_heat = sp_heat - 3 %}
+      {% set sp_cool = sp_cool + 3 %}
+    {% endif %}
+    {{ sp_heat if hvac_mode == 'heat' else sp_cool }}
+
+  set_hvac_mode:
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.fancoil_system_hvac_mode
+      data:
+        option: "{{ hvac_mode }}"
+    
+    # Propagazione: se il master NON è OFF e tutti i climate stanza sono OFF ? riallinea le stanze che seguono il master
+    - variables:
+        rooms: %%rooms_array%%
+        climates: %%climate_entities_list%%
+        all_rooms_off: >-
+          {% set ok = True %}
+          {% for e in climates %}
+            {% if states(e) != 'off' %}
+              {% set ok = False %}
+            {% endif %}
+          {% endfor %}
+          {{ ok }}
+    
+    - if:
+        - condition: template
+          value_template: "{{ hvac_mode != 'off' and all_rooms_off }}"
+      then:
+        - repeat:
+            for_each: "{{ rooms }}"
+            sequence:
+              - if:
+                  - condition: template
+                    value_template: "{{ is_state(repeat.item.follow, 'on') }}"
+                then:
+                  - action: climate.set_hvac_mode
+                    target:
+                      entity_id: "{{ repeat.item.climate }}"
+                    data:
+                      hvac_mode: "{{ hvac_mode }}"
+
+  set_temperature:
+    - choose:
+        - conditions: "{{ is_state('input_select.fancoil_system_hvac_mode','heat') }}"
+          sequence:
+            - action: input_number.set_value
+              target: 
+                entity_id: input_number.master_setpoint_heat
+              data: 
+                value: "{{ temperature }}"
+      default:
+        - action: input_number.set_value
+          target: 
+            entity_id: input_number.master_setpoint_cool
+          data: 
+            value: "{{ temperature }}"
+    
+    # Propagazione: se la modalita' corrente del master NON e' OFF e tutti i climate stanza sono OFF -> riallinea le stanze che seguono il master
+    - variables:
+        mode_now: "{{ states('input_select.fancoil_system_hvac_mode') }}"
+        rooms: %%rooms_array%%
+        climates: %%climate_entities_list%%
+        all_rooms_off: >-
+          {% set ok = True %}
+          {% for e in climates %}
+            {% if states(e) != 'off' %}
+              {% set ok = False %}
+            {% endif %}
+          {% endfor %}
+          {{ ok }}
+    
+    - if:
+        - condition: template
+          value_template: "{{ mode_now != 'off' and all_rooms_off }}"
+      then:
+        - repeat:
+            for_each: "{{ rooms }}"
+            sequence:
+              - if:
+                  - condition: template
+                    value_template: "{{ is_state(repeat.item.follow, 'on') }}"
+                then:
+                  - action: climate.set_hvac_mode
+                    target:
+                      entity_id: "{{ repeat.item.climate }}"
+                    data:
+                      hvac_mode: "{{ mode_now }}"
+
+
+# --- File: ./templates/fancoil_master_input_numbers.j2 ---
+# File: yaml_generator/templates/fancoil_master_input_numbers.j2
+
+master_setpoint_heat:
+  name: Setpoint Centrale Riscaldamento
+  min: -5
+  max: 30
+  step: 0.1
+  unit_of_measurement: "°C"
+
+master_setpoint_cool:
+  name: Setpoint Centrale Raffrescamento
+  min: -5
+  max: 35
+  step: 0.1
+  unit_of_measurement: "°C"
+
+profile_delta_eco_heat:
+  name: Delta Eco Heat
+  min: -10
+  max: 10
+  step: 0.5
+
+profile_delta_eco_cool:
+  name: Delta Eco Cool
+  min: -10
+  max: 10
+  step: 0.5
+
+# Fancoil Fan Distance Parameters
+fan_distance_stop:
+  name: Fancoil Distanza STOP (Diff)
+  min: -10
+  max: 10
+  step: 0.1
+  unit_of_measurement: "°C"
+
+fan_distance_idle:
+  name: Fancoil Distanza IDLE (Diff)
+  min: -10
+  max: 10
+  step: 0.1
+  unit_of_measurement: "°C"
+
+fan_distance_low:
+  name: Fancoil Distanza LOW (Diff)
+  min: -10
+  max: 10
+  step: 0.1
+  unit_of_measurement: "°C"
+
+fan_distance_medium:
+  name: Fancoil Distanza MEDIUM (Diff)
+  min: -10
+  max: 10
+  step: 0.1
+  unit_of_measurement: "°C"
+
+fan_distance_high:
+  name: Fancoil Distanza HIGH (Diff)
+  min: -10
+  max: 10
+  step: 0.1
+  unit_of_measurement: "°C"
+
+fan_distance_resume:
+  name: Fancoil Distanza RESUME (Diff)
+  min: -10
+  max: 10
+  step: 0.1
+  unit_of_measurement: "°C"
+
+fancoil_resume_delay_minutes:
+  name: Fancoil Ritardo Ripresa (Minuti)
+  min: 0
+  max: 60
+  step: 1
+  unit_of_measurement: "min"
+
+# Circuit Temperature Thresholds for Fancoil Operation
+circuit_temp_threshold_heat:
+  name: Soglia Temp Circuito Riscaldamento
+  min: 0
+  max: 50
+  step: 1
+  unit_of_measurement: "°C"
+
+circuit_temp_threshold_cool:
+  name: Soglia Temp Circuito Raffrescamento
+  min: 0
+  max: 40
+  step: 1
+  unit_of_measurement: "°C"
+
+
+# --- File: ./templates/fancoil_room_input_booleans.j2 ---
+# yaml_generator/templates/fancoil_room_input_booleans.j2  
+fancoil_%%id%%_enabled:  
+  name: "%%friendly_name%%: automazione attiva"  
+  initial: true  
+fancoil_%%id%%_hvac_mode_follow_master:  
+  name: "%%friendly_name%%: segue modalità Master"  
+  initial: true  
+fancoil_%%id%%_sp_follow_master:  
+  name: "%%friendly_name%%: segue setpoint Master"  
+  initial: true
+fancoil_%%id%%_logging_enabled:
+  name: "%%friendly_name%%: logging abilitato"
+  initial: true
+fancoil_%%id%%_logging_follow_master:
+  name: "%%friendly_name%%: segue logging Master"
+  initial: true
+
+
+# --- File: ./templates/fancoil_room_input_numbers.j2 ---
+# yaml_generator/templates/fancoil_room_input_numbers.j2
+# setpoint locale (usato solo quando non segue il master)
+fancoil_%%id%%_setpoint:
+  name: "%%friendly_name%%: setpoint locale"
+  min: -5
+  max: 35
+  step: 0.1
+  unit_of_measurement: "°C"
+
+# offset applicato quando segue il master
+fancoil_%%id%%_sp_offset:
+  name: "%%friendly_name%%: offset setpoint"
+  min: -5
+  max: 5
+  step: 0.1
+  unit_of_measurement: "°C"
+
+
+# --- File: ./templates/fancoil_room_input_selects.j2 ---
+# yaml_generator/templates/fancoil_room_input_selects.j2  
+fancoil_%%id%%_hvac_mode_local:  
+  name: "%%friendly_name%%: modalità locale"  
+  options: ["off", "heat", "cool", "dry", "fan_only"]
+# NO_NEWLINE_AT_EOF
+
+
+# --- File: ./templates/dashboard_main.j2 ---
+title: Riscaldamento
+views:
+  - title: Impostazioni
+    path: riscaldamento-impostazioni
+    badges: []
+    cards:
+      - type: custom:scheduler-card
+        title: Programmazione temperatura cucina
+        discover_existing: true
+        create_schedule:
+          - entity: climate.controllo_temperatura_cucina
+            name: Imposta temperatura Cucina
+            actions:
+              - service: climate.set_temperature
+                service_data:
+                  temperature: 20
+        display_options:
+          show_header_toggle: false
+          show_last_triggered: true
+          show_next_trigger: true
+        include:
+          - climate
+        exclude: []
+      - show_name: true
+        show_icon: true
+        type: button
+        name: Rigenera gestione fancoil
+        icon: mdi:refresh
+        tap_action:
+          action: perform-action
+          perform_action: shell_command.generate_fancoil_climates
+          target: {}
+      - type: entities
+        entities:
+          - entity: input_select.fancoil_verbosity_level_master
+            name: Verbosity messaggi
+            icon: mdi:bug
+          - entity: input_number.climate_setpoint_offset
+            name: Offset temperatura
+            icon: mdi:thermometer-plus-minus
+      - type: entities
+        title: Parametri Fancoil Globali
+        entities:
+          - entity: input_boolean.fancoil_logging_master_enabled
+          - entity: input_number.fan_distance_stop
+          - entity: input_number.fan_distance_idle
+          - entity: input_number.fan_distance_low
+          - entity: input_number.fan_distance_medium
+          - entity: input_number.fan_distance_high
+          - entity: input_number.fan_distance_resume
+          - entity: input_number.fancoil_resume_delay_minutes
+          - entity: input_number.circuit_temp_threshold_heat
+          - entity: input_number.circuit_temp_threshold_cool
+      - type: markdown
+        content: |
+          ### Descrizione del Sistema Fancoil
+          Questo sistema gestisce i fancoil dell'appartamento, controllando la velocità della ventola in base alla differenza tra la temperatura ambiente e il setpoint desiderato.
+
+          **Funzionamento Base:**
+          - La velocità della ventola (Idle, Low, Medium, High) viene regolata dinamicamente in base alla "Distanza (Diff)" dalla temperatura del setpoint.
+          - **IDLE:** La ventola è spenta, ma la valvola resta aperta se necessario (es. fancoil acceso).
+          - **LOW, MEDIUM, HIGH:** La ventola si attiva a diverse velocità man mano che la differenza di temperatura aumenta.
+
+          **Parametri Chiave:**
+          - **Distanza STOP:** Se la differenza di temperatura scende al di sotto di questo valore (es. temperatura quasi raggiunta), il fancoil spegne la ventola e chiude la valvola per evitare sprechi energetici (o per prevenire un raffreddamento/riscaldamento eccessivo).
+          - **Distanza IDLE/LOW/MEDIUM/HIGH:** Queste soglie definiscono quando passare alla velocità successiva della ventola. Ad esempio, se la "Distanza LOW" è 1°C, la ventola si attiverà in modalità bassa se la differenza è maggiore di 1°C.
+          - **Distanza RESUME:** Rappresenta l'isteresi di ripartenza. Dopo uno STOP, il fancoil riprenderà a funzionare solo se la differenza di temperatura supera questa soglia (e dopo un "Ritardo Ripresa" minimo). Questo evita cicli di accensione/spegnimento troppo frequenti (short-cycling).
+          - **Ritardo Ripresa (Minuti):** Dopo uno STOP, il sistema aspetterà questo intervallo di tempo prima di poter riavviare le ventole, anche se la temperatura dovesse superare la "Distanza RESUME".
+          - **Soglia Temp Circuito:** Questi valori permettono di spegnere i fancoil se la temperatura del circuito (riscaldamento/raffrescamento) non è adeguata al funzionamento. Ad esempio, se il circuito di riscaldamento è troppo freddo, non ha senso far funzionare il fancoil.
+
+          **Meccanismo di Isteresi:**
+          L'isteresi è fondamentale per evitare oscillazioni rapide e frequenti degli stati del fancoil.
+          - **STOP:** Quando la temperatura ambiente si avvicina al setpoint, il fancoil entra in stato di STOP (ventola spenta, valvola chiusa).
+          - **RIPRESA:** Per riavviare il fancoil, non è sufficiente che la temperatura si discosti leggermente dal setpoint; deve superare la "Distanza RESUME" e deve essere trascorso il "Ritardo Ripresa" dall'ultimo spegnimento. Questo introduce un "cuscinetto" che stabilizza il funzionamento, riduce l'usura dei componenti e migliora l'efficienza energetica.
+
+          Il sistema è progettato per ottimizzare il comfort e il consumo energetico, riducendo i cicli brevi e mantenendo la temperatura stabile.
+      - type: entities
+        entities:
+          - entity: switch.attiva_fancoil
+          - entity: switch.attiva_pdc
+          - entity: switch.attiva_pompa_circolazione
+        title: Riscaldamento
+        state_color: true
+  - title: Termostati
+    path: riscaldamento
+    badges: []
+    cards:
+      - type: thermostat
+        entity: climate.climatizzazione_appartamento
+        features:
+          - type: climate-hvac-modes
+            hvac_modes:
+              - 'off'
+              - cool
+              - heat
+              - dry
+              - fan_only
+      - type: grid
+        columns: 3
+        square: false
+        cards:
+%%TERMOSTATI_CARDS%%
+  - title: Informazioni
+    path: riscaldamento-info
+    badges: []
+    cards:
+      - graph: line
+        type: sensor
+        entity: sensor.temperatura_circuito_riscaldamento
+        detail: 2
+      - type: entities
+        entities:
+          - entity: sensor.temperatura_acqua_calda
+          - entity: sensor.temperatura_circuito_riscaldamento
+          - entity: binary_sensor.pdc_heating
+          - entity: binary_sensor.pdc_acqua_calda
+          - entity: binary_sensor.pdc_cooling
+          - entity: binary_sensor.pdc_standby
+          - entity: binary_sensor.pdc_acqua_calda
+          - entity: sensor.temperatura_strenscia
+  - title: Impostazioni
+    path: riscaldamento-impostazioni1
+    badges: []
+    cards:
+      - type: custom:cronostar-card
+        preset_type: thermostat
+        hour_base:
+          value: 0
+          determined: false
+        logging_enabled: true
+        pause_entity: switch.cronostar_thermostat_appartamento_paused
+        profiles_select_entity: select.cronostar_thermostat_appartamento_current_profile
+        target_entity: climate.climatizzazione_appartamento
+        allow_max_value: false
+        title: CronoStar Thermostat
+        y_axis_label: Temperature
+        unit_of_measurement: °C
+        min_value: '15'
+        max_value: 30
+        step_value: 0.5
+        is_switch_preset: false
+        missing_yaml_style: named
+        global_prefix: cronostar_thermostat_appartamento_
+        step: 5
+# NO_NEWLINE_AT_EOF
+
+
+# --- File: ./templates/dashboard_termostati_card.j2 ---
+          - type: vertical-stack
+            cards:
+              - type: thermostat
+                entity: climate.controllo_temperatura_%%id%%
+                name: %%friendly_name%%
+                features:
+                  - type: climate-hvac-modes
+                    hvac_modes:
+                      - 'off'
+                      - cool
+                      - heat
+                      - dry
+                      - fan_only
+              - type: tile
+                entity: climate.controllo_temperatura_%%id%%
+                name: Modalità ventola
+                features:
+                  - type: climate-fan-modes
+                    style: icons
+                    fan_modes:
+                      - 'off'
+                      - low
+                      - medium
+                      - high
+              - type: entities
+                title: Ventola Fancoil %%friendly_name%%
+                entities:
+                  - entity: switch.fancoil_%%id%%_switch_4
+                    name: Acceso/Spento
+                    icon: mdi:power
+                  - entity: switch.fancoil_%%id%%_switch_1
+                    name: Velocità 1
+                    icon: mdi:fan-speed-1
+                  - entity: switch.fancoil_%%id%%_switch_2
+                    name: Velocità 2
+                    icon: mdi:fan-speed-2
+                  - entity: switch.fancoil_%%id%%_switch_3
+                    name: Velocità 3
+                    icon: mdi:fan-speed-3
+
+              - type: entities
+                title: %%friendly_name%% - Segui Master
+                entities:
+                  - entity: input_boolean.fancoil_%%id%%_sp_follow_master
+                    name: Segue setpoint Master
+                    icon: mdi:link-variant
+                  - entity: input_boolean.fancoil_%%id%%_hvac_mode_follow_master
+                    name: Segue modalità Master
+                    icon: mdi:link-variant
+                  - entity: input_boolean.fancoil_%%id%%_logging_follow_master
+                    name: Segue logging Master
+                    icon: mdi:link-variant
+                  - entity: input_boolean.fancoil_%%id%%_logging_enabled
+                    name: Logging Abilitato
+                    icon: mdi:file-document-outline
+              - type: horizontal-stack
+                cards:
+                  - type: custom:mushroom-template-card
+                    icon: mdi:minus
+                    layout: vertical
+                    card_mod:
+                      style: |
+                        ha-card {
+                          width: 40px;
+                          box-shadow: none;
+                          border: none;
+                        }
+                    tap_action:
+                      action: call-service
+                      service: input_number.decrement
+                      target:
+                        entity_id: input_number.fancoil_%%id%%_sp_offset
+                  - type: custom:mushroom-number-card
+                    entity: input_number.fancoil_%%id%%_sp_offset
+                    display_mode: slider
+                    layout: horizontal
+                    primary_info: state
+                    secondary_info: none
+                    double_tap_action:
+                      action: call-service
+                      service: input_number.set_value
+                      target:
+                        entity_id: input_number.fancoil_%%id%%_sp_offset
+                      data:
+                        value: 0
+                    card_mod:
+                      style: |
+                        ha-card {
+                          flex-grow: 1;
+                        }
+                        :host {
+                          --mushroom-icon-display: none !important;
+                        }
+                        mushroom-shape-icon {
+                          display: none !important;
+                          visibility: hidden !important;
+                          opacity: 0 !important;
+                        }
+                  - type: custom:mushroom-template-card
+                    icon: mdi:plus
+                    layout: vertical
+                    card_mod:
+                      style: |
+                        ha-card {
+                          width: 40px;
+                          box-shadow: none;
+                          border: none;
+                        }
+                    tap_action:
+                      action: call-service
+                      service: input_number.increment
+                      target:
+                        entity_id: input_number.fancoil_%%id%%_sp_offset
+# NO_NEWLINE_AT_EOF
+
+
+# --- File: ./templates/dashboard_impostazioni_card.j2 ---
+          - entity: input_boolean.fancoil_%%id%%_sp_follow_master
+            name: %%friendly_name%% - Segue setpoint Master
+            icon: mdi:link-variant
+          - entity: input_boolean.fancoil_%%id%%_hvac_mode_follow_master
+            name: %%friendly_name%% - Segue modalità Master
+            icon: mdi:link-variant
+# NO_NEWLINE_AT_EOF
+
+
+# --- File: ./luce_scale_template.yaml ---
+# Template Light - Luce Scale
+light:
+  - unique_id: luce_scale_switch
+    name: Luce scale
+    default_entity_id: light.luce_scale_switch
+    state: "{{ ((states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0))) > 12 }}"
+
+    turn_on:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.scale_light_ha_command
+      - action: pyscript.scale_events_write
+        data:
+          message: "Comando HA: Accensione Luce Scale richiesta"
+          level: INFO
+          action: "acceso"
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: switch.sonoff_10024024c4_1
+                state: "off"
+              - condition: state
+                entity_id: switch.sonoff_10024024c4_2
+                state: "off"
+            sequence:
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.sonoff_10024024c4_1
+
+          - conditions:
+              - condition: state
+                entity_id: switch.sonoff_10024024c4_1
+                state: "off"
+              - condition: state
+                entity_id: switch.sonoff_10024024c4_2
+                state: "on"
+            sequence:
+              - action: switch.turn_off
+                target:
+                  entity_id: switch.sonoff_10024024c4_2
+              - delay: "0:00:00.300000"
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.sonoff_10024024c4_1
+
+          - conditions:
+              - condition: state
+                entity_id: switch.sonoff_10024024c4_1
+                state: "on"
+              - condition: state
+                entity_id: switch.sonoff_10024024c4_2
+                state: "on"
+            sequence:
+              - action: switch.turn_off
+                target:
+                  entity_id: switch.sonoff_10024024c4_2
+
+          - conditions:
+              - condition: state
+                entity_id: switch.sonoff_10024024c4_1
+                state: "on"
+              - condition: state
+                entity_id: switch.sonoff_10024024c4_2
+                state: "off"
+            sequence:
+              - action: switch.turn_off
+                target:
+                  entity_id: switch.sonoff_10024024c4_1
+              - delay: "0:00:00.300000"
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.sonoff_10024024c4_2
+
+      - action: system_log.write
+        data:
+          level: info
+          message: "Luce scale Turn ON - Switch1: {{ states('switch.sonoff_10024024c4_1') }}, Switch2: {{ states('switch.sonoff_10024024c4_2') }}, Power: {{ (states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0)) }}W"
+      - delay: "00:00:02"
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.scale_light_ha_command
+
+    turn_off:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.scale_light_ha_command
+      - action: pyscript.scale_events_write
+        data:
+          message: "Comando HA: Spegnimento Luce Scale richiesto"
+          level: INFO
+          action: "spento"
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: switch.sonoff_10024024c4_1
+                state: "on"
+              - condition: state
+                entity_id: switch.sonoff_10024024c4_2
+                state: "off"
+            sequence:
+              - action: switch.turn_off
+                target:
+                  entity_id: switch.sonoff_10024024c4_1
+              - delay: "0:00:00.300000"
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.sonoff_10024024c4_2
+
+          - conditions:
+              - condition: state
+                entity_id: switch.sonoff_10024024c4_1
+                state: "off"
+              - condition: state
+                entity_id: switch.sonoff_10024024c4_2
+                state: "on"
+            sequence:
+              - action: switch.turn_off
+                target:
+                  entity_id: switch.sonoff_10024024c4_2
+              - delay: "0:00:00.300000"
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.sonoff_10024024c4_1
+
+          - conditions:
+              - condition: state
+                entity_id: switch.sonoff_10024024c4_1
+                state: "on"
+              - condition: state
+                entity_id: switch.sonoff_10024024c4_2
+                state: "on"
+            sequence:
+              - action: switch.turn_off
+                target:
+                  entity_id: switch.sonoff_10024024c4_1
+
+          - conditions:
+              - condition: state
+                entity_id: switch.sonoff_10024024c4_1
+                state: "off"
+              - condition: state
+                entity_id: switch.sonoff_10024024c4_2
+                state: "off"
+            sequence:
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.sonoff_10024024c4_1
+              - delay: "0:00:00.300000"
+              - action: switch.turn_off
+                target:
+                  entity_id: switch.sonoff_10024024c4_1
+
+      - action: system_log.write
+        data:
+          level: info
+          message: "Luce scale Turn OFF - Switch1: {{ states('switch.sonoff_10024024c4_1') }}, Switch2: {{ states('switch.sonoff_10024024c4_2') }}, Power: {{ (states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0)) }}W"
+      - delay: "00:00:02"
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.scale_light_ha_command
+# NO_NEWLINE_AT_EOF
+
+
+# --- File: ./ev_charge_2025_triggers.yaml ---
+trigger:
+  - platform: time_pattern
+    seconds: "/1"
+sensor:
+  - name: "EV Charge 2025 Remaining Time HMS"
+    unique_id: ev_charge_2025_remaining_time_hms
+    state: >-
+      {% set active = is_state('input_boolean.ev_charge_2025_charging_active', 'on') %}
+      {% set end = states('input_datetime.ev_charge_2025_end_time') %}
+      {% if not active or end in ['unknown','unavailable','none',''] or end == '00:00:00' %}
+        00:00:00
+      {% else %}
+        {% set end_dt = today_at(end) %}
+        {% set s = (end_dt - now()).total_seconds() | int(0) %}
+        {% set s = 0 if s < 0 else s %}
+        {% set h = (s // 3600) %}
+        {% set m = ((s % 3600) // 60) %}
+        {% set ss = (s % 60) %}
+        {{ '%02d:%02d:%02d' % (h, m, ss) }}
+      {% endif %}
+
+
+# --- File: ./generator.log ---
+[...solo ultime 50 righe]
+2026-01-17 22:47:28,816 INFO: Wrote yaml_generator/managed_sensors/cucina_sensors.yaml
+2026-01-17 22:47:28,817 INFO: Wrote yaml_generator/managed_sensors/camera_grande_sensors.yaml
+2026-01-17 22:47:28,817 INFO: Wrote yaml_generator/managed_sensors/camera_sensors.yaml
+2026-01-17 22:47:28,817 INFO: Wrote yaml_generator/managed_sensors/corridoio_sensors.yaml
+2026-01-17 22:47:28,817 INFO: Wrote yaml_generator/managed_sensors/bagno_sensors.yaml
+2026-01-17 22:47:28,818 INFO: Wrote yaml_generator/managed_sensors/sala_sensors.yaml
+2026-01-17 22:47:28,818 INFO: Generating files from template: yaml_generator/templates/fancoil_binary_sensors.j2
+2026-01-17 22:47:28,828 INFO: Wrote yaml_generator/managed_binary_sensors/cucina_binary_sensors.yaml
+2026-01-17 22:47:28,857 INFO: Wrote yaml_generator/managed_binary_sensors/camera_grande_binary_sensors.yaml
+2026-01-17 22:47:28,858 INFO: Wrote yaml_generator/managed_binary_sensors/camera_binary_sensors.yaml
+2026-01-17 22:47:28,858 INFO: Wrote yaml_generator/managed_binary_sensors/corridoio_binary_sensors.yaml
+2026-01-17 22:47:28,858 INFO: Wrote yaml_generator/managed_binary_sensors/bagno_binary_sensors.yaml
+2026-01-17 22:47:28,859 INFO: Wrote yaml_generator/managed_binary_sensors/sala_binary_sensors.yaml
+2026-01-17 22:47:28,859 INFO: Generating combined master+rooms -> yaml_generator/input_boolean/generated_input_booleans.yaml
+2026-01-17 22:47:28,868 INFO: Wrote yaml_generator/input_boolean/generated_input_booleans.yaml
+2026-01-17 22:47:28,869 INFO: Appended to yaml_generator/input_boolean/generated_input_booleans.yaml
+2026-01-17 22:47:28,869 INFO: Appended to yaml_generator/input_boolean/generated_input_booleans.yaml
+2026-01-17 22:47:28,869 INFO: Appended to yaml_generator/input_boolean/generated_input_booleans.yaml
+2026-01-17 22:47:28,869 INFO: Appended to yaml_generator/input_boolean/generated_input_booleans.yaml
+2026-01-17 22:47:28,870 INFO: Appended to yaml_generator/input_boolean/generated_input_booleans.yaml
+2026-01-17 22:47:28,870 INFO: Appended to yaml_generator/input_boolean/generated_input_booleans.yaml
+2026-01-17 22:47:28,870 INFO: Generating combined master+rooms -> yaml_generator/input_select/generated_input_selects.yaml
+2026-01-17 22:47:28,894 INFO: Wrote yaml_generator/input_select/generated_input_selects.yaml
+2026-01-17 22:47:28,894 INFO: Appended to yaml_generator/input_select/generated_input_selects.yaml
+2026-01-17 22:47:28,894 INFO: Appended to yaml_generator/input_select/generated_input_selects.yaml
+2026-01-17 22:47:28,894 INFO: Appended to yaml_generator/input_select/generated_input_selects.yaml
+2026-01-17 22:47:28,895 INFO: Appended to yaml_generator/input_select/generated_input_selects.yaml
+2026-01-17 22:47:28,895 INFO: Appended to yaml_generator/input_select/generated_input_selects.yaml
+2026-01-17 22:47:28,895 INFO: Appended to yaml_generator/input_select/generated_input_selects.yaml
+2026-01-17 22:47:28,895 INFO: Generating combined master+rooms -> yaml_generator/input_number/generated_input_numbers.yaml
+2026-01-17 22:47:28,896 INFO: Wrote yaml_generator/input_number/generated_input_numbers.yaml
+2026-01-17 22:47:28,896 INFO: Appended to yaml_generator/input_number/generated_input_numbers.yaml
+2026-01-17 22:47:28,896 INFO: Appended to yaml_generator/input_number/generated_input_numbers.yaml
+2026-01-17 22:47:28,896 INFO: Appended to yaml_generator/input_number/generated_input_numbers.yaml
+2026-01-17 22:47:28,896 INFO: Appended to yaml_generator/input_number/generated_input_numbers.yaml
+2026-01-17 22:47:28,897 INFO: Appended to yaml_generator/input_number/generated_input_numbers.yaml
+2026-01-17 22:47:28,897 INFO: Appended to yaml_generator/input_number/generated_input_numbers.yaml
+2026-01-17 22:47:28,897 INFO: Wrote yaml_generator/generated_climates/generated_master_climate.yaml
+2026-01-17 22:47:28,898 INFO: Generating files from template: yaml_generator/templates/fancoil_persistence.j2
+2026-01-17 22:47:28,898 INFO: Wrote yaml_generator/managed_persistence/cucina_persistence.yaml
+2026-01-17 22:47:28,899 INFO: Wrote yaml_generator/managed_persistence/camera_grande_persistence.yaml
+2026-01-17 22:47:28,899 INFO: Wrote yaml_generator/managed_persistence/camera_persistence.yaml
+2026-01-17 22:47:28,899 INFO: Wrote yaml_generator/managed_persistence/corridoio_persistence.yaml
+2026-01-17 22:47:28,900 INFO: Wrote yaml_generator/managed_persistence/bagno_persistence.yaml
+2026-01-17 22:47:28,900 INFO: Wrote yaml_generator/managed_persistence/sala_persistence.yaml
+2026-01-17 22:47:28,929 INFO: Wrote yaml_generator/fancoil_templates_master.yaml
+2026-01-17 22:47:28,929 INFO: Generating dashboard
+2026-01-17 22:47:28,932 INFO: Wrote ui/riscaldamento.yaml
+2026-01-17 22:47:28,932 INFO: Dashboard written to ui/riscaldamento.yaml
+2026-01-17 22:47:28,932 INFO: Generate fancoil files terminated
+
+

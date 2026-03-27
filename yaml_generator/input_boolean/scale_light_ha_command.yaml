@@ -1,0 +1,3 @@
+scale_light_ha_command:
+  name: "Comando HA Luce Scale"
+  icon: mdi:home-assistant

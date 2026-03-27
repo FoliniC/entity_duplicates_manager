@@ -1,0 +1,47 @@
+ev_charge_2025_manual_power_kw:
+  name: "Potenza Manuale (kW)"
+  min: 1.4
+  max: 7.4
+  step: 0.1
+  unit_of_measurement: "kW"
+  mode: slider
+
+ev_charge_2025_target_soc:
+  name: "Target SOC"
+  min: 0
+  max: 100
+  step: 1
+  unit_of_measurement: "%"
+  mode: slider
+
+ev_charge_2025_vehicle_limit_soc:
+  name: "Obiettivo Carica"
+  min: 0
+  max: 100
+  step: 5
+  unit_of_measurement: "%"
+  mode: slider
+
+ev_charge_2025_cronostar_power_target:
+  name: "Target Cronostar (kW)"
+  min: 0
+  max: 22
+  step: 0.1
+  unit_of_measurement: "kW"
+  mode: box
+
+ev_charge_2025_duration:
+  name: "Durata Ricarica (min)"
+  min: 0
+  max: 240
+  step: 1
+  unit_of_measurement: "min"
+  mode: slider
+
+ev_charge_2025_battery_capacity:
+  name: "Capacità Batteria"
+  min: 20
+  max: 100
+  step: 1
+  unit_of_measurement: "kWh"
+  mode: slider

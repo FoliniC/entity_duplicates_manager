@@ -1,0 +1,41 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Das Gerät ist bereits konfiguriert",
+            "already_configured_account": "Konto ist bereits konfiguriert",
+            "reconfigure_successful": "Die Neukonfiguration war erfolgreich",
+            "single_instance_allowed": "Bereits konfiguriert. Nur eine einzelne Konfiguration möglich."
+        },
+        "error": {
+            "invalid_auth": "Ungültige Authentifizierung"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "language": "Sprache",
+                    "notifications": "Benachrichtigungen für Meldungen der Stufe ALERT aktivieren",
+                    "notifications_diagnostic": "Benachrichtigungen für Meldungen der Stufe DIAGNOSTIC aktivieren",
+                    "notifications_warning": "Benachrichtigungen für Meldungen der Stufe WARNING aktivieren",
+                    "password": "Passwort",
+                    "username": "Benutzername"
+                },
+                "description": "Wenn Sie Hilfe bei der Konfiguration benötigen, besuchen Sie: https://github.com/albaintor/homeassistant_electrolux_status",
+                "title": "Electrolux Status"
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "user": {
+                "data": {
+                    "language": "Sprache",
+                    "notifications": "Benachrichtigungen für Meldungen der Stufe ALERT aktivieren",
+                    "notifications_diagnostic": "Benachrichtigungen für Meldungen der Stufe DIAGNOSTIC aktivieren",
+                    "notifications_warning": "Benachrichtigungen für Meldungen der Stufe WARNING aktivieren",
+                    "password": "Passwort",
+                    "renew_interval": "Erneuerungsintervall der Websocket‑Verbindung (Sekunden)"
+                }
+            }
+        }
+    }
+}

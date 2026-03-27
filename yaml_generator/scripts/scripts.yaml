@@ -1,0 +1,94 @@
+rigenera_configurazioni_fancoil:
+  alias: Rigenera Configurazioni Fancoil
+  sequence:
+    - action: shell_command.generate_fancoil_climates
+  mode: single
+  description: ""
+test_switch_2_on_verifica:
+  alias: Test switch 2 ON (verifica)
+  mode: single
+  sequence:
+    - action: switch.turn_on
+      target:
+        entity_id: switch.fancoil_cucina_switch_2
+  description: ""
+test_persistent_norification:
+  sequence:
+    - action: persistent_notification.create
+      metadata: {}
+      data:
+        title: prova
+        message: ciao test script
+  alias: test persistent norification
+  description: ""
+# update_router_ssid:
+#   alias: "Aggiorna SSID Router"
+#   description: "Forza l'aggiornamento dell'SSID del router"
+#   sequence:
+#     - action: homeassistant.update_entity
+#       target:
+#         entity_id: sensor.router_ssid
+#   mode: single
+
+fancoil_log_v2:
+  alias: "Fancoil: Logger con Buffer v2"
+  mode: queued
+  icon: mdi:format-list-bulleted
+  fields:
+    level:
+      description: "Livello del log"
+      example: "info"
+    message:
+      description: "Messaggio da loggare"
+      example: "Test messaggio"
+  sequence:
+    # 1. Specchia sempre nel log di sistema di Home Assistant
+    - action: system_log.write
+      data:
+        level: "{{ level if level in ['debug', 'info', 'warning', 'error', 'critical'] else 'info' }}"
+        logger: fancoil_system
+        message: >
+          {% set uptime = states('sensor.uptime') %}
+          {% set age = (as_timestamp(now()) - as_timestamp(uptime)) | int if uptime not in ['unknown', 'unavailable', None] else -1 %}
+          [DEBUG: Uptime={{ age }}s] {{ message }}
+
+    # 2. Gestione buffer di boot o scrittura su file tramite Pyscript
+    - choose:
+        # CASO 1: Buffering attivo (Se il flag è ON)
+        - conditions:
+            - condition: state
+              entity_id: input_boolean.fancoil_boot_buffering
+              state: "on"
+          sequence:
+            - action: python_script.set_state
+              data:
+                entity_id: input_boolean.fancoil_boot_buffering
+                log_queue: >-
+                  {% set current = state_attr('input_boolean.fancoil_boot_buffering', 'log_queue') %}
+                  {% if current is not string or current == 'unknown' or current == 'None' %}{% set current = '' %}{% endif %}
+                  {% set ts = now().strftime('%Y-%m-%d %H:%M:%S') %}
+                  {% set lvl = level | upper if level is defined else 'INFO' %}
+                  {% set new_entry = ts ~ ' [' ~ lvl ~ '] ' ~ (message | trim) ~ '[[BR]]' %}
+                  {{ (current ~ new_entry)[-16000:] }}
+      
+      # CASO 2: Normale operatività (Pyscript)
+      default:
+        - action: "{{ 'pyscript.fancoil_events_write' }}"
+          continue_on_error: true
+          data:
+            level: "{{ level.upper() if level is defined else 'INFO' }}"
+            message: "{{ message if message is defined else '' }}"
+
+fancoil_flush_logs:
+  alias: "Fancoil: Svuota Buffer Log"
+  sequence:
+    - action: "{{ 'pyscript.fancoil_flush_boot_buffer' }}"
+      data:
+        entity_id: input_boolean.fancoil_boot_buffering
+    - action: python_script.set_state
+      data:
+        entity_id: input_boolean.fancoil_boot_buffering
+        log_queue: ""
+    - action: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.fancoil_boot_buffering

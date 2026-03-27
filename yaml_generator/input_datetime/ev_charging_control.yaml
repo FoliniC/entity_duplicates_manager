@@ -1,0 +1,8 @@
+charging_start_time:
+  name: "Charging Start Time"
+  has_date: true
+  has_time: true
+charging_end_time:
+  name: "Charging End Time"
+  has_date: true
+  has_time: true

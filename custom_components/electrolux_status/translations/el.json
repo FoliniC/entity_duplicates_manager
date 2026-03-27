@@ -1,0 +1,41 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Η συσκευή έχει ήδη ρυθμιστεί",
+            "already_configured_account": "Ο λογαριασμός έχει ήδη ρυθμιστεί",
+            "reconfigure_successful": "Η εκ νέου διαμόρφωση ήταν επιτυχής",
+            "single_instance_allowed": "Έχει ήδη ρυθμιστεί. Μόνο μία δυνατή διαμόρφωση."
+        },
+        "error": {
+            "invalid_auth": "Μη έγκυρος έλεγχος ταυτότητας"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "language": "Γλώσσα",
+                    "notifications": "Ειδοποιήσεις",
+                    "notifications_diagnostic": "Διαγνωστικά",
+                    "notifications_warning": "Προειδοποιήσεις",
+                    "password": "Κωδικός",
+                    "username": "Όνομα χρήστη"
+                },
+                "description": "Εάν χρειάζεστε βοήθεια επισκεφτείτε τον σύνδεσμο: https://github.com/albaintor/homeassistant_electrolux_status",
+                "title": "Κατάσταση ηλεκτρικής ενέργειας"
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "user": {
+                "data": {
+                    "language": "Γλώσσα",
+                    "notifications": "Ειδοποιήσεις",
+                    "notifications_diagnostic": "Διαγνωστικά",
+                    "notifications_warning": "Προειδοποιήσεις",
+                    "password": "Κωδικός",
+                    "renew_interval": "Διάστημα ανανέωσης του websocket (δευτερόλεπτα)"
+                }
+            }
+        }
+    }
+}

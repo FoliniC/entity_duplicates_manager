@@ -1,0 +1,134 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Dispositivo già configurato",
+            "cannot_connect": "Impossibile connettersi al dispositivo",
+            "discover_timeout": "Impossibile scoprire i dispositivi",
+            "reconfigure_successful": "Dispositivo riconfigurato con successo",
+            "unknown": "Errore sconosciuto"
+        },
+        "error": {
+            "linking": "Errore di collegamento sconosciuto",
+            "register_failed": "Impossibile registrare, riprovare"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "topic": "Topic",
+                    "ports": "Numero delle porte disponibili",
+                    "serial": "Codice univoco del dispositivo. Usare se si hanno piu' dispositivi",
+                    "vsensors": "Abilita sensori virtuali",
+                    "powerwall": "Abilita sensori per il Powerwall",
+                    "maxcurr": "Corrente massima impostabile 6A-32A"
+                },
+                "description": "Inserire i dettagli della connessione al dispositivo",
+                "title": "Configurazione Silla Prsim"
+            }
+        }
+    },
+    "entity": {
+        "binary_sensor": {
+            "touch_sigle": {
+                "name": "Tocco singolo"
+            },
+            "touch_double": {
+                "name": "Doppio tocco"
+            },
+            "touch_long": {
+                "name": "Pressione lunga"
+            },
+            "online": {
+                "name": "Stato connessione",
+                "state": {
+                    "on": "Connesso",
+                    "off": "Disconnesso"
+                }
+            }
+        },
+        "number": {
+            "set_current_limit": {
+                "name": "Limite corrente"
+            },
+            "set_max_current": {
+                "name": "Corrente utente"
+            }
+        },
+        "select": {
+            "set_port_mode": {
+                "name": "Imposta modalit\u00e0 porta",
+                "state": {
+                    "solar": "Solare",
+                    "normal": "Normale",
+                    "paused": "In pausa"
+                }
+            }
+        },
+        "sensor": {
+            "output_current": {
+                "name": "Corrente erogata"
+            },
+            "current_port_mode": {
+                "name": "Modo della porta",
+                "state": {
+                    "solar": "Solare",
+                    "normal": "Normale",
+                    "paused": "In pausa",
+                    "suspended": "In sospeso",
+                    "unknown": "Sconosciuto",
+                    "autolimit": "Auto limitazione"
+                }
+            },
+            "output_car_current": {
+                "name": "Corrente pilotata dall'auto"
+            },
+            "input_grid_power": {
+                "name": "Potenza prelevata dalla rete"
+            },
+            "current_state": {
+                "name": "Stato wallbox",
+                "state": {
+                    "idle": "Inattivo",
+                    "waiting": "In attesa",
+                    "charging": "In carica",
+                    "pause": "In pausa"
+                }
+            },
+            "current_set_by_user": {
+                "name": "Corrente limitata dall'utente"
+            },
+            "power_grid_voltage": {
+                "name": "Tensione di rete"
+            },
+            "output_power": {
+                "name": "Potenza assorbita"
+            },
+            "session_output_energy": {
+                "name": "Energia erogata ultima sessione"
+            },
+            "total_output_energy": {
+                "name": "Energia erogata totale"
+            },
+            "core_temperature": {
+                "name": "Temperatura della CPU"
+            },
+            "input_grid_energy": {
+                "name": "Energia totale dalla rete"
+            },
+            "powerwall_solar": {
+                "name": "Potenza prodotta dal fotovoltaico"
+            },
+            "powerwall_house": {
+                "name": "Potenza consumata dalla casa"
+            }
+        },
+        "button": {
+            "set_mode_traps_auth": {
+                "name": "Autorizza ricarica"
+            },
+            "set_mode_traps_noauth": {
+                "name": "Revoca autorizzazione ricarica"
+            }
+        }
+    },
+    "title": "Silla Prism connector"
+}

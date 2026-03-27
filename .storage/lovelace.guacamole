@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "lovelace.guacamole",
+  "data": {
+    "config": {
+      "strategy": {
+        "type": "iframe",
+        "url": "http://192.168.195.3:8080/guacamole/"
+      }
+    }
+  }
+}

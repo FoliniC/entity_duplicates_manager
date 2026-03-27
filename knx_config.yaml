@@ -1,0 +1,138 @@
+# ============================================================================
+# KNX CONFIGURATION
+# ============================================================================
+
+cover:
+  - name: "camera_grande_tapparella_knx"
+    move_long_address: "2/0/6"
+    move_short_address: "2/0/7"
+    travelling_time_down: 23
+    travelling_time_up: 25
+
+  - name: "bagno_tapparella_knx"
+    move_long_address: "2/0/12"
+    move_short_address: "2/0/13"
+    position_address: "2/0/16"
+    travelling_time_down: 23
+    travelling_time_up: 25
+
+  - name: "camera_tapparella_knx"
+    move_long_address: "2/0/18"
+    move_short_address: "2/0/19"
+    position_address: "2/0/22"
+    travelling_time_down: 23
+    travelling_time_up: 25
+
+  - name: "cucina_finestra_tapparella_knx"
+    move_long_address: "3/3/0"
+    move_short_address: "3/3/1"
+    position_address: "3/3/4"
+    travelling_time_down: 23
+    travelling_time_up: 25
+
+  - name: "porta_finestra_cucina_knx_tapparella"
+    move_long_address: "3/3/6"
+    move_short_address: "3/3/7"
+    position_address: "3/3/8"
+    travelling_time_down: 23
+    travelling_time_up: 25
+
+  - name: "porta_finestra_sala_knx_tapparella"
+    move_long_address: "2/0/24"
+    move_short_address: "2/0/25"
+    position_address: "2/0/28"
+    travelling_time_down: 23
+    travelling_time_up: 25
+
+  - name: "tutte_tapparelle_knx"
+    move_long_address: "0/0/1"
+    move_short_address: "0/0/2"
+    travelling_time_down: 23
+    travelling_time_up: 25
+
+sensor:
+  - name: "Temperatura circuito riscaldamento"
+    state_address: "2/1/33"
+    type: temperature
+    sync_state: every 60
+
+  - name: "Temperatura acqua calda"
+    state_address: "2/1/19"
+    type: temperature
+    sync_state: every 60
+
+  - name: "Temperatura camera grande"
+    state_address: "2/0/1"
+    type: temperature
+    sync_state: every 60
+
+  - name: "Temperatura camera"
+    state_address: "2/0/2"
+    type: temperature
+    sync_state: every 60
+
+  - name: "Temperatura camera NTC"
+    state_address: "2/0/62"
+    type: temperature
+    sync_state: every 60
+
+  - name: "Temperatura sala"
+    state_address: "2/0/3"
+    type: temperature
+    sync_state: every 60
+
+  - name: "Temperatura bagno"
+    state_address: "2/0/4"
+    type: temperature
+    sync_state: every 60
+
+  - name: "Temperatura strenscia"
+    state_address: "3/2/10"
+    type: temperature
+    sync_state: every 60
+
+  # PDC (Pompa di Calore) Sensors
+  - name: "PDC rendimento ambientale"
+    state_address: "2/1/20"
+    state_class: total_increasing
+    type: active_energy_kwh
+    sync_state: every 60
+
+  - name: "PDC consumo acqua calda"
+    state_address: "2/1/36"
+    type: active_energy_kwh
+    state_class: total_increasing
+    sync_state: every 60
+
+  - name: "PDC consumo riscaldamento"
+    state_address: "2/1/35"
+    type: active_energy_kwh
+    state_class: total_increasing
+    sync_state: every 60
+
+switch:
+  - name: "Attiva fancoil"
+    address: "3/2/3"
+
+  - name: "Attiva pompa circolazione"
+    address: "3/2/2"
+
+  - name: "Attiva PDC"
+    address: "3/2/4"
+
+binary_sensor:
+  - name: "PDC standby"
+    state_address: "2/1/4"
+    sync_state: every 60
+
+  - name: "PDC heating"
+    state_address: "2/1/5"
+    sync_state: every 60
+
+  - name: "PDC cooling"
+    state_address: "2/1/6"
+    sync_state: every 60
+
+  - name: "PDC acqua calda"
+    state_address: "2/1/7"
+    sync_state: every 60

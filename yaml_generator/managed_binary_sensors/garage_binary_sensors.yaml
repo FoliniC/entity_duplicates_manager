@@ -1,0 +1,6 @@
+- name: "Garage Door Contact Filtered"
+  unique_id: garage_door_contact_filtered
+  device_class: garage_door
+  state: >
+    {{ states("binary_sensor.garage_door_garage_contact_sensor") }}
+  delay_off: 2

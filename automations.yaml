@@ -1,0 +1,52 @@
+- id: cronostar_profilo_presenza
+  alias: 'CronoStar: Profilo in base a presenza e finestre'
+  description: Imposta Default / Away / Eco per CronoStar in base alla presenza e
+    allo stato finestra.
+  triggers:
+  - trigger: state
+    id: away
+    entity_id: group.famiglia
+    to: not_home
+  - trigger: state
+    id: home
+    entity_id: group.famiglia
+    from: not_home
+    to: home
+  - trigger: state
+    id: window_eco
+    entity_id: binary_sensor.finestra_cucina
+    to: 'on'
+    for:
+      minutes: 5
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: away
+      sequence:
+      - action: select.select_option
+        target:
+          entity_id: select.cronostar_generic_switch_tavolo_current_profile
+        data:
+          option: Away
+    - conditions:
+      - condition: trigger
+        id: home
+      sequence:
+      - action: select.select_option
+        target:
+          entity_id: select.cronostar_generic_switch_tavolo_current_profile
+        data:
+          option: Default
+    - conditions:
+      - condition: trigger
+        id: window_eco
+      sequence:
+      - action: select.select_option
+        target:
+          entity_id: select.cronostar_generic_switch_tavolo_current_profile
+        data:
+          option: Eco
+    default: []
+  mode: single

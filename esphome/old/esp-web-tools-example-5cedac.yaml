@@ -1,0 +1,17 @@
+substitutions:
+  name: esp-web-tools-example-5cedac
+  friendly_name: ESP Web Tools Example 5cedac
+packages:
+  esphome.esp_web_tools_example: github://esphome/firmware/esp-web-tools/esp32s3.yaml@main
+esphome:
+  name: ${name}
+  name_add_mac_suffix: false
+  friendly_name: ${friendly_name}
+api:
+  encryption:
+    key: Sw32mjXdFwwAfBbpCdTsd4+nLkoKpH0HXYC/ZmYP928=
+
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password

@@ -1,0 +1,47 @@
+task_name: fancoil_full_package_2026
+description: >
+  Full package 2026 of the fancoil climate system SOURCE FILES. 
+  Includes only scripts, variables, templates and core system configurations.
+  All room-specific entities and automations are generated from these sources.
+
+  ENTITIES PERSISTED ACROSS REBOOT:
+  - Local Room Settings (via Pyscript/JSON): Offset, Local Setpoint, Follow Toggles.
+  - Calculated Sensors (via Trigger-based Templates): Last Temperature, HVAC Mode, Delta.
+  - Global Parameters: Fan distance thresholds, Master Setpoints.
+
+output_type: txt
+output_dir: "."
+output_filename_prefix: fancoil_full_package_2026
+base_dir: "."
+files:
+  # Core Logic & Configuration Sources
+  - path: ./generate_fancoil_climates.py
+  - path: ./fancoil_vars.yaml
+  - path: ../configuration.yaml
+    process_yaml: true
+    sections_to_remove:
+      ["conversation", "intent_script", "knx", "modbus", "scheduler"]
+  - path: ../pyscript/fancoil_events_write.py
+
+  # Templates (.j2) - The source of everything generated
+  - path: ./templates/fancoil_automation.j2
+  - path: ./templates/fancoil_climate.j2
+  - path: ./templates/fancoil_sensors.j2
+  - path: ./templates/fancoil_binary_sensors.j2
+  - path: ./templates/fancoil_persistence.j2
+  - path: ./templates/fancoil_master_climate.j2
+  - path: ./templates/fancoil_master_input_numbers.j2
+  - path: ./templates/fancoil_room_input_booleans.j2
+  - path: ./templates/fancoil_room_input_numbers.j2
+  - path: ./templates/fancoil_room_input_selects.j2
+  - path: ./templates/dashboard_main.j2
+  - path: ./templates/dashboard_termostati_card.j2
+  - path: ./templates/dashboard_impostazioni_card.j2
+
+  # Core Templates (Manually maintained)
+  - path: ./luce_scale_template.yaml
+  - path: ./ev_charge_2025_triggers.yaml
+
+  # Logging documentation
+  - path: ./generator.log
+    tail_lines: 50

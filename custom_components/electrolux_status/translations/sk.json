@@ -1,0 +1,41 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Zariadenie je už nakonfigurované",
+            "already_configured_account": "Účet je už nakonfigurovaný",
+            "reconfigure_successful": "Opätovná konfigurácia bola úspešná",
+            "single_instance_allowed": "Už nakonfigurované.Iba jedna možná konfigurácia."
+        },
+        "error": {
+            "invalid_auth": "Neplatné overovanie"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "language": "Jazyk",
+                    "notifications": "Zvýšiť oznámenia o upozorneniach na úrovni výstrahy",
+                    "notifications_diagnostic": "Zvýšte upozornenia pre oznámenia o diagnostickej úrovni",
+                    "notifications_warning": "Zvýšte oznámenia o upozorneniach na úrovni varovania",
+                    "password": "Heslo",
+                    "username": "Užívateľské meno"
+                },
+                "description": "Ak potrebujete pomoc s konfiguráciou, navštívte: https://github.com/albaintor/homeassistant_electrolux_status",
+                "title": "Status"
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "user": {
+                "data": {
+                    "language": "Jazyk",
+                    "notifications": "Zvýšiť oznámenia o upozorneniach na úrovni výstrahy",
+                    "notifications_diagnostic": "Zvýšte upozornenia pre oznámenia o diagnostickej úrovni",
+                    "notifications_warning": "Zvýšte oznámenia o upozorneniach na úrovni varovania",
+                    "password": "Heslo",
+                    "renew_interval": "Interval obnovy WebSocket (sekundy)"
+                }
+            }
+        }
+    }
+}

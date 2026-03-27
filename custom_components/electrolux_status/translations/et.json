@@ -1,0 +1,41 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Seade on juba konfigureeritud",
+            "already_configured_account": "Konto on juba konfigureeritud",
+            "reconfigure_successful": "Uuesti konfigureerimine oli edukas",
+            "single_instance_allowed": "Juba konfigureeritud.Võimalik ainult üks konfiguratsioon."
+        },
+        "error": {
+            "invalid_auth": "Kehtetu autentimine"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "language": "Keel",
+                    "notifications": "Tõsta märguandeid häirete teadete kohta",
+                    "notifications_diagnostic": "Tõsta teatisi diagnostiliste teadete kohta",
+                    "notifications_warning": "Tõsta teatisi hoiatustaseme teadete kohta",
+                    "password": "Parool",
+                    "username": "Kasutajanimi"
+                },
+                "description": "Kui vajate abi konfiguratsioonis",
+                "title": "Electroluxi olek"
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "user": {
+                "data": {
+                    "language": "Keel",
+                    "notifications": "Tõsta märguandeid häirete teadete kohta",
+                    "notifications_diagnostic": "Tõsta teatisi diagnostiliste teadete kohta",
+                    "notifications_warning": "Tõsta teatisi hoiatustaseme teadete kohta",
+                    "password": "Parool",
+                    "renew_interval": "WebSocketi pikendamise intervall (sekundid)"
+                }
+            }
+        }
+    }
+}

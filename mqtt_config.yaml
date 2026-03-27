@@ -1,0 +1,113 @@
+# ============================================================================
+# MQTT CONFIGURATION
+# ============================================================================
+
+# Configurazione broker MQTT (se necessario personalizzare)
+# broker: homeassistant.local
+# port: 1883
+# username: !secret mqtt_username
+# password: !secret mqtt_password
+
+# ============================================================================
+# MQTT SENSORS
+# ============================================================================
+
+sensor:
+  # ========================================
+  # PRISM STATUS & STATE
+  # ========================================
+  - state_topic: "home/prism/hello"
+    name: "Prism Hello"
+
+  - state_topic: "home/prism/1/state"
+    name: "Prism Stato"
+    value_template: >
+      {% set map = {
+        '1': 'Unplugged',
+        '2': 'Waiting',
+        '3': 'Charging',
+        '4': 'Pause'
+      } %}
+      {{ map[value] if value in map else 'Error' }}
+
+  - state_topic: "home/prism/1/error"
+    name: "Prism Error"
+
+  # ========================================
+  # PRISM ELECTRICAL MEASUREMENTS
+  # ========================================
+  - state_topic: "home/prism/1/amp"
+    name: "Prism Corrente"
+    unit_of_measurement: "mA"
+
+  - state_topic: "home/prism/1/volt"
+    name: "Prism Tensione Attuale"
+    unit_of_measurement: "V"
+
+  - state_topic: "home/prism/1/w"
+    name: "Prism Potenza"
+    unit_of_measurement: "W"
+
+  # ========================================
+  # PRISM ENERGY & SESSION
+  # ========================================
+  - state_topic: "home/prism/1/wh"
+    name: "Prism Energia Erogata Sessione"
+    unit_of_measurement: "Wh"
+
+  - state_topic: "home/prism/1/wh_total"
+    name: "Prism Energia Totale"
+    unit_of_measurement: "Wh"
+
+  - state_topic: "home/prism/1/session_time"
+    name: "Prism Durata Sessione"
+    value_template: "{{ value | int | timestamp_custom('%H:%M:%S', 0) }}"
+
+  # ========================================
+  # PRISM CURRENT SETTINGS
+  # ========================================
+  - state_topic: "home/prism/1/pilot"
+    name: "Prism Corrente Pilotata dall'Auto"
+    unit_of_measurement: "A"
+
+  - state_topic: "home/prism/1/user_amp"
+    name: "Prism Corrente Impostata dell'Utente"
+    unit_of_measurement: "A"
+
+  # ========================================
+  # PRISM MODE
+  # ========================================
+  - state_topic: "home/prism/1/mode"
+    name: "Prism Mode"
+    value_template: >
+      {% set map = {
+        '1': 'solar',
+        '2': 'normal',
+        '3': 'pause',
+        '7': 'autolimit'
+      } %}
+      {{ map[value] if value in map else 'error'}}
+
+  # ========================================
+  # PRISM INPUTS
+  # ========================================
+  - state_topic: "home/prism/1/input/touch"
+    name: "Prism Touch"
+    expire_after: 10
+
+  # ========================================
+  # PRISM ENERGY DATA
+  # ========================================
+  - state_topic: "home/prism/energy_data/power_grid"
+    name: "Prism Potenza Importata"
+    unit_of_measurement: "W"
+    expire_after: 5
+
+  # ========================================
+  # PRISM COMMAND RESULTS
+  # ========================================
+  - state_topic: "home/prism/commandresult/set_current_limit/success"
+    name: "Prism risultato set current ok"
+
+  - state_topic: "home/prism/commandresult/set_current_limit/error"
+    name: "Prism risultato set current ko"

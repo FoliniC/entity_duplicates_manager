@@ -1,0 +1,41 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Enheten är redan konfigurerad",
+            "already_configured_account": "Kontot är redan konfigurerat",
+            "reconfigure_successful": "Re-konfiguration var framgångsrik",
+            "single_instance_allowed": "Redan konfigurerat.Endast en enda konfiguration som möjligt."
+        },
+        "error": {
+            "invalid_auth": "Ogiltig autentisering"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "language": "Språk",
+                    "notifications": "Höj meddelanden för meddelanden om varningsnivå",
+                    "notifications_diagnostic": "Höj meddelanden för meddelanden om diagnostisk nivå",
+                    "notifications_warning": "Höj meddelanden för varningsnivåmeddelanden",
+                    "password": "Lösenord",
+                    "username": "Användarnamn"
+                },
+                "description": "Om du behöver hjälp med konfigurationsbesöket: https://github.com/albaintor/homeassistant_electrolux_status",
+                "title": "Elektroluxstatus"
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "user": {
+                "data": {
+                    "language": "Språk",
+                    "notifications": "Höj meddelanden för meddelanden om varningsnivå",
+                    "notifications_diagnostic": "Höj meddelanden för meddelanden om diagnostisk nivå",
+                    "notifications_warning": "Höj meddelanden för varningsnivåmeddelanden",
+                    "password": "Lösenord",
+                    "renew_interval": "Förnyelseintervall för WebSocket (sekunder)"
+                }
+            }
+        }
+    }
+}

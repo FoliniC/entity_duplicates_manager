@@ -1,0 +1,11 @@
+- id: fancoil_log_event_listener
+  alias: "Fancoil: Listener Eventi Log"
+  description: "Ascolta gli eventi fancoil_log_event e li indirizza al sistema di logging"
+  trigger:
+    - trigger: event
+      event_type: fancoil_log_event
+  actions:
+    - action: "{{ 'script.fancoil_log_v2' }}"
+      data:
+        level: "{{ trigger.event.data.level | default('info') }}"
+        message: "{{ trigger.event.data.message | default('') }}"

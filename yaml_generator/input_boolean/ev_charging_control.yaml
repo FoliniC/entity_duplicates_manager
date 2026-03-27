@@ -1,0 +1,9 @@
+ev_charging_scheduled_active:
+  name: "Scheduled Charging Active"
+  icon: mdi:ev-plug-type2
+ev_charging_force_fixed_rate:
+  name: "Force Fixed Charging Rate"
+  icon: mdi:flash
+ev_charging_logging_enabled:
+  name: "EV Charging Logging Enabled"
+  icon: mdi:file-document

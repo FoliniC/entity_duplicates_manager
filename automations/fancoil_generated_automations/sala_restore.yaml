@@ -1,0 +1,68 @@
+- alias: "Sala: Force Init Temp Source Options"
+  trigger:
+    - platform: homeassistant
+      event: start
+  action:
+    # 1. Popola le opzioni dalla storia salvata (se valida) o usa i default
+    - action: input_select.set_options
+      target:
+        entity_id: input_select.fancoil_sala_temp_source
+      data:
+        options: >-
+          {% set history = states('sensor.fancoil_sala_temp_sources_history') %}
+          {% set defaults = ['sensor.fancoil_sala_temperature'] %}
+          {% if "sensor.th6a_temperature" != "%%" ~ "ref_sensor" ~ "%%" and "sensor.th6a_temperature" != "" %}
+            {% set defaults = defaults + ["sensor.th6a_temperature"] %}
+          {% endif %}
+          {% if "sensor.temperatura_sala" != "%%" ~ "knx_temp_sensor" ~ "%%" and "sensor.temperatura_sala" != "" %}
+            {% set defaults = defaults + ["sensor.temperatura_sala"] %}
+          {% endif %}
+
+          {% if history not in ['unavailable', 'unknown', None] and history != "" %}
+            {{ history.split(',') }}
+          {% else %}
+            {{ defaults }}
+          {% endif %}
+
+    # 2. Ripristina la selezione specifica
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.fancoil_sala_temp_source
+      data:
+        option: >-
+          {% set saved = states('sensor.fancoil_sala_saved_temp_source') %}
+          {% if saved not in ['unavailable', 'unknown', None] and saved != "" %}
+            {{ saved }}
+          {% else %}
+            sensor.fancoil_sala_temperature
+          {% endif %}
+
+- alias: "Sala: Sync Temp Source Options on Change"
+  trigger:
+    - platform: state
+      entity_id: sensor.fancoil_sala_temp_sources_history
+  action:
+    - action: input_select.set_options
+      target:
+        entity_id: input_select.fancoil_sala_temp_source
+      data:
+        options: "{{ states('sensor.fancoil_sala_temp_sources_history').split(',') }}"
+
+- alias: "Sala: Handle New Sensor Added"
+  trigger:
+    - platform: state
+      entity_id: input_text.fancoil_sala_add_temp_entity
+  condition:
+    - condition: template
+      value_template: "{{ states('input_text.fancoil_sala_add_temp_entity') != '' }}"
+  action:
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.fancoil_sala_temp_source
+      data:
+        option: "{{ states('input_text.fancoil_sala_add_temp_entity') }}"
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.fancoil_sala_add_temp_entity
+      data:
+        value: ""

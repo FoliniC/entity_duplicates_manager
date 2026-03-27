@@ -1,0 +1,4 @@
+ev_charge_2025_end_time:
+  name: "Fine Ricarica"
+  has_date: false
+  has_time: true

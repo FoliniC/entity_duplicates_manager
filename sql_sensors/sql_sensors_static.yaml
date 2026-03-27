@@ -1,0 +1,286 @@
+- name: Sun state
+  unique_id: sun_state_123
+  query: >
+    SELECT
+      states.state
+    FROM
+      states
+      LEFT JOIN state_attributes ON (
+        states.attributes_id = state_attributes.attributes_id
+      )
+    WHERE
+      metadata_id = (
+        SELECT
+          metadata_id
+        FROM
+          states_meta
+        where
+          entity_id = 'sun.sun'
+      )
+    ORDER BY
+      state_id DESC
+    LIMIT
+      1;
+  column: "state"
+# - name: "1a_temperature_humidity_temperature_last"
+#   unique_id: 1a_temperature_humidity_temperature_last
+#   query: >
+#     SELECT COALESCE ((
+#       SELECT CAST(states.state AS DOUBLE)  as state
+#       FROM
+#         states
+#       LEFT JOIN state_attributes ON (
+#         states.attributes_id = state_attributes.attributes_id
+#       )
+#       WHERE
+#         metadata_id = (
+#           SELECT
+#             metadata_id
+#           FROM
+#             states_meta
+#           WHERE
+#             entity_id = 'sensor.1a_temperature_humidity_temperature'
+#         )
+#       AND states.state IS NOT NULL
+#       AND NOT states.state in ( 'unavailable', 'unknown')
+#       AND CAST(states.state AS DOUBLE) > -100
+#       ORDER BY
+#               states.state_id DESC
+#               LIMIT 1), -100.0
+#         ) AS state;
+#   column: "state"
+# - name: "2b_temperature_humidity_temperature_last"
+#   unique_id: 2b_temperature_humidity_temperature_last
+#   query: >
+#     SELECT COALESCE ((
+#       SELECT CAST(states.state AS DOUBLE)  as state
+#       FROM
+#         states
+#       LEFT JOIN state_attributes ON (
+#         states.attributes_id = state_attributes.attributes_id
+#       )
+#       WHERE
+#         metadata_id = (
+#           SELECT
+#             metadata_id
+#           FROM
+#             states_meta
+#           WHERE
+#             entity_id = 'sensor.2b_temperature_humidity_temperature'
+#         )
+#       AND states.state IS NOT NULL
+#       AND NOT states.state in ( 'unavailable', 'unknown')
+#       AND CAST(states.state AS DOUBLE) > -100
+#       ORDER BY
+#               states.state_id DESC
+#               LIMIT 1), -100.0
+#         ) AS state;
+#   column: "state"
+# # - name: "3c_temperature_humidity_temperature_last"
+# #   unique_id: 3c_temperature_humidity_temperature_last
+# #   query: >
+# #     SELECT COALESCE ((
+# #       SELECT CAST(states.state AS DOUBLE)  as state
+# #       FROM
+# #         states
+# #       LEFT JOIN state_attributes ON (
+# #         states.attributes_id = state_attributes.attributes_id
+# #       )
+# #       WHERE
+# #         metadata_id = (
+# #           SELECT
+# #             metadata_id
+# #           FROM
+# #             states_meta
+# #           WHERE
+# #             entity_id = 'sensor.3c_temperature_humidity_temperature'
+# #         )
+# #       AND states.state IS NOT NULL
+# #       AND NOT states.state in ( 'unavailable', 'unknown')
+# #       AND CAST(states.state AS DOUBLE) > -100
+# #       ORDER BY
+# #               states.state_id DESC
+# #               LIMIT 1), -100.0
+# #         ) AS state;
+# #   column: "state"
+# - name: "th4d_temperature_humidity_temperature_last"
+#   unique_id: th4d_temperature_humidity_temperature_last
+#   query: >
+#     SELECT COALESCE ((
+#       SELECT CAST(states.state AS DOUBLE)  as state
+#       FROM
+#         states
+#       LEFT JOIN state_attributes ON (
+#         states.attributes_id = state_attributes.attributes_id
+#       )
+#       WHERE
+#         metadata_id = (
+#           SELECT
+#             metadata_id
+#           FROM
+#             states_meta
+#           WHERE
+#             entity_id = 'sensor.th4d_temperature_humidity_temperature'
+#         )
+#       AND states.state IS NOT NULL
+#       AND NOT states.state in ( 'unavailable', 'unknown')
+#       AND CAST(states.state AS DOUBLE) > -100
+#       ORDER BY
+#               states.state_id DESC
+#               LIMIT 1), -100.0
+#         ) AS state;
+#   column: "state"
+# - name: "1a_temperature_humidity_humidity_last"
+#   unique_id: 1a_temperature_humidity_humidity_last
+#   query: >
+#     SELECT COALESCE ((
+#       SELECT CAST(states.state AS DOUBLE)  as state
+#       FROM
+#         states
+#       LEFT JOIN state_attributes ON (
+#         states.attributes_id = state_attributes.attributes_id
+#       )
+#       WHERE
+#         metadata_id = (
+#           SELECT
+#             metadata_id
+#           FROM
+#             states_meta
+#           WHERE
+#             entity_id = 'sensor.1a_temperature_humidity_humidity'
+#         )
+#       AND states.state IS NOT NULL
+#       AND NOT states.state in ( 'unavailable', 'unknown')
+#       AND CAST(states.state AS DOUBLE) > -100
+#       ORDER BY
+#               states.state_id DESC
+#               LIMIT 1), -100.0
+#         ) AS state;
+#   column: "state"
+# - name: "2b_temperature_humidity_humidity_last"
+#   unique_id: 2b_temperature_humidity_humidity_last
+#   query: >
+#     SELECT COALESCE ((
+#       SELECT CAST(states.state AS DOUBLE)  as state
+#       FROM
+#         states
+#       LEFT JOIN state_attributes ON (
+#         states.attributes_id = state_attributes.attributes_id
+#       )
+#       WHERE
+#         metadata_id = (
+#           SELECT
+#             metadata_id
+#           FROM
+#             states_meta
+#           WHERE
+#             entity_id = 'sensor.2b_temperature_humidity_humidity'
+#         )
+#       AND states.state IS NOT NULL
+#       AND NOT states.state in ( 'unavailable', 'unknown')
+#       AND CAST(states.state AS DOUBLE) > -100
+#       ORDER BY
+#               states.state_id DESC
+#               LIMIT 1), -100.0
+#         ) AS state;
+#   column: "state"
+# - name: "3c_temperature_humidity_humidity_last"
+#   unique_id: 3c_temperature_humidity_humidity_last
+#   query: >
+#     SELECT COALESCE ((
+#       SELECT CAST(states.state AS DOUBLE)  as state
+#       FROM
+#         states
+#       LEFT JOIN state_attributes ON (
+#         states.attributes_id = state_attributes.attributes_id
+#       )
+#       WHERE
+#         metadata_id = (
+#           SELECT
+#             metadata_id
+#           FROM
+#             states_meta
+#           WHERE
+#             entity_id = 'sensor.3c_temperature_humidity_humidity'
+#         )
+#       AND states.state IS NOT NULL
+#       AND NOT states.state in ( 'unavailable', 'unknown')
+#       AND CAST(states.state AS DOUBLE) > -100
+#       ORDER BY
+#               states.state_id DESC
+#               LIMIT 1), -100.0
+#         ) AS state;
+#   column: "state"
+# - name: "th4d_temperature_humidity_humidity_last"
+#   unique_id: th4d_temperature_humidity_humidity_last
+#   query: >
+#     SELECT COALESCE ((
+#       SELECT CAST(states.state AS DOUBLE)  as state
+#       FROM
+#         states
+#       LEFT JOIN state_attributes ON (
+#         states.attributes_id = state_attributes.attributes_id
+#       )
+#       WHERE
+#         metadata_id = (
+#           SELECT
+#             metadata_id
+#           FROM
+#             states_meta
+#           WHERE
+#             entity_id = 'sensor.th4d_temperature_humidity_humidity'
+#         )
+#       AND states.state IS NOT NULL
+#       AND NOT states.state in ( 'unavailable', 'unknown')
+#       AND CAST(states.state AS DOUBLE) > -100
+#       ORDER BY
+#               states.state_id DESC
+#               LIMIT 1), -100.0
+#         ) AS state;
+#   column: "state"
+#sensor:
+# - <<: *sensor_template
+# sensor_id: "3c"
+# measurement_type: "temperature"
+# source_entity_suffix: "temperature_humidity_sensor"  # Sovrascrive il suffisso primario
+# fallback_entity_suffix: "temperature"                # Suffisso entità secondaria
+# reference_sensor: "1a"                               # Sensore di riferimento
+# reference_measurement: "temperature"                 # Tipo misurazione riferimento
+# reference_invalid_value: -100                        # Valore considerato invalido
+# min_value: -10                                       # Soglia minima accettabile
+# sql_min_value: -100                                  # Soglia per query SQL
+# initial_value: 0                                     # Valore iniziale
+
+#   - platform: sql
+#     db_url: sqlite://config/home-assistant_v2.db
+#     scan_interval: 10 # in seconds
+#     queries:
+#       - name: "Last Value Sensor 1A"
+#         query: "SELECT state FROM states WHERE entity_id = 'sensor.1A_temperature_humidity_sensor_temperature' ORDER BY last_updated DESC LIMIT 1;"
+#         column: "state"
+#       - name: "prova12345"
+#         unique_id: prova12345
+#         query: "SELECT COALESCE ((
+#         SELECT CAST(states.state AS DOUBLE)  as state
+#         FROM
+#           states
+#         LEFT JOIN state_attributes ON (
+#           states.attributes_id = state_attributes.attributes_id
+#         )
+#         WHERE
+#           metadata_id = (
+#             SELECT
+#               metadata_id
+#             FROM
+#               states_meta
+#             WHERE
+#               entity_id = 'sensor.1a_temperature_humidity_temperature'
+#           )
+#         AND states.state IS NOT NULL
+#         AND NOT states.state in ( 'unavailable', 'unknown')
+#         AND CAST(states.state AS DOUBLE) > -100
+#         ORDER BY
+#                 states.state_id DESC
+#                 LIMIT 1), -100.0
+#           ) AS state;"
+#         column: "state"

@@ -1,0 +1,335 @@
+# File: yaml_generator/cronostar_generator.py
+# Generator for CronoStar scheduling system entities
+
+import os
+import yaml
+import logging
+from datetime import datetime
+
+# CONFIGURATION
+LOGGING_FILE = "yaml_generator/generator.log"
+CONFIG_PATH = "yaml_generator/cronostar_config.yaml"
+
+# Outputs (generated)
+OUTPUT_DIR = "yaml_generator/cronostar_generated"
+INPUT_NUMBER_OUTPUT_FILE = (
+    "yaml_generator/cronostar_generated/cronostar_input_numbers.yaml"
+)
+INPUT_TEXT_OUTPUT_FILE = "yaml_generator/cronostar_generated/cronostar_input_texts.yaml"
+INPUT_BOOLEAN_OUTPUT_FILE = (
+    "yaml_generator/cronostar_generated/cronostar_input_booleans.yaml"
+)
+INPUT_SELECT_OUTPUT_FILE = (
+    "yaml_generator/cronostar_generated/cronostar_input_selects.yaml"
+)
+
+# Setup logging
+os.makedirs(os.path.dirname(LOGGING_FILE), exist_ok=True)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger(__name__)
+file_handler = logging.FileHandler(LOGGING_FILE)
+file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s: %(message)s"))
+logger.addHandler(file_handler)
+
+
+def ensure_dir(path: str):
+    """Ensure the directory for the given file or directory path exists."""
+    if os.path.splitext(path)[1]:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+    else:
+        os.makedirs(path, exist_ok=True)
+
+
+def load_cronostar_config(config_path: str) -> dict:
+    """Load CronoStar configuration from YAML."""
+    logger.info(f"Loading CronoStar config from {config_path}")
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        logger.warning(f"Config file not found: {config_path}, using defaults")
+        config = {}
+    except Exception as e:
+        logger.error(f"Error loading YAML config: {e}")
+        raise
+
+    # Ensure presets key exists
+    if "presets" not in config:
+        config["presets"] = get_default_presets()
+
+    logger.info(f"Loaded {len(config.get('presets', {}))} presets")
+    return config
+
+
+def get_default_presets() -> dict:
+    """Return default preset configurations."""
+    return {
+        "thermostat": {
+            "name": "Termostato",
+            "prefix": "cronostar_temp",
+            "unit": "°C",
+            "min": 15.0,
+            "max": 30.0,
+            "step": 0.5,
+            "default": 20.0,
+            "icon": "mdi:thermometer",
+            "profiles": ["Comfort", "Economia", "Notte", "Vacanza"],
+        },
+        "ev_charging": {
+            "name": "Ricarica EV",
+            "prefix": "cronostar_ev",
+            "unit": "kW",
+            "min": 0.0,
+            "max": 22.0,
+            "step": 0.5,
+            "default": 0.0,
+            "icon": "mdi:ev-station",
+            "profiles": ["Standard", "Veloce", "Notturno", "Solare"],
+        },
+        "generic_switch": {
+            "name": "Switch Generico",
+            "prefix": "cronostar_switch",
+            "unit": "",
+            "min": 0,
+            "max": 1,
+            "step": 1,
+            "default": 0,
+            "icon": "mdi:toggle-switch",
+            "profiles": ["Sempre On", "Sempre Off", "Orario Lavoro", "Weekend"],
+        },
+        "generic_kwh": {
+            "name": "Limite kWh",
+            "prefix": "cronostar_kwh",
+            "unit": "kWh",
+            "min": 0.0,
+            "max": 10.0,
+            "step": 0.1,
+            "default": 3.0,
+            "icon": "mdi:lightning-bolt",
+            "profiles": ["Standard", "Risparmio", "Massimo", "Notturno"],
+        },
+        "generic_temperature": {
+            "name": "Temperatura Generica",
+            "prefix": "cronostar_gentemp",
+            "unit": "°C",
+            "min": 10.0,
+            "max": 35.0,
+            "step": 0.5,
+            "default": 20.0,
+            "icon": "mdi:thermometer-lines",
+            "profiles": ["Comfort", "Economia", "Boost", "Antigelo"],
+        },
+    }
+
+
+def clean_yaml_content(text: str) -> str:
+    """Remove trailing whitespace from each line."""
+    lines = text.split("\n")
+    cleaned_lines = [line.rstrip() for line in lines]
+    return "\n".join(cleaned_lines)
+
+
+def write_yaml_file(path: str, content: str):
+    """Write content to a YAML file."""
+    ensure_dir(path)
+    try:
+        cleaned_content = clean_yaml_content(content)
+        with open(path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(cleaned_content)
+        logger.info(f"Wrote {path}")
+    except Exception as e:
+        logger.error(f"Failed to write {path}: {e}")
+        raise
+
+
+def generate_input_numbers(presets: dict) -> str:
+    """Generate input_number entities for all presets (24 hours each)."""
+    logger.info("Generating input_number entities")
+    lines = [
+        "# CronoStar - Input Numbers (auto-generated)",
+        "# DO NOT EDIT - Generated by cronostar_generator.py",
+        "",
+    ]
+
+    for preset_id, preset_config in presets.items():
+        prefix = preset_config["prefix"]
+        name = preset_config["name"]
+        unit = preset_config.get("unit", "")
+        min_val = preset_config.get("min", 0)
+        max_val = preset_config.get("max", 100)
+        step = preset_config.get("step", 1)
+        default = preset_config.get("default", min_val)
+        icon = preset_config.get("icon", "mdi:clock")
+
+        lines.append(f"# {name} - 24 ore")
+        for hour in range(24):
+            hour_str = f"{hour:02d}"
+            entity_id = f"{prefix}_{hour_str}"
+            friendly_name = f"{name} - Ora {hour_str}:00"
+
+            lines.append(f"{entity_id}:")
+            lines.append(f'  name: "{friendly_name}"')
+            lines.append(f"  min: {min_val}")
+            lines.append(f"  max: {max_val}")
+            lines.append(f"  step: {step}")
+            lines.append(f"  initial: {default}")
+            lines.append(f'  unit_of_measurement: "{unit}"')
+            lines.append(f'  icon: "{icon}"')
+            lines.append("  mode: slider")
+            lines.append("")
+
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def generate_input_texts(presets: dict) -> str:
+    """Generate input_text entities for profile storage."""
+    logger.info("Generating input_text entities for profiles")
+    lines = [
+        "# CronoStar - Input Texts for Profile Storage (auto-generated)",
+        "# DO NOT EDIT - Generated by cronostar_generator.py",
+        "",
+    ]
+
+    for preset_id, preset_config in presets.items():
+        prefix = preset_config["prefix"]
+        name = preset_config["name"]
+        profiles = preset_config.get("profiles", ["Default"])
+
+        # Extract type from prefix (e.g., 'cronostar_temp' -> 'temp')
+        type_id = prefix.replace("cronostar_", "")
+
+        lines.append(f"# {name} - Profili")
+        for profile in profiles:
+            # Create slug from profile name
+            profile_slug = profile.lower()
+            for char in [" ", "-", ".", ",", "/", "\\", "(", ")", "[", "]"]:
+                profile_slug = profile_slug.replace(char, "_")
+            # Remove consecutive underscores and trim
+            while "__" in profile_slug:
+                profile_slug = profile_slug.replace("__", "_")
+            profile_slug = profile_slug.strip("_")
+
+            entity_id = f"cronostar_profile_{type_id}_{profile_slug}"
+            friendly_name = f"CronoStar {name} - Profilo {profile}"
+
+            lines.append(f"{entity_id}:")
+            lines.append(f'  name: "{friendly_name}"')
+            lines.append("  max: 255")
+            lines.append('  initial: "[]"')
+            lines.append('  icon: "mdi:content-save"')
+            lines.append("")
+
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def generate_input_booleans(presets: dict) -> str:
+    """Generate input_boolean entities for pause functionality."""
+    logger.info("Generating input_boolean entities")
+    lines = [
+        "# CronoStar - Input Booleans (auto-generated)",
+        "# DO NOT EDIT - Generated by cronostar_generator.py",
+        "",
+    ]
+
+    for preset_id, preset_config in presets.items():
+        prefix = preset_config["prefix"]
+        name = preset_config["name"]
+        icon = preset_config.get("icon", "mdi:pause")
+
+        # Extract type from prefix
+        type_id = prefix.replace("cronostar_", "")
+
+        # Pause boolean
+        entity_id = f"cronostar_{type_id}_paused"
+        friendly_name = f"CronoStar {name} - Pausa"
+
+        lines.append(f"{entity_id}:")
+        lines.append(f'  name: "{friendly_name}"')
+        lines.append("  initial: false")
+        lines.append('  icon: "mdi:pause-circle"')
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def generate_input_selects(presets: dict) -> str:
+    """Generate input_select entities for profile selection."""
+    logger.info("Generating input_select entities")
+    lines = [
+        "# CronoStar - Input Selects for Profile Selection (auto-generated)",
+        "# DO NOT EDIT - Generated by cronostar_generator.py",
+        "",
+    ]
+
+    for preset_id, preset_config in presets.items():
+        prefix = preset_config["prefix"]
+        name = preset_config["name"]
+        profiles = preset_config.get("profiles", ["Default"])
+        icon = preset_config.get("icon", "mdi:format-list-bulleted")
+
+        # Extract type from prefix
+        type_id = prefix.replace("cronostar_", "")
+
+        entity_id = f"cronostar_{type_id}_profile"
+        friendly_name = f"CronoStar {name} - Profilo Attivo"
+
+        lines.append(f"{entity_id}:")
+        lines.append(f'  name: "{friendly_name}"')
+        lines.append("  options:")
+        for profile in profiles:
+            lines.append(f'    - "{profile}"')
+        lines.append(f'  initial: "{profiles[0]}"')
+        lines.append(f'  icon: "{icon}"')
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def generate_all_files(config: dict):
+    """Generate all CronoStar YAML files."""
+    presets = config.get("presets", get_default_presets())
+
+    # Ensure output directory exists
+    ensure_dir(OUTPUT_DIR)
+
+    # Generate input_number
+    input_number_content = generate_input_numbers(presets)
+    write_yaml_file(INPUT_NUMBER_OUTPUT_FILE, input_number_content)
+
+    # Generate input_text
+    input_text_content = generate_input_texts(presets)
+    write_yaml_file(INPUT_TEXT_OUTPUT_FILE, input_text_content)
+
+    # Generate input_boolean
+    input_boolean_content = generate_input_booleans(presets)
+    write_yaml_file(INPUT_BOOLEAN_OUTPUT_FILE, input_boolean_content)
+
+    # Generate input_select
+    input_select_content = generate_input_selects(presets)
+    write_yaml_file(INPUT_SELECT_OUTPUT_FILE, input_select_content)
+
+    logger.info("All CronoStar files generated successfully")
+
+
+def main():
+    logger.info("=" * 60)
+    logger.info("CronoStar Generator started")
+    logger.info(f"Timestamp: {datetime.now().isoformat()}")
+
+    config = load_cronostar_config(CONFIG_PATH)
+    generate_all_files(config)
+
+    logger.info("CronoStar Generator terminated")
+    logger.info("=" * 60)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,41 @@
+task_name: fancoil_cucina_package
+description: "Cucina package of all files  for Home Assistant"
+output_type: txt        # Default: 'txt' oppure 'zip'
+output_dir: "../temp"
+output_filename_prefix: fancoil_cucina_package
+base_dir: "."
+files:
+  - path: ./generated_climates/cucina.yaml
+    process_yaml: true
+  - path: ./generated_climates/generated_master_climate.yaml
+    process_yaml: true
+  - path: ../automations/fancoil_generated_automations/cucina_automation.yaml
+    process_yaml: true
+  - path: ./managed_sensors/cucina_sensors.yaml
+    process_yaml: true
+  - path: ./input_boolean/generated_input_booleans.yaml
+    process_yaml: true
+  - path: ./input_select/generated_input_selects.yaml
+    process_yaml: true
+  - path: ./managed_persistence/cucina_persistence.yaml
+    process_yaml: true
+  - path: ./managed_binary_sensors/cucina_binary_sensors.yaml
+    process_yaml: true
+  - path: ./input_number/generated_input_numbers.yaml
+    process_yaml: true
+  - path: ./generated_dashboards/generated_riscaldamento_dashboard.yaml
+    process_yaml: true
+  - path: ../configuration.yaml
+    process_yaml: true
+    sections_to_remove:
+      - "conversation"
+      - "intent_script"
+      - "light"
+      - "knx"
+      - "modbus"
+      - "scheduler"
+  - path: ../pyscript/fancoil_events_write.py
+  - path: ./input_number/input_numbers.yaml
+    process_yaml: true
+  - path: ./input_select/inpur_select.yaml
+    process_yaml: true

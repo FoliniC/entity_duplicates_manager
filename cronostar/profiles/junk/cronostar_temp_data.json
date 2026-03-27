@@ -1,0 +1,25 @@
+{
+  "meta": {
+    "entity_prefix": "cronostar_temp_",
+    "preset_type": "thermostat",
+    "created_at": "2025-12-19T09:19:56.878808",
+    "updated_at": "2025-12-19T19:19:42.175799"
+  },
+  "profiles": {
+    "Comfort": {
+      "schedule": [
+        {
+          "hour": 0,
+          "value": 15
+        },
+        {
+          "hour": 23,
+          "value": 15
+        }
+      ],
+      "updated_at": "2025-12-19T19:19:42.175826"
+    }
+  },
+  "saved_at": 1766168382.1758678,
+  "version": 2
+}

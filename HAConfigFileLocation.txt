@@ -1,0 +1,2 @@
+file usato per ricercare la posizione della cartella conig nel filesystem di ha
+/usr/share/hassio/homeassistant/HAConfigFileLocation.txt

@@ -1,0 +1,21 @@
+views:
+  - title: Gestione Entità Duplicate
+    path: entity-duplicates
+    icon: mdi:content-duplicate
+    badges: []
+    type: panel
+    cards:
+      - type: vertical-stack
+        cards:
+          # TOOL PRINCIPALE (fix_duplicates_entities)
+          - type: custom:entity-duplicates-manager-card
+            max_suffix: 9
+            exclusion_patterns: "switch_%, input_boolean.sel_%"
+
+          # LOGBOX (Opzionale per vedere errori di sistema)
+          - type: entities
+            title: 📜 Stato Integrazione
+            show_header_toggle: false
+            entities:
+              - entity: sensor.last_deletion_result
+                name: Ultimo Risultato (Legacy)

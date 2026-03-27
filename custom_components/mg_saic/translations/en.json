@@ -1,0 +1,317 @@
+{
+  "title": "MG SAIC Integration",
+  "config": {
+    "step": {
+      "user": {
+        "title": "MG SAIC Configuration",
+        "description": "Select the login type.",
+        "data": {
+          "login_type": "Login Type",
+          "email": "E-mail",
+          "phone": "Phone"
+        }
+      },
+      "login_data": {
+        "title": "Login Information",
+        "description": "Enter your MG SAIC credentials.",
+        "data": {
+          "username": "Username",
+          "password": "Password",
+          "region": "Region",
+          "country_code": "Country Code"
+        }
+      },
+      "select_vehicle": {
+        "title": "Select Vehicle",
+        "description": "Select the vehicle to be added and revise the vehicle type.",
+        "data": {
+          "vin": "Vehicle Identification Number (VIN)",
+          "vehicle_type": "Vehicle Type"
+        }
+      },
+      "vehicle_capabilities": {
+        "title": "Vehicle Capabilities",
+        "description": "Select any additional capabilities your vehicle supports. You can change them later in the Options menu if needed.",
+        "data": {
+          "has_sunroof": "Has Sunroof",
+          "has_heated_seats": "Has Heated Seats",
+          "has_battery_heating": "Has Battery Heating"
+        }
+      }
+    },
+    "error": {
+      "auth": "Failed to authenticate, please check your credentials."
+    },
+    "abort": {
+      "vin": "Vehicle with VIN {vin} already configured."
+    }
+  },
+  "services": {
+    "control_charging_port_lock": {
+      "name": "Control Charging Port Lock",
+      "description": "Control the charging port lock (lock/unlock).",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "The vehicle identification number to control the charging port lock."
+        },
+        "unlock": {
+          "name": "Unlock",
+          "description": "True to unlock the charging port, false to lock."
+        }
+      }
+    },
+    "control_heated_seats": {
+      "name": "Control Heated Seats",
+      "description": "Set the heating levels for both front seats.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "The vehicle identification number."
+        },
+        "left_level": {
+          "name": "Left Seat Level",
+          "description": "Heating level for the left seat (Off = 0, Low = 1, Medium = 2, High = 3)."
+        },
+        "right_level": {
+          "name": "Right Seat Level",
+          "description": "Heating level for the right seat (Off = 0, Low = 1, Medium = 2, High = 3)."
+        }
+      }
+    },
+    "control_rear_window_heat": {
+      "name": "Control Rear Window Heat",
+      "description": "Control the rear window heating of the vehicle.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "The vehicle identification number."
+        },
+        "action": {
+          "name": "Action",
+          "description": "Select 'start' to enable or 'stop' to disable."
+        }
+      }
+    },
+    "control_sunroof": {
+      "name": "Control Sunroof",
+      "description": "Control the sunroof (open or close).",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "The vehicle identification number to control the sunroof."
+        },
+        "should_open": {
+          "name": "Should Open",
+          "description": "True to open the sunroof, false to close."
+        }
+      }
+    },
+    "lock_vehicle": {
+      "name": "Lock Vehicle",
+      "description": "Lock the vehicle.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "The vehicle identification number of the car to lock."
+        }
+      }
+    },
+    "open_tailgate": {
+      "name": "Open Tailgate",
+      "description": "Open the vehicle's tailgate.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "The vehicle identification number of the car to open the tailgate."
+        }
+      }
+    },
+    "set_charging_current_limit": {
+      "name": "Set Charging Current Limit",
+      "description": "Set the charging current limit for the vehicle.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "The vehicle identification number."
+        },
+        "current_limit": {
+          "name": "Charging Current Limit",
+          "description": "Select the desired charging current limit."
+        }
+      }
+    },
+    "set_target_soc": {
+      "name": "Set Target SOC",
+      "description": "Set the target state of charge (SOC) for the vehicle.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "The vehicle identification number."
+        },
+        "target_soc": {
+          "name": "Target SOC",
+          "description": "Desired target SOC percentage (10-100)."
+        }
+      }
+    },
+    "start_ac": {
+      "name": "Start AC",
+      "description": "Start the vehicle's AC system.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "The vehicle identification number of the car to start AC."
+        },
+        "temperature": {
+          "name": "Temperature",
+          "description": "Desired temperature in degrees Celsius."
+        }
+      }
+    },
+    "start_climate": {
+      "name": "Start Climate",
+      "description": "Start the vehicle's Climate system with specific temperature and fan speed.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "Vehicle Identification Number."
+        },
+        "temperature": {
+          "name": "Temperature",
+          "description": "Desired temperature in degrees Celsius."
+        },
+        "fan_speed": {
+          "name": "Fan Speed",
+          "description": "Fan speed level (e.g., 1-7)."
+        },
+        "ac_on": {
+          "name": "AC On",
+          "description": "True to enable the AC, false to disable."
+        }
+      }
+    },
+    "start_battery_heating": {
+      "name": "Start Battery Heating",
+      "description": "Start the vehicle battery heating process.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "The vehicle identification number of the car to start battery heating."
+        }
+      }
+    },
+    "start_charging": {
+      "name": "Start Charging",
+      "description": "Start the vehicle charging process.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "The vehicle identification number of the car to start charging."
+        }
+      }
+    },
+    "start_front_defrost": {
+      "name": "Start Front Defrost",
+      "description": "Start the front defrost system of the vehicle.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "The vehicle identification number of the car to start front defrost."
+        }
+      }
+    },
+    "stop_ac": {
+      "name": "Stop AC",
+      "description": "Stop the vehicle's AC system.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "The vehicle identification number of the car to stop AC."
+        }
+      }
+    },
+    "stop_battery_heating": {
+      "name": "Stop Battery Heating",
+      "description": "Stop the vehicle battery heating process.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "The vehicle identification number of the car to stop battery heating."
+        }
+      }
+    },
+    "stop_charging": {
+      "name": "Stop Charging",
+      "description": "Stop the vehicle charging process.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "The vehicle identification number of the car to stop charging."
+        }
+      }
+    },
+    "trigger_alarm": {
+      "name": "Trigger Alarm",
+      "description": "Trigger the vehicle's alarm.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "The vehicle identification number of the car to trigger the alarm."
+        }
+      }
+    },
+    "unlock_vehicle": {
+      "name": "Unlock Vehicle",
+      "description": "Unlock the vehicle.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "The vehicle identification number of the car to unlock."
+        }
+      }
+    },
+    "update_vehicle_data": {
+      "name": "Update Vehicle Data",
+      "description": "Manually trigger a data update from the vehicle.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "The vehicle identification number of the car to update data."
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "has_sunroof": "Has Sunroof",
+          "has_heated_seats": "Has Heated Seats",
+          "has_battery_heating": "Has Battery Heating",
+          "update_interval": "Update Interval (in minutes)",
+          "charging_update_interval": "Charging Update Interval (in minutes)",
+          "powered_update_interval": "Vehicle Powered On Update Interval (in minutes)",
+          "after_shutdown_update_interval": "After Shutdown Update Interval (in minutes)",
+          "grace_period_update_interval": "Grace Period Update Interval (in minutes)",
+          "after_action_delay": "After Action Delay (in seconds)",
+          "alarm_long_interval": "Alarm Long Interval (in minutes)",
+          "ac_long_interval": "AC Long Interval (in minutes)",
+          "front_defrost_long_interval": "Front Defrost Long Interval (in minutes)",
+          "rear_window_heat_long_interval": "Rear Window Heat Long Interval (in minutes)",
+          "lock_unlock_long_interval": "Lock/Unlock Long Interval (in minutes)",
+          "charging_port_lock_long_interval": "Charging Port Lock Long Interval (in minutes)",
+          "heated_seats_long_interval": "Heated Seats Long Interval (in minutes)",
+          "battery_heating_long_interval": "Battery Heating Long Interval (in minutes)",
+          "charging_long_interval": "Charging Long Interval (in minutes)",
+          "sunroof_long_interval": "Sunroof Long Interval (in minutes)",
+          "tailgate_long_interval": "Tailgate Long Interval (in minutes)",
+          "target_soc_long_interval": "Target SOC Long Interval (in minutes)",
+          "charging_current_long_interval": "Charging Current Long Interval (in minutes)"
+        },
+        "description": "Define additional settings for MG/SAIC Integration",
+        "title": "MG/SAIC Options"
+      }
+    }
+  }
+}

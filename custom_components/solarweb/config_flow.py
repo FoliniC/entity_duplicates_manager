@@ -1,0 +1,91 @@
+"""Adds config flow for solarweb."""
+
+import logging
+from typing import Any
+
+import voluptuous as vol
+from fronius_solarweb import Fronius_Solarweb
+from fronius_solarweb.errors import NotAuthorizedException, NotFoundException
+from homeassistant import config_entries
+
+from .const import CONF_ACCESSKEY_ID, CONF_ACCESSKEY_VALUE, CONF_PV_ID, DOMAIN
+
+_LOGGER: logging.Logger = logging.getLogger(__package__)
+
+
+class SolarWebFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+    """Config flow for solarweb."""
+
+    VERSION = 1
+    CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
+
+    def __init__(self) -> None:
+        """Initialize."""
+        self._errors = {}
+
+    async def async_step_user(self, user_input=None):
+        """Handle a flow initialized by the user."""
+        self._errors = {}
+
+        # Uncomment the next 2 lines if only a single instance of the integration is allowed:
+        # if self._async_current_entries():
+        #     return self.async_abort(reason="single_instance_allowed")
+
+        if user_input is not None:
+            info = await self._validate_input(user_input)
+            if info:
+                return self.async_create_entry(title=info["title"], data=user_input)
+            self._errors["base"] = "auth"
+
+            return await self._show_config_form(user_input)
+        return await self._show_config_form(user_input)
+
+    async def _show_config_form(self, user_input, id="user"):
+        """Show the configuration form to edit data."""
+        return self.async_show_form(
+            step_id=id,
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_PV_ID): str,
+                    vol.Required(CONF_ACCESSKEY_ID): str,
+                    vol.Required(CONF_ACCESSKEY_VALUE): str,
+                }
+            ),
+            errors=self._errors,
+        )
+
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None):
+        """Add reconfigure step to allow to reconfigure a config entry."""
+        entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
+        assert entry
+
+        if user_input is not None:
+            info = await self._validate_input(user_input)
+            if info:
+                return self.async_update_reload_and_abort(
+                    entry, data=user_input, reason="reconfigure_successful"
+                )
+            self._errors["base"] = "auth"
+
+        return await self._show_config_form(user_input)
+
+    async def _validate_input(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Validate the user input allows us to connect.
+
+        Data has the keys from STEP_USER_DATA_SCHEMA with values provided by the user.
+        """
+
+        try:
+            client = Fronius_Solarweb(
+                data[CONF_ACCESSKEY_ID], data[CONF_ACCESSKEY_VALUE], data[CONF_PV_ID]
+            )
+
+            system_data = await client.get_pvsystem_meta_data()
+            _LOGGER.info("Retrieved PV system data from cloud API")
+
+            # Return extra info that you want to store in the config entry.
+            return {
+                "title": system_data.name,
+            }
+        except (NotFoundException, NotAuthorizedException):
+            return None

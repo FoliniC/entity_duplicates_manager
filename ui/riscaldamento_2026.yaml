@@ -1,0 +1,550 @@
+title: Riscaldamento 2026
+views:
+  - title: Impostazioni
+    path: riscaldamento-impostazioni
+    badges: []
+    cards:
+      - type: custom:scheduler-card
+        title: Programmazione temperatura cucina
+        discover_existing: true
+        create_schedule:
+          - entity: climate.controllo_temperatura_cucina
+            name: Imposta temperatura Cucina
+            actions:
+              - service: climate.set_temperature
+                service_data:
+                  temperature: 20
+        display_options:
+          show_header_toggle: false
+          show_last_triggered: true
+          show_next_trigger: true
+        include:
+          - climate
+        exclude: []
+      - type: entities
+        entities:
+          - entity: input_boolean.fancoil_cucina_sp_follow_master
+            name: Cucina - Segue setpoint Master
+            icon: mdi:link-variant
+          - entity: input_boolean.fancoil_cucina_hvac_mode_follow_master
+            name: Cucina - Segue modalità Master
+            icon: mdi:link-variant
+
+      - show_name: true
+        show_icon: true
+        type: button
+        name: Rigenera gestione fancoil
+        icon: mdi:refresh
+        tap_action:
+          action: perform-action
+          perform_action: shell_command.generate_fancoil_climates
+          target: {}
+      - type: entities
+        entities:
+          - entity: input_select.fancoil_verbosity_level_master
+            name: Verbosity messaggi
+            icon: mdi:bug
+          - entity: input_number.climate_setpoint_offset
+            name: Offset temperatura
+            icon: mdi:thermometer-plus-minus
+      - type: entities
+        title: Impostazioni stanze
+        entities:
+          - entity: input_boolean.fancoil_camera_grande_sp_follow_master
+            name: Camera grande - Segue setpoint Master
+            icon: mdi:link-variant
+          - entity: input_boolean.fancoil_camera_grande_hvac_mode_follow_master
+            name: Camera grande - Segue modalità Master
+            icon: mdi:link-variant
+          - entity: input_boolean.fancoil_camera_sp_follow_master
+            name: Camera - Segue setpoint Master
+            icon: mdi:link-variant
+          - entity: input_boolean.fancoil_camera_hvac_mode_follow_master
+            name: Camera - Segue modalità Master
+            icon: mdi:link-variant
+          - entity: input_boolean.fancoil_corridoio_sp_follow_master
+            name: Corridoio - Segue setpoint Master
+            icon: mdi:link-variant
+          - entity: input_boolean.fancoil_corridoio_hvac_mode_follow_master
+            name: Corridoio - Segue modalità Master
+            icon: mdi:link-variant
+          - entity: input_boolean.fancoil_bagno_sp_follow_master
+            name: Bagno - Segue setpoint Master
+            icon: mdi:link-variant
+          - entity: input_boolean.fancoil_bagno_hvac_mode_follow_master
+            name: Bagno - Segue modalità Master
+            icon: mdi:link-variant
+          - entity: input_boolean.fancoil_sala_sp_follow_master
+            name: Sala - Segue setpoint Master
+            icon: mdi:link-variant
+          - entity: input_boolean.fancoil_sala_hvac_mode_follow_master
+            name: Sala - Segue modalità Master
+            icon: mdi:link-variant
+      - type: entities
+        entities:
+          - entity: switch.attiva_fancoil
+          - entity: switch.attiva_pdc
+          - entity: switch.attiva_pompa_circolazione
+        title: Riscaldamento
+        state_color: true
+  - title: Termostati
+    path: riscaldamento
+    badges: []
+    cards:
+      - type: thermostat
+        entity: climate.climatizzazione_appartamento
+        features:
+          - type: climate-hvac-modes
+            hvac_modes:
+              - 'off'
+              - cool
+              - heat
+              - dry
+              - fan_only
+      - type: grid
+        columns: 3
+        square: false
+        cards:
+          - type: vertical-stack
+            cards:
+              - type: thermostat
+                entity: climate.controllo_temperatura_cucina
+                name: Cucina
+                features:
+                  - type: climate-hvac-modes
+                    hvac_modes:
+                      - 'off'
+                      - cool
+                      - heat
+                      - dry
+                      - fan_only
+              - type: tile
+                entity: climate.controllo_temperatura_cucina
+                name: Modalità ventola
+                features:
+                  - type: climate-fan-modes
+                    style: icons
+                    fan_modes:
+                      - 'off'
+                      - low
+                      - medium
+                      - high
+              - type: entities
+                title: Ventola Fancoil Cucina
+                entities:
+                  - entity: switch.fancoil_cucina_switch_4
+                    name: Acceso/Spento
+                    icon: mdi:power
+                  - entity: switch.fancoil_cucina_switch_1
+                    name: Velocità 1
+                    icon: mdi:fan-speed-1
+                  - entity: switch.fancoil_cucina_switch_2
+                    name: Velocità 2
+                    icon: mdi:fan-speed-2
+                  - entity: switch.fancoil_cucina_switch_3
+                    name: Velocità 3
+                    icon: mdi:fan-speed-3
+              - type: entities
+                title: Cucina - Segui Master
+                entities:
+                  - entity: input_boolean.fancoil_cucina_sp_follow_master
+                    name: Segue setpoint Master
+                    icon: mdi:link-variant
+                  - entity: input_boolean.fancoil_cucina_hvac_mode_follow_master
+                    name: Segue modalità Master
+                    icon: mdi:link-variant
+              - type: custom:mushroom-number-card
+                entity: input_number.fancoil_cucina_sp_offset
+                name: " "
+                display_mode: slider
+                layout: horizontal
+                primary_info: state
+                secondary_info: none
+                card_mod:
+                  style: |
+                    :host {
+                      --mushroom-icon-display: none !important;
+                    }
+                    
+                    mushroom-shape-icon {
+                      display: none !important;
+                      visibility: hidden !important;
+                      opacity: 0 !important;
+                    }
+
+          - type: vertical-stack
+            cards:
+              - type: thermostat
+                name: Camera Grande
+                entity: climate.controllo_temperatura_camera_grande
+                features:
+                  - type: climate-hvac-modes
+                    hvac_modes:
+                      - 'off'
+                      - cool
+                      - heat
+                      - dry
+                      - fan_only
+              - type: tile
+                entity: climate.controllo_temperatura_camera_grande
+                name: Modalità ventola
+                features:
+                  - type: climate-fan-modes
+                    style: icons
+                    fan_modes:
+                      - 'off'
+                      - low
+                      - medium
+                      - high
+              - type: entities
+                title: Ventola Fancoil Camera grande
+                entities:
+                  - entity: switch.fancoil_camera_grande_switch_4
+                    name: Acceso/Spento
+                    icon: mdi:power
+                  - entity: switch.fancoil_camera_grande_switch_1
+                    name: Velocità 1
+                    icon: mdi:fan-speed-1
+                  - entity: switch.fancoil_camera_grande_switch_2
+                    name: Velocità 2
+                    icon: mdi:fan-speed-2
+                  - entity: switch.fancoil_camera_grande_switch_3
+                    name: Velocità 3
+                    icon: mdi:fan-speed-3
+              - type: entities
+                title: Camera Grande - Segui Master
+                entities:
+                  - entity: input_boolean.fancoil_camera_grande_sp_follow_master
+                    name: Segue setpoint Master
+                    icon: mdi:link-variant
+                  - entity: input_boolean.fancoil_camera_grande_hvac_mode_follow_master
+                    name: Segue modalità Master
+                    icon: mdi:link-variant
+              - type: custom:mushroom-number-card
+                entity: input_number.fancoil_camera_grande_sp_offset
+                name: " "
+                display_mode: slider
+                layout: horizontal
+                primary_info: state
+                secondary_info: none
+                card_mod:
+                  style: |
+                    :host {
+                      --mushroom-icon-display: none !important;
+                    }
+                    
+                    mushroom-shape-icon {
+                      display: none !important;
+                      visibility: hidden !important;
+                      opacity: 0 !important;
+                    }
+
+          - type: vertical-stack
+            cards:
+              - type: thermostat
+                entity: climate.controllo_temperatura_camera
+                name: Camera
+                features:
+                  - type: climate-hvac-modes
+                    hvac_modes:
+                      - 'off'
+                      - cool
+                      - heat
+                      - dry
+                      - fan_only
+              - type: tile
+                entity: climate.controllo_temperatura_camera
+                name: Modalità ventola
+                features:
+                  - type: climate-fan-modes
+                    style: icons
+                    fan_modes:
+                      - 'off'
+                      - low
+                      - medium
+                      - high
+              - type: entities
+                title: Ventola Fancoil Camera
+                entities:
+                  - entity: switch.fancoil_camera_switch_4
+                    name: Acceso/Spento
+                    icon: mdi:power
+                  - entity: switch.fancoil_camera_switch_1
+                    name: Velocità 1
+                    icon: mdi:fan-speed-1
+                  - entity: switch.fancoil_camera_switch_2
+                    name: Velocità 2
+                    icon: mdi:fan-speed-2
+                  - entity: switch.fancoil_camera_switch_3
+                    name: Velocità 3
+                    icon: mdi:fan-speed-3
+              - type: entities
+                title: Camera - Segui Master
+                entities:
+                  - entity: input_boolean.fancoil_camera_sp_follow_master
+                    name: Segue setpoint Master
+                    icon: mdi:link-variant
+                  - entity: input_boolean.fancoil_camera_hvac_mode_follow_master
+                    name: Segue modalità Master
+                    icon: mdi:link-variant
+              - type: custom:mushroom-number-card
+                entity: input_number.fancoil_camera_sp_offset
+                name: " "
+                display_mode: slider
+                layout: horizontal
+                primary_info: state
+                secondary_info: none
+                card_mod:
+                  style: |
+                    :host {
+                      --mushroom-icon-display: none !important;
+                    }
+                    
+                    mushroom-shape-icon {
+                      display: none !important;
+                      visibility: hidden !important;
+                      opacity: 0 !important;
+                    }
+
+          - type: vertical-stack
+            cards:
+              - type: thermostat
+                entity: climate.controllo_temperatura_corridoio
+                name: Corridoio
+                features:
+                  - type: climate-hvac-modes
+                    hvac_modes:
+                      - 'off'
+                      - cool
+                      - heat
+                      - dry
+                      - fan_only
+              - type: tile
+                entity: climate.controllo_temperatura_corridoio
+                name: Modalità ventola
+                features:
+                  - type: climate-fan-modes
+                    style: icons
+                    fan_modes:
+                      - 'off'
+                      - low
+                      - medium
+                      - high
+              - type: entities
+                title: Ventola Fancoil Corridoio
+                entities:
+                  - entity: switch.fancoil_corridoio_switch_4
+                    name: Acceso/Spento
+                    icon: mdi:power
+                  - entity: switch.fancoil_corridoio_switch_1
+                    name: Velocità 1
+                    icon: mdi:fan-speed-1
+                  - entity: switch.fancoil_corridoio_switch_2
+                    name: Velocità 2
+                    icon: mdi:fan-speed-2
+                  - entity: switch.fancoil_corridoio_switch_3
+                    name: Velocità 3
+                    icon: mdi:fan-speed-3
+              - type: entities
+                title: Corridoio - Segui Master
+                entities:
+                  - entity: input_boolean.fancoil_corridoio_sp_follow_master
+                    name: Segue setpoint Master
+                    icon: mdi:link-variant
+                  - entity: input_boolean.fancoil_corridoio_hvac_mode_follow_master
+                    name: Segue modalità Master
+                    icon: mdi:link-variant
+              - type: custom:mushroom-number-card
+                entity: input_number.fancoil_corridoio_sp_offset
+                name: " "
+                display_mode: slider
+                layout: horizontal
+                primary_info: state
+                secondary_info: none
+                card_mod:
+                  style: |
+                    :host {
+                      --mushroom-icon-display: none !important;
+                    }
+                    
+                    mushroom-shape-icon {
+                      display: none !important;
+                      visibility: hidden !important;
+                      opacity: 0 !important;
+                    }
+
+          - type: vertical-stack
+            cards:
+              - type: thermostat
+                entity: climate.controllo_temperatura_bagno
+                name: Bagno
+                features:
+                  - type: climate-hvac-modes
+                    hvac_modes:
+                      - 'off'
+                      - cool
+                      - heat
+                      - dry
+                      - fan_only
+              - type: tile
+                entity: climate.controllo_temperatura_bagno
+                name: Modalità ventola
+                features:
+                  - type: climate-fan-modes
+                    style: icons
+                    fan_modes:
+                      - 'off'
+                      - low
+                      - medium
+                      - high
+              - type: entities
+                title: Ventola Fancoil Bagno
+                entities:
+                  - entity: switch.fancoil_bagno_switch_4
+                    name: Acceso/Spento
+                    icon: mdi:power
+                  - entity: switch.fancoil_bagno_switch_1
+                    name: Velocità 1
+                    icon: mdi:fan-speed-1
+                  - entity: switch.fancoil_bagno_switch_2
+                    name: Velocità 2
+                    icon: mdi:fan-speed-2
+                  - entity: switch.fancoil_bagno_switch_3
+                    name: Velocità 3
+                    icon: mdi:fan-speed-3
+              - type: entities
+                title: Bagno - Segui Master
+                entities:
+                  - entity: input_boolean.fancoil_bagno_sp_follow_master
+                    name: Segue setpoint Master
+                    icon: mdi:link-variant
+                  - entity: input_boolean.fancoil_bagno_hvac_mode_follow_master
+                    name: Segue modalità Master
+                    icon: mdi:link-variant
+              - type: custom:mushroom-number-card
+                entity: input_number.fancoil_bagno_sp_offset
+                name: " "
+                display_mode: slider
+                layout: horizontal
+                primary_info: state
+                secondary_info: none
+                card_mod:
+                  style: |
+                    :host {
+                      --mushroom-icon-display: none !important;
+                    }
+                    
+                    mushroom-shape-icon {
+                      display: none !important;
+                      visibility: hidden !important;
+                      opacity: 0 !important;
+                    }
+
+          - type: vertical-stack
+            cards:
+              - type: thermostat
+                entity: climate.controllo_temperatura_sala
+                name: Sala
+                features:
+                  - type: climate-hvac-modes
+                    hvac_modes:
+                      - 'off'
+                      - cool
+                      - heat
+                      - dry
+                      - fan_only
+              - type: tile
+                entity: climate.controllo_temperatura_sala
+                name: Modalità ventola
+                features:
+                  - type: climate-fan-modes
+                    style: icons
+                    fan_modes:
+                      - 'off'
+                      - low
+                      - medium
+                      - high
+              - type: entities
+                title: Ventola Fancoil Sala
+                entities:
+                  - entity: switch.fancoil_sala_switch_4
+                    name: Acceso/Spento
+                    icon: mdi:power
+                  - entity: switch.fancoil_sala_switch_1
+                    name: Velocità 1
+                    icon: mdi:fan-speed-1
+                  - entity: switch.fancoil_sala_switch_2
+                    name: Velocità 2
+                    icon: mdi:fan-speed-2
+                  - entity: switch.fancoil_sala_switch_3
+                    name: Velocità 3
+                    icon: mdi:fan-speed-3
+              - type: entities
+                title: Sala - Segui Master
+                entities:
+                  - entity: input_boolean.fancoil_sala_sp_follow_master
+                    name: Segue setpoint Master
+                    icon: mdi:link-variant
+                  - entity: input_boolean.fancoil_sala_hvac_mode_follow_master
+                    name: Segue modalità Master
+                    icon: mdi:link-variant
+              - type: custom:mushroom-number-card
+                entity: input_number.fancoil_sala_sp_offset
+                name: " "
+                display_mode: slider
+                layout: horizontal
+                primary_info: state
+                secondary_info: none
+                card_mod:
+                  style: |
+                    :host {
+                      --mushroom-icon-display: none !important;
+                    }
+                    
+                    mushroom-shape-icon {
+                      display: none !important;
+                      visibility: hidden !important;
+                      opacity: 0 !important;
+                    }
+  - title: Informazioni
+    path: riscaldamento-info
+    badges: []
+    cards:
+      - graph: line
+        type: sensor
+        entity: sensor.temperatura_circuito_riscaldamento
+        detail: 2
+      - type: entities
+        entities:
+          - entity: sensor.temperatura_acqua_calda
+          - entity: sensor.temperatura_circuito_riscaldamento
+          - entity: binary_sensor.pdc_heating
+          - entity: binary_sensor.pdc_acqua_calda
+          - entity: binary_sensor.pdc_cooling
+          - entity: binary_sensor.pdc_standby
+          - entity: binary_sensor.pdc_acqua_calda
+          - entity: sensor.temperatura_strenscia
+  - title: Impostazioni
+    path: riscaldamento-impostazioni1
+    badges: []
+    cards:
+      - type: custom:cronostar-card
+        preset_type: thermostat
+        hour_base:
+          value: 0
+          determined: false
+        logging_enabled: true
+        pause_entity: switch.cronostar_thermostat_appartamento_paused
+        profiles_select_entity: select.cronostar_thermostat_appartamento_current_profile
+        target_entity: climate.climatizzazione_appartamento
+        allow_max_value: false
+        title: CronoStar Thermostat
+        y_axis_label: Temperature
+        unit_of_measurement: °C
+        min_value: '15'
+        max_value: 30
+        step_value: 0.5
+        is_switch_preset: false
+        missing_yaml_style: named
+        global_prefix: cronostar_thermostat_appartamento_
+        step: 5

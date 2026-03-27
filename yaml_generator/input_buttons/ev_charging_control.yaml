@@ -1,0 +1,9 @@
+start_scheduled_charging:
+  name: "Start Scheduled Charging"
+  icon: mdi:play-circle
+stop_scheduled_charging:
+  name: "Stop Scheduled Charging"
+  icon: mdi:stop-circle
+force_fixed_charging:
+  name: "Force Fixed Charging Rate"
+  icon: mdi:flash-alert

@@ -1,0 +1,170 @@
+{
+    "config": {
+        "error": {
+            "cannot_connect": "Verbinden mislukt",
+            "invalid_auth": "Ongeldige authenticatie",
+            "unknown": "Onverwachte fout"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "name": "Naam",
+                    "api_key": "API Sleutel",
+                    "base_url": "Basis URL",
+                    "api_version": "API Version",
+                    "organization": "Organization",
+                    "skip_authentication": "Authenticatie overslaan",
+                    "api_provider": "Api Provider"
+                }
+            }
+        }
+    },
+    "config_subentries": {
+        "conversation": {
+            "entry_type": "Conversation agent",
+            "initiate_flow": {
+                "reconfigure": "Reconfigure conversation agent",
+                "user": "Add conversation agent"
+            },
+            "step": {
+                "init": {
+                    "data": {
+                        "max_tokens": "Maximale aantal tokens dat mag worden gegenereerd",
+                        "model": "Completion Model",
+                        "prompt": "Prompt Sjabloon",
+                        "max_function_calls_per_conversation": "Maximale keren functies mogen worden aangeroepen per conversatie",
+                        "skills": "Skills",
+                        "functions": "Functies",
+                        "attach_username": "Gebruikersnaam aan bericht toevoegen",
+                        "context_threshold": "Context Threshold",
+                        "context_truncate_strategy": "Context truncation strategy when exceeded threshold",
+                        "advanced_options": "Advanced Options"
+                    },
+                    "data_description": {}
+                },
+                "advanced": {
+                    "title": "Advanced Options",
+                    "data": {
+                        "temperature": "Temperatuur",
+                        "top_p": "Top P",
+                        "reasoning_effort": "Reasoning effort",
+                        "service_tier": "Service tier",
+                        "shorten_tool_call_id": "Shorten tool call IDs"
+                    },
+                    "data_description": {
+                        "shorten_tool_call_id": "Required for Mistral AI cloud API compatibility. Enable only if your provider requires short (9-character) tool call IDs. Keep disabled for OpenAI and most other providers."
+                    }
+                }
+            }
+        },
+        "ai_task_data": {
+            "entry_type": "AI Task agent",
+            "initiate_flow": {
+                "reconfigure": "Reconfigure AI Task agent",
+                "user": "Add AI Task agent"
+            },
+            "step": {
+                "init": {
+                    "data": {
+                        "name": "[%key:common::config_flow::data::name%]",
+                        "chat_model": "Model",
+                        "max_tokens": "Maximum tokens to return in response",
+                        "advanced_options": "Advanced options"
+                    }
+                },
+                "advanced": {
+                    "title": "Advanced options",
+                    "data": {
+                        "temperature": "Temperature",
+                        "top_p": "Top P",
+                        "reasoning_effort": "Reasoning effort",
+                        "service_tier": "Service tier",
+                        "shorten_tool_call_id": "Shorten tool call IDs"
+                    },
+                    "data_description": {
+                        "shorten_tool_call_id": "Required for Mistral AI cloud API compatibility. Enable only if your provider requires short (9-character) tool call IDs. Keep disabled for OpenAI and most other providers."
+                    }
+                }
+            }
+        }
+    },
+    "services": {
+        "query_image": {
+            "name": "Query image",
+            "description": "Take in images and answer questions about them",
+            "fields": {
+                "config_entry": {
+                    "name": "Config Entry",
+                    "description": "The config entry to use for this service"
+                },
+                "model": {
+                    "name": "Model",
+                    "description": "The model",
+                    "example": "gpt-4.1-mini"
+                },
+                "prompt": {
+                    "name": "Prompt",
+                    "description": "The text to ask about image",
+                    "example": "What’s in this image?"
+                },
+                "images": {
+                    "name": "Images",
+                    "description": "A list of images that would be asked"
+                },
+                "max_tokens": {
+                    "name": "Max Tokens",
+                    "description": "The maximum tokens",
+                    "example": "300"
+                }
+            }
+        },
+        "change_config": {
+            "name": "Change configuration",
+            "description": "Changes the configuration of the integration.",
+            "fields": {
+                "config_entry": {
+                    "name": "Config Entry",
+                    "description": "The config entry to update."
+                },
+                "api_key": {
+                    "name": "API Sleutel",
+                    "description": "The API key."
+                },
+                "base_url": {
+                    "name": "Basis URL",
+                    "description": "The base URL."
+                },
+                "api_version": {
+                    "name": "API Version",
+                    "description": "The API version."
+                },
+                "organization": {
+                    "name": "Organization",
+                    "description": "The organization."
+                },
+                "skip_authentication": {
+                    "name": "Authenticatie overslaan",
+                    "description": "Skip authentication."
+                },
+                "api_provider": {
+                    "name": "Api Provider",
+                    "description": "The API provider. (OpenAI or Azure)"
+                }
+            }
+        },
+        "download_skill": {
+            "name": "Download skill",
+            "description": "Download a skill from the GitHub repository to your skills directory. Available skills: https://github.com/jekalmin/extended_openai_conversation/tree/develop/examples/skills",
+            "fields": {
+                "skill_name": {
+                    "name": "Skill name",
+                    "description": "The name of the skill to download (e.g., crypto)"
+                }
+            }
+        },
+        "reload_skills": {
+            "name": "Reload skills",
+            "description": "Reload skills from the skills directory."
+        }
+    }
+}

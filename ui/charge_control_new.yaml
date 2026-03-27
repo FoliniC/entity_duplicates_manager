@@ -1,0 +1,689 @@
+title: EV Charging Control
+views:
+  - path: default_view
+    title: Ricarica EV charge_control_new.yaml
+    icon: mdi:ev-station
+    cards:
+      # ==================== STATO RICARICA CORRENTE ====================
+      - type: custom:mushroom-title-card
+        title: "📊 Stato Ricarica"
+        subtitle: "Monitoraggio in tempo reale"
+
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          # Card stato principale
+          - type: custom:mushroom-template-card
+            primary: |
+              {% if is_state('sensor.prism_stato', 'Charging') %}
+                🔋 Ricarica Attiva
+              {% elif is_state('sensor.prism_stato', 'Pause') %}
+                ⏸️ In Pausa
+              {% elif is_state('sensor.prism_stato', 'Unplugged') %}
+                🔌 Non Collegato
+              {% else %}
+                ⏳ In Attesa
+              {% endif %}
+            secondary: |
+              {{ states('sensor.ev_charging_mode') }}
+            icon: mdi:ev-station
+            icon_color: |
+              {% if is_state('sensor.prism_stato', 'Charging') %}
+                green
+              {% elif is_state('sensor.prism_stato', 'Pause') %}
+                orange
+              {% else %}
+                grey
+              {% endif %}
+            badge_icon: |
+              {% if is_state('input_boolean.ev_charging_scheduled_active', 'on') %}
+                mdi:clock-check
+              {% endif %}
+            badge_color: blue
+            tap_action:
+              action: more-info
+              entity: sensor.prism_stato
+
+          # Card veicolo selezionato
+          - type: custom:mushroom-template-card
+            primary: "{{ states('input_select.selected_vehicle') }}"
+            secondary: "{{ states('sensor.selected_vehicle_soc') | float(0) | round(0) }}% → {{ states('sensor.current_target_soc') | float(0) | round(0) }}%"
+            icon: mdi:car-electric
+            icon_color: |
+              {% set soc = states('sensor.selected_vehicle_soc') | float(0) %}
+              {% if soc < 20 %}
+                red
+              {% elif soc < 50 %}
+                orange
+              {% elif soc < 80 %}
+                blue
+              {% else %}
+                green
+              {% endif %}
+            badge_icon: mdi:target
+            badge_color: purple
+            tap_action:
+              action: more-info
+              entity: input_select.selected_vehicle
+
+      # Indicatori numerici principali
+      - type: grid
+        columns: 4
+        square: false
+        cards:
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.current_charging_power_calculated') }}"
+            secondary: "Potenza"
+            icon: mdi:lightning-bolt
+            icon_color: amber
+            layout: vertical
+
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.prism_corrente_pilotata_dall_auto') }}"
+            secondary: "Corrente"
+            icon: mdi:current-ac
+            icon_color: blue
+            layout: vertical
+
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.estimated_time_to_full_charge') }}"
+            secondary: "Ore Target"
+            icon: mdi:timer-sand
+            icon_color: purple
+            layout: vertical
+
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.remaining_charging_time') }}"
+            secondary: "Min Rimasti"
+            icon: mdi:clock-outline
+            icon_color: green
+            layout: vertical
+
+      # Progress bar
+      - type: custom:mushroom-template-card
+        primary: "Avanzamento: {{ states('sensor.charging_progress') | float(0) | round(1) }}%"
+        secondary: |
+          SOC: {{ states('sensor.selected_vehicle_soc') | float(0) | round(1) }}% / Target: {{ states('sensor.current_target_soc') | float(0) | round(0) }}%
+        icon: mdi:battery-charging-80
+        icon_color: |
+          {% set progress = states('sensor.charging_progress') | float(0) %}
+          {% if progress >= 100 %}
+            green
+          {% elif progress >= 75 %}
+            blue
+          {% elif progress >= 50 %}
+            orange
+          {% else %}
+            red
+          {% endif %}
+        badge_icon: |
+          {% if states('sensor.charging_progress') | float(0) >= 100 %}
+            mdi:check-circle
+          {% endif %}
+        badge_color: green
+
+      # ==================== CONTROLLI PRINCIPALI ====================
+      - type: custom:mushroom-title-card
+        title: "🎮 Controlli"
+        subtitle: "Gestione modalità di ricarica"
+
+      # Selezione veicolo e modalità
+      - type: horizontal-stack
+        cards:
+          - type: custom:mushroom-select-card
+            entity: input_select.selected_vehicle
+            name: Veicolo
+            icon: mdi:car-electric
+            fill_container: false
+
+          - type: custom:mushroom-entity-card
+            entity: input_boolean.ev_charging_force_fixed_rate
+            name: Ctrl_manuale
+            icon: mdi:hand-back-right
+            tap_action:
+              action: toggle
+            card_mod:
+              style: |
+                mushroom-state-info$:
+                  .primary {
+                    white-space: normal !important;
+                    overflow: visible !important;
+                    text-overflow: unset !important;
+                    display: block;
+                  }
+      # ===== MODALITÀ MANUALE =====
+      - type: conditional
+        conditions:
+          - entity: input_boolean.ev_charging_force_fixed_rate
+            state: "on"
+        card:
+          type: vertical-stack
+          cards:
+            - type: custom:mushroom-title-card
+              title: "⚡ Ricarica Manuale"
+              subtitle: "Controllo potenza fissa"
+
+            - type: custom:mushroom-number-card
+              entity: input_number.fixed_charging_power_kw
+              name: Potenza di Ricarica
+              icon: mdi:flash
+              display_mode: buttons
+              secondary_info: state
+
+            - type: custom:mushroom-number-card
+              entity: input_number.charging_duration_minutes
+              name: Durata Massima
+              icon: mdi:timer
+              display_mode: slider
+              secondary_info: state
+
+            - type: horizontal-stack
+              cards:
+                - type: custom:mushroom-template-card
+                  primary: "Avvia"
+                  secondary: "Start Manuale"
+                  icon: mdi:play-circle
+                  icon_color: green
+                  layout: vertical
+                  tap_action:
+                    action: call-service
+                    service: script.start_manual_charging
+                  hold_action:
+                    action: none
+
+                - type: custom:mushroom-template-card
+                  primary: "Ferma"
+                  secondary: "Stop"
+                  icon: mdi:stop-circle
+                  icon_color: red
+                  layout: vertical
+                  tap_action:
+                    action: call-service
+                    service: script.stop_charging
+                  hold_action:
+                    action: none
+
+      # ===== MODALITÀ PROGRAMMATA / SOLARE =====
+      - type: conditional
+        conditions:
+          - entity: input_boolean.ev_charging_force_fixed_rate
+            state: "off"
+        card:
+          type: vertical-stack
+          cards:
+            - type: custom:mushroom-title-card
+              title: "☀️ Ricarica Programmata"
+              subtitle: "Ottimizzazione solare e schedulazione"
+
+            # Target SOC
+            - type: conditional
+              conditions:
+                - entity: input_select.selected_vehicle
+                  state: "MG4"
+              card:
+                type: custom:mushroom-number-card
+                entity: input_number.mg4_target_soc
+                name: Target SOC MG4
+                icon: mdi:battery-charging-80
+                display_mode: slider
+                secondary_info: state
+
+            - type: conditional
+              conditions:
+                - entity: input_select.selected_vehicle
+                  state: "BYD"
+              card:
+                type: custom:mushroom-number-card
+                entity: input_number.byd_target_soc
+                name: Target SOC BYD
+                icon: mdi:battery-charging-80
+                display_mode: slider
+                secondary_info: state
+
+            - type: custom:mushroom-number-card
+              entity: input_number.charging_duration_minutes
+              name: Durata Massima
+              icon: mdi:timer
+              display_mode: slider
+              secondary_info: state
+
+            # Pulsanti di controllo
+            - type: horizontal-stack
+              cards:
+                - type: custom:mushroom-template-card
+                  primary: "Avvia"
+                  secondary: "Programmata"
+                  icon: mdi:calendar-clock
+                  icon_color: blue
+                  layout: vertical
+                  tap_action:
+                    action: call-service
+                    service: input_button.press
+                    service_data:
+                      entity_id: input_button.start_scheduled_charging
+                  hold_action:
+                    action: none
+
+                - type: custom:mushroom-template-card
+                  primary: "Ferma"
+                  secondary: "Stop"
+                  icon: mdi:stop-circle
+                  icon_color: red
+                  layout: vertical
+                  tap_action:
+                    action: call-service
+                    service: script.stop_charging
+                  hold_action:
+                    action: none
+
+      # ==================== PROGRAMMAZIONE ORARIA ====================
+      - type: custom:mushroom-title-card
+        title: "📅 Programmazione Oraria"
+        subtitle: "Impostazione potenza per fasce orarie"
+
+      - type: custom:cronostar
+        preset: ev_charging
+        title: "Profilo di Ricarica"
+        entity_prefix: cronostar_ev_
+        profiles_select_entity: input_select.cronostar_ev_profiles
+        y_axis_label: "Potenza (kW)"
+        unit_of_measurement: "kW"
+        min_value: 0
+        max_value: 7.0
+        step_value: 0.5
+        allow_max_value: true
+        height: 300px
+
+      # ==================== INFORMAZIONI DETTAGLIATE ====================
+      - type: custom:mushroom-title-card
+        title: "ℹ️ Dettagli Ricarica"
+        subtitle: "Informazioni complete"
+
+      - type: markdown
+        content: |
+          ### 🔋 Stato Attuale
+
+          **Stato Colonnina:** {{ states('sensor.prism_stato') }}  
+          **Modalità:** {{ states('sensor.ev_charging_mode') }}  
+          **Motivo:** {{ states('sensor.ev_charging_reason') }}
+
+          ---
+
+          ### ⚡ Dati Elettrici
+
+          | Parametro | Valore |
+          |-----------|--------|
+          | Potenza Disponibile | {{ states('sensor.current_charging_power_calculated') }} kW |
+          | Corrente Auto | {{ states('sensor.prism_corrente_pilotata_dall_auto') }} A |
+          | Corrente Impostata | {{ states('sensor.prism_corrente_impostata_dell_utente') }} A |
+          | Tensione | {{ states('sensor.prism_tensione_attuale') }} V |
+          | Energia Erogata | {{ (states('sensor.prism_energia_erogata_sessione') | float(0) / 1000) | round(2) }} kWh |
+
+          ---
+
+          ### ⏱️ Tempi
+
+          - **Tempo Target SOC:** {{ states('sensor.estimated_time_to_full_charge') }} ore
+          - **Tempo Programmazione:** {{ states('sensor.remaining_charging_time') }} minuti
+
+          ---
+
+          ### 🏠 Bilancio Energetico
+
+          **Produzione:**
+          - Fotovoltaico: {{ states('sensor.envoy_122134037538_current_power_production') | float(0) | round(0) }} W
+          - Batteria (scarica): {{ states('sensor.battery_power_discharging') | float(0) | round(0) }} W
+
+          **Consumo:**
+          - Pompa Calore: {{ states('sensor.consumo_netto_pdc_template') | float(0) | round(0) }} W
+          - Appartamento: {{ states('sensor.consumo_appartamento_template') | float(0) | round(0) }} W
+          - Batteria (carica): {{ states('sensor.battery_power_charging') | float(0) | round(0) }} W
+          - Colonnina EV: {{ states('sensor.prism_potenza') | float(0) | round(0) }} W
+
+          **Rete:** {{ states('sensor.net_grid_power') | float(0) | round(0) }} W
+
+      # Explanation batteria
+      - type: custom:mushroom-template-card
+        primary: "Contributo Batteria"
+        secondary: "{{ states('sensor.battery_contribution_explanation') }}"
+        icon: mdi:battery
+        icon_color: |
+          {% set w = states('sensor.calculated_w_battery') | float(0) %}
+          {% if w > 0 %}
+            orange
+          {% elif w < 0 %}
+            blue
+          {% else %}
+            grey
+          {% endif %}
+        multiline_secondary: true
+
+      # ==================== GRAFICI ====================
+      - type: custom:mushroom-title-card
+        title: "📈 Grafici e Statistiche"
+        subtitle: "Andamento temporale"
+
+      # Gauge meters
+      - type: grid
+        columns: 4
+        square: false
+        cards:
+          - type: gauge
+            entity: sensor.byd_battery_box_premium_hv_state_of_charge
+            name: Batteria Casa
+            unit: "%"
+            min: 0
+            max: 100
+            needle: true
+            severity:
+              green: 30
+              yellow: 20
+              red: 0
+
+          - type: gauge
+            entity: sensor.selected_vehicle_soc
+            name: SOC Auto
+            unit: "%"
+            min: 0
+            max: 100
+            needle: true
+            severity:
+              green: 50
+              yellow: 30
+              red: 0
+
+          - type: gauge
+            entity: sensor.current_charging_power_calculated
+            name: Potenza
+            unit: "kW"
+            min: 0
+            max: 7.4
+            needle: true
+            severity:
+              green: 0
+              yellow: 3.7
+              red: 6.0
+
+          - type: gauge
+            entity: sensor.prism_corrente_pilotata_dall_auto
+            name: Corrente
+            unit: "A"
+            min: 0
+            max: 32
+            needle: true
+            severity:
+              green: 0
+              yellow: 16
+              red: 26
+      # Grafico potenza ed energia
+      - type: custom:apexcharts-card
+        graph_span: 4h
+        header:
+          show: true
+          title: "⚡ Potenza ed Energia"
+          show_states: true
+        now:
+          show: true
+          label: "Ora"
+        apex_config:
+          chart:
+            height: 280
+          legend:
+            show: true
+            position: bottom
+        yaxis:
+          - id: kW
+            min: 0
+            max: 8
+            decimals: 1
+          #            title:
+          #              text: "Potenza (kW)"
+          - id: kWh
+            min: 0
+            decimals: 2
+            opposite: true
+        #            title:
+        #              text: "Energia (kWh)"
+        series:
+          - entity: sensor.prism_potenza
+            name: Potenza Ricarica
+            #transform: "return x / 1000;"
+            transform: >
+              return x / 1000;
+            yaxis_id: kW
+            type: line
+            color: "#FF6B6B"
+            stroke_width: 3
+            group_by:
+              duration: 1min
+              func: avg
+
+          - entity: sensor.prism_energia_erogata_sessione
+            name: Energia Totale
+            transform: "return x / 1000;"
+            yaxis_id: kWh
+            type: area
+            color: "#4ECDC4"
+            opacity: 0.3
+            stroke_width: 0
+            group_by:
+              duration: 1min
+              func: last
+
+      # Grafico corrente e tensione
+      - type: custom:apexcharts-card
+        graph_span: 4h
+        header:
+          show: true
+          title: "🔌 Corrente e Tensione"
+          show_states: true
+        now:
+          show: true
+          label: "Ora"
+        apex_config:
+          chart:
+            height: 280
+          legend:
+            show: true
+            position: bottom
+        yaxis:
+          - id: A
+            min: 0
+            max: 32
+            decimals: 0
+          #            title:
+          #              text: "Corrente (A)"
+          - id: V
+            min: 200
+            max: 260
+            decimals: 0
+            opposite: true
+        #            title:
+        #              text: "Tensione (V)"
+        series:
+          - entity: sensor.prism_corrente_pilotata_dall_auto
+            name: Corrente Auto
+            yaxis_id: A
+            color: "#1E88E5"
+            stroke_width: 2
+            group_by:
+              duration: 1min
+              func: avg
+
+          - entity: sensor.prism_corrente_impostata_dell_utente
+            name: Corrente Impostata
+            yaxis_id: A
+            color: "#FB8C00"
+            stroke_width: 2
+            curve: stepline
+            group_by:
+              duration: 1min
+              func: avg
+
+          - entity: sensor.prism_tensione_attuale
+            name: Tensione
+            yaxis_id: V
+            color: "#8E24AA"
+            stroke_width: 2
+            group_by:
+              duration: 1min
+              func: avg
+
+      # Grafico bilanciamento energetico
+      - type: custom:apexcharts-card
+        graph_span: 2h
+        header:
+          show: true
+          title: "🏠 Flussi Energetici"
+          show_states: true
+        now:
+          show: true
+        apex_config:
+          chart:
+            height: 300
+            stacked: false
+          legend:
+            show: true
+            position: bottom
+        series:
+          - entity: sensor.envoy_122134037538_current_power_production
+            name: Solare
+            type: area
+            color: "#FFD93D"
+            opacity: 0.4
+            group_by:
+              duration: 1min
+              func: avg
+
+          - entity: sensor.battery_power_discharging
+            name: Batteria (scarica)
+            type: area
+            color: "#6BCF7F"
+            opacity: 0.4
+            group_by:
+              duration: 1min
+              func: avg
+
+          - entity: sensor.prism_potenza
+            name: EV Charger
+            type: line
+            color: "#FF6B6B"
+            stroke_width: 3
+            group_by:
+              duration: 1min
+              func: avg
+
+          - entity: sensor.net_grid_power
+            name: Rete
+            type: line
+            color: "#95A5A6"
+            stroke_width: 2
+            group_by:
+              duration: 1min
+              func: avg
+
+      # Distribuzione power pie charts
+      - type: horizontal-stack
+        cards:
+          - type: custom:apexcharts-card
+            chart_type: donut
+            header:
+              show: true
+              title: "⚡ Produzione"
+              show_states: true
+            apex_config:
+              chart:
+                height: 250
+              legend:
+                show: true
+                position: bottom
+              dataLabels:
+                enabled: true
+                formatter: |
+                  EVAL:function(val, opts) {
+                    return opts.w.config.series[opts.seriesIndex] + " W"
+                  }
+            series:
+              - entity: sensor.envoy_122134037538_current_power_production
+                name: Solare
+                color: "#FFD93D"
+              - entity: sensor.battery_power_discharging
+                name: Batteria
+                color: "#6BCF7F"
+
+          - type: custom:apexcharts-card
+            chart_type: donut
+            header:
+              show: true
+              title: "🏠 Consumo"
+              show_states: true
+            apex_config:
+              chart:
+                height: 250
+              legend:
+                show: true
+                position: bottom
+              dataLabels:
+                enabled: true
+                formatter: |
+                  EVAL:function(val, opts) {
+                    return opts.w.config.series[opts.seriesIndex] + " W"
+                  }
+            series:
+              - entity: sensor.consumo_netto_pdc_template
+                name: PDC
+                color: "#E74C3C"
+              - entity: sensor.consumo_appartamento_template
+                name: Casa
+                color: "#3498DB"
+              - entity: sensor.prism_potenza
+                name: Auto
+                color: "#FF6B6B"
+              - entity: sensor.battery_power_charging
+                name: Batteria
+                color: "#9B59B6"
+
+      # ==================== AUTOMAZIONI ====================
+      - type: custom:mushroom-title-card
+        title: "🤖 Automazioni"
+        subtitle: "Controllo automatizzazioni"
+
+      - type: entities
+        title: Stato Automazioni
+        show_header_toggle: false
+        entities:
+          - entity: automation.regola_carica_colonnina_gui
+            name: Ottimizzazione Solare
+            secondary_info: last-triggered
+          - entity: automation.ev_charging_scheduled_control
+            name: Ricarica Programmata
+            secondary_info: last-triggered
+          - entity: input_boolean.ev_charging_scheduled_active
+            name: Countdown Attivo
+          - entity: input_boolean.ev_charging_force_fixed_rate
+            name: Modalità Manuale
+
+      # ==================== IMPOSTAZIONI AVANZATE ====================
+      - type: custom:mushroom-title-card
+        title: "⚙️ Impostazioni"
+        subtitle: "Configurazione avanzata"
+
+      - type: entities
+        title: Parametri di Sistema
+        show_header_toggle: false
+        entities:
+          - entity: input_number.charging_power_kw
+            name: Potenza Massima Disponibile
+          - entity: input_number.fixed_charging_power_kw
+            name: Potenza Fissa Manuale
+          - entity: input_number.mg4_target_soc
+            name: Target SOC MG4
+          - entity: input_number.byd_target_soc
+            name: Target SOC BYD
+          - entity: input_datetime.charging_start_time
+            name: Inizio Programmazione
+          - entity: input_datetime.charging_end_time
+            name: Fine Programmazione
+          - entity: input_number.charging_duration_minutes
+            name: Durata Massima (minuti)

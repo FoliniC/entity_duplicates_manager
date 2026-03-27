@@ -1,0 +1,120 @@
+{
+  "title": "CronoStar Admin Dashboard",
+  "views": [
+    {
+      "title": "Overview",
+      "path": "overview",
+      "cards": [
+        {
+          "type": "vertical-stack",
+          "cards": [
+            {
+              "type": "markdown",
+              "content": "## CronoStar Admin Dashboard\nVersione: **v5.8.41** | Aggiornato: **14:18:54**\n*Dashboard in modalita YAML (Read-only UI)*"
+            },
+            {
+              "type": "custom:cronostar-card",
+              "view_mode": "admin",
+              "not_configured": false,
+              "preset_type": "ev_charging",
+              "global_prefix": "cronostar_ev_",
+              "target_entity": "input_number.ev_charge_2025_cronostar_power_target",
+              "title": "Programmazione Oraria",
+              "min_value": 0.0,
+              "max_value": 12,
+              "step_value": 0.5,
+              "unit_of_measurement": "kW",
+              "y_axis_label": "Potenza (kW)"
+            },
+            {
+              "type": "custom:cronostar-card",
+              "view_mode": "admin",
+              "not_configured": false,
+              "preset_type": "thermostat",
+              "global_prefix": "cronostar_thermostat_appartamento_",
+              "target_entity": "climate.climatizzazione_appartamento",
+              "title": "CronoStar Thermostat",
+              "min_value": "15",
+              "max_value": 30,
+              "step_value": 0.5,
+              "unit_of_measurement": "°C",
+              "y_axis_label": "Temperature"
+            },
+            {
+              "type": "custom:cronostar-card",
+              "view_mode": "admin",
+              "not_configured": false,
+              "preset_type": "generic_switch",
+              "global_prefix": "cronostar_generic_switch_",
+              "target_entity": "switch.your_generic_switch",
+              "title": "CronoStar: Controller cronostar_generic_switch_ [v5.8.41]",
+              "min_value": 0.0,
+              "max_value": 100.0,
+              "step_value": 1.0,
+              "unit_of_measurement": "",
+              "y_axis_label": ""
+            },
+            {
+              "type": "custom:cronostar-card",
+              "view_mode": "admin",
+              "not_configured": false,
+              "preset_type": "generic_switch",
+              "global_prefix": "cronostar_generic_switch_growlight_",
+              "target_entity": "switch.presa_luci_natale",
+              "title": "CronoStar Generic Switch",
+              "min_value": 0.0,
+              "max_value": 1.0,
+              "step_value": 1.0,
+              "unit_of_measurement": "",
+              "y_axis_label": "State"
+            },
+            {
+              "type": "custom:cronostar-card",
+              "view_mode": "admin",
+              "not_configured": false,
+              "preset_type": "thermostat",
+              "global_prefix": "cronostar_thermostat_",
+              "target_entity": "climate.climatizzazione_appartamento",
+              "title": "CronoStar: Controller cronostar_thermostat_ [v5.8.41]",
+              "min_value": 0.0,
+              "max_value": 100.0,
+              "step_value": 1.0,
+              "unit_of_measurement": "",
+              "y_axis_label": ""
+            },
+            {
+              "type": "custom:cronostar-card",
+              "view_mode": "admin",
+              "not_configured": false,
+              "preset_type": "thermostat",
+              "global_prefix": "cronostar_junk",
+              "target_entity": "switch.luce_cucina",
+              "title": "CronoStar: junk [v5.8.41]"
+            },
+            {
+              "type": "custom:cronostar-card",
+              "view_mode": "admin",
+              "not_configured": false,
+              "preset_type": "thermostat",
+              "global_prefix": "cronostar_junkProva",
+              "target_entity": "switch.luce_cucina",
+              "title": "CronoStar Thermostat",
+              "min_value": 15.0,
+              "max_value": 30.0,
+              "step_value": 0.5,
+              "unit_of_measurement": "°C",
+              "y_axis_label": "Temperature"
+            },
+            {
+              "type": "custom:cronostar-card",
+              "view_mode": "admin",
+              "not_configured": true,
+              "preset_type": "thermostat",
+              "title": "Nuovo Controller"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

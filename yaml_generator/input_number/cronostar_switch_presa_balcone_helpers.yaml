@@ -1,0 +1,149 @@
+# ===============================================
+# CronoStar Helpers (Switch)
+# Place this file in packages/ or merge under input_number: in configuration.yaml
+# Then restart Home Assistant.
+# ===============================================
+cronostar_switch_presa_balcone_00:
+  name: "CronoStar Switch 00"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_01:
+  name: "CronoStar Switch 01"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_02:
+  name: "CronoStar Switch 02"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_03:
+  name: "CronoStar Switch 03"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_04:
+  name: "CronoStar Switch 04"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_05:
+  name: "CronoStar Switch 05"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_06:
+  name: "CronoStar Switch 06"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_07:
+  name: "CronoStar Switch 07"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_08:
+  name: "CronoStar Switch 08"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_09:
+  name: "CronoStar Switch 09"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_10:
+  name: "CronoStar Switch 10"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_11:
+  name: "CronoStar Switch 11"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_12:
+  name: "CronoStar Switch 12"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_13:
+  name: "CronoStar Switch 13"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_14:
+  name: "CronoStar Switch 14"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_15:
+  name: "CronoStar Switch 15"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_16:
+  name: "CronoStar Switch 16"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_17:
+  name: "CronoStar Switch 17"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_18:
+  name: "CronoStar Switch 18"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_19:
+  name: "CronoStar Switch 19"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_20:
+  name: "CronoStar Switch 20"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_21:
+  name: "CronoStar Switch 21"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_22:
+  name: "CronoStar Switch 22"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider
+cronostar_switch_presa_balcone_23:
+  name: "CronoStar Switch 23"
+  min: 0
+  max: 1
+  step: 1
+  mode: slider

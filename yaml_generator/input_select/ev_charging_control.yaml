@@ -1,0 +1,14 @@
+selected_vehicle:
+  name: "Selected Vehicle"
+  options:
+    - "MG4"
+    - "BYD"
+  initial: "MG4"
+log_verbosity:
+  name: "Log Verbosity"
+  options:
+    - "None"
+    - "Basic"
+    - "Detailed"
+    - "Debug"
+  initial: "Basic"

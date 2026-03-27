@@ -1,0 +1,33 @@
+- id: test_fancoil_logging_manual
+  alias: "Test Manuale Logging Fancoil"
+  trigger: []
+  actions:
+    # 1. Forza attivazione buffer
+    - service: input_boolean.turn_on
+      target:
+        entity_id: input_boolean.fancoil_boot_buffering
+    - service: python_script.set_state
+      data:
+        entity_id: input_boolean.fancoil_boot_buffering
+        log_queue: ""
+    
+    # 2. Invia alcuni eventi (andranno nel buffer)
+    - event: fancoil_log_event
+      event_data:
+        level: info
+        message: "TEST MESSAGGIO BUFFER 1"
+    - event: fancoil_log_event
+      event_data:
+        level: warning
+        message: "TEST MESSAGGIO BUFFER 2"
+    
+    - delay: "00:00:05"
+    
+    # 3. Forza svuotamento
+    - service: script.fancoil_flush_logs
+    
+    # 4. Invia evento diretto (pyscript)
+    - event: fancoil_log_event
+      event_data:
+        level: info
+        message: "TEST MESSAGGIO DIRETTO"

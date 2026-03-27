@@ -1,0 +1,14 @@
+ev_charge_2025_last_mqtt_topic:
+  name: EV Charge 2025 - Last MQTT Topic
+  max: 255
+  icon: mdi:transit-connection-variant
+
+ev_charge_2025_last_mqtt_payload:
+  name: EV Charge 2025 - Last MQTT Payload
+  max: 255
+  icon: mdi:message-text-outline
+
+ev_charge_2025_last_mqtt_time:
+  name: EV Charge 2025 - Last MQTT Time
+  max: 255
+  icon: mdi:clock-outline

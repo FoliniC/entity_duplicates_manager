@@ -1,0 +1,23 @@
+substitutions:
+  name: corridoio-m5stack-fae7f8
+  friendly_name: Corridoio M5Stack Atom Echo fae7f8
+packages:
+  m5stack.atom-echo-wake-word-voice-assistant: github://esphome/wake-word-voice-assistants/m5stack-atom-echo/m5stack-atom-echo.yaml@main
+esphome:
+  name: ${name}
+  name_add_mac_suffix: false
+  friendly_name: ${friendly_name}
+api:
+  encryption:
+    key: 1QqfQJS2EpjGu/MawdMLv339GxAlxRmCe6JYdXX+4HM=
+
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  manual_ip:
+    static_ip: 192.168.0.171
+    gateway: 192.168.0.100
+    subnet: 255.255.255.0
+    dns1: 8.8.8.8
+    dns2: 8.8.4.4

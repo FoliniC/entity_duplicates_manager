@@ -1,0 +1,41 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Il dispositivo è già configurato",
+            "already_configured_account": "L'account è già configurato",
+            "reconfigure_successful": "La riconfigurazione ha avuto successo",
+            "single_instance_allowed": "Già configurato.Solo una singola configurazione possibile."
+        },
+        "error": {
+            "invalid_auth": "Autenticazione non valida"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "language": "Lingua",
+                    "notifications": "Aumenta le notifiche per gli avvisi di livello di allerta",
+                    "notifications_diagnostic": "Aumenta le notifiche per gli avvisi a livello diagnostico",
+                    "notifications_warning": "Aumenta le notifiche per gli avvisi di livello di avvertimento",
+                    "password": "Password",
+                    "username": "Nome utente"
+                },
+                "description": "Se hai bisogno di aiuto con la visita di configurazione: https://github.com/albaintor/homeeasistant_electrolux_status",
+                "title": "Stato Electrolux"
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "user": {
+                "data": {
+                    "language": "Lingua",
+                    "notifications": "Aumenta le notifiche per gli avvisi di livello di allerta",
+                    "notifications_diagnostic": "Aumenta le notifiche per gli avvisi a livello diagnostico",
+                    "notifications_warning": "Aumenta le notifiche per gli avvisi di livello di avvertimento",
+                    "password": "Password",
+                    "renew_interval": "Intervallo di rinnovo di WebSocket (secondi)"
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,134 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Device is already configured",
+            "cannot_connect": "Unable to connect to the device",
+            "discover_timeout": "Unable to discover requested device",
+            "reconfigure_successful": "Device reconfigured successfully",
+            "unknown": "Unknown error occurred"
+        },
+        "error": {
+            "linking": "Unknown linking error occurred.",
+            "register_failed": "Failed to register, please try again"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "topic": "Topic",
+                    "ports": "Number of available ports",
+                    "serial": "Unique device code. Use if you have multiple devices",
+                    "vsensors": "Enable virtual sensors",
+                    "powerwall": "Enable Powerwall sensors",
+                    "maxcurr": "Maximum settable current 6A-32A"
+                },
+                "description": "Please enter connection settings of your device",
+                "title": "Configure Silla Prsim Integration"
+            }
+        }
+    },
+    "entity": {
+        "binary_sensor": {
+            "touch_sigle": {
+                "name": "Single touch"
+            },
+            "touch_double": {
+                "name": "Double touch"
+            },
+            "touch_long": {
+                "name": "Long touch"
+            },
+            "online": {
+                "name": "Connection status",
+                "state": {
+                    "on": "Online",
+                    "off": "Offline"
+                }
+            }
+        },
+        "number": {
+            "set_current_limit": {
+                "name": "Current limit"
+            },
+            "set_max_current": {
+                "name": "Current limited by user"
+            }
+        },
+        "select": {
+            "set_port_mode": {
+                "name": "Set port output mode",
+                "state": {
+                    "solar": "Solar",
+                    "normal": "Normal",
+                    "paused": "Paused"
+                }
+            }
+        },
+        "sensor": {
+            "output_current": {
+                "name": "Output current"
+            },
+            "current_port_mode": {
+                "name": "Current port output mode",
+                "state": {
+                    "solar": "Solar",
+                    "normal": "Normal",
+                    "paused": "Paused",
+                    "suspended": "Suspended",
+                    "unknown": "Unknown",
+                    "autolimit": "Auto limit"
+                }
+            },
+            "output_car_current": {
+                "name": "Car requested by car"
+            },
+            "input_grid_power": {
+                "name": "Power from utility"
+            },
+            "current_state": {
+                "name": "Wallbox current state",
+                "state": {
+                    "idle": "Idle",
+                    "waiting": "Waiting",
+                    "charging": "Charging",
+                    "pause": "Paused"
+                }
+            },
+            "current_set_by_user": {
+                "name": "Current limited by user"
+            },
+            "power_grid_voltage": {
+                "name": "Power grid voltage"
+            },
+            "output_power": {
+                "name": "Power provided to car"
+            },
+            "session_output_energy": {
+                "name": "Energy provided in last session"
+            },
+            "total_output_energy": {
+                "name": "Total energy"
+            },
+            "core_temperature": {
+                "name": "CPU temperature"
+            },
+            "input_grid_energy": {
+                "name": "Total energy from grid"
+            },
+            "powerwall_solar": {
+                "name": "Power produced by PV"
+            },
+            "powerwall_house": {
+                "name": "Power consumed by the house"
+            }
+        },
+        "button": {
+            "set_mode_traps_auth": {
+                "name": "Charge authorization"
+            },
+            "set_mode_traps_noauth": {
+                "name": "Revoke charge authorization"
+            }
+        }
+    },
+    "title": "Silla Prism Integration"
+}

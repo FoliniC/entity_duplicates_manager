@@ -1,0 +1,143 @@
+# resources:
+#   - url: /local/power-wheel-card.js?v=1
+#     type: module
+#   - url: "/local/uptime-card.js?V=1"
+#     type: module
+#   - url: /local/power-wheel-card/power-wheel-card.js?v=1
+#     type: module
+#   - url: /local/apexcharts-card/apexcharts-card.js
+#     type: module
+# type: "custom:power-wheel-card"
+# title: Solar Power
+# production_is_positive: false
+# solar_power_entity: sensor.fronius_panel_status
+# grid_power_entity: sensor.fronius_grid_usage
+title: Via Grande 50
+kiosk_mode:
+  hide_header: true
+  hide_sidebar: true
+views:
+  - title: custom power card
+    cards:
+      - type: media-control
+        entity: media_player.smart_tv_pro
+      - type: entities
+        entities:
+          - entity: sensor.alfa_new_potenza_esportata #sensor.alfa_potenza_attiva_immessa_istantanea
+          - entity: sensor.alfa_new_potenza_prodotta #sensor.alfa_potenza_attiva_prodotta_istantanea
+          - entity: sensor.potenza_prelevata_attuale #sensor.alfa_new_potenza_importata
+          - entity: sensor.smart_meter_ts_100a_1_potenza_reale
+          - entity: sensor.envoy_122134037538_current_power_production
+          - entity: sensor.solarnet_power_battery
+          - entity: sensor.potenza_consumata_attuale
+          - entity: sensor.consumo_pdc
+          - entity: sensor.consumo_appartamento_template
+          - entity: sensor.byd_battery_box_premium_hv_state_of_charge
+      #          - entity: states('sensor.consumo_appartamento_template') | float(100)
+      - type: custom:power-wheel-card
+        solar_power_entity: sensor.alfa_new_potenza_prodotta ##sensor.alfa_potenza_attiva_prodotta_istantanea #sensor.alfa_potenza_attiva_prodotta_istantanea #sensor.envoy_122134037538_current_power_production
+        grid_power_consumption_entity: sensor.potenza_prelevata_attuale #sensor.alfa_new_potenza_importata
+        grid_power_production_entity: sensor.alfa_new_potenza_esportata #sensor.alfa_potenza_attiva_immessa_istantanea
+        battery_power_entity: sensor.solarnet_power_battery
+        charging_is_positive: False
+        battery_soc_entity: sensor.byd_battery_box_premium_hv_state_of_charge
+      # - type: custom:4power-wheel-card
+      #   solar_power_entity: sensor.envoy_122134037538_today_s_energy_production
+      #   grid_power_consumption_entity: sensor.solarnet_power_grid
+      #   grid_power_production_entity: sensor.alfa_energia_attiva_immessa_totale
+      #   battery_power_entity: sensor.solarnet_power_battery
+      #   charging_is_positive: False
+      #   battery_soc_entity: sensor.byd_battery_box_premium_hv_state_of_charge
+      - type: custom:cronostar_card
+        title: "Termostato Appartamento"
+        global_prefix: "cronostar_thermostat_appartamento_"
+        enabled_entity: switch.cronostar_thermostat_appartamento_enabled
+        profiles_select_entity: select.cronostar_thermostat_appartamento_current_profile
+        logging_enabled: true
+        # Opzionale: puoi specificare gli ID delle entità se sono diversi dai default
+        # pause_entity: input_boolean.temperature_schedule_paused
+        # profiles_select_entity: input_select.temperature_profiles
+        # save_script: script.save_temperature_profile
+        # load_script: script.load_temperature_profile
+      - type: custom:uptime-card
+        entity: binary_sensor.ping_google
+        hours_to_show: 2
+        title_adaptive_color: true
+        status_adaptive_color: true
+        icon: mdi:web
+        update_interval: 30
+        severity: 10
+        icon_adaptive_color: true
+        tooltip_adaptive_color: true
+        alias:
+          ok: Connected
+          ko: Disconnected
+      - type: custom:apexcharts-card
+        graph_span: 11d
+        span:
+          end: day
+        show:
+          last_updated: true
+        header:
+          title: Consumo energetico ultimi 11 giorni
+          show: true
+          show_states: false
+          colorize_states: true
+        series:
+          - entity: sensor.potenza_prelevata_attuale #alfa_potenza_attiva_prelevata_istantanea_2 #sensor.smart_meter_ts_100a_1_power_real
+            name: Rete
+            type: column
+            color: red
+            group_by:
+              func: max
+              duration: 1d
+          - entity: sensor.envoy_122134037538_current_power_production
+            name: Solare
+            type: column
+            color: green
+            group_by:
+              func: max
+              duration: 1d
+          - entity: sensor.solarnet_power_battery
+            name: Batteria
+            type: column
+            color: blue
+            group_by:
+              func: max
+              duration: 1d
+        apex_config:
+          # tooltip:
+          #   enabled: true
+          #   #shared: true
+          #   custom: |
+          #     function ({ series, seriesIndex, dataPointIndex, w }) {
+          #       // Your custom tooltip content here
+          #       return '<div class="custom-tooltip">prova</div>';
+          #     }
+          chart:
+            stacked: true
+          plotOptions:
+            bar:
+              horizontal: false
+          xaxis:
+            type: datetime
+            labels:
+              datetimeUTC: true
+            crosshairs:
+              show: true
+            tooltitp:
+              enabled: true
+          yaxis:
+            title:
+              text: KWh
+            forceNiceScale: false
+            tooltitp:
+              enabled: true
+            crosshairs:
+              show: true
+            labels:
+              formatter: |
+                EVAL:function(value) {
+                  // Convert value to a string with dot as separator
+                  return (value/1000).toFixed(0).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, "+");
+                }

@@ -1,0 +1,13 @@
+state_luci_scale_switch_2:
+  name: Stato luci_scale_switch_\2
+  initial: ""
+state_luci_scale_switch_3:
+  name: Stato luci_scale_switch_3
+  initial: ""
+# variabile per memorizzare l'ultimo valore impostato sulla colonnina
+previous_recharge_ampere_value:
+  name: Previous ampere value of the recharge sent to Prism
+  initial: "0"
+debug_deviatore_last_state:
+  name: Debug Deviatore Last State
+  initial: "unknown"

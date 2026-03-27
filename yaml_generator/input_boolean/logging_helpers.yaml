@@ -1,0 +1,4 @@
+fancoil_boot_buffering:
+  name: "Fancoil Boot Buffering"
+  initial: on
+  icon: mdi:buffer

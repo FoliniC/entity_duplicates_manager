@@ -1,0 +1,78 @@
+# CronoStar Configuration
+# Definisce i preset disponibili e le loro proprietà
+
+presets:
+  thermostat:
+    name: "Termostato"
+    prefix: "cronostar_temp"
+    unit: "°C"
+    min: 15.0
+    max: 30.0
+    step: 0.5
+    default: 20.0
+    icon: "mdi:thermometer"
+    profiles:
+      - "Comfort"
+      - "Economia"
+      - "Notte"
+      - "Vacanza"
+
+  ev_charging:
+    name: "Ricarica EV"
+    prefix: "cronostar_ev"
+    unit: "kW"
+    min: 0.0
+    max: 22.0
+    step: 0.5
+    default: 0.0
+    icon: "mdi:ev-station"
+    profiles:
+      - "Standard"
+      - "Veloce"
+      - "Notturno"
+      - "Solare"
+
+  generic_switch:
+    name: "Switch Generico"
+    prefix: "cronostar_switch"
+    unit: ""
+    min: 0
+    max: 1
+    step: 1
+    default: 0
+    icon: "mdi:toggle-switch"
+    profiles:
+      - "Sempre On"
+      - "Sempre Off"
+      - "Orario Lavoro"
+      - "Weekend"
+
+  generic_kwh:
+    name: "Limite kWh"
+    prefix: "cronostar_kwh"
+    unit: "kWh"
+    min: 0.0
+    max: 10.0
+    step: 0.1
+    default: 3.0
+    icon: "mdi:lightning-bolt"
+    profiles:
+      - "Standard"
+      - "Risparmio"
+      - "Massimo"
+      - "Notturno"
+
+  generic_temperature:
+    name: "Temperatura Generica"
+    prefix: "cronostar_gentemp"
+    unit: "°C"
+    min: 10.0
+    max: 35.0
+    step: 0.5
+    default: 20.0
+    icon: "mdi:thermometer-lines"
+    profiles:
+      - "Comfort"
+      - "Economia"
+      - "Boost"
+      - "Antigelo"

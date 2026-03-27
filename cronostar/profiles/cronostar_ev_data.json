@@ -1,0 +1,226 @@
+{
+  "meta": {
+    "global_prefix": "cronostar_ev_",
+    "preset_type": "ev_charging",
+    "created_at": "2025-12-23T14:52:48.855745",
+    "updated_at": "2026-03-26T16:33:02.223653",
+    "type": "custom:cronostar-card",
+    "hour_base": {
+      "value": 0,
+      "determined": false
+    },
+    "logging_enabled": true,
+    "enabled_entity": "switch.cronostar_ev",
+    "profiles_select_entity": "select.cronostar_ev_current_profile",
+    "target_entity": "input_number.ev_charge_2025_cronostar_power_target",
+    "allow_max_value": true,
+    "missing_yaml_style": "named",
+    "title": "Programmazione Oraria",
+    "y_axis_label": "Potenza (kW)",
+    "unit_of_measurement": "kW",
+    "min_value": 0,
+    "max_value": 12,
+    "step_value": 0.5,
+    "is_switch_preset": false,
+    "height": "280px",
+    "language": "it",
+    "last_active_profile": "solar",
+    "entities": [
+      "input_number.ev_charge_2025_cronostar_power_target",
+      "switch.cronostar_ev",
+      "select.cronostar_ev_current_profile"
+    ]
+  },
+  "profiles": {
+    "F3": {
+      "schedule": [
+        {
+          "time": "00:00",
+          "value": 3.5
+        },
+        {
+          "time": "05:55",
+          "value": 3.5
+        },
+        {
+          "time": "05:56",
+          "value": 0.0
+        },
+        {
+          "time": "22:59",
+          "value": 0.0
+        },
+        {
+          "time": "23:00",
+          "value": 3.794733192202055
+        },
+        {
+          "time": "23:59",
+          "value": 3.794733192202055
+        }
+      ],
+      "updated_at": "2026-03-14T22:29:53.547993",
+      "enabled_entity": "switch.cronostar_ev",
+      "profiles_select_entity": "select.cronostar_ev_current_profile",
+      "target_entity": "input_number.ev_charge_2025_cronostar_power_target",
+      "entities": [
+        "input_number.ev_charge_2025_cronostar_power_target",
+        "switch.cronostar_ev_enabled",
+        "select.cronostar_ev_current_profile"
+      ]
+    },
+    "Default": {
+      "schedule": [
+        {
+          "time": "00:00",
+          "value": 2.5
+        },
+        {
+          "time": "01:30",
+          "value": 2.5
+        },
+        {
+          "time": "02:25",
+          "value": 2.5
+        },
+        {
+          "time": "05:39",
+          "value": 2.5
+        },
+        {
+          "time": "12:24",
+          "value": 2.5
+        },
+        {
+          "time": "12:25",
+          "value": 2.5
+        },
+        {
+          "time": "15:54",
+          "value": 2.5
+        },
+        {
+          "time": "15:55",
+          "value": 2.5
+        },
+        {
+          "time": "21:41",
+          "value": 2.5
+        },
+        {
+          "time": "23:59",
+          "value": 2.5
+        }
+      ],
+      "updated_at": "2026-03-26T15:39:52.488364",
+      "enabled_entity": "switch.cronostar_ev",
+      "profiles_select_entity": "select.cronostar_ev_current_profile",
+      "target_entity": "input_number.ev_charge_2025_cronostar_power_target",
+      "entities": [
+        "input_number.ev_charge_2025_cronostar_power_target",
+        "switch.cronostar_ev",
+        "select.cronostar_ev_current_profile"
+      ]
+    },
+    "solar": {
+      "schedule": [
+        {
+          "time": "00:00",
+          "value": 8.0
+        },
+        {
+          "time": "01:05",
+          "value": 8.0
+        },
+        {
+          "time": "07:50",
+          "value": 8.0
+        },
+        {
+          "time": "07:51",
+          "value": 8.0
+        },
+        {
+          "time": "11:20",
+          "value": 8.0
+        },
+        {
+          "time": "11:21",
+          "value": 8.0
+        },
+        {
+          "time": "17:07",
+          "value": 8.0
+        },
+        {
+          "time": "23:59",
+          "value": 8.0
+        }
+      ],
+      "updated_at": "2026-03-26T16:33:02.223664",
+      "enabled_entity": "switch.cronostar_ev",
+      "profiles_select_entity": "select.cronostar_ev_current_profile",
+      "target_entity": "input_number.ev_charge_2025_cronostar_power_target",
+      "entities": [
+        "input_number.ev_charge_2025_cronostar_power_target",
+        "switch.cronostar_ev",
+        "select.cronostar_ev_current_profile"
+      ]
+    },
+    "unavailable": {
+      "schedule": [
+        {
+          "time": "00:00",
+          "value": 8.0
+        },
+        {
+          "time": "01:36",
+          "value": 8.0
+        },
+        {
+          "time": "02:31",
+          "value": 8.0
+        },
+        {
+          "time": "05:45",
+          "value": 8.0
+        },
+        {
+          "time": "12:30",
+          "value": 8.0
+        },
+        {
+          "time": "12:31",
+          "value": 8.0
+        },
+        {
+          "time": "16:00",
+          "value": 8.0
+        },
+        {
+          "time": "16:01",
+          "value": 8.0
+        },
+        {
+          "time": "21:47",
+          "value": 8.0
+        },
+        {
+          "time": "23:59",
+          "value": 8.0
+        }
+      ],
+      "updated_at": "2026-03-18T17:20:50.577182",
+      "enabled_entity": "switch.cronostar_ev",
+      "profiles_select_entity": "select.cronostar_ev_current_profile",
+      "target_entity": "input_number.ev_charge_2025_cronostar_power_target",
+      "entities": [
+        "input_number.ev_charge_2025_cronostar_power_target",
+        "switch.cronostar_ev_enabled",
+        "select.cronostar_ev_current_profile"
+      ]
+    }
+  },
+  "saved_at": "2025-12-28T00:01:27.705699Z",
+  "version": 2
+}

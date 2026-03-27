@@ -1,0 +1,2489 @@
+blueprint:
+  name: KNX - Climate control
+  description: Use KNX to control an Home Assistant HVAC (designed for Daikin Stylish)
+    with optional mode, temperature, speed, swing, preset, streamer, performance,
+    eco, holiday and generic ON/OFF telegrams (+ state feedback and show/hide GA)
+  author: kalhimeo
+  domain: automation
+  input:
+    climate_entity:
+      name: Climate Entity
+      description: 'Choose the HVAC to control and expose with KNX
+
+        '
+      selector:
+        entity:
+          domain:
+          - climate
+          multiple: false
+    streamer_entity:
+      name: Streamer Entity
+      description: 'Daikin HVAC uses a separate Streamer switch to activate/de-activate
+        the mode (don''t change if unused)
+
+        '
+      selector:
+        entity:
+          domain:
+          - switch
+          multiple: false
+      default: {}
+    on_off_address:
+      name: ON/OFF group address
+      description: 'Group address to turn the Cool mode ON or switch the HVAC OFF.
+        DPT 1.001 Example: ''3/0/0'' (leave empty if unused)
+
+        '
+      default: ''
+    mode_address:
+      name: HVAC Mode group address
+      description: 'Group address for changing the HVAC mode (fan_only, dry, cool,
+        heat, heat_cool, off). DPT 5.010 Example: ''3/0/1'' (leave empty if unused)
+
+        '
+      default: ''
+    target_temperature_address:
+      name: HVAC Target Temperature group address
+      description: 'Group address to define the target temperature of the active HVAC
+        mode. DPT 9.001 Example: ''3/0/2'' (leave empty if unused)
+
+        '
+      default: ''
+    speed_address:
+      name: HVAC Fan Speed group address
+      description: 'Group address for changing the HVAC fan speed (Auto, Silence,
+        1, 2, 3, 4, 5). DPT 5.010 Example: ''3/0/3'' (leave empty if unused)
+
+        '
+      default: ''
+    swing_address:
+      name: HVAC Swing group address
+      description: 'Group address for changing the HVAC swing (Off, Vertical, Horizontal,
+        3D). DPT 5.010 Example: ''3/0/4'' (leave empty if unused)
+
+        '
+      default: ''
+    preset_address:
+      name: HVAC Preset group address
+      description: 'Group address for changing the HVAC preset (none, away, eco, boost).
+        DPT 5.010 Example: ''3/0/5'' (leave empty if unused)
+
+        '
+      default: ''
+    performance_address:
+      name: HVAC Performance mode group address
+      description: 'Group address for switching the performance mode ON/OFF. DPT 1.001
+        Example: ''3/0/6'' (leave empty if unused)
+
+        '
+      default: ''
+    streamer_address:
+      name: HVAC Streamer mode group address
+      description: 'Group address for switching the streamer mode ON/OFF. DPT 1.001
+        Example: ''3/0/7'' (leave empty if unused)
+
+        '
+      default: ''
+    eco_address:
+      name: HVAC Eco mode group address
+      description: 'Group address for switching the eco mode ON/OFF. DPT 1.001 Example:
+        ''3/0/8'' (leave empty if unused)
+
+        '
+      default: ''
+    holiday_address:
+      name: HVAC Holiday mode group address
+      description: 'Group address for switching the holiday mode ON/OFF. DPT 1.001
+        Example: ''3/0/9'' (leave empty if unused)
+
+        '
+      default: ''
+    on_off_state_address:
+      name: ON/OFF state group address
+      description: 'Group address to send feedback of the ON/OFF state of the HVAC.
+        DPT 1.001 Example: ''3/1/0'' (leave empty if unused)
+
+        '
+      default: ''
+    mode_state_address:
+      name: HVAC Mode state group address
+      description: 'Group address to send feedback of the HVAC mode (fan_only, dry,
+        cool, heat, heat_cool, off). DPT 5.010 Example: ''3/1/1'' (leave empty if
+        unused)
+
+        '
+      default: ''
+    target_temperature_state_address:
+      name: HVAC Target Temperature state group address
+      description: 'Group address to send feedback of the target temperature of the
+        active HVAC mode. DPT 9.001 Example: ''3/1/2'' (leave empty if unused)
+
+        '
+      default: ''
+    speed_state_address:
+      name: HVAC Fan Speed state group address
+      description: 'Group address to send feedback of the HVAC fan speed (Auto, Silence,
+        1, 2, 3, 4, 5). DPT 5.010 Example: ''3/1/3'' (leave empty if unused)
+
+        '
+      default: ''
+    swing_state_address:
+      name: HVAC Swing state group address
+      description: 'Group address to send feedback of the HVAC swing (Off, Vertical,
+        Horizontal, 3D). DPT 5.010 Example: ''3/1/4'' (leave empty if unused)
+
+        '
+      default: ''
+    preset_state_address:
+      name: HVAC Preset state group address
+      description: 'Group address to send feedback of the HVAC preset (none, away,
+        eco, boost). DPT 5.010 Example: ''3/1/5'' (leave empty if unused)
+
+        '
+      default: ''
+    performance_state_address:
+      name: HVAC Performance mode state group address
+      description: 'Group address to send feedback of the performance mode. DPT 1.001
+        Example: ''3/1/6'' (leave empty if unused)
+
+        '
+      default: ''
+    streamer_state_address:
+      name: HVAC Streamer mode state group address
+      description: 'Group address to send feedback of the streamer mode. DPT 1.001
+        Example: ''3/1/7'' (leave empty if unused)
+
+        '
+      default: ''
+    eco_state_address:
+      name: HVAC Eco mode state group address
+      description: 'Group address to send feedback of the eco mode. DPT 1.001 Example:
+        ''3/1/8'' (leave empty if unused)
+
+        '
+      default: ''
+    holiday_state_address:
+      name: HVAC Holiday mode state group address
+      description: 'Group address to send feedback of the holiday mode. DPT 1.001
+        Example: ''3/1/9'' (leave empty if unused)
+
+        '
+      default: ''
+    current_temperature_state_address:
+      name: HVAC Current Temperature state group address
+      description: 'Group address to send feedback of the current room temperature.
+        DPT 9.001 Example: ''3/1/10'' (leave empty if unused)
+
+        '
+      default: ''
+    target_temperature_show_address:
+      name: HVAC Target Temperature show/hide group address
+      description: 'Group address to show/hide the target temperature of the active
+        HVAC mode. DPT 1.001 Example: ''3/2/2'' (leave empty if unused)
+
+        '
+      default: ''
+    speed_show_address:
+      name: HVAC Fan Speed show/hide group address
+      description: 'Group address to show/hide the HVAC fan speed. DPT 1.001 Example:
+        ''3/2/3'' (leave empty if unused)
+
+        '
+      default: ''
+    swing_show_address:
+      name: HVAC Swing show/hide group address
+      description: 'Group address to show/hide the HVAC swing. DPT 1.001 Example:
+        ''3/2/4'' (leave empty if unused)
+
+        '
+      default: ''
+    preset_show_address:
+      name: HVAC Preset show/hide group address
+      description: 'Group address to show/hide the HVAC preset. DPT 1.001 Example:
+        ''3/2/5'' (leave empty if unused)
+
+        '
+      default: ''
+    performance_show_address:
+      name: HVAC Performance mode show/hide group address
+      description: 'Group address to show/hide the performance mode. DPT 1.001 Example:
+        ''3/2/6'' (leave empty if unused)
+
+        '
+      default: ''
+    streamer_show_address:
+      name: HVAC Streamer mode show/hide group address
+      description: 'Group address to show/hide the streamer mode. DPT 1.001 Example:
+        ''3/2/7'' (leave empty if unused)
+
+        '
+      default: ''
+    eco_show_address:
+      name: HVAC Eco mode show/hide group address
+      description: 'Group address to show/hide the eco mode. DPT 1.001 Example: ''3/2/8''
+        (leave empty if unused)
+
+        '
+      default: ''
+  source_url: https://gist.github.com/kalhimeo/8ed040da75819c6ea0bcd0beb9aa5dd6
+mode: parallel
+max_exceeded: silent
+variables:
+  climate_entity: !input climate_entity
+  streamer_entity: !input streamer_entity
+  on_off_address: !input on_off_address
+  mode_address: !input mode_address
+  target_temperature_address: !input target_temperature_address
+  speed_address: !input speed_address
+  swing_address: !input swing_address
+  preset_address: !input preset_address
+  performance_address: !input performance_address
+  streamer_address: !input streamer_address
+  eco_address: !input eco_address
+  holiday_address: !input holiday_address
+  on_off_state_address: !input on_off_state_address
+  mode_state_address: !input mode_state_address
+  target_temperature_state_address: !input target_temperature_state_address
+  speed_state_address: !input speed_state_address
+  swing_state_address: !input swing_state_address
+  preset_state_address: !input preset_state_address
+  performance_state_address: !input performance_state_address
+  streamer_state_address: !input streamer_state_address
+  eco_state_address: !input eco_state_address
+  holiday_state_address: !input holiday_state_address
+  current_temperature_state_address: !input current_temperature_state_address
+  target_temperature_show_address: !input target_temperature_show_address
+  speed_show_address: !input speed_show_address
+  swing_show_address: !input swing_show_address
+  preset_show_address: !input preset_show_address
+  performance_show_address: !input performance_show_address
+  streamer_show_address: !input streamer_show_address
+  eco_show_address: !input eco_show_address
+trigger:
+- platform: homeassistant
+  event: start
+  id: initialize
+- platform: event
+  event_type: automation_reloaded
+  id: initialize
+- platform: event
+  event_type: service_registered
+  event_data:
+    domain: knx
+    service: event_register
+  id: initialize
+- platform: state
+  entity_id: !input climate_entity
+  id: climate_entity
+- platform: state
+  entity_id: !input streamer_entity
+  id: streamer_entity
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input on_off_address
+    telegramtype: GroupValueWrite
+    direction: Incoming
+  id: on_off_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input mode_address
+    telegramtype: GroupValueWrite
+    direction: Incoming
+  id: mode_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input target_temperature_address
+    telegramtype: GroupValueWrite
+    direction: Incoming
+  id: target_temperature_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input speed_address
+    telegramtype: GroupValueWrite
+    direction: Incoming
+  id: speed_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input swing_address
+    telegramtype: GroupValueWrite
+    direction: Incoming
+  id: swing_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input preset_address
+    telegramtype: GroupValueWrite
+    direction: Incoming
+  id: preset_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input performance_address
+    telegramtype: GroupValueWrite
+    direction: Incoming
+  id: performance_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input streamer_address
+    telegramtype: GroupValueWrite
+    direction: Incoming
+  id: streamer_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input eco_address
+    telegramtype: GroupValueWrite
+    direction: Incoming
+  id: eco_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input holiday_address
+    telegramtype: GroupValueWrite
+    direction: Incoming
+  id: holiday_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input on_off_state_address
+    telegramtype: GroupValueRead
+    direction: Incoming
+  id: on_off_state_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input mode_state_address
+    telegramtype: GroupValueRead
+    direction: Incoming
+  id: mode_state_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input target_temperature_state_address
+    telegramtype: GroupValueRead
+    direction: Incoming
+  id: target_temperature_state_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input speed_state_address
+    telegramtype: GroupValueRead
+    direction: Incoming
+  id: speed_state_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input swing_state_address
+    telegramtype: GroupValueRead
+    direction: Incoming
+  id: swing_state_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input preset_state_address
+    telegramtype: GroupValueRead
+    direction: Incoming
+  id: preset_state_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input performance_state_address
+    telegramtype: GroupValueRead
+    direction: Incoming
+  id: performance_state_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input streamer_state_address
+    telegramtype: GroupValueRead
+    direction: Incoming
+  id: streamer_state_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input eco_state_address
+    telegramtype: GroupValueRead
+    direction: Incoming
+  id: eco_state_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input holiday_state_address
+    telegramtype: GroupValueRead
+    direction: Incoming
+  id: holiday_state_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input current_temperature_state_address
+    telegramtype: GroupValueRead
+    direction: Incoming
+  id: current_temperature_state_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input target_temperature_show_address
+    telegramtype: GroupValueRead
+    direction: Incoming
+  id: target_temperature_show_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input speed_show_address
+    telegramtype: GroupValueRead
+    direction: Incoming
+  id: speed_show_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input swing_show_address
+    telegramtype: GroupValueRead
+    direction: Incoming
+  id: swing_show_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input preset_show_address
+    telegramtype: GroupValueRead
+    direction: Incoming
+  id: preset_show_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input performance_show_address
+    telegramtype: GroupValueRead
+    direction: Incoming
+  id: performance_show_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input streamer_show_address
+    telegramtype: GroupValueRead
+    direction: Incoming
+  id: streamer_show_address
+- platform: event
+  event_type: knx_event
+  event_data:
+    destination: !input eco_show_address
+    telegramtype: GroupValueRead
+    direction: Incoming
+  id: eco_show_address
+action:
+- choose:
+  - conditions:
+    - condition: trigger
+      id: initialize
+    sequence:
+    - if:
+      - condition: template
+        value_template: '{{ on_off_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ on_off_address }}'
+    - if:
+      - condition: template
+        value_template: '{{ mode_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ mode_address }}'
+          type: pulse
+    - if:
+      - condition: template
+        value_template: '{{ target_temperature_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ target_temperature_address }}'
+          type: temperature
+    - if:
+      - condition: template
+        value_template: '{{ speed_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ speed_address }}'
+          type: pulse
+    - if:
+      - condition: template
+        value_template: '{{ swing_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ swing_address }}'
+          type: pulse
+    - if:
+      - condition: template
+        value_template: '{{ preset_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ preset_address }}'
+          type: pulse
+    - if:
+      - condition: template
+        value_template: '{{ performance_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ performance_address }}'
+    - if:
+      - condition: template
+        value_template: '{{ streamer_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ streamer_address }}'
+    - if:
+      - condition: template
+        value_template: '{{ eco_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ eco_address }}'
+    - if:
+      - condition: template
+        value_template: '{{ holiday_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ holiday_address }}'
+    - if:
+      - condition: template
+        value_template: '{{ on_off_state_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ on_off_state_address }}'
+    - if:
+      - condition: template
+        value_template: '{{ mode_state_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ mode_state_address }}'
+          type: pulse
+    - if:
+      - condition: template
+        value_template: '{{ target_temperature_state_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ target_temperature_state_address }}'
+          type: temperature
+    - if:
+      - condition: template
+        value_template: '{{ speed_state_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ speed_state_address }}'
+          type: pulse
+    - if:
+      - condition: template
+        value_template: '{{ swing_state_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ swing_state_address }}'
+          type: pulse
+    - if:
+      - condition: template
+        value_template: '{{ preset_state_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ preset_state_address }}'
+          type: pulse
+    - if:
+      - condition: template
+        value_template: '{{ performance_state_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ performance_state_address }}'
+    - if:
+      - condition: template
+        value_template: '{{ streamer_state_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ streamer_state_address }}'
+    - if:
+      - condition: template
+        value_template: '{{ eco_state_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ eco_state_address }}'
+    - if:
+      - condition: template
+        value_template: '{{ holiday_state_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ holiday_state_address }}'
+    - if:
+      - condition: template
+        value_template: '{{ current_temperature_state_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ current_temperature_state_address }}'
+          type: temperature
+    - if:
+      - condition: template
+        value_template: '{{ target_temperature_show_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ target_temperature_show_address }}'
+    - if:
+      - condition: template
+        value_template: '{{ speed_show_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ speed_show_address }}'
+    - if:
+      - condition: template
+        value_template: '{{ swing_show_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ swing_show_address }}'
+    - if:
+      - condition: template
+        value_template: '{{ preset_show_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ preset_show_address }}'
+    - if:
+      - condition: template
+        value_template: '{{ performance_show_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ performance_show_address }}'
+    - if:
+      - condition: template
+        value_template: '{{ streamer_show_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ streamer_show_address }}'
+    - if:
+      - condition: template
+        value_template: '{{ eco_show_address != '''' }}'
+      then:
+      - service: knx.event_register
+        data:
+          address: '{{ eco_show_address }}'
+  - conditions:
+      condition: template
+      value_template: '{{ trigger is defined and trigger.platform == ''event'' and
+        trigger.event.event_type == ''knx_event'' and trigger.event.data.direction
+        == ''Incoming'' and trigger.event.data.destination != '''' }}'
+    sequence:
+    - choose:
+      - conditions:
+        - condition: trigger
+          id: on_off_address
+        - condition: template
+          value_template: '{{ on_off_address != '''' }}'
+        sequence:
+        - choose:
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data | int == 0 }}'
+            sequence:
+            - service: climate.set_hvac_mode
+              data:
+                hvac_mode: 'off'
+              target:
+                entity_id: '{{ climate_entity }}'
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data | int == 1 }}'
+            sequence:
+            - service: climate.set_hvac_mode
+              data:
+                hvac_mode: cool
+              target:
+                entity_id: '{{ climate_entity }}'
+      - conditions:
+        - condition: trigger
+          id: on_off_state_address
+        - condition: template
+          value_template: '{{ on_off_state_address != '''' }}'
+        sequence:
+        - if:
+          - condition: or
+            conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              state: 'off'
+            - condition: state
+              entity_id: !input climate_entity
+              state: unavailable
+            - condition: state
+              entity_id: !input climate_entity
+              state: unknown
+          then:
+          - service: knx.send
+            data:
+              address: '{{ on_off_state_address }}'
+              payload: 0
+              response: true
+          else:
+          - service: knx.send
+            data:
+              address: '{{ on_off_state_address }}'
+              payload: 1
+              response: true
+      - conditions:
+        - condition: trigger
+          id: mode_address
+        - condition: template
+          value_template: '{{ mode_address != '''' }}'
+        sequence:
+        - choose:
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data[0] | int == 0 }}'
+            sequence:
+            - service: climate.set_hvac_mode
+              data:
+                hvac_mode: fan_only
+              target:
+                entity_id: '{{ climate_entity }}'
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data[0] | int == 1 }}'
+            sequence:
+            - service: climate.set_hvac_mode
+              data:
+                hvac_mode: dry
+              target:
+                entity_id: '{{ climate_entity }}'
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data[0] | int == 2 }}'
+            sequence:
+            - service: climate.set_hvac_mode
+              data:
+                hvac_mode: cool
+              target:
+                entity_id: '{{ climate_entity }}'
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data[0] | int == 3 }}'
+            sequence:
+            - service: climate.set_hvac_mode
+              data:
+                hvac_mode: heat
+              target:
+                entity_id: '{{ climate_entity }}'
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data[0] | int == 4 }}'
+            sequence:
+            - service: climate.set_hvac_mode
+              data:
+                hvac_mode: heat_cool
+              target:
+                entity_id: '{{ climate_entity }}'
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data[0] | int == 5 }}'
+            sequence:
+            - service: climate.set_hvac_mode
+              data:
+                hvac_mode: 'off'
+              target:
+                entity_id: '{{ climate_entity }}'
+      - conditions:
+        - condition: trigger
+          id: mode_state_address
+        - condition: template
+          value_template: '{{ mode_state_address != '''' }}'
+        sequence:
+        - choose:
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              state: fan_only
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ mode_state_address }}'
+                payload: 0
+                response: true
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              state: dry
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ mode_state_address }}'
+                payload: 1
+                response: true
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              state: cool
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ mode_state_address }}'
+                payload: 2
+                response: true
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              state: heat
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ mode_state_address }}'
+                payload: 3
+                response: true
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              state: heat_cool
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ mode_state_address }}'
+                payload: 4
+                response: true
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              state: 'off'
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ mode_state_address }}'
+                payload: 5
+                response: true
+      - conditions:
+        - condition: trigger
+          id: target_temperature_address
+        - condition: template
+          value_template: '{{ target_temperature_address != '''' }}'
+        sequence:
+        - service: climate.set_temperature
+          target:
+            entity_id: '{{ climate_entity }}'
+          data:
+            temperature: '{{ trigger.event.data.value | float }}'
+      - conditions:
+        - condition: trigger
+          id: target_temperature_state_address
+        - condition: template
+          value_template: '{{ target_temperature_state_address != '''' }}'
+        sequence:
+        - service: knx.send
+          data:
+            address: '{{ target_temperature_state_address }}'
+            payload: '{{ state_attr(climate_entity, ''temperature'') | float }}'
+            type: temperature
+            response: true
+      - conditions:
+        - condition: trigger
+          id: speed_address
+        - condition: template
+          value_template: '{{ speed_address != '''' }}'
+        sequence:
+        - choose:
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data[0] | int == 0 }}'
+            sequence:
+            - service: climate.set_fan_mode
+              data:
+                fan_mode: Auto
+              target:
+                entity_id: '{{ climate_entity }}'
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data[0] | int == 1 }}'
+            sequence:
+            - service: climate.set_fan_mode
+              data:
+                fan_mode: Silence
+              target:
+                entity_id: '{{ climate_entity }}'
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data[0] | int == 2 }}'
+            sequence:
+            - service: climate.set_fan_mode
+              data:
+                fan_mode: '1'
+              target:
+                entity_id: '{{ climate_entity }}'
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data[0] | int == 3 }}'
+            sequence:
+            - service: climate.set_fan_mode
+              data:
+                fan_mode: '2'
+              target:
+                entity_id: '{{ climate_entity }}'
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data[0] | int == 4 }}'
+            sequence:
+            - service: climate.set_fan_mode
+              data:
+                fan_mode: '3'
+              target:
+                entity_id: '{{ climate_entity }}'
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data[0] | int == 5 }}'
+            sequence:
+            - service: climate.set_fan_mode
+              data:
+                fan_mode: '4'
+              target:
+                entity_id: '{{ climate_entity }}'
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data[0] | int == 6 }}'
+            sequence:
+            - service: climate.set_fan_mode
+              data:
+                fan_mode: '5'
+              target:
+                entity_id: '{{ climate_entity }}'
+      - conditions:
+        - condition: trigger
+          id: speed_state_address
+        - condition: template
+          value_template: '{{ speed_state_address != '''' }}'
+        sequence:
+        - choose:
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              attribute: fan_mode
+              state: Auto
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ speed_state_address }}'
+                payload: 0
+                response: true
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              attribute: fan_mode
+              state: Silence
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ speed_state_address }}'
+                payload: 1
+                response: true
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              attribute: fan_mode
+              state: '1'
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ speed_state_address }}'
+                payload: 2
+                response: true
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              attribute: fan_mode
+              state: '2'
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ speed_state_address }}'
+                payload: 3
+                response: true
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              attribute: fan_mode
+              state: '3'
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ speed_state_address }}'
+                payload: 4
+                response: true
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              attribute: fan_mode
+              state: '4'
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ speed_state_address }}'
+                payload: 5
+                response: true
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              attribute: fan_mode
+              state: '5'
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ speed_state_address }}'
+                payload: 6
+                response: true
+      - conditions:
+        - condition: trigger
+          id: swing_address
+        - condition: template
+          value_template: '{{ swing_address != '''' }}'
+        sequence:
+        - choose:
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data[0] | int == 0 }}'
+            sequence:
+            - service: climate.set_swing_mode
+              data:
+                swing_mode: 'Off'
+              target:
+                entity_id: '{{ climate_entity }}'
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data[0] | int == 1 }}'
+            sequence:
+            - service: climate.set_swing_mode
+              data:
+                swing_mode: Vertical
+              target:
+                entity_id: '{{ climate_entity }}'
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data[0] | int == 2 }}'
+            sequence:
+            - service: climate.set_swing_mode
+              data:
+                swing_mode: Horizontal
+              target:
+                entity_id: '{{ climate_entity }}'
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data[0] | int == 3 }}'
+            sequence:
+            - service: climate.set_swing_mode
+              data:
+                swing_mode: 3D
+              target:
+                entity_id: '{{ climate_entity }}'
+      - conditions:
+        - condition: trigger
+          id: swing_state_address
+        - condition: template
+          value_template: '{{ swing_state_address != '''' }}'
+        sequence:
+        - choose:
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              attribute: swing_mode
+              state: 'Off'
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ swing_state_address }}'
+                payload: 0
+                response: true
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              attribute: swing_mode
+              state: Vertical
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ swing_state_address }}'
+                payload: 1
+                response: true
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              attribute: swing_mode
+              state: Horizontal
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ swing_state_address }}'
+                payload: 2
+                response: true
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              attribute: swing_mode
+              state: 3D
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ swing_state_address }}'
+                payload: 3
+                response: true
+      - conditions:
+        - condition: trigger
+          id: preset_address
+        - condition: template
+          value_template: '{{ preset_address != '''' }}'
+        sequence:
+        - choose:
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data[0] | int == 0 }}'
+            sequence:
+            - service: climate.set_preset_mode
+              data:
+                preset_mode: none
+              target:
+                entity_id: '{{ climate_entity }}'
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data[0] | int == 1 }}'
+            sequence:
+            - service: climate.set_preset_mode
+              data:
+                preset_mode: away
+              target:
+                entity_id: '{{ climate_entity }}'
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data[0] | int == 2 }}'
+            sequence:
+            - service: climate.set_preset_mode
+              data:
+                preset_mode: eco
+              target:
+                entity_id: '{{ climate_entity }}'
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data[0] | int == 3 }}'
+            sequence:
+            - service: climate.set_preset_mode
+              data:
+                preset_mode: boost
+              target:
+                entity_id: '{{ climate_entity }}'
+      - conditions:
+        - condition: trigger
+          id: preset_state_address
+        - condition: template
+          value_template: '{{ preset_state_address != '''' }}'
+        sequence:
+        - choose:
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              attribute: preset_mode
+              state: none
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ preset_state_address }}'
+                payload: 0
+                response: true
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              attribute: preset_mode
+              state: away
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ preset_state_address }}'
+                payload: 1
+                response: true
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              attribute: preset_mode
+              state: eco
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ preset_state_address }}'
+                payload: 2
+                response: true
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              attribute: preset_mode
+              state: boost
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ preset_state_address }}'
+                payload: 3
+                response: true
+      - conditions:
+        - condition: trigger
+          id: performance_address
+        - condition: template
+          value_template: '{{ performance_address != '''' }}'
+        sequence:
+        - choose:
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data | int == 0 }}'
+            sequence:
+            - service: climate.set_preset_mode
+              data:
+                preset_mode: none
+              target:
+                entity_id: '{{ climate_entity }}'
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data | int == 1 }}'
+            sequence:
+            - service: climate.set_preset_mode
+              data:
+                preset_mode: boost
+              target:
+                entity_id: '{{ climate_entity }}'
+      - conditions:
+        - condition: trigger
+          id: performance_state_address
+        - condition: template
+          value_template: '{{ performance_state_address != '''' }}'
+        sequence:
+        - if:
+          - condition: state
+            entity_id: !input climate_entity
+            attribute: preset_mode
+            state: boost
+          then:
+          - service: knx.send
+            data:
+              address: '{{ performance_state_address }}'
+              payload: 1
+              response: true
+          else:
+          - service: knx.send
+            data:
+              address: '{{ performance_state_address }}'
+              payload: 0
+              response: true
+      - conditions:
+        - condition: trigger
+          id: streamer_address
+        - condition: template
+          value_template: '{{ not not streamer_entity }}'
+        - condition: template
+          value_template: '{{ streamer_address != '''' }}'
+        sequence:
+        - choose:
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data | int == 0 }}'
+            sequence:
+            - service: switch.turn_off
+              data: {}
+              target:
+                entity_id: '{{ streamer_entity }}'
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data | int == 1 }}'
+            sequence:
+            - service: switch.turn_on
+              data: {}
+              target:
+                entity_id: '{{ streamer_entity }}'
+      - conditions:
+        - condition: trigger
+          id: streamer_state_address
+        - condition: template
+          value_template: '{{ not not streamer_entity }}'
+        - condition: template
+          value_template: '{{ streamer_state_address != '''' }}'
+        sequence:
+        - if:
+          - condition: state
+            entity_id: !input streamer_entity
+            state: 'on'
+          then:
+          - service: knx.send
+            data:
+              address: '{{ streamer_state_address }}'
+              payload: 1
+              response: true
+          else:
+          - service: knx.send
+            data:
+              address: '{{ streamer_state_address }}'
+              payload: 0
+              response: true
+      - conditions:
+        - condition: trigger
+          id: eco_address
+        - condition: template
+          value_template: '{{ eco_address != '''' }}'
+        sequence:
+        - choose:
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data | int == 0 }}'
+            sequence:
+            - service: climate.set_preset_mode
+              data:
+                preset_mode: none
+              target:
+                entity_id: '{{ climate_entity }}'
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data | int == 1 }}'
+            sequence:
+            - service: climate.set_preset_mode
+              data:
+                preset_mode: eco
+              target:
+                entity_id: '{{ climate_entity }}'
+      - conditions:
+        - condition: trigger
+          id: eco_state_address
+        - condition: template
+          value_template: '{{ eco_state_address != '''' }}'
+        sequence:
+        - if:
+          - condition: state
+            entity_id: !input climate_entity
+            attribute: preset_mode
+            state: eco
+          then:
+          - service: knx.send
+            data:
+              address: '{{ eco_state_address }}'
+              payload: 1
+              response: true
+          else:
+          - service: knx.send
+            data:
+              address: '{{ eco_state_address }}'
+              payload: 0
+              response: true
+      - conditions:
+        - condition: trigger
+          id: holiday_address
+        - condition: template
+          value_template: '{{ holiday_address != '''' }}'
+        sequence:
+        - choose:
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data | int == 0 }}'
+            sequence:
+            - service: climate.set_preset_mode
+              data:
+                preset_mode: none
+              target:
+                entity_id: '{{ climate_entity }}'
+          - conditions:
+            - condition: template
+              value_template: '{{ trigger.event.data.data | int == 1 }}'
+            sequence:
+            - service: climate.set_preset_mode
+              data:
+                preset_mode: away
+              target:
+                entity_id: '{{ climate_entity }}'
+      - conditions:
+        - condition: trigger
+          id: holiday_state_address
+        - condition: template
+          value_template: '{{ holiday_state_address != '''' }}'
+        sequence:
+        - if:
+          - condition: state
+            entity_id: !input climate_entity
+            attribute: preset_mode
+            state: away
+          then:
+          - service: knx.send
+            data:
+              address: '{{ holiday_state_address }}'
+              payload: 1
+              response: true
+          else:
+          - service: knx.send
+            data:
+              address: '{{ holiday_state_address }}'
+              payload: 0
+              response: true
+      - conditions:
+        - condition: trigger
+          id: current_temperature_state_address
+        - condition: template
+          value_template: '{{ current_temperature_state_address != '''' }}'
+        sequence:
+        - service: knx.send
+          data:
+            address: '{{ current_temperature_state_address }}'
+            payload: '{{ state_attr(climate_entity, ''current_temperature'') | float
+              }}'
+            type: temperature
+            response: true
+      - conditions:
+        - condition: trigger
+          id: target_temperature_show_address
+        - condition: template
+          value_template: '{{ target_temperature_show_address != '''' }}'
+        sequence:
+        - if:
+          - condition: or
+            conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              state: fan_only
+            - condition: state
+              entity_id: !input climate_entity
+              state: dry
+            - condition: state
+              entity_id: !input climate_entity
+              state: 'off'
+            - condition: state
+              entity_id: !input climate_entity
+              attribute: preset_mode
+              state: boost
+          then:
+          - service: knx.send
+            data:
+              address: '{{ target_temperature_show_address }}'
+              payload: 0
+              response: true
+          else:
+          - service: knx.send
+            data:
+              address: '{{ target_temperature_show_address }}'
+              payload: 1
+              response: true
+      - conditions:
+        - condition: trigger
+          id: speed_show_address
+        - condition: template
+          value_template: '{{ speed_show_address != '''' }}'
+        sequence:
+        - if:
+          - condition: or
+            conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              state: 'off'
+            - condition: state
+              entity_id: !input climate_entity
+              attribute: preset_mode
+              state: boost
+          then:
+          - service: knx.send
+            data:
+              address: '{{ speed_show_address }}'
+              payload: 0
+              response: true
+          else:
+          - service: knx.send
+            data:
+              address: '{{ speed_show_address }}'
+              payload: 1
+              response: true
+      - conditions:
+        - condition: trigger
+          id: swing_show_address
+        - condition: template
+          value_template: '{{ swing_show_address != '''' }}'
+        sequence:
+        - if:
+          - condition: or
+            conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              state: 'off'
+          then:
+          - service: knx.send
+            data:
+              address: '{{ swing_show_address }}'
+              payload: 0
+              response: true
+          else:
+          - service: knx.send
+            data:
+              address: '{{ swing_show_address }}'
+              payload: 1
+              response: true
+      - conditions:
+        - condition: trigger
+          id: preset_show_address
+        - condition: template
+          value_template: '{{ preset_show_address != '''' }}'
+        sequence:
+        - if:
+          - condition: or
+            conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              state: 'off'
+          then:
+          - service: knx.send
+            data:
+              address: '{{ preset_show_address }}'
+              payload: 0
+              response: true
+          else:
+          - service: knx.send
+            data:
+              address: '{{ preset_show_address }}'
+              payload: 1
+              response: true
+      - conditions:
+        - condition: trigger
+          id: performance_show_address
+        - condition: template
+          value_template: '{{ performance_show_address != '''' }}'
+        sequence:
+        - if:
+          - condition: or
+            conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              state: 'off'
+          then:
+          - service: knx.send
+            data:
+              address: '{{ performance_show_address }}'
+              payload: 0
+              response: true
+          else:
+          - service: knx.send
+            data:
+              address: '{{ performance_show_address }}'
+              payload: 1
+              response: true
+      - conditions:
+        - condition: trigger
+          id: streamer_show_address
+        - condition: template
+          value_template: '{{ streamer_show_address != '''' }}'
+        sequence:
+        - if:
+          - condition: or
+            conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              state: 'off'
+          then:
+          - service: knx.send
+            data:
+              address: '{{ streamer_show_address }}'
+              payload: 0
+              response: true
+          else:
+          - service: knx.send
+            data:
+              address: '{{ streamer_show_address }}'
+              payload: 1
+              response: true
+      - conditions:
+        - condition: trigger
+          id: eco_show_address
+        - condition: template
+          value_template: '{{ eco_show_address != '''' }}'
+        sequence:
+        - if:
+          - condition: or
+            conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              state: 'off'
+          then:
+          - service: knx.send
+            data:
+              address: '{{ eco_show_address }}'
+              payload: 0
+              response: true
+          else:
+          - service: knx.send
+            data:
+              address: '{{ eco_show_address }}'
+              payload: 1
+              response: true
+      - conditions:
+        - condition: trigger
+          id: holiday_show_address
+        - condition: template
+          value_template: '{{ holiday_show_address != '''' }}'
+        sequence:
+        - if:
+          - condition: or
+            conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              state: 'off'
+          then:
+          - service: knx.send
+            data:
+              address: '{{ holiday_show_address }}'
+              payload: 0
+              response: true
+          else:
+          - service: knx.send
+            data:
+              address: '{{ holiday_show_address }}'
+              payload: 1
+              response: true
+  - conditions:
+    - condition: trigger
+      id: climate_entity
+    - condition: template
+      value_template: '{{ not not climate_entity }}'
+    sequence:
+    - if:
+      - condition: template
+        value_template: '{{ trigger.to_state.state != trigger.from_state.state }}'
+      then:
+      - choose:
+        - conditions:
+          - condition: state
+            entity_id: !input climate_entity
+            state: fan_only
+          sequence:
+          - if:
+            - condition: template
+              value_template: '{{ mode_state_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                address: '{{ mode_state_address }}'
+                payload: 0
+                type: pulse
+          - if:
+            - condition: template
+              value_template: '{{ target_temperature_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 0
+                address: '{{ target_temperature_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ preset_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 0
+                address: '{{ preset_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ performance_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 0
+                address: '{{ performance_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ eco_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 0
+                address: '{{ eco_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ speed_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ speed_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ swing_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ swing_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ streamer_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ streamer_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ on_off_state_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ on_off_state_address }}'
+        - conditions:
+          - condition: state
+            entity_id: !input climate_entity
+            state: dry
+          sequence:
+          - if:
+            - condition: template
+              value_template: '{{ mode_state_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                address: '{{ mode_state_address }}'
+                payload: 1
+                type: pulse
+          - if:
+            - condition: template
+              value_template: '{{ target_temperature_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 0
+                address: '{{ target_temperature_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ preset_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 0
+                address: '{{ preset_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ performance_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 0
+                address: '{{ performance_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ eco_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 0
+                address: '{{ eco_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ speed_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ speed_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ swing_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ swing_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ streamer_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ streamer_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ on_off_state_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ on_off_state_address }}'
+        - conditions:
+          - condition: state
+            entity_id: !input climate_entity
+            state: cool
+          sequence:
+          - if:
+            - condition: template
+              value_template: '{{ mode_state_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                address: '{{ mode_state_address }}'
+                payload: 2
+                type: pulse
+          - if:
+            - condition: template
+              value_template: '{{ target_temperature_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ target_temperature_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ preset_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ preset_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ performance_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ performance_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ eco_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ eco_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ speed_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ speed_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ swing_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ swing_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ streamer_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ streamer_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ on_off_state_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ on_off_state_address }}'
+        - conditions:
+          - condition: state
+            entity_id: !input climate_entity
+            state: heat
+          sequence:
+          - if:
+            - condition: template
+              value_template: '{{ mode_state_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                address: '{{ mode_state_address }}'
+                payload: 3
+                type: pulse
+          - if:
+            - condition: template
+              value_template: '{{ target_temperature_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ target_temperature_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ preset_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ preset_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ performance_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ performance_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ eco_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ eco_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ speed_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ speed_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ swing_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ swing_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ streamer_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ streamer_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ on_off_state_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ on_off_state_address }}'
+        - conditions:
+          - condition: state
+            entity_id: !input climate_entity
+            state: heat_cool
+          sequence:
+          - if:
+            - condition: template
+              value_template: '{{ mode_state_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                address: '{{ mode_state_address }}'
+                payload: 4
+                type: pulse
+          - if:
+            - condition: template
+              value_template: '{{ target_temperature_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ target_temperature_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ preset_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ preset_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ performance_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ performance_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ eco_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ eco_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ speed_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ speed_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ swing_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ swing_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ streamer_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ streamer_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ on_off_state_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 1
+                address: '{{ on_off_state_address }}'
+        - conditions:
+          - condition: state
+            entity_id: !input climate_entity
+            state: 'off'
+          sequence:
+          - if:
+            - condition: template
+              value_template: '{{ mode_state_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                address: '{{ mode_state_address }}'
+                payload: 5
+                type: pulse
+          - if:
+            - condition: template
+              value_template: '{{ target_temperature_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 0
+                address: '{{ target_temperature_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ preset_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 0
+                address: '{{ preset_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ performance_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 0
+                address: '{{ performance_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ eco_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 0
+                address: '{{ eco_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ speed_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 0
+                address: '{{ speed_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ swing_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 0
+                address: '{{ swing_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ streamer_show_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 0
+                address: '{{ streamer_show_address }}'
+          - if:
+            - condition: template
+              value_template: '{{ on_off_state_address != '''' }}'
+            then:
+            - service: knx.send
+              data:
+                payload: 0
+                address: '{{ on_off_state_address }}'
+    - if:
+      - condition: template
+        value_template: '{{ trigger.to_state.attributes.temperature != trigger.from_state.attributes.temperature
+          }}'
+      - condition: template
+        value_template: '{{ target_temperature_state_address != '''' }}'
+      then:
+      - service: knx.send
+        data:
+          address: '{{ target_temperature_state_address }}'
+          payload: '{{ trigger.to_state.attributes.temperature }}'
+          type: temperature
+    - if:
+      - condition: template
+        value_template: '{{ trigger.to_state.attributes.current_temperature != trigger.from_state.attributes.current_temperature
+          }}'
+      - condition: template
+        value_template: '{{ current_temperature_state_address != '''' }}'
+      then:
+      - service: knx.send
+        data:
+          address: '{{ current_temperature_state_address }}'
+          payload: '{{ trigger.to_state.attributes.current_temperature }}'
+          type: temperature
+    - if:
+      - condition: template
+        value_template: '{{ trigger.to_state.attributes.fan_mode != trigger.from_state.attributes.fan_mode
+          }}'
+      - condition: template
+        value_template: '{{ speed_state_address != '''' }}'
+      then:
+      - choose:
+        - conditions:
+          - condition: state
+            entity_id: !input climate_entity
+            attribute: fan_mode
+            state: Auto
+          sequence:
+          - service: knx.send
+            data:
+              address: '{{ speed_state_address }}'
+              type: pulse
+              payload: 0
+        - conditions:
+          - condition: state
+            entity_id: !input climate_entity
+            attribute: fan_mode
+            state: Silence
+          sequence:
+          - service: knx.send
+            data:
+              address: '{{ speed_state_address }}'
+              payload: 1
+              type: pulse
+        - conditions:
+          - condition: state
+            entity_id: !input climate_entity
+            attribute: fan_mode
+            state: '1'
+          sequence:
+          - service: knx.send
+            data:
+              address: '{{ speed_state_address }}'
+              payload: 2
+              type: pulse
+        - conditions:
+          - condition: state
+            entity_id: !input climate_entity
+            attribute: fan_mode
+            state: '2'
+          sequence:
+          - service: knx.send
+            data:
+              address: '{{ speed_state_address }}'
+              payload: 3
+              type: pulse
+        - conditions:
+          - condition: state
+            entity_id: !input climate_entity
+            attribute: fan_mode
+            state: '3'
+          sequence:
+          - service: knx.send
+            data:
+              address: '{{ speed_state_address }}'
+              payload: 4
+              type: pulse
+        - conditions:
+          - condition: state
+            entity_id: !input climate_entity
+            attribute: fan_mode
+            state: '4'
+          sequence:
+          - service: knx.send
+            data:
+              address: '{{ speed_state_address }}'
+              payload: 5
+              type: pulse
+        - conditions:
+          - condition: state
+            entity_id: !input climate_entity
+            attribute: fan_mode
+            state: '5'
+          sequence:
+          - service: knx.send
+            data:
+              address: '{{ speed_state_address }}'
+              payload: 6
+              type: pulse
+    - if:
+      - condition: template
+        value_template: '{{ trigger.to_state.attributes.swing_mode != trigger.from_state.attributes.swing_mode
+          }}'
+      - condition: template
+        value_template: '{{ swing_state_address != '''' }}'
+      then:
+      - choose:
+        - conditions:
+          - condition: state
+            entity_id: !input climate_entity
+            attribute: swing_mode
+            state: 'Off'
+          sequence:
+          - service: knx.send
+            data:
+              address: '{{ swing_state_address }}'
+              type: pulse
+              payload: 0
+        - conditions:
+          - condition: state
+            entity_id: !input climate_entity
+            attribute: swing_mode
+            state: Vertical
+          sequence:
+          - service: knx.send
+            data:
+              address: '{{ swing_state_address }}'
+              type: pulse
+              payload: 1
+        - conditions:
+          - condition: state
+            entity_id: !input climate_entity
+            attribute: swing_mode
+            state: Horizontal
+          sequence:
+          - service: knx.send
+            data:
+              address: '{{ swing_state_address }}'
+              type: pulse
+              payload: 2
+        - conditions:
+          - condition: state
+            entity_id: !input climate_entity
+            attribute: swing_mode
+            state: 3D
+          sequence:
+          - service: knx.send
+            data:
+              address: '{{ swing_state_address }}'
+              type: pulse
+              payload: 3
+    - if:
+      - condition: template
+        value_template: '{{ trigger.to_state.attributes.preset_mode != trigger.from_state.attributes.preset_mode
+          }}'
+      then:
+      - if:
+        - condition: template
+          value_template: '{{ swing_state_address != '''' }}'
+        then:
+        - choose:
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              attribute: preset_mode
+              state: none
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ preset_state_address }}'
+                type: pulse
+                payload: 0
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              attribute: preset_mode
+              state: away
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ preset_state_address }}'
+                payload: 1
+                type: pulse
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              attribute: preset_mode
+              state: eco
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ preset_state_address }}'
+                payload: 2
+                type: pulse
+          - conditions:
+            - condition: state
+              entity_id: !input climate_entity
+              attribute: preset_mode
+              state: boost
+            sequence:
+            - service: knx.send
+              data:
+                address: '{{ preset_state_address }}'
+                payload: 3
+                type: pulse
+      - if:
+        - condition: template
+          value_template: '{{ trigger.from_state.attributes.preset_mode != ''away''
+            and trigger.to_state.attributes.preset_mode == ''away'' }}'
+        then:
+        - if:
+          - condition: template
+            value_template: '{{ holiday_state_address != '''' }}'
+          then:
+          - service: knx.send
+            data:
+              payload: 1
+              address: '{{ holiday_state_address }}'
+      - if:
+        - condition: template
+          value_template: '{{ trigger.from_state.attributes.preset_mode == ''away''
+            and trigger.to_state.attributes.preset_mode != ''away'' }}'
+        then:
+        - if:
+          - condition: template
+            value_template: '{{ holiday_state_address != '''' }}'
+          then:
+          - service: knx.send
+            data:
+              payload: 0
+              address: '{{ holiday_state_address }}'
+      - if:
+        - condition: template
+          value_template: '{{ trigger.from_state.attributes.preset_mode != ''eco''
+            and trigger.to_state.attributes.preset_mode == ''eco'' }}'
+        then:
+        - if:
+          - condition: template
+            value_template: '{{ eco_state_address != '''' }}'
+          then:
+          - service: knx.send
+            data:
+              payload: 1
+              address: '{{ eco_state_address }}'
+      - if:
+        - condition: template
+          value_template: '{{ trigger.from_state.attributes.preset_mode == ''eco''
+            and trigger.to_state.attributes.preset_mode != ''eco'' }}'
+        then:
+        - if:
+          - condition: template
+            value_template: '{{ eco_state_address != '''' }}'
+          then:
+          - service: knx.send
+            data:
+              payload: 0
+              address: '{{ eco_state_address }}'
+      - if:
+        - condition: template
+          value_template: '{{ trigger.from_state.attributes.preset_mode != ''boost''
+            and trigger.to_state.attributes.preset_mode == ''boost'' }}'
+        then:
+        - if:
+          - condition: template
+            value_template: '{{ performance_state_address != '''' }}'
+          then:
+          - service: knx.send
+            data:
+              payload: 1
+              address: '{{ performance_state_address }}'
+        - if:
+          - condition: template
+            value_template: '{{ target_temperature_show_address != '''' }}'
+          then:
+          - service: knx.send
+            data:
+              payload: 0
+              address: '{{ target_temperature_show_address }}'
+        - if:
+          - condition: template
+            value_template: '{{ speed_show_address != '''' }}'
+          then:
+          - service: knx.send
+            data:
+              payload: 0
+              address: '{{ speed_show_address }}'
+      - if:
+        - condition: template
+          value_template: '{{ trigger.from_state.attributes.preset_mode == ''boost''
+            and trigger.to_state.attributes.preset_mode != ''boost'' }}'
+        then:
+        - if:
+          - condition: template
+            value_template: '{{ performance_state_address != '''' }}'
+          then:
+          - service: knx.send
+            data:
+              payload: 0
+              address: '{{ performance_state_address }}'
+        - if:
+          - condition: template
+            value_template: '{{ target_temperature_show_address != '''' }}'
+          then:
+          - service: knx.send
+            data:
+              payload: 1
+              address: '{{ target_temperature_show_address }}'
+        - if:
+          - condition: template
+            value_template: '{{ speed_show_address != '''' }}'
+          then:
+          - service: knx.send
+            data:
+              payload: 1
+              address: '{{ speed_show_address }}'
+  - conditions:
+    - condition: trigger
+      id: streamer_entity
+    - condition: template
+      value_template: '{{ not not streamer_entity }}'
+    - condition: template
+      value_template: '{{ streamer_state_address != '''' }}'
+    - condition: template
+      value_template: '{{ trigger.to_state.state != trigger.from_state.state }}'
+    sequence:
+    - choose:
+      - conditions:
+        - condition: state
+          entity_id: !input streamer_entity
+          state: 'on'
+        sequence:
+        - service: knx.send
+          data:
+            address: '{{ streamer_state_address }}'
+            payload: 1
+      - conditions:
+        - condition: state
+          entity_id: !input streamer_entity
+          state: 'off'
+        sequence:
+        - service: knx.send
+          data:
+            address: '{{ streamer_state_address }}'
+            payload: 0

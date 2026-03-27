@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "lovelace_dashboards",
+  "data": {
+    "items": [
+      {
+        "id": "dashboard_default",
+        "show_in_sidebar": true,
+        "icon": "mdi:monitor-dashboard",
+        "title": "Default",
+        "require_admin": false,
+        "mode": "storage",
+        "url_path": "dashboard-default"
+      },
+      {
+        "id": "dashboard_alexa",
+        "show_in_sidebar": true,
+        "title": "Alexa",
+        "require_admin": false,
+        "mode": "storage",
+        "url_path": "dashboard-alexa"
+      },
+      {
+        "id": "map",
+        "icon": "mdi:map",
+        "title": "Map",
+        "url_path": "map",
+        "require_admin": false,
+        "show_in_sidebar": true,
+        "mode": "storage"
+      },
+      {
+        "id": "via_grande",
+        "show_in_sidebar": true,
+        "title": "Via Grande",
+        "require_admin": false,
+        "mode": "storage",
+        "url_path": "via-grande"
+      },
+      {
+        "id": "visual_studio_code",
+        "show_in_sidebar": true,
+        "icon": "mdi:microsoft-visual-studio-code",
+        "title": "Visual studio code",
+        "require_admin": true,
+        "mode": "storage",
+        "url_path": "visual-studio-code"
+      },
+      {
+        "id": "dashboard_nginx",
+        "show_in_sidebar": true,
+        "icon": "mdi:nginx",
+        "title": "nginx",
+        "require_admin": true,
+        "mode": "storage",
+        "url_path": "dashboard-nginx"
+      },
+      {
+        "id": "dashboard_grafana",
+        "show_in_sidebar": true,
+        "icon": "mdi:chart-timeline-variant",
+        "title": "Grafana",
+        "require_admin": true,
+        "mode": "storage",
+        "url_path": "dashboard-grafana"
+      }
+    ]
+  }
+}

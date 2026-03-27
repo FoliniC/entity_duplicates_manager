@@ -1,0 +1,8 @@
+# File: input_select_temperature_profiles.yaml
+# Selezione dei profili di temperatura
+
+temperature_profiles:
+  name: Profili Temperatura
+  options: ["Comfort", "Eco", "Notte", "Assente"]
+  initial: "Comfort"
+  icon: mdi:thermometer-lines

@@ -1,0 +1,24 @@
+fancoil_cucina_enabled:
+  name: "Fancoil Cucina abilitato"
+  initial: true
+  icon: mdi:fan
+fancoil_camera_grande_enabled:
+  name: "Fancoil Camera grande abilitato"
+  initial: true
+  icon: mdi:fan
+fancoil_camera_enabled:
+  name: "Fancoil Camera abilitato"
+  initial: true
+  icon: mdi:fan
+fancoil_corridoio_enabled:
+  name: "Fancoil Corridoio abilitato"
+  initial: true
+  icon: mdi:fan
+fancoil_bagno_enabled:
+  name: "Fancoil Bagno abilitato"
+  initial: true
+  icon: mdi:fan
+fancoil_sala_enabled:
+  name: "Fancoil Sala abilitato"
+  initial: true
+  icon: mdi:fan

@@ -1,0 +1,339 @@
+# File: yaml_generator/scripts/ev_charging_scripts.yaml
+# Scripts helper per ricarica EV
+
+# Script per reset completo sistema
+reset_ev_charging_system:
+  alias: "Reset Sistema Ricarica EV"
+  description: "Resetta tutte le impostazioni e ferma la ricarica"
+  mode: single
+  sequence:
+    # Ferma colonnina
+    - action: mqtt.publish
+      data:
+        topic: "home/prism/1/command/set_mode"
+        payload: "3"
+
+    # Reset boolean
+    - action: input_boolean.turn_off
+      target:
+        entity_id:
+          - input_boolean.ev_charging_scheduled_active
+          - input_boolean.ev_charging_manual_mode
+          - input_boolean.ev_charging_use_cronostar
+
+    # Reset tempi
+    - action: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.charging_start_time
+      data:
+        datetime: "{{ now().isoformat() }}"
+
+    - action: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.charging_end_time
+      data:
+        datetime: "{{ (now() + timedelta(hours=1)).isoformat() }}"
+
+    # Notifica
+    - action: notify.persistent_notification
+      data:
+        title: "🔄 Sistema Reset"
+        message: "Il sistema di ricarica EV è stato resettato"
+
+# Script per quick start manuale
+quick_start_manual_3kw:
+  alias: "Quick Start - Manuale 3kW"
+  description: "Avvio rapido ricarica manuale a 3kW"
+  mode: single
+  sequence:
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.manual_charging_power_kw
+      data:
+        value: 3.0
+
+    - action: input_boolean.turn_on
+      target:
+        entity_id: input_boolean.ev_charging_manual_mode
+
+    - delay:
+        seconds: 1
+
+    - action: automation.trigger
+      target:
+        entity_id: automation.ev_charging_manual_mode_control
+      data:
+        skip_condition: false
+
+    - action: notify.persistent_notification
+      data:
+        title: "⚡ Quick Start"
+        message: "Ricarica manuale avviata a 3kW"
+
+# Script per quick start programmato solare
+quick_start_solar_80pct:
+  alias: "Quick Start - Solare 80%"
+  description: "Avvio rapido ricarica solare fino a 80%"
+  mode: single
+  sequence:
+    # Imposta target 80%
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: input_select.selected_vehicle
+              state: "MG4"
+          sequence:
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.mg4_target_soc
+              data:
+                value: 80
+        - conditions:
+            - condition: state
+              entity_id: input_select.selected_vehicle
+              state: "BYD"
+          sequence:
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.byd_target_soc
+              data:
+                value: 80
+
+    # Imposta durata 4 ore
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.charging_duration_minutes
+      data:
+        value: 240
+
+    # Disattiva modalità manuale
+    - action: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.ev_charging_manual_mode
+
+    # Avvia programmato
+    - action: input_button.press
+      target:
+        entity_id: input_button.start_scheduled_charging
+
+    - action: notify.persistent_notification
+      data:
+        title: "☀️ Quick Start Solare"
+        message: "Ricarica solare avviata - Target 80% in 4h"
+
+# Script per impostare potenza da automation esterna
+set_charging_power_external:
+  alias: "Imposta Potenza da Automazione"
+  description: "Permette ad automazioni esterne di impostare la potenza"
+  mode: single
+  fields:
+    power_kw:
+      description: "Potenza in kW (0 = stop, -1 = max solare)"
+      example: "3.5"
+  sequence:
+    - variables:
+        power: "{{ power_kw | float(0) }}"
+
+    - choose:
+        # Stop ricarica
+        - conditions:
+            - condition: template
+              value_template: "{{ power == 0 }}"
+          sequence:
+            - action: mqtt.publish
+              data:
+                topic: "home/prism/1/command/set_mode"
+                payload: "3"
+
+        # Usa max solare
+        - conditions:
+            - condition: template
+              value_template: "{{ power < 0 }}"
+          sequence:
+            - action: input_boolean.turn_off
+              target:
+                entity_id: input_boolean.ev_charging_manual_mode
+
+            - action: automation.trigger
+              target:
+                entity_id: automation.ev_charging_automatic_mode_control
+              data:
+                skip_condition: false
+
+        # Imposta potenza fissa
+        - conditions:
+            - condition: template
+              value_template: "{{ power > 0 }}"
+          sequence:
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.manual_charging_power_kw
+              data:
+                value: "{{ power }}"
+
+            - action: input_boolean.turn_on
+              target:
+                entity_id: input_boolean.ev_charging_manual_mode
+
+            - delay:
+                seconds: 1
+
+            - action: automation.trigger
+              target:
+                entity_id: automation.ev_charging_manual_mode_control
+              data:
+                skip_condition: false
+
+# Script per notifica stato completo
+notify_charging_status:
+  alias: "Notifica Stato Ricarica"
+  description: "Invia notifica dettagliata dello stato ricarica"
+  mode: single
+  sequence:
+    - action: notify.mobile_app_2312dra50g
+      data:
+        title: "🔌 Stato Ricarica EV ab123"
+        message: |
+          KKK**Veicolo:** {{ states('input_select.selected_vehicle') }}
+          **Stato:** {{ states('sensor.ev_charging_status') }}
+          **Modalità:** {{ 'Manuale' if is_state('input_boolean.ev_charging_manual_mode', 'on') else 'Automatica' }}
+
+          **SOC Attuale:** {{ states('sensor.selected_vehicle_soc') | float(0) | round(0) }}%
+          **Target SOC:** {{ states('sensor.current_target_soc') | float(0) | round(0) }}%
+          **Progresso:** {{ states('sensor.charging_progress') | float(0) | round(0) }}%
+
+          **Potenza:** {{ states('sensor.effective_charging_power') | float(0) | round(2) }} kW
+          **Corrente:** {{ states('sensor.prism_corrente_pilotata_dall_auto') }} A
+
+          **Motivo:** {{ states('sensor.ev_charging_reason') }}
+        data:
+          notification_icon: mdi:ev-station
+          color: |
+            {% if 'ATTIVA' in states('sensor.ev_charging_status') %}
+              green
+            {% else %}
+              grey
+            {% endif %}
+
+# Script per gestione emergenza
+emergency_stop_charging:
+  alias: "STOP EMERGENZA Ricarica"
+  description: "Ferma immediatamente la ricarica e disabilita automazioni"
+  mode: single
+  sequence:
+    # Ferma colonnina
+    - action: mqtt.publish
+      data:
+        topic: "home/prism/1/command/set_mode"
+        payload: "3"
+
+    # Disabilita tutte le automazioni
+    - action: automation.turn_off
+      target:
+        entity_id:
+          - automation.ev_charging_manual_mode_control
+          - automation.ev_charging_automatic_mode_control
+
+    # Disabilita boolean
+    - action: input_boolean.turn_off
+      target:
+        entity_id:
+          - input_boolean.ev_charging_scheduled_active
+          - input_boolean.ev_charging_manual_mode
+
+    # Notifica urgente
+    - action: notify.mobile_app_2312dra50g
+      data:
+        title: "🚨 STOP EMERGENZA"
+        message: |
+          La ricarica è stata fermata immediatamente.
+          Le automazioni sono state disabilitate.
+          Controllare il sistema prima di riavviare.
+        data:
+          notification_icon: mdi:alert-octagon
+          color: red
+          tag: emergency_stop
+          priority: high
+          ttl: 0
+
+    # Log
+    - action: pyscript.fancoil_events_write
+      data:
+        level: "ERROR"
+        message: "🚨 EMERGENCY STOP attivato - Ricarica fermata, automazioni disabilitate"
+
+# Script per ripristino dopo emergenza
+restore_after_emergency:
+  alias: "Ripristina dopo STOP Emergenza"
+  description: "Riabilita le automazioni dopo uno stop di emergenza"
+  mode: single
+  sequence:
+    # Riabilita automazioni
+    - action: automation.turn_on
+      target:
+        entity_id:
+          - automation.ev_charging_manual_mode_control
+          - automation.ev_charging_automatic_mode_control
+          - automation.ev_charging_mode_sync
+
+    # Notifica
+    - action: notify.mobile_app_2312dra50g
+      data:
+        title: "✅ Sistema Ripristinato"
+        message: |
+          Le automazioni di ricarica sono state riabilitate.
+          Il sistema è pronto per essere utilizzato.
+        data:
+          notification_icon: mdi:check-circle
+          color: green
+
+    # Log
+    - action: pyscript.fancoil_events_write
+      data:
+        level: "INFO"
+        message: "✅ Sistema ripristinato dopo emergency stop"
+
+# Script per test sistema
+test_charging_system:
+  alias: "Test Sistema Ricarica"
+  description: "Verifica funzionamento sensori e connessioni"
+  mode: single
+  sequence:
+    - variables:
+        prism_ok: "{{ states('sensor.prism_stato') not in ['unknown', 'unavailable'] }}"
+        solar_ok: "{{ states('sensor.envoy_122134037538_current_power_production') not in ['unknown', 'unavailable'] }}"
+        battery_ok: "{{ states('sensor.byd_battery_box_premium_hv_state_of_charge') not in ['unknown', 'unavailable'] }}"
+        vehicle_ok: "{{ states('sensor.selected_vehicle_soc') not in ['unknown', 'unavailable'] }}"
+        voltage_ok: "{{ states('sensor.folini_carlo_voltage_ac') | float(0) > 200 }}"
+
+    - action: notify.persistent_notification
+      data:
+        title: "🔍 Test Sistema Ricarica"
+        message: |
+          **Stato Componenti:**
+
+          Colonnina Prism: {{ '✅' if prism_ok else '❌' }}
+          Produzione Solare: {{ '✅' if solar_ok else '❌' }}
+          Batteria Casa: {{ '✅' if battery_ok else '❌' }}
+          Veicolo {{ states('input_select.selected_vehicle') }}: {{ '✅' if vehicle_ok else '❌' }}
+          Tensione Rete: {{ '✅' if voltage_ok else '❌' }} ({{ states('sensor.folini_carlo_voltage_ac') }}V)
+
+          **Automazioni:**
+          Manuale: {{ states('automation.ev_charging_manual_mode_control') }}
+          Automatica: {{ states('automation.ev_charging_automatic_mode_control') }}
+
+          **Modalità Attuale:**
+          {{ 'Manuale' if is_state('input_boolean.ev_charging_manual_mode', 'on') else 'Automatica' }}
+
+          {% if not (prism_ok and solar_ok and battery_ok and vehicle_ok and voltage_ok) %}
+          ⚠️ Alcuni componenti non sono disponibili!
+          {% else %}
+          ✅ Tutti i sistemi operativi
+          {% endif %}
+
+    - action: pyscript.fancoil_events_write
+      data:
+        level: "INFO"
+        message: |
+          Test sistema: Prism={{ prism_ok }}, Solar={{ solar_ok }},
+          Battery={{ battery_ok }}, Vehicle={{ vehicle_ok }}, Voltage={{ voltage_ok }}

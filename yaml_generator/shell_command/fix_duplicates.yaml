@@ -1,0 +1,2 @@
+# fix_duplicates_entities
+write_duplicates_yaml: 'echo "{{ content }}" > /config/ui/fix_entities_list.yaml'

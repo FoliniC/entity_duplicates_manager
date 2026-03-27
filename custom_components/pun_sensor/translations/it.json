@@ -1,0 +1,32 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Impostazioni scraping PUN",
+        "data": {
+          "zona": "Zona geografica per prezzi zonali",
+          "scan_hour": "Ora inizio download dati (0-23)",
+          "actual_data_only": "Usa solo dati reali ad inizio mese"
+        }
+      }
+    },
+    "error": {
+      "unknown": "Errore sconosciuto"
+    },
+    "abort": {
+      "already_configured": "Integrazione già configurata."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Modifica impostazioni scraping PUN",
+        "data": {
+          "zona": "Zona geografica per prezzi zonali",
+          "scan_hour": "Ora inizio download dati (0-23)",
+          "actual_data_only": "Usa solo dati reali ad inizio mese"
+        }
+      }
+    }
+  }
+}

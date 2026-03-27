@@ -1,0 +1,1 @@
+generate_fancoil_climates: python3 /config/yaml_generator/generate_fancoil_climates.py #>> /config/yaml_generator/generator.log 2>&1

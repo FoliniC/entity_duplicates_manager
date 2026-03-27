@@ -1,0 +1,48 @@
+start_manual_charging:
+  alias: "Start Manual Charging"
+  description: "Starts a manual charging session via the central controller."
+  sequence:
+    # 1. Ensure solar automation is OFF to prevent conflict
+    - service: automation.turn_off
+      target:
+        entity_id: automation.regola_carica_colonnina_gui
+    # 2. Ensure manual/fixed rate mode is selected
+    - service: input_boolean.turn_on
+      target:
+        entity_id: input_boolean.ev_charging_force_fixed_rate
+    # 3. Enable the central control automation
+    - service: automation.turn_on
+      target:
+        entity_id: automation.ev_charging_scheduled_control
+    # 4. Set start/end times
+    - service: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.charging_start_time
+      data:
+        datetime: "{{ now().isoformat() }}"
+    - service: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.charging_end_time
+      data:
+        datetime: >
+          {% set duration = states('input_number.charging_duration_minutes') | int %}
+          {{ (now() + timedelta(minutes=duration if duration > 0 else 480)).isoformat() }}
+    # 5. Activate the charging schedule, which triggers the main control automation
+    - service: input_boolean.turn_on
+      target:
+        entity_id: input_boolean.ev_charging_scheduled_active
+
+stop_charging:
+  alias: "Stop EV Charging"
+  description: "Stops any active EV charging session."
+  sequence:
+    - service: mqtt.publish
+      data:
+        topic: "home/prism/1/command/set_mode"
+        payload: "3" # Pause/Stop mode
+    - service: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.ev_charging_scheduled_active
+    - service: automation.turn_on
+      target:
+        entity_id: automation.regola_carica_colonnina_gui # Re-enable solar charging automation

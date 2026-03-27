@@ -1,0 +1,91 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Questo account è già stato configurato.",
+            "device_updated": "La configurazione del dispositivo è stata aggiornata."
+        },
+        "error": {
+            "progress_update": "Attendere prego...",
+            "auto_configure_progress": "Scoperta automatica delle entità in corso...",
+            "connecting": "Connessione al dispositivo e rilevamento DPS. Attendere prego...",
+            "authentication_failed": "Autenticazione fallita.",
+            "cannot_connect": "Impossibile connettersi al dispositivo. Conferma che l'indirizzo IP sia corretto e riprova.",
+            "invalid_auth": "Autenticazione fallita con il dispositivo. Conferma che l'ID dispositivo e la chiave locale siano corretti.",
+            "unknown": "Si è verificato un errore sconosciuto."
+        },
+        "step": {
+            "user": {
+                "title": "Configurazione Account Cloud",
+                "description": "Configura le credenziali per l'API Cloud di Tuya.",
+                "data": {
+                    "region": "Regione",
+                    "client_id": "ID client",
+                    "client_secret": "Segreto client",
+                    "user_id": "ID utente"
+                }
+            },
+            "configure_device": {
+                "title": "Connettività Dispositivo",
+                "description": "Configura i dettagli del dispositivo per consentire a LocalTuya di connettersi.",
+                "data": {
+                    "friendly_name": "Nome Dispositivo",
+                    "host": "Indirizzo IP",
+                    "device_id": "ID Dispositivo",
+                    "local_key": "Chiave Locale",
+                    "protocol_version": "Versione Protocollo",
+                    "enable_debug": "Abilita debug"
+                }
+            },
+            "connecting": {
+                "title": "Connessione Dispositivo",
+                "description": "Connessione al dispositivo e rilevamento DP. Attendere prego..."
+            },
+            "device_setup_method": {
+                "title": "Configura entità dispositivo",
+                "description": "LocalTuya proverà a scoprire il resto della configurazione automaticamente. Se non dovesse funzionare, scegli l'opzione manuale.",
+                "menu_options": {
+                    "auto_configure_device": "Scopri entità automaticamente",
+                    "pick_entity_type": "Configura entità manualmente",
+                    "choose_template": "Usa un template salvato"
+                }
+            },
+            "auto_configure_device": {
+                "title": "Auto configurazione",
+                "description": "Errore durante la configurazione automatica: {err_msg}."
+            },
+            "pick_entity_type": {
+                "title": "Selezione tipo entità",
+                "description": "Scegli il tipo di entità che vuoi aggiungere.",
+                "data": {
+                    "platform_to_add": "Scegli entità",
+                    "no_additional_entities": "Termina configurazione entità"
+                }
+            },
+            "choose_template": {
+                "title": "Importa template",
+                "description": "Scegli un template tra quelli disponibili.",
+                "data": {
+                    "templates": "Scegli template"
+                }
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Configurazione LocalTuya",
+                "description": "Seleziona un'opzione.",
+                "menu_options": {
+                    "add_device": "Aggiungi nuovo dispositivo",
+                    "edit_device": "Riconfigura dispositivo esistente",
+                    "configure_cloud": "Gestisci account Cloud"
+                }
+            }
+        },
+        "error": {
+            "connecting": "Connessione al dispositivo e rilevamento DPS. Attendere prego...",
+            "auto_configure_progress": "Scoperta automatica delle entità in corso..."
+        }
+    },
+    "title": "LocalTuya"
+}

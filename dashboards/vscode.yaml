@@ -1,0 +1,5 @@
+strategy:
+  type: iframe
+  url: "/vscode/"
+  title: Visual Studio Code
+  icon: mdi:microsoft-visual-studio-code

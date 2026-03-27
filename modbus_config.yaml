@@ -1,0 +1,202 @@
+# ============================================================================
+# MODBUS CONFIGURATION - ALFA SMART METER
+# ============================================================================
+
+- name: Alfa new
+  type: tcp
+  host: 192.168.0.101
+  port: 6668
+  
+  sensors:
+    # ========================================
+    # POTENZA ISTANTANEA
+    # ========================================
+    - name: Alfa new Potenza Attiva Prelevata Istantanea
+      unique_id: alfa_potenza_attiva_prelevata_istantanea
+      device_class: power
+      unit_of_measurement: W
+      state_class: measurement
+      data_type: uint16
+      address: 2
+
+    - name: Alfa new Potenza Attiva Immessa Istantanea
+      unique_id: alfa_potenza_attiva_immessa_istantanea
+      device_class: power
+      unit_of_measurement: W
+      state_class: measurement
+      data_type: uint16
+      address: 12
+
+    - name: Alfa new Potenza Attiva Prodotta Istantanea
+      unique_id: alfa_potenza_attiva_prodotta_istantanea
+      device_class: power
+      unit_of_measurement: W
+      state_class: measurement
+      data_type: uint16
+      address: 921
+
+    # ========================================
+    # ENERGIA TOTALE
+    # ========================================
+    - name: Alfa new Energia Attiva Prelevata Totale
+      unique_id: alfa_potenza_attiva_prelevata_totale
+      device_class: energy
+      unit_of_measurement: Wh
+      state_class: total_increasing
+      data_type: uint32
+      address: 5
+
+    - name: Alfa new Energia Attiva Immessa Totale
+      unique_id: alfa_potenza_attiva_immessa_totale
+      device_class: energy
+      unit_of_measurement: Wh
+      state_class: total_increasing
+      data_type: uint32
+      address: 15
+
+    - name: Alfa new Energia Attiva Prodotta Totale
+      unique_id: alfa_potenza_attiva_prodotta_totale
+      device_class: energy
+      unit_of_measurement: Wh
+      state_class: total_increasing
+      data_type: uint32
+      address: 924
+
+    # ========================================
+    # POTENZA MEDIA QUARTO D'ORA
+    # ========================================
+    - name: Alfa new Pot Att Prel Quart Media
+      unique_id: alfa_potenza_attiva_prelevata_quartora_media
+      device_class: power
+      unit_of_measurement: W
+      state_class: measurement
+      data_type: uint16
+      address: 9
+
+    - name: Alfa new Pot Att Imm Quart Media
+      unique_id: alfa_potenza_attiva_immessa_quartora_media
+      device_class: power
+      unit_of_measurement: W
+      state_class: measurement
+      data_type: uint16
+      address: 19
+
+    # ========================================
+    # ENERGIA GIORNALIERA PRELEVATA (Fasce F1-F6)
+    # ========================================
+    - name: Alfa new Tot Energ Att Prel Giorno-1 F1
+      unique_id: alfa_totale_energia_attiva_prelevata_giorno-1_F1
+      device_class: energy
+      unit_of_measurement: Wh
+      state_class: total_increasing
+      data_type: uint32
+      address: 30
+
+    - name: Alfa new Tot Energ Att Prel Giorno-1 F2
+      unique_id: alfa_totale_energia_attiva_prelevata_giorno-1_F2
+      device_class: energy
+      unit_of_measurement: Wh
+      state_class: total_increasing
+      data_type: uint32
+      address: 32
+
+    - name: Alfa new Tot Energ Att Prel Giorno-1 F3
+      unique_id: alfa_totale_energia_attiva_prelevata_giorno-1_F3
+      device_class: energy
+      unit_of_measurement: Wh
+      state_class: total_increasing
+      data_type: uint32
+      address: 34
+
+    - name: Alfa new Tot Energ Att Prel Giorno-1 F4
+      unique_id: alfa_totale_energia_attiva_prelevata_giorno-1_F4
+      device_class: energy
+      unit_of_measurement: Wh
+      state_class: total_increasing
+      data_type: uint32
+      address: 36
+
+    - name: Alfa new Tot Energ Att Prel Giorno-1 F5
+      unique_id: alfa_totale_energia_attiva_prelevata_giorno-1_F5
+      device_class: energy
+      unit_of_measurement: Wh
+      state_class: total_increasing
+      data_type: uint32
+      address: 38
+
+    - name: Alfa new Tot Energ Att Prel Giorno-1 F6
+      unique_id: alfa_totale_energia_attiva_prelevata_giorno-1_F6
+      device_class: energy
+      unit_of_measurement: Wh
+      state_class: total_increasing
+      data_type: uint32
+      address: 40
+
+    # ========================================
+    # ENERGIA GIORNALIERA IMMESSA (Fasce F1-F6)
+    # ========================================
+    - name: Alfa new Tot Energ Att Imm Giorno-1 F1
+      unique_id: alfa_totale_energia_attiva_immessa_giorno-1_F1
+      device_class: energy
+      unit_of_measurement: Wh
+      state_class: total_increasing
+      data_type: uint32
+      address: 54
+
+    - name: Alfa new Tot Energ Att Imm Giorno-1 F2
+      unique_id: alfa_totale_energia_attiva_immessa_giorno-1_F2
+      device_class: energy
+      unit_of_measurement: Wh
+      state_class: total_increasing
+      data_type: uint32
+      address: 56
+
+    - name: Alfa new Tot Energ Att Imm Giorno-1 F3
+      unique_id: alfa_totale_energia_attiva_immessa_giorno-1_F3
+      device_class: energy
+      unit_of_measurement: Wh
+      state_class: total_increasing
+      data_type: uint32
+      address: 58
+
+    - name: Alfa new Tot Energ Att Imm Giorno-1 F4
+      unique_id: alfa_totale_energia_attiva_immessa_giorno-1_F4
+      device_class: energy
+      unit_of_measurement: Wh
+      state_class: total_increasing
+      data_type: uint32
+      address: 60
+
+    - name: Alfa new Tot Energ Att Imm Giorno-1 F5
+      unique_id: alfa_totale_energia_attiva_immessa_giorno-1_F5
+      device_class: energy
+      unit_of_measurement: Wh
+      state_class: total_increasing
+      data_type: uint32
+      address: 62
+
+    - name: Alfa new Tot Energ Att Imm Giorno-1 F6
+      unique_id: alfa_totale_energia_attiva_immessa_giorno-1_F6
+      device_class: energy
+      unit_of_measurement: Wh
+      state_class: total_increasing
+      data_type: uint32
+      address: 64
+
+    # ========================================
+    # ALTRE INFORMAZIONI
+    # ========================================
+    - name: Alfa new Fascia oraria corrente
+      unique_id: alfa_fascia_oraria_corrente
+      data_type: uint16
+      address: 203
+
+    - name: Alfa new Data evento
+      unique_id: alfa_data_evento
+      data_type: uint32
+      address: 780
+
+    - name: Alfa new Tempo residuo distacco
+      unique_id: alfa_tempo_residuo_distacco
+      data_type: uint16
+      address: 782

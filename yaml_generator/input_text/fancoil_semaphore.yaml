@@ -1,0 +1,4 @@
+fancoil_boot_semaphore:
+  name: Fancoil Boot Semaphore
+  initial: "none"
+  icon: mdi:semaphore

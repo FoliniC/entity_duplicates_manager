@@ -1,0 +1,21 @@
+- switch:
+    id: '1'
+    friendly_name: Switch
+    icon: ''
+    entity_category: None
+    platform: switch
+- switch:
+    id: '41'
+    friendly_name: Child Lock
+    icon: mdi:account-lock
+    entity_category: config
+    platform: switch
+- sensor:
+    id: '47'
+    friendly_name: Temperatura
+    entity_category: diagnostic
+    unit_of_measurement: °C
+    device_class: temperature
+    state_class: measurement
+    scaling: 1.0
+    platform: sensor

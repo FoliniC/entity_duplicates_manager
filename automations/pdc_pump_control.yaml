@@ -1,0 +1,34 @@
+- id: pdc_pump_delayed_start
+  alias: "PDC: Accensione ritardata pompa"
+  description: "Avvia la pompa 2 minuti dopo l'accensione della PDC"
+  triggers:
+    - trigger: state
+      entity_id: switch.attiva_pdc
+      from: "off"
+      to: "on"
+  actions:
+    - delay: "00:02:00"
+    - action: switch.turn_on
+      target:
+        entity_id: switch.attiva_pompa_circolazione
+  mode: single
+
+- id: pdc_pump_thermostatic_stop
+  alias: "PDC: Spegnimento termostatato pompa"
+  description: "Spegne la pompa quando la PDC è spenta e il fluido ha raggiunto la soglia di temperatura (condizione invalid per i termostati)"
+  triggers:
+    - trigger: state
+      entity_id: binary_sensor.fancoil_circuit_temp_invalid
+      to: "on"
+  conditions:
+    - condition: state
+      entity_id: switch.attiva_pdc
+      state: "off"
+    - condition: state
+      entity_id: switch.attiva_pompa_circolazione
+      state: "on"
+  actions:
+    - action: switch.turn_off
+      target:
+        entity_id: switch.attiva_pompa_circolazione
+  mode: single

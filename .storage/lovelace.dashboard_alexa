@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "lovelace.dashboard_alexa",
+  "data": {
+    "config": {
+      "views": [
+        {
+          "title": "Home",
+          "cards": [
+            {
+              "type": "entity",
+              "entity": "input_text.alexa_actionable_notification"
+            },
+            {
+              "type": "entities",
+              "title": "Alexa Actionable Notifications",
+              "entities": [
+                "input_text.alexa_actionable_notification",
+                "input_button.alexa_actionable_notification_trigger",
+                "input_text.alexa_actionable_notification_response_type",
+                "input_text.alexa_actionable_notification_response"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

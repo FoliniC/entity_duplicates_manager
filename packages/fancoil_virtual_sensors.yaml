@@ -1,0 +1,50 @@
+template:
+  - sensor:
+      # --- CUCINA ---
+      # Offset rilevato: -3.00°C
+      - name: "Temperatura Cucina (Calibrata)"
+        unique_id: fancoil_cucina_calibrated_temperature
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        state: >
+          {% set raw = states('sensor.fancoil_cucina_last_temperature') | float(0) %}
+          {# Applichiamo l'offset medio rilevato dalle statistiche #}
+          {{ (raw - 3.0) | round(1) }}
+        availability: "{{ states('sensor.fancoil_cucina_last_temperature') not in ['unknown', 'unavailable', 'none'] }}"
+
+      # --- CAMERA GRANDE ---
+      # Offset rilevato: -3.89°C
+      - name: "Temperatura Camera Grande (Calibrata)"
+        unique_id: fancoil_camera_grande_calibrated_temperature
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        state: >
+          {% set raw = states('sensor.fancoil_camera_grande_last_temperature') | float(0) %}
+          {{ (raw - 3.9) | round(1) }}
+        availability: "{{ states('sensor.fancoil_camera_grande_last_temperature') not in ['unknown', 'unavailable', 'none'] }}"
+
+      # --- CORRIDOIO ---
+      # Offset rilevato: -9.09°C
+      - name: "Temperatura Corridoio (Calibrata)"
+        unique_id: fancoil_corridoio_calibrated_temperature
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        state: >
+          {% set raw = states('sensor.fancoil_corridoio_last_temperature') | float(0) %}
+          {{ (raw - 9.1) | round(1) }}
+        availability: "{{ states('sensor.fancoil_corridoio_last_temperature') not in ['unknown', 'unavailable', 'none'] }}"
+
+      # --- BAGNO ---
+      # Offset rilevato: -8.77°C
+      - name: "Temperatura Bagno (Calibrata)"
+        unique_id: fancoil_bagno_calibrated_temperature
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        state: >
+          {% set raw = states('sensor.fancoil_bagno_last_temperature') | float(0) %}
+          {{ (raw - 8.8) | round(1) }}
+        availability: "{{ states('sensor.fancoil_bagno_last_temperature') not in ['unknown', 'unavailable', 'none'] }}"

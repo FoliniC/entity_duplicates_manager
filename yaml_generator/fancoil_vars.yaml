@@ -1,0 +1,41 @@
+fancoil_vars:
+  cucina:
+    id: cucina
+    friendly_name: Cucina
+    filename: cucina
+    unique_id: cucina
+    ref_sensor: sensor.th1a_temperature
+  camera_grande:
+    id: camera_grande
+    friendly_name: Camera grande
+    filename: camera_grande
+    unique_id: camera_grande
+    ref_sensor: sensor.th2b_temperature
+    knx_temp_sensor: sensor.temperatura_camera_grande
+  camera:
+    id: camera
+    friendly_name: Camera
+    filename: camera
+    unique_id: camera
+    ref_sensor: sensor.th3a_temperature
+    knx_temp_sensor: sensor.temperatura_camera
+  corridoio:
+    id: corridoio
+    friendly_name: Corridoio
+    filename: corridoio
+    unique_id: corridoio
+    ref_sensor: sensor.th4d_temperature
+  bagno:
+    id: bagno
+    friendly_name: Bagno
+    filename: bagno
+    unique_id: bagno
+    ref_sensor: sensor.th3c_temperature
+    knx_temp_sensor: sensor.temperatura_bagno
+  sala:
+    id: sala
+    friendly_name: Sala
+    filename: sala
+    unique_id: sala
+    ref_sensor: sensor.th6a_temperature
+    knx_temp_sensor: sensor.temperatura_sala

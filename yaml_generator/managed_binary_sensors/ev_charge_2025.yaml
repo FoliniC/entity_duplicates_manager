@@ -1,0 +1,6 @@
+- name: "EV Charge 2025 Can Charge"
+  unique_id: ev_charge_2025_can_charge
+  state: >
+    {% set prism = states('sensor.prism_stato_wallbox') | lower %}
+    {% set connected = prism not in ['unplugged', 'idle', 'unknown', 'unavailable', 'none'] %}
+    {{ connected }}

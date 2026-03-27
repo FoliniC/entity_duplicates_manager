@@ -1,0 +1,18 @@
+{  
+  "version": "0.2.0",  
+  "configurations": [  
+    {  
+      "name": "Python: Home Assistant",  
+      "type": "python",  
+      "request": "attach",  
+      "module": "homeassistant",  
+      "justMyCode": false,  
+      "console": "integratedTerminal",  
+      "env": {  
+        "HASS_CONFIG": "/usr/share/hassio/homeassistant",  
+        "PYTHONPATH": "/usr/share/hassio/homeassistant"  
+      },  
+      "args": ["--config", "/usr/share/hassio/homeassistant/config"]  
+    }  
+  ]  
+}  

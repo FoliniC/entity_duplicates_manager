@@ -1,0 +1,41 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Urządzenie jest już skonfigurowane",
+            "already_configured_account": "Konto jest już skonfigurowane",
+            "reconfigure_successful": "Ponowna konfiguracja zakończyła się powodzeniem",
+            "single_instance_allowed": "Już skonfigurowano. Możliwa tylko jedna konfiguracja."
+        },
+        "error": {
+            "invalid_auth": "Nieprawidłowe uwierzytelnienie"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "language": "Język",
+                    "notifications": "Pokazuj alerty",
+                    "notifications_diagnostic": "Pokazuj powoadomienia diagnostyczne",
+                    "notifications_warning": "Pokazuj powiadomienia ostrzegawcze",
+                    "password": "Hasło",
+                    "username": "Nazwa użytkownika"
+                },
+                "description": "Jeśli potrzebujesz pomocy w konfiguracji, odwiedź: https://github.com/albaintor/homeassistant_electrolux_status",
+                "title": "Electrolux Status"
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "user": {
+                "data": {
+                    "language": "Język",
+                    "notifications": "Pokazuj alerty",
+                    "notifications_diagnostic": "Pokazuj powoadomienia diagnostyczne",
+                    "notifications_warning": "Pokazuj powiadomienia ostrzegawcze",
+                    "password": "Hasło",
+                    "renew_interval": "Okres odnawiania połączenia WebSocket (sekundy)"
+                }
+            }
+        }
+    }
+}

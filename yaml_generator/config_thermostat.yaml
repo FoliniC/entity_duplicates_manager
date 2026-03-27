@@ -1,0 +1,43 @@
+task_name: "Thermostat Configuration"
+description: "Full configuration for Home Assistant fancoil thermostat setup."
+output_dir: "../temp/for_IA"
+output_filename_prefix: "thermostat_config"
+files:
+  - path: "./generated_automations/cucina_automation.yaml"
+    process_yaml: true
+  - path: "./generated_climates/cucina.yaml"
+    process_yaml: true
+  - path: "./input_boolean/generated_input_booleans.yaml"
+    process_yaml: true
+  - path: "./input_select/generated_input_selects.yaml"
+    process_yaml: true
+  - path: "./input_number/generated_input_numbers.yaml"
+    process_yaml: true
+  - path: "./generated_climates/generated_master_climate.yaml"
+    process_yaml: true
+  - path: "./fancoil_vars.yaml"
+    process_yaml: true
+  - path: "./templates/fancoil_climate.j2"
+  - path: "./templates/fancoil_automation.j2"
+  - path: "./templates/fancoil_room_input_booleans.j2"
+  - path: "./templates/fancoil_room_input_selects.j2"
+  - path: "./templates/fancoil_room_input_numbers.j2"
+  - path: "./templates/fancoil_master_input_selects.j2"
+  - path: "./templates/fancoil_master_input_numbers.j2"
+  - path: "./templates/fancoil_master_climate.j2"
+  - path: "./generator.log"
+    tail_lines: 50
+  - path: "./generate_fancoil_climates.py"
+  - path: "./input_number/input_numbers.yaml"
+    process_yaml: true
+  - path: "../configuration.yaml"
+    process_yaml: true
+    sections_to_remove:
+      - "conversation"
+      - "intent_script"
+      - "light"
+      - "knx"
+      - "modbus"
+      - "scheduler"
+  - path: "./generated_dashboards/generated_riscaldamento_dashboard.yaml"
+    process_yaml: true

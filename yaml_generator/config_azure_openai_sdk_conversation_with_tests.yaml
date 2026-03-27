@@ -1,0 +1,142 @@
+task_name: "Azure OpenAI SDK Conversation with tests"
+description: "Source files for Azure OpenAI SDK Conversation custom component and tests."
+output_type: txt
+output_dir: "/home/carlo"
+base_dir: ".."
+output_filename_prefix: "azure_openai_sdk_conversation_with_tests"
+files:
+  # Component Files
+  - path: "custom_components/azure_openai_sdk_conversation/__init__.py"
+  - path: "custom_components/azure_openai_sdk_conversation/assist_synonyms_it.json"
+  - path: "custom_components/azure_openai_sdk_conversation/config_flow.py"
+  - path: "custom_components/azure_openai_sdk_conversation/const.py"
+  - path: "custom_components/azure_openai_sdk_conversation/conversation.py"
+  - path: "custom_components/azure_openai_sdk_conversation/icons.json"
+  - path: "custom_components/azure_openai_sdk_conversation/manifest.json"
+  - path: "custom_components/azure_openai_sdk_conversation/mcp_server.py"
+  - path: "custom_components/azure_openai_sdk_conversation/options_flow.py"
+  - path: "custom_components/azure_openai_sdk_conversation/requirements.txt"
+  - path: "custom_components/azure_openai_sdk_conversation/search.py"
+  - path: "custom_components/azure_openai_sdk_conversation/services.yaml"
+  - path: "custom_components/azure_openai_sdk_conversation/strings.json"
+
+  # Context
+  - path: "custom_components/azure_openai_sdk_conversation/context/__init__.py"
+  - path: "custom_components/azure_openai_sdk_conversation/context/conversation_memory.py"
+  - path: "custom_components/azure_openai_sdk_conversation/context/entity_collector.py"
+  - path: "custom_components/azure_openai_sdk_conversation/context/mcp_manager.py"
+  - path: "custom_components/azure_openai_sdk_conversation/context/system_prompt.py"
+
+  # Core
+  - path: "custom_components/azure_openai_sdk_conversation/core/__init__.py"
+  - path: "custom_components/azure_openai_sdk_conversation/core/agent.py"
+  - path: "custom_components/azure_openai_sdk_conversation/core/config.py"
+  - path: "custom_components/azure_openai_sdk_conversation/core/interfaces.py"
+  - path: "custom_components/azure_openai_sdk_conversation/core/logger.py"
+  - path: "custom_components/azure_openai_sdk_conversation/core/state.py"
+
+  # Examples
+  - path: "custom_components/azure_openai_sdk_conversation/examples/custom_tags_example.py"
+
+  # LLM
+  - path: "custom_components/azure_openai_sdk_conversation/llm/__init__.py"
+  - path: "custom_components/azure_openai_sdk_conversation/llm/chat_client.py"
+  - path: "custom_components/azure_openai_sdk_conversation/llm/responses_client.py"
+  - path: "custom_components/azure_openai_sdk_conversation/llm/stream_parser.py"
+  - path: "custom_components/azure_openai_sdk_conversation/llm/token_counter.py"
+
+  # Local Intent
+  - path: "custom_components/azure_openai_sdk_conversation/local_intent/__init__.py"
+  - path: "custom_components/azure_openai_sdk_conversation/local_intent/entity_matcher.py"
+  - path: "custom_components/azure_openai_sdk_conversation/local_intent/local_handler.py"
+  - path: "custom_components/azure_openai_sdk_conversation/local_intent/text_normalizer.py"
+
+  # Stats
+  - path: "custom_components/azure_openai_sdk_conversation/stats/__init__.py"
+  - path: "custom_components/azure_openai_sdk_conversation/stats/analyzer.py"
+  - path: "custom_components/azure_openai_sdk_conversation/stats/manager.py"
+  - path: "custom_components/azure_openai_sdk_conversation/stats/metrics.py"
+
+  # Tools
+  - path: "custom_components/azure_openai_sdk_conversation/tools/__init__.py"
+  - path: "custom_components/azure_openai_sdk_conversation/tools/function_executor.py"
+  - path: "custom_components/azure_openai_sdk_conversation/tools/schema_builder.py"
+  - path: "custom_components/azure_openai_sdk_conversation/tools/tool_manager.py"
+
+  # Translations
+  - path: "custom_components/azure_openai_sdk_conversation/translations/de.json"
+  - path: "custom_components/azure_openai_sdk_conversation/translations/en.json"
+  - path: "custom_components/azure_openai_sdk_conversation/translations/es.json"
+  - path: "custom_components/azure_openai_sdk_conversation/translations/fr.json"
+  - path: "custom_components/azure_openai_sdk_conversation/translations/it.json"
+  - path: "custom_components/azure_openai_sdk_conversation/translations/nl.json"
+  - path: "custom_components/azure_openai_sdk_conversation/translations/pl.json"
+  - path: "custom_components/azure_openai_sdk_conversation/translations/pt.json"
+  - path: "custom_components/azure_openai_sdk_conversation/translations/sk.json"
+  - path: "custom_components/azure_openai_sdk_conversation/translations/zh.json"
+
+  # Utils
+  - path: "custom_components/azure_openai_sdk_conversation/utils/__init__.py"
+  - path: "custom_components/azure_openai_sdk_conversation/utils/api_version.py"
+  - path: "custom_components/azure_openai_sdk_conversation/utils/search.py"
+  - path: "custom_components/azure_openai_sdk_conversation/utils/validators.py"
+
+  # Test Configuration
+  - path: "tests/conftest.py"
+  - path: "tests/mock_ha.py"
+  - path: "tests/azure_openai_sdk_conversation/debug_path.py"
+
+  # Component Tests
+  - path: "tests/azure_openai_sdk_conversation/test_all_coverage.py"
+  - path: "tests/azure_openai_sdk_conversation/test_chat_client.py"
+  - path: "tests/azure_openai_sdk_conversation/test_conversation.py"
+  - path: "tests/azure_openai_sdk_conversation/test_conversation_memory.py"
+  - path: "tests/azure_openai_sdk_conversation/test_entity_collector.py"
+  - path: "tests/azure_openai_sdk_conversation/test_local_handler.py"
+  - path: "tests/azure_openai_sdk_conversation/test_mcp_manager.py"
+  - path: "tests/azure_openai_sdk_conversation/test_mcp_server.py"
+  - path: "tests/azure_openai_sdk_conversation/test_options_flow_fix.py"
+  - path: "tests/azure_openai_sdk_conversation/test_setup_1.py"
+  - path: "tests/azure_openai_sdk_conversation/test_stats_analyzer.py"
+  - path: "tests/azure_openai_sdk_conversation/test_stats_manager.py"
+  - path: "tests/azure_openai_sdk_conversation/test_stream_parser.py"
+  - path: "tests/azure_openai_sdk_conversation/test_system_prompt.py"
+  - path: "tests/azure_openai_sdk_conversation/test_tools.py"
+
+  # Other Tests
+  - path: "tests/test_absolute_final.py"
+  - path: "tests/test_config_flow.py"
+  - path: "tests/test_config_flow.py.disabled"
+  - path: "tests/test_coordinator.py"
+  - path: "tests/test_coordinator_ext.py"
+  - path: "tests/test_coverage_fix.py"
+  - path: "tests/test_coverage_gap.py"
+  - path: "tests/test_diagnostics.py"
+  - path: "tests/test_error_handler_extra.py"
+  - path: "tests/test_final_10_lines.py"
+  - path: "tests/test_final_boost.py"
+  - path: "tests/test_final_coverage.py"
+  - path: "tests/test_final_gold_coverage.py"
+  - path: "tests/test_final_logging_push.py"
+  - path: "tests/test_final_logic.py"
+  - path: "tests/test_final_push.py"
+  - path: "tests/test_final_push_2.py"
+  - path: "tests/test_global_services.py"
+  - path: "tests/test_init.py"
+  - path: "tests/test_logging_logic.py"
+  - path: "tests/test_profile_service_ext.py"
+  - path: "tests/test_reaching_90.py"
+  - path: "tests/test_select.py"
+  - path: "tests/test_sensor.py"
+  - path: "tests/test_services.py"
+  - path: "tests/test_services_ext.py"
+  - path: "tests/test_services_logic.py"
+  - path: "tests/test_settings.py"
+  - path: "tests/test_setup.py"
+  - path: "tests/test_setup_ext.py"
+  - path: "tests/test_setup_preload.py"
+  - path: "tests/test_storage.py"
+  - path: "tests/test_storage_ext.py"
+  - path: "tests/test_switch.py"
+  - path: "tests/test_ultra_final.py"
+  - path: "tests/test_utils.py"

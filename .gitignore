@@ -1,0 +1,55 @@
+# Escludi tutto
+*
+
+# Permetti file testuali
+!*.yaml
+!*.py
+!*.json
+!*.js
+!*.md
+!*.sh
+!*.txt
+!*.conf
+!*.ini
+!.gitignore
+
+# Directory
+!automations/
+!blueprints/
+!custom_components/
+!python_scripts/
+!pyscript/
+!packages/
+!dashboards/
+!esphome/
+!www/
+!.storage/
+
+# Ricorsivamente
+!**/
+!**/*.yaml
+!**/*.py
+!**/*.json
+!**/*.js
+!**/*.md
+
+# .storage: SOLO le dashboard
+.storage/*
+!.storage/lovelace*
+
+# Esclusioni fisse
+*.db
+*.db-shm
+*.db-wal
+*.log
+*.log.*
+*.tar.gz
+*.zip
+*.png
+*.jpg
+*.jpeg
+*.gz
+__pycache__/
+.cache/
+.cloud/
+deps/

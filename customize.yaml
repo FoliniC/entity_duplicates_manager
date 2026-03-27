@@ -1,0 +1,52 @@
+sensor.fronius_total_energy:
+  state_class: measurement
+  last_reset: 1970-01-01T00:00:00+00:00
+sensor.fronius_smartmeter_energy_ac_consumed:
+  state_class: measurement
+  last_reset: 1970-01-01T00:00:00+00:00
+sensor.fronius_smartmeter_energy_ac_sold:
+  state_class: measurement
+  last_reset: 1970-01-01T00:00:00+00:00
+#Cambia icona e colore icona del sensore che indica lo stato della wallbox
+sensor.prism_state:
+  friendly_name: "Stato"
+  templates:
+    icon_color: >
+      if (state === 'Unplugged') return 'rgb(0,0,255)';
+      if (state === 'Waiting') return 'rgb(138,43,226)';
+      if (state === 'Charging') return 'rgb(0,255,0)';
+      if (state === 'Pause') return 'rgb(255,255,0)';
+      else return 'rgb(255,0,0)';
+    icon: >
+      if (state === 'Unplugged') return 'mdi:power-plug-off';
+      if (state === 'Waiting') return 'mdi:car-settings';
+      if (state === 'Charging') return 'mdi:car-electric';
+      if (state === 'Pause') return 'mdi:pause-octagon';
+      else return 'mdi:alert-octagon';
+
+#Cambia il colore dell'icona della modalità attivata
+input_boolean.prism_normal_mode:
+  templates:
+    icon_color: >
+      if (state === 'on') return 'rgb(0,255,0)';
+
+input_boolean.prism_solar_mode:
+  templates:
+    icon_color: >
+      if (state === 'on') return 'rgb(255,255,0)';
+
+input_boolean.prism_pause_mode:
+  templates:
+    icon_color: >
+      if (state === 'on') return 'rgb(255,140,0)';
+
+#Cambia icona e colore icona del sensore che indica se la wallbox si è messa automaticamente in modalità pausa per limitare la corrente
+sensor.prism_autolimit:
+  friendly_name: "Autolimit"
+  templates:
+    icon_color: >
+      if (state === 'Attivo') return 'rgb(255,0,0)';
+      else return 'rgb(0,255,0)';
+    icon: >
+      if (state === 'Attivo') return 'mdi:boom-gate';
+      else return 'mdi:hand-okay';

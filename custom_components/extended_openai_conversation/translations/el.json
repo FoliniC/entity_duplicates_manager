@@ -1,0 +1,170 @@
+{
+    "config": {
+        "error": {
+            "cannot_connect": "Αποτυχία σύνδεσης",
+            "invalid_auth": "Μη έγκυρος έλεγχος ταυτότητας",
+            "unknown": "Απροσδόκητο σφάλμα"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "name": "Όνομα",
+                    "api_key": "Κλειδί API",
+                    "base_url": "Βασική Διεύθυνση",
+                    "api_version": "Έκδοση API",
+                    "organization": "Οργανισμός",
+                    "skip_authentication": "Παράλειψη Ελέγχου Ταυτότητας",
+                    "api_provider": "Api Provider"
+                }
+            }
+        }
+    },
+    "config_subentries": {
+        "conversation": {
+            "entry_type": "Conversation agent",
+            "initiate_flow": {
+                "reconfigure": "Reconfigure conversation agent",
+                "user": "Add conversation agent"
+            },
+            "step": {
+                "init": {
+                    "data": {
+                        "max_tokens": "Μέγιστα tokens προς επιστροφή στην απάντηση",
+                        "model": "Μοντέλο Ολοκλήρωσης",
+                        "prompt": "Πρότυπο Προτροπής",
+                        "max_function_calls_per_conversation": "Μέγιστες κλήσεις συναρτήσεων ανά συνομιλία",
+                        "skills": "Skills",
+                        "functions": "Συναρτήσεις",
+                        "attach_username": "Επισύναψη Ονόματος Χρήστη στο Μήνυμα",
+                        "context_threshold": "Όριο Περιεχομένου",
+                        "context_truncate_strategy": "Στρατηγική περικοπής περιεχομένου όταν ξεπεραστεί το όριο",
+                        "advanced_options": "Advanced Options"
+                    },
+                    "data_description": {}
+                },
+                "advanced": {
+                    "title": "Advanced Options",
+                    "data": {
+                        "temperature": "Θερμοκρασία",
+                        "top_p": "Top P",
+                        "reasoning_effort": "Reasoning effort",
+                        "service_tier": "Service tier",
+                        "shorten_tool_call_id": "Shorten tool call IDs"
+                    },
+                    "data_description": {
+                        "shorten_tool_call_id": "Required for Mistral AI cloud API compatibility. Enable only if your provider requires short (9-character) tool call IDs. Keep disabled for OpenAI and most other providers."
+                    }
+                }
+            }
+        },
+        "ai_task_data": {
+            "entry_type": "AI Task agent",
+            "initiate_flow": {
+                "reconfigure": "Reconfigure AI Task agent",
+                "user": "Add AI Task agent"
+            },
+            "step": {
+                "init": {
+                    "data": {
+                        "name": "[%key:common::config_flow::data::name%]",
+                        "chat_model": "Model",
+                        "max_tokens": "Maximum tokens to return in response",
+                        "advanced_options": "Advanced options"
+                    }
+                },
+                "advanced": {
+                    "title": "Advanced options",
+                    "data": {
+                        "temperature": "Temperature",
+                        "top_p": "Top P",
+                        "reasoning_effort": "Reasoning effort",
+                        "service_tier": "Service tier",
+                        "shorten_tool_call_id": "Shorten tool call IDs"
+                    },
+                    "data_description": {
+                        "shorten_tool_call_id": "Required for Mistral AI cloud API compatibility. Enable only if your provider requires short (9-character) tool call IDs. Keep disabled for OpenAI and most other providers."
+                    }
+                }
+            }
+        }
+    },
+    "services": {
+        "query_image": {
+            "name": "Ερώτημα εικόνας",
+            "description": "Λάβετε εικόνες και απαντήστε ερωτήσεις για αυτές",
+            "fields": {
+                "config_entry": {
+                    "name": "Καταχώρηση Διαμόρφωσης",
+                    "description": "Η καταχώρηση διαμόρφωσης που θα χρησιμοποιηθεί για αυτή την υπηρεσία"
+                },
+                "model": {
+                    "name": "Μοντέλο",
+                    "description": "Το μοντέλο",
+                    "example": "gpt-4.1-mini"
+                },
+                "prompt": {
+                    "name": "Προτροπή",
+                    "description": "Το κείμενο για να ρωτήσετε σχετικά με την εικόνα",
+                    "example": "Τι υπάρχει σε αυτή την εικόνα;"
+                },
+                "images": {
+                    "name": "Εικόνες",
+                    "description": "Μια λίστα εικόνων που θα ερωτηθούν"
+                },
+                "max_tokens": {
+                    "name": "Μέγιστα Tokens",
+                    "description": "Τα μέγιστα tokens",
+                    "example": "300"
+                }
+            }
+        },
+        "change_config": {
+            "name": "Change configuration",
+            "description": "Changes the configuration of the integration.",
+            "fields": {
+                "config_entry": {
+                    "name": "Config Entry",
+                    "description": "The config entry to update."
+                },
+                "api_key": {
+                    "name": "Κλειδί API",
+                    "description": "The API key."
+                },
+                "base_url": {
+                    "name": "Βασική Διεύθυνση",
+                    "description": "The base URL."
+                },
+                "api_version": {
+                    "name": "Έκδοση API",
+                    "description": "The API version."
+                },
+                "organization": {
+                    "name": "Οργανισμός",
+                    "description": "The organization."
+                },
+                "skip_authentication": {
+                    "name": "Παράλειψη Ελέγχου Ταυτότητας",
+                    "description": "Skip authentication."
+                },
+                "api_provider": {
+                    "name": "Api Provider",
+                    "description": "The API provider. (OpenAI or Azure)"
+                }
+            }
+        },
+        "download_skill": {
+            "name": "Download skill",
+            "description": "Download a skill from the GitHub repository to your skills directory. Available skills: https://github.com/jekalmin/extended_openai_conversation/tree/develop/examples/skills",
+            "fields": {
+                "skill_name": {
+                    "name": "Skill name",
+                    "description": "The name of the skill to download (e.g., crypto)"
+                }
+            }
+        },
+        "reload_skills": {
+            "name": "Reload skills",
+            "description": "Reload skills from the skills directory."
+        }
+    }
+}

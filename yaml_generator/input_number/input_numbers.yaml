@@ -1,0 +1,92 @@
+tempo_ricarica_clessidra:
+  name: Tempo ricarica rimanente (minuti)
+  min: 0
+  max: 720 # 12 ore in minuti
+  step: 5
+  unit_of_measurement: minuti
+  mode: slider # Può essere 'slider' o 'box' a seconda di come vuoi visualizzarlo
+
+fan_distance_high:
+  name: "Soglia Ventola HIGH"
+  min: -10
+  max: 10
+  step: 0.1
+  unit_of_measurement: "°C"
+
+fan_distance_medium:
+  name: "Soglia Ventola MEDIUM"
+  min: -10
+  max: 10
+  step: 0.1
+  unit_of_measurement: "°C"
+
+fan_distance_low:
+  name: "Soglia Ventola LOW"
+  min: -10
+  max: 10
+  step: 0.1
+  unit_of_measurement: "°C"
+fan_distance_idle:
+  name: "Soglia Ventola idle"
+  min: -10
+  max: 10
+  step: 0.1
+  unit_of_measurement: "°C"
+
+fan_distance_stop:
+  name: "Soglia Ventola STOP"
+  min: -10
+  max: 10
+  step: 0.1
+  unit_of_measurement: "°C"
+
+# Nuova soglia di ripartenza (isteresi ampiezza): la ventola/main riparte solo se diff >= questa soglia
+fan_distance_resume:
+  name: "Soglia Ventola RESUME"
+  min: -10
+  max: 10
+  step: 0.1
+  unit_of_measurement: "°C"
+
+# Ritardo minimo in minuti per la ripartenza (isteresi temporale)
+fancoil_resume_delay_minutes:
+  name: "Ritardo Ripartenza Fancoil (min)"
+  min: 0
+  max: 60
+  step: 1
+  unit_of_measurement: "min"
+# setpoint_camera:
+#   initial: 21
+#   max: 30
+#   min: 16
+#   mode: slider
+#   name: Setpoint Camera
+#   step: 0.5
+#   unit_of_measurement: °C
+# setpoint_soggiorno:
+#   initial: 21
+#   max: 30
+#   min: 16
+#   mode: slider
+#   name: Setpoint Soggiorno
+#   step: 0.5
+#   unit_of_measurement: °C
+# fancoil_cucina_setpoint:
+#   initial: 21
+#   max: 35
+#   min: 5
+#   mode: box
+#   name: "Setpoint Fancoil Cucina"
+#   step: 0.1
+#   unit_of_measurement: °C
+#   icon: mdi:thermometer
+# last_consumo_pdc:
+#   name: "Ultimo Consumo PDC"
+#   min: 0
+#   max: 10000
+#   unit_of_measurement: "W"
+# last_tuya_humidity:
+#   name: "Ultima lettura umidità"
+#   min: 0
+#   max: 100
+#   unit_of_measurement: "%"

@@ -1,0 +1,17 @@
+
+- name: "Fancoil Circuit Temp Invalid"
+  unique_id: fancoil_circuit_temp_invalid
+  device_class: problem
+  state: >-
+    {% set hvac_mode = states('input_select.fancoil_system_hvac_mode') %}
+    {% set circuit_temp = states('sensor.temperatura_circuito_riscaldamento') | float(0) %}
+    {% set threshold_heat = states('input_number.circuit_temp_threshold_heat') | float(30) %}
+    {% set threshold_cool = states('input_number.circuit_temp_threshold_cool') | float(20) %}
+    
+    {% if hvac_mode == 'heat' %}
+      {{ circuit_temp < threshold_heat }}
+    {% elif hvac_mode == 'cool' %}
+      {{ circuit_temp > threshold_cool }}
+    {% else %}
+      false
+    {% endif %}
