@@ -9,7 +9,6 @@ views:
     panel: true
     badges: []
     cards:
-    cards:
       - type: grid
         columns: 2
         square: false
@@ -306,7 +305,7 @@ views:
                         .grid-left { color: red !important; }
                         .grid-right { color: blue !important; }
                         .cur-box ha-icon { transform: scale(2); }
-              # Inerzia Cambio Velocità (Ripetizione errore o nuova sezione)
+              # Soglia Temp Circuito Heat
               - type: grid
                 columns: 2
                 square: false
@@ -320,47 +319,15 @@ views:
                     tap_action:
                       action: perform-action
                       perform_action: input_number.set_value
-                      target: { entity_id: input_number.fancoil_debounce_seconds }
-                      data: { value: 30 }
-                    card_mod:
-                      style: |
-                        ha-card { border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0; height: 62px; width: 80px !important; background: none; display: flex; align-items: center; justify-content: center; }
-                        ha-state-icon { --mdc-icon-size: 24px; }
-                  - type: custom:numberbox-card
-                    entity: input_number.fancoil_debounce_seconds
-                    name: "Inerzia Ventola"
-                    border: true
-                    card_mod:
-                      style: |
-                        ha-card { border-left: none; border-top-left-radius: 0; border-bottom-left-radius: 0; background: none; }
-                        .cur-num { font-size: 25px !important; }
-                        .cur-unit { color: orange !important; font-size: 100% !important; opacity: 1 !important; }
-                        .grid-left { color: red !important; }
-                        .grid-right { color: blue !important; }
-                        .cur-box ha-icon { transform: scale(2); }
-              # Distanza STOP
-              - type: grid
-                columns: 2
-                square: false
-                card_mod:
-                  style: |
-                    hui-grid-card { grid-template-columns: 80px 1fr !important; gap: 0px !important; margin-bottom: 4px !important; }
-                    #root { grid-template-columns: 80px 1fr !important; gap: 0px !important; }
-                cards:
-                  - type: button
-                    icon: mdi:refresh
-                    tap_action:
-                      action: perform-action
-                      perform_action: input_number.set_value
-                      target: { entity_id: input_number.fan_distance_stop }
+                      target: { entity_id: input_number.circuit_temp_threshold_heat }
                       data: { value: 0 }
                     card_mod:
                       style: |
                         ha-card { border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0; height: 62px; width: 80px !important; background: none; display: flex; align-items: center; justify-content: center; }
                         ha-state-icon { --mdc-icon-size: 24px; }
                   - type: custom:numberbox-card
-                    entity: input_number.fan_distance_stop
-                    name: "Distanza STOP"
+                    entity: input_number.circuit_temp_threshold_heat
+                    name: "Soglia Temp Heat"
                     border: true
                     card_mod:
                       style: |
@@ -370,270 +337,40 @@ views:
                         .grid-left { color: red !important; }
                         .grid-right { color: blue !important; }
                         .cur-box ha-icon { transform: scale(2); }
-                      # Distanza IDLE
-                      - type: grid
-                        columns: 2
-                        square: false
-                        card_mod:
-                          style: |
-                            hui-grid-card { grid-template-columns: 80px 1fr !important; gap: 0px !important; margin-bottom: 4px !important; }
-                            #root { grid-template-columns: 80px 1fr !important; gap: 0px !important; }
-                        cards:
-                          - type: button
-                            icon: mdi:refresh
-                            tap_action:
-                              action: perform-action
-                              perform_action: input_number.set_value
-                              target: { entity_id: input_number.fan_distance_idle }
-                              data: { value: 0 }
-                            card_mod:
-                              style: |
-                                ha-card { border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0; height: 62px; width: 80px !important; background: none; display: flex; align-items: center; justify-content: center; }
-                                ha-state-icon { --mdc-icon-size: 24px; }
-                          - type: custom:numberbox-card
-                            entity: input_number.fan_distance_idle
-                            name: "Distanza IDLE"
-                            border: true
-                            card_mod:
-                              style: |
-                                ha-card { border-left: none; border-top-left-radius: 0; border-bottom-left-radius: 0; background: none; }
-                                .cur-num { font-size: 25px !important; }
-                                .cur-unit { color: orange !important; font-size: 100% !important; opacity: 1 !important; }
-                                .grid-left { color: red !important; }
-                                .grid-right { color: blue !important; }
-                                .cur-box ha-icon { transform: scale(2); }
-                      # Distanza LOW
-                      - type: grid
-                        columns: 2
-                        square: false
-                        card_mod:
-                          style: |
-                            hui-grid-card { grid-template-columns: 80px 1fr !important; gap: 0px !important; margin-bottom: 4px !important; }
-                            #root { grid-template-columns: 80px 1fr !important; gap: 0px !important; }
-                        cards:
-                          - type: button
-                            icon: mdi:refresh
-                            tap_action:
-                              action: perform-action
-                              perform_action: input_number.set_value
-                              target: { entity_id: input_number.fan_distance_low }
-                              data: { value: 0 }
-                            card_mod:
-                              style: |
-                                ha-card { border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0; height: 62px; width: 80px !important; background: none; display: flex; align-items: center; justify-content: center; }
-                                ha-state-icon { --mdc-icon-size: 24px; }
-                          - type: custom:numberbox-card
-                            entity: input_number.fan_distance_low
-                            name: "Distanza LOW"
-                            border: true
-                            card_mod:
-                              style: |
-                                ha-card { border-left: none; border-top-left-radius: 0; border-bottom-left-radius: 0; background: none; }
-                                .cur-num { font-size: 25px !important; }
-                                .cur-unit { color: orange !important; font-size: 100% !important; opacity: 1 !important; }
-                                .grid-left { color: red !important; }
-                                .grid-right { color: blue !important; }
-                                .cur-box ha-icon { transform: scale(2); }
-                      # Distanza MEDIUM
-                      - type: grid
-                        columns: 2
-                        square: false
-                        card_mod:
-                          style: |
-                            hui-grid-card { grid-template-columns: 80px 1fr !important; gap: 0px !important; margin-bottom: 4px !important; }
-                            #root { grid-template-columns: 80px 1fr !important; gap: 0px !important; }
-                        cards:
-                          - type: button
-                            icon: mdi:refresh
-                            tap_action:
-                              action: perform-action
-                              perform_action: input_number.set_value
-                              target: { entity_id: input_number.fan_distance_medium }
-                              data: { value: 0 }
-                            card_mod:
-                              style: |
-                                ha-card { border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0; height: 62px; width: 80px !important; background: none; display: flex; align-items: center; justify-content: center; }
-                                ha-state-icon { --mdc-icon-size: 24px; }
-                          - type: custom:numberbox-card
-                            entity: input_number.fan_distance_medium
-                            name: "Distanza MEDIUM"
-                            border: true
-                            card_mod:
-                              style: |
-                                ha-card { border-left: none; border-top-left-radius: 0; border-bottom-left-radius: 0; background: none; }
-                                .cur-num { font-size: 25px !important; }
-                                .cur-unit { color: orange !important; font-size: 100% !important; opacity: 1 !important; }
-                                .grid-left { color: red !important; }
-                                .grid-right { color: blue !important; }
-                                .cur-box ha-icon { transform: scale(2); }
-                      # Distanza HIGH
-                      - type: grid
-                        columns: 2
-                        square: false
-                        card_mod:
-                          style: |
-                            hui-grid-card { grid-template-columns: 80px 1fr !important; gap: 0px !important; margin-bottom: 4px !important; }
-                            #root { grid-template-columns: 80px 1fr !important; gap: 0px !important; }
-                        cards:
-                          - type: button
-                            icon: mdi:refresh
-                            tap_action:
-                              action: perform-action
-                              perform_action: input_number.set_value
-                              target: { entity_id: input_number.fan_distance_high }
-                              data: { value: 0 }
-                            card_mod:
-                              style: |
-                                ha-card { border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0; height: 62px; width: 80px !important; background: none; display: flex; align-items: center; justify-content: center; }
-                                ha-state-icon { --mdc-icon-size: 24px; }
-                          - type: custom:numberbox-card
-                            entity: input_number.fan_distance_high
-                            name: "Distanza HIGH"
-                            border: true
-                            card_mod:
-                              style: |
-                                ha-card { border-left: none; border-top-left-radius: 0; border-bottom-left-radius: 0; background: none; }
-                                .cur-num { font-size: 25px !important; }
-                                .cur-unit { color: orange !important; font-size: 100% !important; opacity: 1 !important; }
-                                .grid-left { color: red !important; }
-                                .grid-right { color: blue !important; }
-                                .cur-box ha-icon { transform: scale(2); }
-                      # Distanza RESUME
-                      - type: grid
-                        columns: 2
-                        square: false
-                        card_mod:
-                          style: |
-                            hui-grid-card { grid-template-columns: 80px 1fr !important; gap: 0px !important; margin-bottom: 4px !important; }
-                            #root { grid-template-columns: 80px 1fr !important; gap: 0px !important; }
-                        cards:
-                          - type: button
-                            icon: mdi:refresh
-                            tap_action:
-                              action: perform-action
-                              perform_action: input_number.set_value
-                              target: { entity_id: input_number.fan_distance_resume }
-                              data: { value: 0 }
-                            card_mod:
-                              style: |
-                                ha-card { border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0; height: 62px; width: 80px !important; background: none; display: flex; align-items: center; justify-content: center; }
-                                ha-state-icon { --mdc-icon-size: 24px; }
-                          - type: custom:numberbox-card
-                            entity: input_number.fan_distance_resume
-                            name: "Distanza RESUME"
-                            border: true
-                            card_mod:
-                              style: |
-                                ha-card { border-left: none; border-top-left-radius: 0; border-bottom-left-radius: 0; background: none; }
-                                .cur-num { font-size: 25px !important; }
-                                .cur-unit { color: orange !important; font-size: 100% !important; opacity: 1 !important; }
-                                .grid-left { color: red !important; }
-                                .grid-right { color: blue !important; }
-                                .cur-box ha-icon { transform: scale(2); }
-                      # Ritardo Ripresa
-                      - type: grid
-                        columns: 2
-                        square: false
-                        card_mod:
-                          style: |
-                            hui-grid-card { grid-template-columns: 80px 1fr !important; gap: 0px !important; margin-bottom: 4px !important; }
-                            #root { grid-template-columns: 80px 1fr !important; gap: 0px !important; }
-                        cards:
-                          - type: button
-                            icon: mdi:refresh
-                            tap_action:
-                              action: perform-action
-                              perform_action: input_number.set_value
-                              target: { entity_id: input_number.fancoil_resume_delay_minutes }
-                              data: { value: 0 }
-                            card_mod:
-                              style: |
-                                ha-card { border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0; height: 62px; width: 80px !important; background: none; display: flex; align-items: center; justify-content: center; }
-                                ha-state-icon { --mdc-icon-size: 24px; }
-                          - type: custom:numberbox-card
-                            entity: input_number.fancoil_resume_delay_minutes
-                            name: "Ritardo Ripresa"
-                            border: true
-                            card_mod:
-                              style: |
-                                ha-card { border-left: none; border-top-left-radius: 0; border-bottom-left-radius: 0; background: none; }
-                                .cur-num { font-size: 25px !important; }
-                                .cur-unit { color: orange !important; font-size: 100% !important; opacity: 1 !important; }
-                                .grid-left { color: red !important; }
-                                .grid-right { color: blue !important; }
-                                .cur-box ha-icon { transform: scale(2); }
-                      # Soglia Temp Circuito Heat
-                      - type: grid
-                        columns: 2
-                        square: false
-                        card_mod:
-                          style: |
-                            hui-grid-card { grid-template-columns: 80px 1fr !important; gap: 0px !important; margin-bottom: 4px !important; }
-                            #root { grid-template-columns: 80px 1fr !important; gap: 0px !important; }
-                        cards:
-                          - type: button
-                            icon: mdi:refresh
-                            tap_action:
-                              action: perform-action
-                              perform_action: input_number.set_value
-                              target: { entity_id: input_number.circuit_temp_threshold_heat }
-                              data: { value: 0 }
-                            card_mod:
-                              style: |
-                                ha-card { border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0; height: 62px; width: 80px !important; background: none; display: flex; align-items: center; justify-content: center; }
-                                ha-state-icon { --mdc-icon-size: 24px; }
-                          - type: custom:numberbox-card
-                            entity: input_number.circuit_temp_threshold_heat
-                            name: "Soglia Temp Heat"
-                            border: true
-                            card_mod:
-                              style: |
-                                ha-card { border-left: none; border-top-left-radius: 0; border-bottom-left-radius: 0; background: none; }
-                                .cur-num { font-size: 25px !important; }
-                                .cur-unit { color: orange !important; font-size: 100% !important; opacity: 1 !important; }
-                                .grid-left { color: red !important; }
-                                .grid-right { color: blue !important; }
-                                .cur-box ha-icon { transform: scale(2); }
-                      # Soglia Temp Circuito Cool
-                      - type: grid
-                        columns: 2
-                        square: false
-                        card_mod:
-                          style: |
-                            hui-grid-card { grid-template-columns: 80px 1fr !important; gap: 0px !important; margin-bottom: 4px !important; }
-                            #root { grid-template-columns: 80px 1fr !important; gap: 0px !important; }
-                        cards:
-                          - type: button
-                            icon: mdi:refresh
-                            tap_action:
-                              action: perform-action
-                              perform_action: input_number.set_value
-                              target: { entity_id: input_number.circuit_temp_threshold_cool }
-                              data: { value: 0 }
-                            card_mod:
-                              style: |
-                                ha-card { border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0; height: 62px; width: 80px !important; background: none; display: flex; align-items: center; justify-content: center; }
-                                ha-state-icon { --mdc-icon-size: 24px; }
-                          - type: custom:numberbox-card
-                            entity: input_number.circuit_temp_threshold_cool
-                            name: "Soglia Temp Cool"
-                            border: true
-                            card_mod:
-                              style: |
-                                ha-card { border-left: none; border-top-left-radius: 0; border-bottom-left-radius: 0; background: none; }
-                                .cur-num { font-size: 25px !important; }
-                                .cur-unit { color: orange !important; font-size: 100% !important; opacity: 1 !important; }
-                                .grid-left { color: red !important; }
-                                .grid-right { color: blue !important; }
-                                .cur-box ha-icon { transform: scale(2); }
-
-              # COLONNA 2: Soglie Operative
-              - type: vertical-stack
+              # Soglia Temp Circuito Cool
+              - type: grid
+                columns: 2
+                square: false
+                card_mod:
+                  style: |
+                    hui-grid-card { grid-template-columns: 80px 1fr !important; gap: 0px !important; margin-bottom: 4px !important; }
+                    #root { grid-template-columns: 80px 1fr !important; gap: 0px !important; }
                 cards:
-                  - type: vertical-stack
-                    title: Soglie Operative
-                    cards:
-                      # Inerzia Cambio Velocità
+                  - type: button
+                    icon: mdi:refresh
+                    tap_action:
+                      action: perform-action
+                      perform_action: input_number.set_value
+                      target: { entity_id: input_number.circuit_temp_threshold_cool }
+                      data: { value: 0 }
+                    card_mod:
+                      style: |
+                        ha-card { border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0; height: 62px; width: 80px !important; background: none; display: flex; align-items: center; justify-content: center; }
+                        ha-state-icon { --mdc-icon-size: 24px; }
+                  - type: custom:numberbox-card
+                    entity: input_number.circuit_temp_threshold_cool
+                    name: "Soglia Temp Cool"
+                    border: true
+                    card_mod:
+                      style: |
+                        ha-card { border-left: none; border-top-left-radius: 0; border-bottom-left-radius: 0; background: none; }
+                        .cur-num { font-size: 25px !important; }
+                        .cur-unit { color: orange !important; font-size: 100% !important; opacity: 1 !important; }
+                        .grid-left { color: red !important; }
+                        .grid-right { color: blue !important; }
+                        .cur-box ha-icon { transform: scale(2); }
+
+          - type: markdown
             content: |
               ### Descrizione del Sistema Fancoil
               Questo sistema gestisce i fancoil dell'appartamento, controllando la velocità della ventola in base alla differenza tra la temperatura ambiente e il setpoint desiderato.
