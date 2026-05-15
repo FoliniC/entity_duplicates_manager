@@ -363,7 +363,7 @@
         - sensor.statistics_temperatura_camera_grande_variance
         - sensor.statistics_temperatura_camera_variance
         - sensor.statistics_temperatura_sala_variance
-      above: "0.1"
+      above: "0.07"
       for:
         minutes: 1
       trigger: numeric_state
@@ -390,17 +390,17 @@
         {% set temp_int = states(source_entity) | float(none) %}
         
         {% if temp_ext is not none and temp_int is not none %}
-          {{ (temp_int - temp_ext) | abs > 5 }}
+          {{ (temp_int - temp_ext) | abs > 3 }}
         {% else %}
           true
         {% endif %}
   actions:
-    - action: system_log.write
-      data:
+    - event: fancoil_log_event
+      event_data:
         level: info
-        logger: custom_components.window_alert
         message: >
-          Window Alert Triggered - Entity: {{ trigger.entity_id }}, 
+          Window Alert Triggered - Room: {{ trigger.to_state.name.replace('statistics_temperatura_','').replace('statistics_umidita_','').replace('_variance','') }}, 
+          Entity: {{ trigger.entity_id }}, 
           Value: {{ trigger.to_state.state }},
           Temp Est: {{ states('sensor.temperatura_strenscia') }}
     - choose:
