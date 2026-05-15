@@ -90,6 +90,47 @@ sensor:
     max_age:
       minutes: 4
 
+  # Humidity Statistics Sensors for Window Detection
+  - platform: statistics
+    name: statistics_umidita_bagno_variance
+    state_characteristic: variance
+    entity_id: sensor.fancoil_bagno_humidity
+    unique_id: sensor.umidita_bagno_variance
+    max_age:
+      minutes: 5
+
+  - platform: statistics
+    name: statistics_umidita_cucina_variance
+    state_characteristic: variance
+    entity_id: sensor.th1a_humidity
+    unique_id: sensor.umidita_cucina_variance
+    max_age:
+      minutes: 5
+
+  - platform: statistics
+    name: statistics_umidita_camera_grande_variance
+    state_characteristic: variance
+    entity_id: sensor.th2b_humidity
+    unique_id: sensor.umidita_camera_grande_variance
+    max_age:
+      minutes: 5
+
+  - platform: statistics
+    name: statistics_umidita_camera_variance
+    state_characteristic: variance
+    entity_id: sensor.th3c_humidity
+    unique_id: sensor.umidita_camera_variance
+    max_age:
+      minutes: 5
+
+  - platform: statistics
+    name: statistics_umidita_sala_variance
+    state_characteristic: variance
+    entity_id: sensor.th4d_humidity
+    unique_id: sensor.umidita_sala_variance
+    max_age:
+      minutes: 5
+
   # InfluxDB
   - platform: influxdb
     api_version: 2

@@ -355,7 +355,7 @@
   mode: single
 - id: "1707128644063"
   alias: Alert finestra stanza
-  description: ""
+  description: "Rileva apertura finestre tramite varianza termica e di umidità con controllo delta esterno"
   triggers:
     - entity_id:
         - sensor.statistics_temperatura_bagno_variance
@@ -367,14 +367,46 @@
       for:
         minutes: 1
       trigger: numeric_state
-  conditions: []
+    - entity_id:
+        - sensor.statistics_umidita_bagno_variance
+        - sensor.statistics_umidita_cucina_variance
+        - sensor.statistics_umidita_camera_grande_variance
+        - sensor.statistics_umidita_camera_variance
+        - sensor.statistics_umidita_sala_variance
+      above: "2.0"
+      for:
+        minutes: 1
+      trigger: numeric_state
+  conditions:
+    - condition: template
+      alias: "Verifica differenziale termico interno/esterno > 5 gradi"
+      value_template: >
+        {% set temp_ext = states('sensor.temperatura_strenscia') | float(none) %}
+        {% if trigger.entity_id.startswith('sensor.statistics_temperatura') %}
+          {% set source_entity = state_attr(trigger.entity_id, 'entity_id') %}
+        {% else %}
+          {% set source_entity = state_attr(trigger.entity_id.replace('umidita', 'temperatura'), 'entity_id') %}
+        {% endif %}
+        {% set temp_int = states(source_entity) | float(none) %}
+        
+        {% if temp_ext is not none and temp_int is not none %}
+          {{ (temp_int - temp_ext) | abs > 5 }}
+        {% else %}
+          true
+        {% endif %}
   actions:
+    - action: system_log.write
+      data:
+        level: info
+        logger: custom_components.window_alert
+        message: >
+          Window Alert Triggered - Entity: {{ trigger.entity_id }}, 
+          Value: {{ trigger.to_state.state }},
+          Temp Est: {{ states('sensor.temperatura_strenscia') }}
     - choose:
         - conditions:
             - condition: template
-              value_template:
-                "{{ trigger.entity_id == 'sensor.statistics_temperatura_bagno_variance'
-                }}"
+              value_template: "{{ 'bagno' in trigger.entity_id }}"
           sequence:
             - data:
                 message: TTS
@@ -383,9 +415,7 @@
               action: notify.mobile_app_redmi_note_13_pro_5g
         - conditions:
             - condition: template
-              value_template:
-                "{{ trigger.entity_id == 'sensor.statistics_temperatura_cucina_variance'
-                }}"
+              value_template: "{{ 'cucina' in trigger.entity_id }}"
           sequence:
             - data:
                 message: TTS
@@ -394,9 +424,7 @@
               action: notify.mobile_app_redmi_note_13_pro_5g
         - conditions:
             - condition: template
-              value_template:
-                "{{ trigger.entity_id == 'sensor.statistics_temperatura_camera_grande_variance'
-                }}"
+              value_template: "{{ 'camera_grande' in trigger.entity_id }}"
           sequence:
             - data:
                 message: TTS
@@ -405,9 +433,7 @@
               action: notify.mobile_app_redmi_note_13_pro_5g
         - conditions:
             - condition: template
-              value_template:
-                "{{ trigger.entity_id == 'sensor.statistics_temperatura_camera_variance'
-                }}"
+              value_template: "{{ 'camera' in trigger.entity_id and 'camera_grande' not in trigger.entity_id }}"
           sequence:
             - data:
                 message: TTS
@@ -416,9 +442,7 @@
               action: notify.mobile_app_redmi_note_13_pro_5g
         - conditions:
             - condition: template
-              value_template:
-                "{{ trigger.entity_id == 'sensor.statistics_temperatura_sala_variance'
-                }}"
+              value_template: "{{ 'sala' in trigger.entity_id }}"
           sequence:
             - data:
                 message: TTS

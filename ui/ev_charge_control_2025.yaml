@@ -99,22 +99,31 @@ views:
           - entity: input_number.ev_charge_2025_duration
             name: "Durata (minuti)"
 
-      # TASTO AVVIO
-      - type: conditional
-        conditions: [{ entity: binary_sensor.ev_charge_2025_can_charge, state: "on" }]
-        card:
-          type: custom:mushroom-template-card
-          primary: >
-            {{ 'FERMA RICARICA' if is_state('input_boolean.ev_charge_2025_charging_active', 'on') else 'AVVIA RICARICA' }}
-          icon: >
-            {{ 'mdi:stop-circle' if is_state('input_boolean.ev_charge_2025_charging_active', 'on') else 'mdi:play-circle' }}
-          icon_color: >
-            {{ 'red' if is_state('input_boolean.ev_charge_2025_charging_active', 'on') else 'green' }}
-          layout: horizontal
-          tap_action:
-            action: call-service
-            service: input_boolean.toggle
-            target: { entity_id: input_boolean.ev_charge_2025_charging_active }
+      # TASTO AVVIO (Sempre visibile)
+      - type: custom:mushroom-template-card
+        primary: >
+          {% if is_state('input_boolean.ev_charge_2025_charging_active', 'on') %}
+            FERMA RICARICA
+          {% else %}
+            {% if is_state('binary_sensor.ev_charge_2025_can_charge', 'off') %}
+              PROGRAMMA AVVIO (al collegamento)
+            {% else %}
+              AVVIA RICARICA
+            {% endif %}
+          {% endif %}
+        secondary: >
+          {% if is_state('input_boolean.ev_charge_2025_charging_active', 'off') and is_state('binary_sensor.ev_charge_2025_can_charge', 'off') %}
+            Veicolo non collegato: la ricarica partirà automaticamente al plugin.
+          {% endif %}
+        icon: >
+          {{ 'mdi:stop-circle' if is_state('input_boolean.ev_charge_2025_charging_active', 'on') else 'mdi:play-circle' }}
+        icon_color: >
+          {{ 'red' if is_state('input_boolean.ev_charge_2025_charging_active', 'on') else 'green' }}
+        layout: horizontal
+        tap_action:
+          action: call-service
+          service: input_boolean.toggle
+          target: { entity_id: input_boolean.ev_charge_2025_charging_active }
 
       # --- PROGRAMMAZIONE (Solo Automatico) ---
       - type: conditional
