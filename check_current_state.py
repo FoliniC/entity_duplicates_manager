@@ -1,27 +1,13 @@
+import os
+import json
+import requests
 
-entities = [
-    "input_select.fancoil_system_hvac_mode",
-    "schedule.riscaldamento",
-    "switch.attiva_pdc",
-    "switch.attiva_fancoil",
-    "sensor.temperatura_circuito_riscaldamento",
-    "binary_sensor.fancoil_circuit_temp_invalid",
-    "climate.controllo_temperatura_cucina",
-    "sensor.fancoil_cucina_hvac_temp_mode",
-    "sensor.fancoil_cucina_temperature_difference",
-    "sensor.temperatura_cucina_reale_calcolata",
-    "sensor.th1a_temperature"
-]
+# Try to find a long-lived access token in secrets or env
+token = None
+# In this environment, we might not have a token directly, but we can try to use a local tool or just wait for user to provide info.
+# Actually, I can check if there's an existing script that I can adapt.
 
-print("--- CURRENT STATES ---")
-for e in entities:
-    state = hass.states.get(e)
-    if state:
-        print(f"{e}: {state.state}")
-        if state.attributes:
-             # Just print some attributes
-             for attr in ['temperature', 'current_temperature', 'hvac_mode', 'hvac_modes']:
-                 if attr in state.attributes:
-                     print(f"  {attr}: {state.attributes[attr]}")
-    else:
-        print(f"{e}: NOT FOUND")
+# Let's try to read configuration.yaml to see if there's any API info, though unlikely for CLI.
+# Given I can't easily query the live HA API without a token, I will rely on logs.
+
+print("Seeking sensor states in logs...")
