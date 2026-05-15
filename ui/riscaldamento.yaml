@@ -16,25 +16,16 @@ views:
             columns: 3
             square: false
             cards:
-              # COLONNA 1: Programmazione e Comandi
+              # COLONNA 1: Stato e Comandi Generali
               - type: vertical-stack
                 cards:
-                  - type: custom:scheduler-card
-                    title: Programmazione Cucina
-                    discover_existing: true
-                    create_schedule:
-                      - entity: climate.controllo_temperatura_cucina
-                        name: Imposta temperatura Cucina
-                        actions:
-                          - service: climate.set_temperature
-                            service_data:
-                              temperature: 20
-                    display_options:
-                      show_header_toggle: false
-                      show_last_triggered: true
-                      show_next_trigger: true
-                    include:
-                      - climate
+                  - type: entities
+                    title: Stato Sistema
+                    state_color: true
+                    entities:
+                      - entity: switch.attiva_fancoil
+                      - entity: switch.attiva_pdc
+                      - entity: switch.attiva_pompa_circolazione
                   - type: entities
                     title: Comandi Generali
                     entities:
@@ -44,6 +35,9 @@ views:
                       - entity: input_number.climate_setpoint_offset
                         name: Offset temperatura
                         icon: mdi:thermometer-plus-minus
+                      - entity: input_boolean.fancoil_logging_master_enabled
+                        name: Logging Master
+                        icon: mdi:file-document-outline
                   - show_name: true
                     show_icon: true
                     type: button
@@ -54,14 +48,9 @@ views:
                       perform_action: shell_command.generate_fancoil_climates
                       target: {}
 
-              # COLONNA 2: Parametri Globali (Slider con Reset 80px)
+              # COLONNA 2: Soglie Operative (Slider con Reset 80px)
               - type: vertical-stack
                 cards:
-                  - type: entities
-                    title: Gestione Logging
-                    entities:
-                      - entity: input_boolean.fancoil_logging_master_enabled
-                        name: Logging Master
                   - type: vertical-stack
                     title: Soglie Operative
                     cards:
@@ -353,17 +342,6 @@ views:
                                 .grid-left { color: red !important; }
                                 .grid-right { color: blue !important; }
                                 .cur-box ha-icon { transform: scale(2); }
-
-              # COLONNA 3: Info e Switch Sistema
-              - type: vertical-stack
-                cards:
-                  - type: entities
-                    title: Stato Sistema
-                    state_color: true
-                    entities:
-                      - entity: switch.attiva_fancoil
-                      - entity: switch.attiva_pdc
-                      - entity: switch.attiva_pompa_circolazione
 
           # DESCRIZIONE SISTEMA (A tutta larghezza)
           - type: markdown
