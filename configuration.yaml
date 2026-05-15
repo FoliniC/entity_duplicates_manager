@@ -438,12 +438,12 @@ lovelace:
       icon: mdi:hvac
       show_in_sidebar: true
       filename: ui/fix_entities.yaml
-    # developer-tools:
-    #   mode: yaml
-    #   title: Developer tools
-    #   icon: mdi:tools
-    #   show_in_sidebar: true
-    #   filename: config/developer-tools/dashboard.yaml
+    developer-tools:
+      mode: yaml
+      title: Developer tools
+      icon: mdi:tools
+      show_in_sidebar: true
+      filename: dashboards/developer-tools.yaml
     guacamole-remote:
       mode: yaml
       title: Guacamole
