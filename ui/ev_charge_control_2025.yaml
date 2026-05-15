@@ -1,10 +1,12 @@
-title: EV Charging 2025
+title: EV Charging 2025 effettivo
 views:
-  - path: ev_charging_2025
-    title: Ricarica EV 2025
-    icon: mdi:ev-station
+  # ============================================================================
+  # TAB 1: CONTROLLI
+  # ============================================================================
+  - title: Controlli
+    path: controlli
     cards:
-      # --- HEADER STATO E MODALITÀ ---
+      # HEADER STATO
       - type: grid
         columns: 2
         square: false
@@ -12,12 +14,10 @@ views:
           - type: custom:mushroom-template-card
             primary: "{{ states('sensor.ev_charge_2025_reason') }}"
             secondary: "Prism: {{ states('sensor.prism_stato_wallbox') }} (Rev. 31)"
-            icon: mdi:ev-station
             icon_color: >
               {% if is_state('binary_sensor.ev_charge_2025_can_charge', 'off') %} orange
               {% elif is_state('input_boolean.ev_charge_2025_charging_active', 'on') %} green
               {% else %} blue {% endif %}
-            tap_action: { action: none }
 
           - type: custom:mushroom-template-card
             primary: "Gestione"
@@ -27,114 +27,100 @@ views:
               {% else %} mdi:robot {% endif %}
             icon_color: indigo
             tap_action:
-              {
-                action: call-service,
-                service: input_select.select_next,
-                target: { entity_id: input_select.ev_charge_2025_mode },
-              }
+              action: call-service
+              service: input_select.select_next
+              target: { entity_id: input_select.ev_charge_2025_mode }
 
-      # --- SPIEGAZIONE STATO OPERATIVO ---
+      # RIEPILOGO STATO
       - type: markdown
         content: >
-          **Stato Operativo:**
+          {% set mins = states('sensor.ev_charge_2025_time_to_limit') | int(0) %}
+          {% set h = mins // 60 %}
+          {% set m = mins % 60 %}
+          {% set end_time = (now() + timedelta(minutes=mins)).strftime('%H:%M') %}
+          **Stato Operativo:** {{ states('sensor.ev_charge_2025_reason') }}
 
-          {{ states('sensor.ev_charge_2025_reason') }}
+          **Tempo Stimato alla Fine:** {{ end_time }} ({{h}}h{{ "%02d"|format(m) }}'00")
 
+          **Parametri Real-time:**
+          - **Solar Max:** {{ states('sensor.ev_charge_2025_solar_max_ampere') }} A
+          - **Tensione:** {{ states('sensor.folini_carlo_voltage_ac') }} V
+          - **MQTT Inviato:** {{ states("input_text.ev_charge_2025_last_mqtt_payload") }} A ({{ states("input_text.ev_charge_2025_last_mqtt_time") }})
 
-          **Parametri di Calcolo:**
-
-          - **Solar Max Disponibile:** {{ states('sensor.ev_charge_2025_solar_max_ampere') }} A
-
-          - **Tensione AC:** {{ states('sensor.folini_carlo_voltage_ac') }} V
-
-          - **Potenza Target CronoStar:** {{ states('input_number.ev_charge_2025_cronostar_power_target') }} kW
-
-          - **Tempo Stimato alla Fine:** {{ states("sensor.ev_charge_2025_time_to_limit") }}
-
-          **Debug MQTT Prism:**
-          - Topic: `home/prism/1/command/set_current_user`
-          - Valore: {{ states("input_text.ev_charge_2025_last_mqtt_payload") }} A
-          - Inviato: {{ states("input_text.ev_charge_2025_last_mqtt_time") }}
-
-      # --- CONTROLLI PRINCIPALI ---
-      - type: vertical-stack
+      # GRAFICI SOC E POTENZA
+      - type: grid
+        columns: 2
+        square: false
         cards:
-          - type: conditional
-            conditions:
-              [
-                {
-                  entity: binary_sensor.ev_charge_2025_can_charge,
-                  state: "off",
-                },
-              ]
-            card:
-              type: custom:mushroom-template-card
-              primary: "⚠️ ATTENZIONE"
-              secondary: "{{ states('sensor.ev_charge_2025_reason') }}"
-              icon: mdi:alert-circle
-              icon_color: red
-              layout: horizontal
-              tap_action: { action: none }
-              card_mod:
-                {
-                  style: "ha-card { background: rgba(255, 0, 0, 0.05); border: 1px solid red; }",
-                }
+          - type: gauge
+            entity: sensor.ev_charge_2025_current_soc
+            name: Batteria Auto
+            unit: "%"
+            severity:
+              green: 60
+              yellow: 20
+              red: 0
+          - type: gauge
+            entity: sensor.byd_battery_box_premium_hv_state_of_charge
+            name: Batteria Casa
+            unit: "%"
+            severity:
+              green: 50
+              yellow: 20
+              red: 0
 
-          - type: entities
-            entities:
-              - entity: input_number.ev_charge_2025_manual_power_kw
-                name: "Potenza (kW)"
-              - entity: input_number.ev_charge_2025_vehicle_limit_soc
-                name: "Obiettivo Carica %"
-              - entity: input_number.ev_charge_2025_battery_capacity
-                name: "Capacità Batteria (kWh)"
-              - entity: input_number.ev_charge_2025_target_soc
-                name: "Soglia Minima %"
-              - entity: input_number.ev_charge_2025_duration
-                name: "Durata (minuti)"
-                card_mod:
-                  style:
-                    hui-generic-entity-row $: |
-                      .text-content {
-                        font-size: {{ '0px' if states(config.entity)|float == 240 }} !important;
-                      }
-                      .text-content::after {
-                        font-size: 14px;
-                        content: "{{ 'nessun limite' if states(config.entity)|float == 240 }}";
-                        color: green;
-                      }
-                    .: |
-                      :host {
-                        --mdc-theme-primary: {{ 'green' if states(config.entity)|float == 240 }};
-                        --paper-item-icon-color: {{ 'green' if states(config.entity)|float == 240 }};
-                      }
-            show_header_toggle: false
+      - type: gauge
+        entity: sensor.prism_potenza_assorbita
+        name: Potenza Ricarica
+        unit: "W"
+        min: 0
+        max: 7400
+        needle: true
+        severity:
+          green: 0
+          yellow: 3000
+          red: 6000
 
-          # TASTO SMART (SWITCH)
+      # INPUT PRINCIPALI
+      - type: entities
+        show_header_toggle: false
+        entities:
           - type: conditional
-            conditions:
-              [{ entity: binary_sensor.ev_charge_2025_can_charge, state: "on" }]
-            card:
-              type: custom:mushroom-template-card
-              primary: >
-                {{ 'FERMA RICARICA' if is_state('input_boolean.ev_charge_2025_charging_active', 'on') else 'AVVIA RICARICA' }}
-              secondary: >
-                {{ 'In corso...' if is_state('input_boolean.ev_charge_2025_charging_active', 'on') else 'Pronto per partire' }}
-              icon: >
-                {{ 'mdi:stop-circle' if is_state('input_boolean.ev_charge_2025_charging_active', 'on') else 'mdi:play-circle' }}
-              icon_color: >
-                {{ 'red' if is_state('input_boolean.ev_charge_2025_charging_active', 'on') else 'green' }}
-              layout: horizontal
-              tap_action:
-                action: call-service
-                service: input_boolean.toggle
-                target:
-                  { entity_id: input_boolean.ev_charge_2025_charging_active }
+            conditions: [{ entity: input_select.ev_charge_2025_mode, state: "Manuale" }]
+            row:
+              entity: input_number.ev_charge_2025_manual_power_kw
+              name: "Potenza Manuale (kW)"
+          - entity: input_number.ev_charge_2025_vehicle_limit_soc
+            name: "Obiettivo Carica %"
+          - entity: input_number.ev_charge_2025_battery_capacity
+            name: "Capacità Batteria (kWh)"
+          - entity: input_number.ev_charge_2025_target_soc
+            name: "Soglia Minima %"
+          - entity: input_number.ev_charge_2025_duration
+            name: "Durata (minuti)"
+
+      # TASTO AVVIO
+      - type: conditional
+        conditions: [{ entity: binary_sensor.ev_charge_2025_can_charge, state: "on" }]
+        card:
+          type: custom:mushroom-template-card
+          primary: >
+            {{ 'FERMA RICARICA' if is_state('input_boolean.ev_charge_2025_charging_active', 'on') else 'AVVIA RICARICA' }}
+          icon: >
+            {{ 'mdi:stop-circle' if is_state('input_boolean.ev_charge_2025_charging_active', 'on') else 'mdi:play-circle' }}
+          icon_color: >
+            {{ 'red' if is_state('input_boolean.ev_charge_2025_charging_active', 'on') else 'green' }}
+          layout: horizontal
+          tap_action:
+            action: call-service
+            service: input_boolean.toggle
+            target: { entity_id: input_boolean.ev_charge_2025_charging_active }
 
       # --- PROGRAMMAZIONE (Solo Automatico) ---
       - type: conditional
         conditions:
-          [{ entity: input_select.ev_charge_2025_mode, state: "Automatico" }]
+          - entity: input_select.ev_charge_2025_mode
+            state: "Automatico"
         card:
           type: custom:cronostar-card
           preset: ev_charging
@@ -152,166 +138,89 @@ views:
           min_value: 0
           max_value: 12
           step_value: 0.5
-          height: 280px
-          is_switch_preset: false
 
-      # --- MONITORAGGIO ENERGETICO (Condizionale) ---
+      # CONFIGURAZIONE BATTERIA
       - type: conditional
         conditions:
-          [
-            {
-              entity: input_boolean.ev_charge_2025_charging_active,
-              state: "on",
-            },
-          ]
+          - entity: input_select.ev_charge_2025_mode
+            state: "Automatico"
         card:
-          type: vertical-stack
-          cards:
-            - type: custom:mushroom-title-card
-              title: "⚡ Monitoraggio Energetico"
-            - type: grid
-              columns: 2
-              square: false
-              cards:
-                - type: gauge
-                  entity: sensor.prism_potenza_assorbita
-                  name: Carica
-                  unit: "W"
-                  min: 0
-                  max: 7400
-                  needle: true
-                  severity: { green: 0, yellow: 3000, red: 6000 }
-                - type: custom:apexcharts-card
-                  chart_type: donut
-                  header:
-                    show: true
-                    title: Breakdown Sorgenti
-                    show_states: true
-                    colorize_states: true
-                  apex_config:
-                    legend:
-                      show: true
-                      position: bottom
-                      fontSize: "12px"
-                    chart:
-                      height: 230
-                    dataLabels:
-                      enabled: true
-                      formatter: |
-                        EVAL:function(val) {
-                          return val.toFixed(0) + "%";
-                        }
-                  series:
-                    - {
-                        entity: sensor.ev_charge_2025_power_from_solar,
-                        name: Sole,
-                        color: "#FFD93D",
-                      }
-                    - {
-                        entity: sensor.ev_charge_2025_power_from_battery,
-                        name: Batt,
-                        color: "#6BCF7F",
-                      }
-                    - {
-                        entity: sensor.ev_charge_2025_power_from_grid,
-                        name: Rete,
-                        color: "#95A5A6",
-                      }
+          type: entities
+          title: "🔋 Configurazione Dinamica BYD"
+          entities:
+            - entity: input_number.ev_charge_2025_byd_protection_soc
+              name: "Soglia Protezione (Stop)"
+            - entity: input_number.ev_charge_2025_byd_inversion_soc
+              name: "Soglia Inversione (100% Sole)"
+            - entity: input_number.ev_charge_2025_byd_max_discharge_soc
+              name: "Soglia Scarica Max"
+            - entity: input_number.ev_charge_2025_byd_max_charge_power
+              name: "Carica Max BYD (kW)"
+            - entity: input_number.ev_charge_2025_byd_max_discharge_power
+              name: "Scarica Max BYD (kW)"
 
-      # --- STATO INATTIVO (Condizionale) ---
-      - type: conditional
-        conditions:
-          [
-            {
-              entity: input_boolean.ev_charge_2025_charging_active,
-              state: "off",
-            },
-          ]
-        card:
-          type: vertical-stack
-          cards:
-            - type: custom:mushroom-title-card
-              title: "⚡ Monitoraggio Energetico"
-            - type: custom:mushroom-template-card
-              primary: "Ricarica Inattiva"
-              secondary: "I grafici di breakdown appariranno qui all'avvio."
-              icon: mdi:flash-off
+  # ============================================================================
+  # TAB 2: GRAFICI
+  # ============================================================================
+  - title: Grafici
+    path: grafici
+    cards:
+      - type: custom:apexcharts-card
+        graph_span: 12h
+        header: { show: true, title: "Potenza Ricarica (W)", show_states: true }
+        series: [{ entity: sensor.prism_potenza_assorbita, name: "Prism", type: area, color: "#03a9f4" }]
 
       - type: custom:apexcharts-card
         graph_span: 12h
-        header:
-          show: true
-          title: "Storico Potenza Ricarica (W)"
-          show_states: true
-          colorize_states: true
+        header: { show: true, title: "Breakdown Sorgenti", show_states: true }
+        chart_type: donut
         series:
-          - entity: sensor.prism_potenza_assorbita
-            name: "Prism"
-            type: area
-            color: "#03a9f4"
-            stroke_width: 2
-            fill_raw: "last"
+          - { entity: sensor.ev_charge_2025_power_from_solar, name: Sole, color: "#FFD93D" }
+          - { entity: sensor.ev_charge_2025_power_from_battery, name: Batt, color: "#6BCF7F" }
+          - { entity: sensor.ev_charge_2025_power_from_grid, name: Rete, color: "#95A5A6" }
 
       - type: custom:apexcharts-card
-        graph_span: 12h
-        header:
-          show: true
-          title: "Storico SOC MG4 (%)"
-          show_states: true
-          colorize_states: true
+        graph_span: 24h
+        header: { show: true, title: "Stato Carica (%)", show_states: true }
         series:
-          - entity: sensor.ev_charge_2025_current_soc
-            name: "SOC MG4"
-            type: area
-            color: "#FFD93D"
-            stroke_width: 2
-            fill_raw: "last"
+          - { entity: sensor.ev_charge_2025_current_soc, name: "Auto", color: "#FFD93D" }
+          - { entity: sensor.byd_battery_box_premium_hv_state_of_charge, name: "Batteria Casa", color: "#6BCF7F" }
 
-      - type: custom:apexcharts-card
-        graph_span: 12h
-        header:
-          show: true
-          title: "Storico SOC Batteria Casa (%)"
-          show_states: true
-          colorize_states: true
-        series:
-          - entity: sensor.byd_battery_box_premium_hv_state_of_charge
-            name: "Batteria Casa"
-            type: area
-            color: "#6BCF7F"
-            stroke_width: 2
-            fill_raw: "last"
+  # ============================================================================
+  # TAB 3: GUIDA
+  # ============================================================================
+  - title: Guida
+    path: guida
+    cards:
+      - type: markdown
+        title: "📘 Manuale Operativo EV 2025"
+        content: >
+          ### 🔌 Modalità di Gestione
 
-      # --- DEBUG MQTT ---
-      - type: entities
-        title: "Dati Inviati MQTT Prism"
-        entities:
-          - entity: input_text.ev_charge_2025_last_mqtt_payload
-            name: "Ultimo Ampere Inviato"
-          - entity: input_text.ev_charge_2025_last_mqtt_time
-            name: "Orario Ultimo Update"
+          1. Manuale
 
+          Il sistema invia alla Prism la potenza esatta impostata nello slider Potenza Manuale. Ignora completamente la produzione solare e lo stato della batteria di casa. Utile per ricariche d'urgenza.
 
-      # --- SCHEDA ENTITÀ COINVOLTE ---
-      - type: entities
-        title: "Logica Solare e Carichi"
-        show_header_toggle: false
-        entities:
-          - entity: sensor.ev_charge_2025_solar_max_ampere
-            name: "⚡ Corrente Solare Max (A)"
-          - entity: sensor.envoy_122134037538_current_power_production
-            name: "☀️ Produzione Fotovoltaico (W)"
-          - entity: sensor.byd_battery_box_premium_hv_state_of_charge
-            name: "🔋 SOC Batteria Casa (%)"
-          - entity: sensor.calculated_w_battery
-            name: "⚖️ Apporto Batteria (W)"
-          - entity: sensor.consumo_netto_pdc_template
-            name: "🏠 Consumo PDC (W)"
-          - entity: sensor.consumo_appartamento_template
-            name: "🏢 Consumo Appartamento (W)"
-          - entity: sensor.lavastoviglie_wifi_digital_meter_lavastoviglie_potenza
-            name: "🍽️ Consumo Lavastoviglie (W)"
-          - entity: sensor.folini_carlo_voltage_ac
-            name: "🔌 Tensione AC (V)"
-          - entity: sensor.prism_potenza_assorbita
-            name: "🚗 Potenza Assorbita Auto (W)"
+          2. Automatico
+
+          La ricarica viene modulata in tempo reale in base al surplus solare e allo stato della batteria di casa, seguendo una curva dinamica di protezione.
+
+          **🔋 Parametri Batteria BYD**
+
+          - **Soglia Protezione**: Sotto questa percentuale (es. 10%), l'auto viene spenta per dare priorità assoluta alla ricarica della batteria di casa.
+
+          - **Soglia Inversione**: È il punto di equilibrio (es. 30%). Tra Protezione e Inversione, il sole viene diviso tra auto e batteria. Al raggiungimento di questa soglia, l'auto usa il 100% del surplus solare.
+
+          - **Soglia Scarica Max**: Oltre questa soglia (es. 90%), la batteria di casa aiuta l'auto con la massima potenza di scarica impostata.
+
+          - **Carica/Scarica Max (kW)**: Limiti hardware per proteggere la batteria BYD durante le fasi di aiuto alla ricarica EV.
+
+          ---
+
+          ### 🚗 Parametri Veicolo
+
+          - **Obiettivo Carica**: Percentuale di SOC dell'auto oltre la quale la ricarica si ferma automaticamente.
+
+          - **Soglia Minima**: Se il SOC dell'auto è sotto questa soglia, il sistema forzerà la ricarica a 6A anche se non c'è sole (usando la batteria di casa se sopra la soglia di inversione).
+
+          - **Durata**: Timer di spegnimento automatico. Se impostato a 240, il limite è disattivato.

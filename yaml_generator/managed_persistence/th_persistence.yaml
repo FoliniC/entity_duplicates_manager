@@ -1,4 +1,3 @@
-# Trigger-based sensors for th sensors persistence across restarts
 trigger:
   - platform: state
     entity_id:
@@ -41,7 +40,7 @@ sensor:
       {% endif %}
     availability: >
       {{ this.state is defined }}
-
+    
   - name: "th1a Humidity"
     unique_id: "th1a_humidity"
     state_class: "measurement"
@@ -67,7 +66,7 @@ sensor:
       {% endif %}
     availability: >
       {{ this.state is defined }}
-
+    
   - name: "th1a Battery"
     unique_id: "th1a_battery"
     device_class: "battery"
@@ -92,7 +91,7 @@ sensor:
       {% endif %}
     availability: >
       {{ this.state is defined }}
-
+    
   - name: "th2b Temperature"
     unique_id: "th2b_temperature"
     state_class: "measurement"
@@ -118,7 +117,7 @@ sensor:
       {% endif %}
     availability: >
       {{ this.state is defined }}
-
+    
   - name: "th2b Humidity"
     unique_id: "th2b_humidity"
     state_class: "measurement"
@@ -144,7 +143,7 @@ sensor:
       {% endif %}
     availability: >
       {{ this.state is defined }}
-
+    
   - name: "th2b Battery"
     unique_id: "th2b_battery"
     device_class: "battery"
@@ -169,7 +168,7 @@ sensor:
       {% endif %}
     availability: >
       {{ this.state is defined }}
-
+    
   - name: "th3c Temperature"
     unique_id: "th3c_temperature"
     state_class: "measurement"
@@ -195,7 +194,7 @@ sensor:
       {% endif %}
     availability: >
       {{ this.state is defined }}
-
+    
   - name: "th3c Humidity"
     unique_id: "th3c_humidity"
     state_class: "measurement"
@@ -221,7 +220,7 @@ sensor:
       {% endif %}
     availability: >
       {{ this.state is defined }}
-
+    
   - name: "th3c Battery"
     unique_id: "th3c_battery"
     device_class: "battery"
@@ -246,7 +245,7 @@ sensor:
       {% endif %}
     availability: >
       {{ this.state is defined }}
-
+    
   - name: "th4d Temperature"
     unique_id: "th4d_temperature"
     state_class: "measurement"
@@ -272,7 +271,7 @@ sensor:
       {% endif %}
     availability: >
       {{ this.state is defined }}
-
+    
   - name: "th4d Humidity"
     unique_id: "th4d_humidity"
     state_class: "measurement"
@@ -298,7 +297,7 @@ sensor:
       {% endif %}
     availability: >
       {{ this.state is defined }}
-
+    
   - name: "th4d Battery"
     unique_id: "th4d_battery"
     device_class: "battery"

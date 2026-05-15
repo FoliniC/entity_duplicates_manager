@@ -51,9 +51,12 @@ class DuplicatesCountSensor(RestoreEntity, SensorEntity):
         """Return entity specific state attributes."""
         storage = self.hass.data.get(DOMAIN, {}).get("storage")
         config = storage.config if storage else {}
+        # Limit the list of duplicates to prevent recorder warnings (max 16KB)
         return {
-            "duplicates": self._duplicates,
-            "config": config
+            "total_duplicates": len(self._duplicates),
+            "duplicates": self._duplicates[:50],
+            "config": config,
+            "truncated": len(self._duplicates) > 50
         }
 
     @callback

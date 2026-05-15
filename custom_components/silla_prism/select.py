@@ -126,6 +126,7 @@ class PrismSelect(PrismBaseEntity, SelectEntity):
     async def async_added_to_hass(self) -> None:
         """Subscribe to mqtt."""
         _LOGGER.debug("async_added_to_hass key:%s", self.entity_description.key)
+        await super().async_added_to_hass()
         await self._subscribe_topic()
 
     async def async_will_remove_from_hass(self) -> None:

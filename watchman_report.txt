@@ -32,7 +32,7 @@
 | sensor.temperatura_studio      | missing | fan_coil_config.yaml:137,148,218                             |
 | cover.tenda                    | missing | scenes.yaml:4,11                                             |
 | media_player.cucina_2          | missing | ui-lovelace.yaml:23                                          |
-| sensor.consumo_pdc             | unavail | ui-lovelace.yaml:35                                          |
+| sensor.consumo_netto_pdc_template             | unavail | ui-lovelace.yaml:35                                          |
 | sensor.consumo_appartamento    | unavail | ui-lovelace.yaml:36                                          |
 | cover.sonoff_10024024c4        | missing | configuration.yaml:59                                        |
 | lock.porta_d_ingresso          | missing | configuration.yaml:171                                       |

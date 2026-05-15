@@ -1,29 +1,64 @@
 - name: "Consumo appartamento template"
-  unique_id: sensor.consumo_appartamento_template
+  unique_id: consumo_appartamento_template
   device_class: power
   state_class: measurement
   unit_of_measurement: "W"
   state: >
     {% set p = states('sensor.wifi_dual_meter_b_new_a_old_power_a') %}
-    {{ p | float(0) if p not in ['unavailable', 'unknown', 'none'] else 0 }}
+    {{ (p | float(0) / 10) | round(2) if p not in ['unavailable', 'unknown', 'none'] else 0 }}
 - name: Potenza prelevata attuale
   unique_id: potenza_prelevata_attuale
   device_class: power
   unit_of_measurement: W
   state_class: measurement
   state: >
+    {# Priorità 1: Smart Meter (Più reattivo) - Positivo = Import #}
     {% set smart_meter = states('sensor.smart_meter_ts_100a_1_potenza_reale') %}
     {% if smart_meter not in ['unavailable', 'unknown', 'none'] %}
-      {% set prelevata_raw = smart_meter | float(0) %}
-      {% set unit_prelevata = state_attr('sensor.smart_meter_ts_100a_1_potenza_reale', 'unit_of_measurement') %}
+      {% set val = smart_meter | float(0) %}
+      {% set unit = state_attr('sensor.smart_meter_ts_100a_1_potenza_reale', 'unit_of_measurement') %}
+      {% set val_w = (val * 1000 if unit == 'kW' else val) %}
+      {{ (val_w if val_w > 0 else 0) | round(2) }}
     {% else %}
-      {% set prelevata_raw = states('sensor.alfa_new_potenza_importata') | float(0) %}
-      {% set unit_prelevata = state_attr('sensor.alfa_new_potenza_importata', 'unit_of_measurement') %}
+      {# Fallback: Alfa New #}
+      {% set alfa = states('sensor.alfa_potenza_attiva_prelevata_istantanea') %}
+      {% if alfa not in ['unavailable', 'unknown', 'none'] %}
+        {% set val = alfa | float(0) %}
+        {% set unit = state_attr('sensor.alfa_potenza_attiva_prelevata_istantanea', 'unit_of_measurement') %}
+        {{ (val * 1000 if unit == 'kW' else val) | round(2) }}
+      {% else %}
+        0
+      {% endif %}
     {% endif %}
-    {{ ((prelevata_raw * 1000) if unit_prelevata == 'kW' else prelevata_raw) | round(2) }}
+
+- name: Potenza esportata attuale
+  unique_id: potenza_esportata_attuale
+  device_class: power
+  unit_of_measurement: W
+  state_class: measurement
+  state: >
+    {# Priorità 1: Smart Meter (Più reattivo) - Negativo = Export #}
+    {% set smart_meter = states('sensor.smart_meter_ts_100a_1_potenza_reale') %}
+    {% if smart_meter not in ['unavailable', 'unknown', 'none'] %}
+      {% set val = smart_meter | float(0) %}
+      {% set unit = state_attr('sensor.smart_meter_ts_100a_1_potenza_reale', 'unit_of_measurement') %}
+      {% set val_w = (val * 1000 if unit == 'kW' else val) %}
+      {{ (val_w | abs if val_w < 0 else 0) | round(2) }}
+    {% else %}
+      {# Fallback: Alfa New #}
+      {% set alfa = states('sensor.alfa_potenza_attiva_immessa_istantanea') %}
+      {% if alfa not in ['unavailable', 'unknown', 'none'] %}
+        {% set val = alfa | float(0) %}
+        {% set unit = state_attr('sensor.alfa_potenza_attiva_immessa_istantanea', 'unit_of_measurement') %}
+        {{ (val * 1000 if unit == 'kW' else val) | round(2) }}
+      {% else %}
+        0
+      {% endif %}
+    {% endif %}
 
 - name: Potenza consumata attuale
   unique_id: potenza_consumata_attuale
+  state_class: measurement
   state: >
     {# Sorgente 1: Solare #}
     {% set solare = states('sensor.produzione_solare') | float(0) %}
@@ -34,12 +69,12 @@
     {# Sorgente 3: Batteria (Scarica) #}
     {% set p_battery_dis = states('sensor.solarnet_power_battery_discharge') | float(0) %}
 
-    {# La Potenza Consumata Attuale (Distribuzione) è la somma di tutte le sorgenti #}
+    {# La Potenza Consumata Attuale nel nodo centrale DEVE essere la somma delle sorgenti per bilanciare la Sankey Chart #}
     {{ (solare + p_prelevata + p_battery_dis) | round(2) }}
   unit_of_measurement: W
   device_class: power
 
-- name: "Consumo impianto nuovo (template)"
+- name: "Consumo impianto nuovo"
   unique_id: consumo_impianto_nuovo
   device_class: power
   state_class: measurement
@@ -48,7 +83,7 @@
     {# Priorità 1: Misuratore Totale Impianto Nuovo #}
     {% set p_tot = states('sensor.wifi_dual_meter_b_new_a_old_power_b') %}
     {% if p_tot not in ['unavailable', 'unknown', 'none'] %}
-      {{ p_tot | float(0) | round(2) }}
+      {{ (p_tot | float(0) / 10) | round(2) }}
     {% else %}
       {# Fallback: Somma dei carichi noti #}
       {% set pdc = states('sensor.consumo_netto_pdc_template') | float(0) %}
@@ -69,9 +104,9 @@
         {{ value }}
       {% endif %}
     {# Priorità 2: Alfa New #}
-    {% elif states('sensor.alfa_new_potenza_prodotta') not in ['unavailable', 'unknown', 'none'] %}
-      {% set value = states('sensor.alfa_new_potenza_prodotta') | float %}
-      {% if 'kW' in state_attr('sensor.alfa_new_potenza_prodotta', 'unit_of_measurement') | string %}
+    {% elif states('sensor.produzione_solare') not in ['unavailable', 'unknown', 'none'] %}
+      {% set value = states('sensor.produzione_solare') | float %}
+      {% if 'kW' in state_attr('sensor.produzione_solare', 'unit_of_measurement') | string %}
         {{ (value * 1000) | round(1) }}
       {% else %}
         {{ value }}
@@ -83,13 +118,13 @@
   device_class: power
   state_class: measurement
   availability: >-
-    {{ states('sensor.alfa_new_potenza_prodotta') not in ['unavailable', 'unknown', 'none']
+    {{ states('sensor.produzione_solare') not in ['unavailable', 'unknown', 'none']
         or states('sensor.envoy_122134037538_current_power_production') not in ['unavailable', 'unknown', 'none'] }}
   attributes:
     fonte_dati: >-
       {% if states('sensor.envoy_122134037538_current_power_production') not in ['unavailable', 'unknown', 'none'] %}
         envoy
-      {% elif states('sensor.alfa_new_potenza_prodotta') not in ['unavailable', 'unknown', 'none'] %}
+      {% elif states('sensor.produzione_solare') not in ['unavailable', 'unknown', 'none'] %}
         alfa_new
       {% else %}
         nessuna
@@ -127,7 +162,7 @@
   device_class: "power"
   unit_of_measurement: "kW"
   state: >
-    {% set prelevata_kw = states('sensor.alfa_new_potenza_importata') | float(0) %}
+    {% set prelevata_kw = states('sensor.potenza_prelevata_attuale') | float(0) %}
     {{ (prelevata_kw * 1000 +
         states('sensor.alfa_potenza_attiva_prodotta_istantanea')|float(0) +
         states('sensor.solarnet_power_battery_charge')|float(0)) / 1000 }}

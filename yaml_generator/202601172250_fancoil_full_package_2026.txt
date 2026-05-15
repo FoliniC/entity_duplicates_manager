@@ -1003,7 +1003,7 @@ def startup_logic():
         - condition: template
           value_template: "{{ logging_active }}"
       then:
-        - action: pyscript.fancoil_events_write
+        - action: "{{ 'pyscript.fancoil_events_write' }}"
           continue_on_error: true
           data:
             message: >
@@ -1021,7 +1021,7 @@ def startup_logic():
               Stato: hvac={{ hvac_attuale }}, temp={{ states('sensor.stox_fancoil_%%id%%') | float(0) }}°C, setpoint={{ state_attr('climate.controllo_temperatura_%%id%%', 'temperature') | float(21) }}°C,
               calcolo_mode={{ hvac_temp_mode }}, diff={{ diff | round(2) }}°C,
               fan_hw={{ fan_attuale_hw }}, fan_target={{ fan_target }}
-        - action: pyscript.fancoil_events_write
+        - action: "{{ 'pyscript.fancoil_events_write' }}"
           data:
             message: "[%%friendly_name%%] DEBUG: hvac={{ hvac_attuale }}, temp={{ states('sensor.stox_fancoil_%%id%%') | float(0) }}°C, sp={{ state_attr('climate.controllo_temperatura_%%id%%', 'temperature') | float(21) }}°C, mode={{ hvac_temp_mode }}, diff={{ diff | round(2) }}°C, fan_hw={{ fan_attuale_hw }}, fan_target={{ fan_target }}"
             level: "DEBUG"
@@ -1038,7 +1038,7 @@ def startup_logic():
               data:
                 title: "Fancoil %%friendly_name%%"
                 message: "Climate non disponibile ({{ hvac_attuale }}). Automazione sospesa."
-            - action: pyscript.fancoil_events_write
+            - action: "{{ 'pyscript.fancoil_events_write' }}"
               data:
                 message: "[%%friendly_name%%] Climate UNAVAILABLE - stato={{ hvac_attuale }}, main_on={{ main_on }}"
                 level: "WARN"
@@ -1048,7 +1048,7 @@ def startup_logic():
         - condition: template
           value_template: "{{ first_run }}"
       then:
-        - action: pyscript.fancoil_events_write
+        - action: "{{ 'pyscript.fancoil_events_write' }}"
           data:
             message: >
               [%%friendly_name%%] INITIALIZATION - Global Config: MasterMode={{ states('input_select.fancoil_system_hvac_mode') }}, MasterSP=[H:{{ states('input_number.master_setpoint_heat') }}, C:{{ states('input_number.master_setpoint_cool') }}], Soglie=[S:{{ soglia_stop }}, I:{{ soglia_idle }}, L:{{ soglia_low }}, M:{{ soglia_medium }}, H:{{ soglia_high }}], Verbosity={{ verbosity_level }}, MasterLog={{ states('input_boolean.fancoil_logging_master_enabled') }} | Local Config: Offset={{ states('input_number.fancoil_%%id%%_sp_offset') }}, FollowSP={{ is_state('input_boolean.fancoil_%%id%%_sp_follow_master', 'on') }}, FollowHVAC={{ is_state('input_boolean.fancoil_%%id%%_hvac_mode_follow_master', 'on') }}
@@ -1058,7 +1058,7 @@ def startup_logic():
           data:
             title: "DEBUG FANCOIL (%%friendly_name%%) - First Run"
             message: "Valore raw_hvac_mode: '{{ raw_hvac_mode }}'. Valore pulito hvac_temp_mode: '{{ hvac_temp_mode }}'. Azione: imposto hvac_mode a '{{ hvac_temp_mode if hvac_temp_mode != 'off' else 'heat' }}'"
-        - action: pyscript.fancoil_events_write
+        - action: "{{ 'pyscript.fancoil_events_write' }}"
           data:
             message: "[%%friendly_name%%] DEBUG First Run: raw_hvac_mode='{{ raw_hvac_mode }}', hvac_temp_mode='{{ hvac_temp_mode }}'"
             level: "INFO"
@@ -1098,7 +1098,7 @@ def startup_logic():
               data:
                 date: "{{ now().strftime('%Y-%m-%d') }}"
                 time: "{{ now().strftime('%H:%M:%S') }}"
-            - action: pyscript.fancoil_events_write
+            - action: "{{ 'pyscript.fancoil_events_write' }}"
               data:
                 message: "[%%friendly_name%%] STOP fancoil: diff={{ diff | round(2) }}°C ≤ {{ soglia_stop }}, mode={{ hvac_temp_mode }}"
                 level: "INFO"
@@ -1112,7 +1112,7 @@ def startup_logic():
                     message: >-
                       STOP attivo: diff={{ diff | round(2) }}°C ≤ {{ soglia_stop }},
                       spengo switch velocità/valvola.
-                - action: pyscript.fancoil_events_write
+                - action: "{{ 'pyscript.fancoil_events_write' }}"
                   data:
                     message: "[%%friendly_name%%] STOP attivo: diff={{ diff | round(2) }}°C ≤ {{ soglia_stop }}"
                     level: "INFO"
@@ -1133,7 +1133,7 @@ def startup_logic():
           data:
             date: "{{ now().strftime('%Y-%m-%d') }}"
             time: "{{ now().strftime('%H:%M:%S') }}"
-        - action: pyscript.fancoil_events_write
+        - action: "{{ 'pyscript.fancoil_events_write' }}"
           data:
             message: "[%%friendly_name%%] RESUME main: diff={{ diff | round(2) }}°C ≥ {{ soglia_resume }}, attesa={{ resume_delay_minutes }} min"
             level: "INFO"
@@ -1142,7 +1142,7 @@ def startup_logic():
         - condition: template
           value_template: "{{ fan_target != fan_attuale_hw and hvac_temp_mode != 'off' and main_available }}"
       then:
-        - action: pyscript.fancoil_events_write
+        - action: "{{ 'pyscript.fancoil_events_write' }}"
           data:
             message: "[%%friendly_name%%] Cambiamento velocità: {{ fan_attuale_hw }} -> {{ fan_target }} (Delta: {{ diff | round(2) }}°C)"
             level: "INFO"
@@ -1333,7 +1333,7 @@ def startup_logic():
               target:
                 entity_id: switch.stox_fancoil_%%id%%_switch
             - delay: "00:00:02"
-            - action: pyscript.fancoil_events_write
+            - action: "{{ 'pyscript.fancoil_events_write' }}"
               data:
                 message: "[%%friendly_name%%] MAIN ON (sync): speed_on={{ any_speed_on }}, stop_condition={{ stop_condition }}, diff={{ states('sensor.fancoil_%%id%%_temperature_difference') | float(0) | round(2) }}°C"
                 level: "INFO"
@@ -1342,7 +1342,7 @@ def startup_logic():
             - condition: template
               value_template: "{{ not any_speed_on and main_on and main_available }}"
           sequence:
-            - action: pyscript.fancoil_events_write
+            - action: "{{ 'pyscript.fancoil_events_write' }}"
               data:
                 message: "[%%friendly_name%%] (sync): tutte le velocità OFF, main resta ON. diff={{ states('sensor.fancoil_%%id%%_temperature_difference') | float(0) | round(2) }}°C, stop_condition={{ stop_condition }}"
                 level: "INFO"
@@ -1382,7 +1382,7 @@ def startup_logic():
               {% for entity in unavailable %}
               - {{ entity }}
               {% endfor %}
-        - action: pyscript.fancoil_events_write
+        - action: "{{ 'pyscript.fancoil_events_write' }}"
           data:
             message: "[%%friendly_name%%] Entità UNAVAILABLE: {{ unavailable }}"
             level: "WARN"
@@ -1412,7 +1412,7 @@ def startup_logic():
                states('switch.fancoil_%%id%%_switch_3') in ['unavailable', 'unknown'] or
                states('switch.fancoil_%%id%%_switch_4') in ['unavailable', 'unknown'] }}
       then:
-        - action: pyscript.fancoil_events_write
+        - action: "{{ 'pyscript.fancoil_events_write' }}"
           data:
             message: "[%%friendly_name%%] Rilevate entità unavailable/unknown. Avvio procedura di ripristino (Power Cycle Stox)."
             level: "WARN"
@@ -1432,12 +1432,12 @@ def startup_logic():
                    states('switch.fancoil_%%id%%_switch_3') in ['unavailable', 'unknown'] or
                    states('switch.fancoil_%%id%%_switch_4') in ['unavailable', 'unknown'] }}
           then:
-            - action: pyscript.fancoil_events_write
+            - action: "{{ 'pyscript.fancoil_events_write' }}"
               data:
                 message: "[%%friendly_name%%] Ripristino FALLITO. Gli switch sono ancora non disponibili."
                 level: "ERROR"
           else:
-            - action: pyscript.fancoil_events_write
+            - action: "{{ 'pyscript.fancoil_events_write' }}"
               data:
                 message: "[%%friendly_name%%] Ripristino COMPLETATO. Gli switch sono tornati disponibili."
                 level: "INFO"
@@ -1628,7 +1628,7 @@ def startup_logic():
           data:
             title: "Fancoil %%friendly_name%%"
             message: "Velocità impostata: {{ fan_mode }}"
-        - action: pyscript.fancoil_events_write
+        - action: "{{ 'pyscript.fancoil_events_write' }}"
           data:
             message: "[%%friendly_name%%] Set fan mode: {{ fan_mode }}"
             level: "DEBUG"

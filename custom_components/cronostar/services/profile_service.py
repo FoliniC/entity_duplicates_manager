@@ -20,6 +20,7 @@ from ..const import (
     CONF_MAX_VALUE,
     CONF_MIN_VALUE,
     CONF_STEP_VALUE,
+    CONF_TARGET_ENTITY,
     CONF_TITLE,
     CONF_UNIT_OF_MEASUREMENT,
     CONF_Y_AXIS_LABEL,
@@ -47,6 +48,12 @@ class ProfileService:
         self.hass = hass
         self.storage = storage_manager
         self.settings = settings_manager
+
+    def _get_coordinator(self, entry):
+        """Get coordinator from entry (runtime_data) or hass.data (fallback)."""
+        if hasattr(entry, "runtime_data"):
+            return entry.runtime_data
+        return self.hass.data.get(DOMAIN, {}).get(entry.entry_id)
 
     async def add_profile(self, call: ServiceCall) -> None:
         """
@@ -82,8 +89,9 @@ class ProfileService:
             # Notify coordinators to refresh available_profiles
             for entry in self.hass.config_entries.async_entries("cronostar"):
                 if entry.data.get("global_prefix") == effective_prefix:
-                    if hasattr(entry, "runtime_data") and entry.runtime_data:
-                        await entry.runtime_data.async_refresh_profiles()
+                    coord = self._get_coordinator(entry)
+                    if coord:
+                        await coord.async_refresh_profiles()
 
             log_operation("Add profile", True, profile=profile_name, preset=canonical_preset)
 
@@ -189,12 +197,20 @@ class ProfileService:
                         self.hass.config_entries.async_update_entry(entry, data=new_data)
 
                     # Notify coordinator to refresh
-                    if hasattr(entry, "runtime_data") and entry.runtime_data:
+                    coord = self._get_coordinator(entry)
+                    if coord:
                         _LOGGER.debug("Notifying coordinator for '%s' to refresh profiles", effective_prefix)
-                        await entry.runtime_data.async_refresh_profiles()
+                        await coord.async_refresh_profiles()
 
             # 4. Update profile selectors (input_select entities)
             await self.async_update_profile_selectors()
+
+            # 5. Update Dashboard YAML to reflect potential metadata changes (title, target_entity, etc.)
+            try:
+                from ..setup.dashboard import DASHBOARD_YAML_FILENAME, write_dashboard_yaml
+                await write_dashboard_yaml(self.hass, DASHBOARD_YAML_FILENAME)
+            except Exception as e:
+                _LOGGER.error("[SAVE_PROFILE] Failed to update dashboard YAML: %s", e)
 
             log_operation("Save profile", True, profile=profile_name, preset=canonical_preset, points=len(schedule) if schedule is not None else 0)
 
@@ -219,7 +235,7 @@ class ProfileService:
         name = prefix
         base_marker = f"cronostar_{preset}_"
         if name.startswith(base_marker):
-            name = name[len(base_marker) :]
+            name = name[len(base_marker):]
 
         name = name.rstrip("_").replace("_", " ").strip().title()
         if not name:
@@ -291,6 +307,7 @@ class ProfileService:
         is_generic_prefix = global_prefix in [
             "cronostar_thermostat_",
             "cronostar_ev_charging_",
+            "cronostar_ev_",
             "cronostar_generic_switch_",
             "cronostar_generic_kwh_",
             "cronostar_generic_temperature_",
@@ -310,6 +327,15 @@ class ProfileService:
             preset_type=canonical_preset,
             global_prefix=lookup_prefix,
         )
+
+        # Optimization: If we are using a generic prefix and we found multiple containers,
+        # prioritize the one that actually matches the generic prefix (if any)
+        # to avoid returning a "random" first profile.
+        if is_generic_prefix and len(cached) > 1:
+            matching_generic = [c for c in cached if c[1].get("meta", {}).get("global_prefix") == prefix_with_underscore]
+            if matching_generic:
+                cached = matching_generic
+                _LOGGER.debug("[GET_PROFILE] Generic prefix match: prioritized container with exact prefix %s", prefix_with_underscore)
 
         requested_lower = (profile_name or "").lower()
 
@@ -428,8 +454,9 @@ class ProfileService:
                 # Notify coordinators to refresh available_profiles
                 for entry in self.hass.config_entries.async_entries("cronostar"):
                     if entry.data.get("global_prefix") == effective_prefix:
-                        if hasattr(entry, "runtime_data") and entry.runtime_data:
-                            await entry.runtime_data.async_refresh_profiles()
+                        coord = self._get_coordinator(entry)
+                        if coord:
+                            await coord.async_refresh_profiles()
 
                 log_operation("Delete profile", True, profile=profile_name, preset=canonical_preset)
             else:
@@ -477,31 +504,18 @@ class ProfileService:
             else:
                 _LOGGER.warning("⚠️ [DELETE_CONTROLLER] Config Entry not found for prefix '%s'", global_prefix)
 
-            # 2. Delete JSON file (all profiles)
-            _LOGGER.info("[DELETE_CONTROLLER] Attempting to delete storage file(s)")
-            if preset_type:
-                filename = build_profile_filename(preset_type, global_prefix)
-                filepath = self.storage.profiles_dir / filename
-                _LOGGER.debug("[DELETE_CONTROLLER] Target file: %s", filepath)
-                if filepath.exists():
-                    await self.hass.async_add_executor_job(filepath.unlink)
-                    async with self.storage._cache_lock:
-                        self.storage._cache.pop(filename, None)
-                    _LOGGER.info("✅ [DELETE_CONTROLLER] Deleted profile file: %s", filename)
-                else:
-                    _LOGGER.warning("⚠️ [DELETE_CONTROLLER] Profile file does not exist: %s", filename)
-            else:
-                # Search by prefix if preset unknown
-                _LOGGER.info("[DELETE_CONTROLLER] Preset unknown, searching all profile files for prefix: %s", global_prefix)
-                all_files = await self.storage.list_profiles(prefix=global_prefix)
-                _LOGGER.debug("[DELETE_CONTROLLER] Found %d matching files", len(all_files))
-                for filename in all_files:
-                    filepath = self.storage.profiles_dir / filename
-                    if filepath.exists():
-                        await self.hass.async_add_executor_job(filepath.unlink)
-                        async with self.storage._cache_lock:
-                            self.storage._cache.pop(filename, None)
-                        _LOGGER.info("✅ [DELETE_CONTROLLER] Deleted profile file by prefix match: %s", filename)
+            # 2. Delete JSON file(s) (all profiles) via Storage Manager
+            _LOGGER.info("[DELETE_CONTROLLER] Attempting to delete storage file(s) via StorageManager")
+            await self.storage.delete_controller_files(global_prefix, preset_type)
+
+            # 3. Update Dashboard YAML to reflect changes immediately
+            try:
+                from ..setup.dashboard import DASHBOARD_YAML_FILENAME, write_dashboard_yaml
+
+                _LOGGER.info("[DELETE_CONTROLLER] Updating dashboard YAML...")
+                await write_dashboard_yaml(self.hass, DASHBOARD_YAML_FILENAME)
+            except Exception as e:
+                _LOGGER.error("[DELETE_CONTROLLER] Failed to update dashboard YAML: %s", e)
 
             log_operation("Delete controller", True, prefix=global_prefix)
             _LOGGER.info("🏁 [DELETE_CONTROLLER] COMPLETED for prefix: %s", global_prefix)
@@ -529,6 +543,19 @@ class ProfileService:
 
         _LOGGER.debug("[REGISTER] Lovelace Card Connected: ID=%s, Preset=%s, Prefix=%s", card_id, preset, global_prefix)
 
+        # PRESET AUTO-DETECTION: If preset is default "thermostat" but prefix is specific,
+        # try to find the actual preset from storage metadata.
+        if preset == "thermostat" and global_prefix and not global_prefix.startswith("cronostar_thermostat_"):
+            try:
+                all_cached = await self.storage.get_cached_containers(global_prefix=global_prefix)
+                if all_cached:
+                    actual_preset = all_cached[0][1].get("meta", {}).get("preset_type")
+                    if actual_preset and actual_preset != preset:
+                        _LOGGER.info("[REGISTER] Auto-detected actual preset '%s' for prefix '%s' (was '%s')", actual_preset, global_prefix, preset)
+                        preset = actual_preset
+            except Exception as e:
+                _LOGGER.debug("[REGISTER] Preset auto-detection failed: %s", e)
+
         # 1. Load global settings
         global_settings = await self.settings.load_settings()
 
@@ -542,10 +569,11 @@ class ProfileService:
         preset_defaults = {}
         try:
             presets_dir = Path(self.hass.config.path("cronostar/presets"))
-            presets_dir.mkdir(parents=True, exist_ok=True)
+            if not await self.hass.async_add_executor_job(presets_dir.exists):
+                await self.hass.async_add_executor_job(presets_dir.mkdir, True, True)
 
             preset_file = presets_dir / f"{preset}_defaults.json"
-            if preset_file.exists():
+            if await self.hass.async_add_executor_job(preset_file.exists):
                 content = await self.hass.async_add_executor_job(preset_file.read_text, "utf-8")
                 preset_defaults = json.loads(content)
                 _LOGGER.debug("[REGISTER] Loaded preset defaults for '%s': %s", preset, preset_defaults)
@@ -602,52 +630,73 @@ class ProfileService:
                     entry_data = entry.data
                     break
 
+            # Fetch matching containers for this preset and prefix
+            canonical_preset = normalize_preset_type(preset)
+            prefix_with_underscore = global_prefix if global_prefix.endswith("_") else f"{global_prefix}_"
+
+            # Check if the prefix is a generic default
+            is_generic_prefix = global_prefix in [
+                "cronostar_thermostat_",
+                "cronostar_ev_charging_",
+                "cronostar_generic_switch_",
+                "cronostar_generic_kwh_",
+                "cronostar_generic_temperature_",
+                "cronostar_",
+                "_",
+                "",
+                None,
+            ]
+            lookup_prefix = prefix_with_underscore if not is_generic_prefix else None
+
+            cached = await self.storage.get_cached_containers(
+                preset_type=canonical_preset,
+                global_prefix=lookup_prefix,
+            )
+
             data = await self.get_profile_data(profile_to_load or "Default", preset, global_prefix)
 
+            # Get available profiles for this prefix to help frontend if selector entity is missing/unknown
+            available_profiles = set()
+            for _fname, container in cached:
+                profiles_dict = container.get("profiles", {})
+                if isinstance(profiles_dict, dict):
+                    available_profiles.update(profiles_dict.keys())
+
+            response["available_profiles"] = sorted(list(available_profiles))
+
             if "error" not in data:
-                # Merge config entry data into profile metadata
-                # This ensures the card gets the latest backend-configured values
+                # OPTIMIZATION: Instead of blindly overwriting data["meta"] with entry_data,
+                # we only fill in MISSING fields. This prevents race conditions where
+                # HA hasn't finished updating the ConfigEntry but the JSON file is already correct.
                 if "meta" in data:
-                    # Get preset defaults to check if entry_data just contains defaults
                     from ..utils.prefix_normalizer import PRESETS_CONFIG
+                    presets_defaults_internal = PRESETS_CONFIG.get(preset, {})
 
-                    presets_defaults = PRESETS_CONFIG.get(preset, {})
+                    # If title is missing or default "Cronostar" (generic), use the preset specific title
+                    if not data["meta"].get(CONF_TITLE) or data["meta"].get(CONF_TITLE) == "CronoStar":
+                        data["meta"][CONF_TITLE] = presets_defaults_internal.get("title", f"CronoStar {preset}")
 
-                    for key in [CONF_TITLE, CONF_MIN_VALUE, CONF_MAX_VALUE, CONF_STEP_VALUE, CONF_UNIT_OF_MEASUREMENT, CONF_Y_AXIS_LABEL, CONF_ALLOW_MAX_VALUE]:
+                    # Sync target_entity if missing in meta but present in entry
+                    if not data["meta"].get("target_entity") and entry_data.get("target_entity"):
+                        data["meta"]["target_entity"] = entry_data.get("target_entity")
+
+                    for key in [CONF_TITLE, CONF_MIN_VALUE, CONF_MAX_VALUE, CONF_STEP_VALUE, CONF_UNIT_OF_MEASUREMENT, CONF_Y_AXIS_LABEL, CONF_ALLOW_MAX_VALUE, "target_entity"]:
                         val = entry_data.get(key)
                         if val is not None:
-                            # 1. Skip if it's an empty string and we have a value in profile
-                            if isinstance(val, str) and val.strip() == "" and data["meta"].get(key):
-                                continue
+                            # If profile already has a value, only override if the ConfigEntry value
+                            # is NOT a default/generic value (meaning it was specifically set in UI)
+                            profile_val = data["meta"].get(key)
 
-                            # 2. Skip 'Suspicious Defaults' from ConfigEntry that likely haven't been intentionally set
-                            # (They override valid profile data because they differ from preset defaults, but they are generic junk)
-
-                            # Case A: max_value is 100.0 (generic config_flow default)
-                            if key == CONF_MAX_VALUE and val == 100.0 and presets_defaults.get(CONF_MAX_VALUE) != 100.0:
-                                continue
-
-                            # Case A2: min_value is 0.0 (common generic default)
-                            if key == CONF_MIN_VALUE and val == 0.0 and presets_defaults.get(CONF_MIN_VALUE) != 0.0:
-                                if data["meta"].get(key) is not None and data["meta"].get(key) != 0.0:
+                            if profile_val is not None:
+                                # Case A: max_value is 100.0 (generic config_flow default)
+                                if key == CONF_MAX_VALUE and val == 100.0 and presets_defaults_internal.get(CONF_MAX_VALUE) != 100.0:
                                     continue
-
-                            # Case B: allow_max_value is False but preset default is True (common for EV Charging)
-                            if key == CONF_ALLOW_MAX_VALUE and val is False and presets_defaults.get(CONF_ALLOW_MAX_VALUE) is True:
-                                # Only skip if profile ALSO says True (meaning it's definitely an unwanted override)
-                                if data["meta"].get(key) is True:
+                                # Case A2: min_value is 0.0 (common generic default)
+                                if key == CONF_MIN_VALUE and val == 0.0 and presets_defaults_internal.get(CONF_MIN_VALUE) != 0.0:
                                     continue
-
-                            # Case C: step_value is 1.0 (common generic default) but preset default is different (e.g. 0.5)
-                            if key == CONF_STEP_VALUE and val == 1.0 and presets_defaults.get(CONF_STEP_VALUE) != 1.0:
-                                if data["meta"].get(key) is not None and data["meta"].get(key) != 1.0:
-                                    continue
-
-                            # 3. Skip if it matches the preset default (already handled by preset_defaults in frontend)
-                            # to avoid overwriting profile-specific values with preset-defaults
-                            preset_def = presets_defaults.get(key if key != CONF_UNIT_OF_MEASUREMENT else "unit")
-                            if val == preset_def and data["meta"].get(key) is not None:
-                                if val != data["meta"].get(key):
+                                # Case B: matches preset default (skip override)
+                                preset_def = presets_defaults_internal.get(key if key != CONF_UNIT_OF_MEASUREMENT else "unit")
+                                if val == preset_def:
                                     continue
 
                             data["meta"][key] = val
@@ -655,6 +704,7 @@ class ProfileService:
                 response["profile_data"] = data
             else:
                 # Store diagnostic info if strict match failed
+                response["success"] = False
                 response["diagnostics"] = data
                 _LOGGER.info("[REGISTER] No exact profile match found for prefix '%s'", global_prefix)
         except Exception as e:
@@ -662,12 +712,22 @@ class ProfileService:
 
         # 4. Perform dynamic validation for the card
         validation_errors = []
+        if not call.data.get("preset"):
+            validation_errors.append("Preset type is required")
         if not global_prefix:
             validation_errors.append("Missing global prefix")
 
         target_ent_check = None
         if response.get("profile_data") and "meta" in response["profile_data"]:
             target_ent_check = response["profile_data"]["meta"].get("target_entity")
+
+        # ROBUST FALLBACK: If profile didn't load or meta is empty, check the ConfigEntry directly
+        if not target_ent_check and global_prefix:
+             for entry in self.hass.config_entries.async_entries(DOMAIN):
+                if entry.data.get("global_prefix") == global_prefix:
+                    target_ent_check = entry.data.get("target_entity")
+                    _LOGGER.info("[REGISTER] Validation fallback: using target_entity '%s' from ConfigEntry", target_ent_check)
+                    break
 
         if not target_ent_check:
             validation_errors.append("Target entity not configured")
@@ -760,18 +820,17 @@ class ProfileService:
             if response.get("profile_data") and "meta" in response["profile_data"]:
                 meta = response["profile_data"]["meta"]
 
-                # Propagate IDs to frontend even if state is missing (registry match is sufficient)
                 if e_id:
-                    _LOGGER.info("[REGISTER] Updating frontend meta: enabled_entity = %s", e_id)
+                    _LOGGER.debug("[REGISTER] Syncing enabled_entity: %s", e_id)
                     meta["enabled_entity"] = e_id
-                else:
-                    _LOGGER.debug("[REGISTER] Could not resolve enabled_entity for prefix '%s'", global_prefix)
-
                 if sel_id:
-                    _LOGGER.info("[REGISTER] Updating frontend meta: profiles_select_entity = %s", sel_id)
+                    _LOGGER.debug("[REGISTER] Syncing profiles_select_entity: %s", sel_id)
                     meta["profiles_select_entity"] = sel_id
-                else:
-                    _LOGGER.debug("[REGISTER] Could not resolve profiles_select_entity for prefix '%s'", global_prefix)
+                if h_id:
+                    _LOGGER.debug("[REGISTER] Syncing current_value_entity: %s", h_id)
+                    meta["current_value_entity"] = h_id
+                    # Backward compatibility for card
+                    meta["sensor_entity"] = h_id
 
         except Exception as e:
             _LOGGER.debug("[REGISTER] Failed to populate entity_states: %s", e)
@@ -933,10 +992,6 @@ class ProfileService:
         metadata["preset_type"] = preset_type
         metadata["global_prefix"] = global_prefix
         metadata["updated_at"] = datetime.now().isoformat()
-
-        # Explicitly remove redundant 'preset' key if it exists in user_meta (now in metadata)
-        if "preset" in metadata:
-            del metadata["preset"]
 
         return metadata
 

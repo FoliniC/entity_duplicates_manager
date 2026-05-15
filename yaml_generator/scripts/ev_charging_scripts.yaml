@@ -190,7 +190,7 @@ notify_charging_status:
   description: "Invia notifica dettagliata dello stato ricarica"
   mode: single
   sequence:
-    - action: notify.mobile_app_2312dra50g
+    - action: notify.mobile_app_redmi_note_13_pro_5g
       data:
         title: "🔌 Stato Ricarica EV ab123"
         message: |
@@ -242,7 +242,7 @@ emergency_stop_charging:
           - input_boolean.ev_charging_manual_mode
 
     # Notifica urgente
-    - action: notify.mobile_app_2312dra50g
+    - action: notify.mobile_app_redmi_note_13_pro_5g
       data:
         title: "🚨 STOP EMERGENZA"
         message: |
@@ -257,7 +257,7 @@ emergency_stop_charging:
           ttl: 0
 
     # Log
-    - action: pyscript.fancoil_events_write
+    - action: script.fancoil_log_v2
       data:
         level: "ERROR"
         message: "🚨 EMERGENCY STOP attivato - Ricarica fermata, automazioni disabilitate"
@@ -277,7 +277,7 @@ restore_after_emergency:
           - automation.ev_charging_mode_sync
 
     # Notifica
-    - action: notify.mobile_app_2312dra50g
+    - action: notify.mobile_app_redmi_note_13_pro_5g
       data:
         title: "✅ Sistema Ripristinato"
         message: |
@@ -288,7 +288,7 @@ restore_after_emergency:
           color: green
 
     # Log
-    - action: pyscript.fancoil_events_write
+    - action: script.fancoil_log_v2
       data:
         level: "INFO"
         message: "✅ Sistema ripristinato dopo emergency stop"
@@ -331,7 +331,7 @@ test_charging_system:
           ✅ Tutti i sistemi operativi
           {% endif %}
 
-    - action: pyscript.fancoil_events_write
+    - action: script.fancoil_log_v2
       data:
         level: "INFO"
         message: |

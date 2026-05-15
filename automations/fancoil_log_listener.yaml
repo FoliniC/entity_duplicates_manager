@@ -1,11 +1,16 @@
-- id: fancoil_log_event_listener
+# HALog2026 — Fancoil Log Listener
+# USES EVENTS TO AVOID SERVICE VALIDATION ISSUES AT BOOT
+
+- id: fancoil_listener_eventi_log
   alias: "Fancoil: Listener Eventi Log"
-  description: "Ascolta gli eventi fancoil_log_event e li indirizza al sistema di logging"
+  description: "Invia eventi log fancoil a HALog2026 tramite event bus"
+  initial_state: true
   trigger:
     - trigger: event
       event_type: fancoil_log_event
   actions:
-    - action: "{{ 'script.fancoil_log_v2' }}"
-      data:
+    - event: halog2026_write_event
+      event_data:
+        subsystem: fancoil
         level: "{{ trigger.event.data.level | default('info') }}"
         message: "{{ trigger.event.data.message | default('') }}"

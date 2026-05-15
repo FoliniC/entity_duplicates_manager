@@ -1,0 +1,23 @@
+cronostar_ev_show_chart:
+  name: "Mostra Grafico EV Charging"
+  icon: mdi:chart-bell-curve
+
+cronostar_thermostat_appartamento_show_chart:
+  name: "Mostra Grafico Termostato Appartamento"
+  icon: mdi:chart-bell-curve
+
+cronostar_generic_switch_growlight_show_chart:
+  name: "Mostra Grafico Growlight"
+  icon: mdi:chart-bell-curve
+
+cronostar_generic_switch_presa_balcone_show_chart:
+  name: "Mostra Grafico Presa Balcone"
+  icon: mdi:chart-bell-curve
+
+cronostar_thermostat_show_chart:
+  name: "Mostra Grafico Termostato Generico"
+  icon: mdi:chart-bell-curve
+
+cronostar_thermostat_ddddd_show_chart:
+  name: "Mostra Grafico Termostato DDDDD"
+  icon: mdi:chart-bell-curve

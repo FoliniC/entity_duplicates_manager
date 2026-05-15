@@ -1,0 +1,17 @@
+# HALog2026 — Scale Log Listener
+# USES EVENTS TO AVOID SERVICE VALIDATION ISSUES AT BOOT
+
+- id: scale_listener_eventi_log
+  alias: "Scale: Listener Eventi Log"
+  description: "Invia eventi log scale a HALog2026 tramite event bus"
+  initial_state: true
+  trigger:
+    - trigger: event
+      event_type: scale_log_event
+  actions:
+    - event: halog2026_write_event
+      event_data:
+        subsystem: scale
+        level: "{{ trigger.event.data.level | default('info') }}"
+        message: "{{ trigger.event.data.message | default('') }}"
+        action: "{{ trigger.event.data.action | default('nulla') }}"

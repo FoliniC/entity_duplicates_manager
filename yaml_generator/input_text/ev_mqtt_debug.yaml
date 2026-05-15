@@ -8,6 +8,11 @@ ev_charge_2025_last_mqtt_payload:
   max: 255
   icon: mdi:message-text-outline
 
+ev_charge_2025_last_mqtt_mode:
+  name: EV Charge 2025 - Last MQTT Mode
+  max: 10
+  icon: mdi:cog-outline
+
 ev_charge_2025_last_mqtt_time:
   name: EV Charge 2025 - Last MQTT Time
   max: 255

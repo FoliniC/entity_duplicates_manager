@@ -1,0 +1,32 @@
+{
+  "meta": {
+    "title": "CronoStar EV Charging",
+    "y_axis_label": "Power",
+    "unit_of_measurement": "kW",
+    "min_value": 0,
+    "max_value": 8,
+    "step_value": 0.5,
+    "allow_max_value": true,
+    "enabled_entity": "switch.cronostar_ev_charging_enabled",
+    "entities": [
+      "switch.cronostar_ev_charging_enabled"
+    ],
+    "preset_type": "ev_charging",
+    "global_prefix": "cronostar_ev_charging_",
+    "updated_at": "2026-04-22T20:31:55.831269",
+    "_deleted_at": "2026-04-22T18:53:47.152949+00:00",
+    "_deleted_entry_title": "CronoStar: Controller cronostar_ev_charging_",
+    "_deleted_global_prefix": "cronostar_ev_charging_",
+    "_deleted_preset_type": "ev_charging"
+  },
+  "profiles": {
+    "Default": {
+      "schedule": [],
+      "updated_at": "2026-04-22T20:31:55.831277",
+      "enabled_entity": "switch.cronostar_ev_charging_enabled",
+      "entities": [
+        "switch.cronostar_ev_charging_enabled"
+      ]
+    }
+  }
+}

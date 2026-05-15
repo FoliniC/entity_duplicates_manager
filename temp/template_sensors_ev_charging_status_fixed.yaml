@@ -1,0 +1,155 @@
+# Fix Rev.38: float(220) → float(230) in EV Charging Estimated Current
+# Tutte le altre entità invariate.
+
+- name: "EV Charging Status"
+  unique_id: ev_charging_status
+  state: >
+    {% set prism_state = states('sensor.prism_stato') | default('unknown', true) %}
+    {% if prism_state == 'Charging' %}
+      ATTIVA
+    {% else %}
+      INATTIVA
+    {% endif %}
+  icon: >
+    {% set prism_state = states('sensor.prism_stato') | default('unknown', true) %}
+    {% if prism_state == 'Charging' %} mdi:flash {% else %} mdi:flash-off {% endif %}
+
+- name: "EV Charging Mode"
+  unique_id: ev_charging_mode
+  state: >
+    {% set scheduled_active = is_state('input_boolean.ev_charging_scheduled_active', 'on') %}
+    {% set force_fixed = is_state('input_boolean.ev_charging_force_fixed_rate', 'on') %}
+    {% if scheduled_active %}
+      {% if force_fixed %} Fixed Charging Rate Programmata {% else %} Ottimizzazione Solare Programmata {% endif %}
+    {% else %}
+      {% if force_fixed %} Fixed Charging Rate Manuale {% else %} Ottimizzazione Solare Manuale/Automatica {% endif %}
+    {% endif %}
+  icon: >
+    {% if is_state('input_boolean.ev_charging_force_fixed_rate','on') %} mdi:flash {% else %} mdi:white-balance-sunny {% endif %}
+
+- name: "EV Charging Estimated Current"
+  unique_id: ev_charging_estimated_current
+  unit_of_measurement: "A"
+  device_class: current
+  state: >
+    {% set soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) %}
+    {% set power_production = states('sensor.envoy_122134037538_current_power_production') | float(0) %}
+    {# FIX: float(220) → float(230) (tensione nominale italiana, coerente con tutti gli altri sensori) #}
+    {% set voltage = states('sensor.folini_carlo_voltage_ac') | float(230) %}
+    {% set consumo_pdc = states('sensor.consumo_netto_pdc_template') | float(50) %}
+    {% set consumo_app = states('sensor.consumo_appartamento_template') | float(100) %}
+    {% set w_battery = ((30 - soc) / 30 * -4500) if soc < 30 else ((soc - 30) / 70 * 4500) if soc <= 100 else 0 %}
+    {% set w_totale = power_production + w_battery - (consumo_pdc + consumo_app) %}
+    {{ ([0, (w_totale / voltage) | round(0)] | max) | int }}
+  attributes:
+    w_battery: >
+      {% set soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) %}
+      {{ (((30 - soc) / 30 * -4500) if soc < 30 else ((soc - 30) / 70 * 4500) if soc <= 100 else 0) | round(0) }}
+    w_totale: >
+      {% set soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) %}
+      {% set power_production = states('sensor.envoy_122134037538_current_power_production') | float(0) %}
+      {% set consumo_pdc = states('sensor.consumo_netto_pdc_template') | float(50) %}
+      {% set consumo_app = states('sensor.consumo_appartamento_template') | float(100) %}
+      {% set w_battery = ((30 - soc) / 30 * -4500) if soc < 30 else ((soc - 30) / 70 * 4500) if soc <= 100 else 0 %}
+      {{ (power_production + w_battery - (consumo_pdc + consumo_app)) | round(0) }}
+
+- name: "EV Charging Reason"
+  unique_id: ev_charging_reason
+  state: >
+    {% set prism_state = states('sensor.prism_stato') | default('unknown', true) %}
+    {% if prism_state == 'Charging' %}
+      {% set cur_kW = states('sensor.current_charging_power_calculated') | float(0) %}
+      In carica: {{ cur_kW | round(2) }} kW.
+    {% else %}
+      {% if prism_state == 'Unplugged' %}
+        Veicolo non collegato alla colonnina.
+      {% else %}
+        {% set current_soc = states('sensor.selected_vehicle_soc') | float(0) %}
+        {% set target_soc = states('sensor.current_target_soc') | float(0) %}
+        {% if current_soc >= target_soc and target_soc > 0 %}
+          Target SOC già raggiunto ({{ current_soc | round(0) }}% ≥ {{ target_soc | round(0) }}%).
+        {% else %}
+          {% set scheduled_active = is_state('input_boolean.ev_charging_scheduled_active', 'on') %}
+          {% set end_ts = as_timestamp(states('input_datetime.charging_end_time'), default=none) %}
+          {% set remaining_time = states('sensor.remaining_charging_time') | int(0) %}
+          {% set now_ts = as_timestamp(now()) %}
+          {% if scheduled_active and end_ts is not none and end_ts <= now_ts and remaining_time <= 0 %}
+            Finestra di ricarica terminata (programma scaduto).
+          {% else %}
+            {% set cur_A = states('sensor.ev_charging_estimated_current') | float(0) %}
+            {% if cur_A < 6 %}
+              Potenza solare insufficiente: corrente stimata {{ cur_A | round(0) }}A < 6A → colonnina in pausa (mode=3).
+            {% else %}
+              {% set cur_kW = states('sensor.current_charging_power_calculated') | float(0) %}
+              {% if cur_kW <= 0 %}
+                Potenza disponibile per la ricarica ≤ 0 kW.
+              {% elif prism_state in ['Pause', 'Waiting'] %}
+                Colonnina in {{ 'pausa' if prism_state == 'Pause' else 'attesa' }}.
+              {% else %}
+                {% set force_fixed = is_state('input_boolean.ev_charging_force_fixed_rate', 'on') %}
+                {% if not scheduled_active and not force_fixed %}
+                  Nessuna modalità di ricarica attiva (programma OFF e potenza fissa OFF).
+                {% else %}
+                  Stato colonnina: {{ prism_state }}.
+                {% endif %}
+              {% endif %}
+            {% endif %}
+          {% endif %}
+        {% endif %}
+      {% endif %}
+    {% endif %}
+  attributes:
+    prism_state: "{{ states('sensor.prism_stato') }}"
+    scheduled_active: "{{ states('input_boolean.ev_charging_scheduled_active') }}"
+    force_fixed_rate: "{{ states('input_boolean.ev_charging_force_fixed_rate') }}"
+    target_soc: "{{ states('sensor.current_target_soc') }}"
+    current_soc: "{{ states('sensor.selected_vehicle_soc') }}"
+    remaining_time_min: "{{ states('sensor.remaining_charging_time') }}"
+    start_time: "{{ states('input_datetime.charging_start_time') }}"
+    end_time: "{{ states('input_datetime.charging_end_time') }}"
+    current_power_kw: "{{ states('sensor.current_charging_power_calculated') }}"
+
+- name: "EV Charging Status Markdown"
+  unique_id: ev_charging_status_markdown
+  state: "{{ states('sensor.ev_charging_reason') }}"
+  attributes:
+    markdown: >
+      {% set prism_state = states('sensor.prism_stato') | default('unknown', true) %}
+      {% set scheduled_active = is_state('input_boolean.ev_charging_scheduled_active', 'on') %}
+      {% set force_fixed = is_state('input_boolean.ev_charging_force_fixed_rate', 'on') %}
+      {% set target_soc = states('sensor.current_target_soc') | float(0) %}
+      {% set current_soc = states('sensor.selected_vehicle_soc') | float(0) %}
+      {% set remaining_time = states('sensor.remaining_charging_time') | int(0) %}
+      {% set start_dt = as_datetime(states('input_datetime.charging_start_time'), default=none) %}
+      {% set end_dt = as_datetime(states('input_datetime.charging_end_time'), default=none) %}
+      {% set cur_kW = states('sensor.current_charging_power_calculated') | float(0) %}
+      {% set cur_A = states('sensor.ev_charging_estimated_current') | float(0) %}
+      {% set reason = states('sensor.ev_charging_reason') %}
+
+      {% if prism_state == 'Charging' %}
+      La ricarica è **ATTIVA** ({{ cur_kW | round(2) }} kW, ~{{ cur_A | round(0) }} A).
+      - Modalità:
+        {% if scheduled_active %}
+          {% if force_fixed %} Potenza Fissa Programmata ({{ states('input_number.fixed_charging_power_kw') }} kW)
+          {% else %} Ottimizzazione Solare Programmata {% endif %}
+        {% else %}
+          {% if force_fixed %} Potenza Fissa Manuale ({{ states('input_number.fixed_charging_power_kw') }} kW)
+          {% else %} Ottimizzazione Solare Manuale/Automatica {% endif %}
+        {% endif %}
+      {% if start_dt is not none and end_dt is not none %}
+      - Periodo: iniziata alle {{ start_dt | as_timestamp | timestamp_custom('%H:%M') }}, termina stimata alle {{ end_dt | as_timestamp | timestamp_custom('%H:%M') }}
+      {% endif %}
+      - Target SOC: {{ target_soc | round(0) }}%
+      - SOC Attuale: {{ current_soc | round(0) }}%
+      - Tempo Rimanente Stimato: {{ remaining_time }} minuti
+      {% else %}
+      La ricarica è **INATTIVA**.
+      - Motivo: {{ reason }}
+      - Stato Colonnina: {{ prism_state }}
+      - Modalità: {% if scheduled_active %}{% if force_fixed %}Potenza Fissa Programmata{% else %}Ottimizzazione Solare Programmata{% endif %}{% else %}{% if force_fixed %}Potenza Fissa Manuale{% else %}Ottimizzazione Solare Manuale/Automatica{% endif %}{% endif %}
+      - Target SOC: {{ target_soc | round(0) }}% | SOC Attuale: {{ current_soc | round(0) }}%
+      - Corrente stimata: ~{{ cur_A | round(0) }} A | Potenza disponibile: {{ cur_kW | round(2) }} kW
+      {% if start_dt is not none and end_dt is not none %}
+      - Finestra: {{ start_dt | as_timestamp | timestamp_custom('%H:%M') }} → {{ end_dt | as_timestamp | timestamp_custom('%H:%M') }}
+      {% endif %}
+      {% endif %}

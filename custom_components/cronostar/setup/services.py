@@ -4,12 +4,12 @@ from datetime import datetime
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse
 from homeassistant.exceptions import HomeAssistantError
 
-from ..const import DOMAIN
-from ..exceptions import ProfileNotFoundError, ScheduleApplicationError
-from ..services.profile_service import ProfileService
-from ..storage.settings_manager import SettingsManager
-from ..storage.storage_manager import StorageManager
-from ..utils.error_handler import log_operation
+from custom_components.cronostar.const import DOMAIN
+from custom_components.cronostar.exceptions import ProfileNotFoundError, ScheduleApplicationError
+from custom_components.cronostar.services.profile_service import ProfileService
+from custom_components.cronostar.storage.settings_manager import SettingsManager
+from custom_components.cronostar.storage.storage_manager import StorageManager
+from custom_components.cronostar.utils.error_handler import log_operation, handle_service_errors
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,6 +38,7 @@ async def setup_services(hass: HomeAssistant, storage_manager: StorageManager) -
 
     # === Profile Management Services ===
 
+    @handle_service_errors
     async def save_profile_handler(call: ServiceCall):
         """Handle save_profile service call."""
         await profile_service.save_profile(call)
@@ -45,12 +46,14 @@ async def setup_services(hass: HomeAssistant, storage_manager: StorageManager) -
 
     hass.services.async_register(DOMAIN, "save_profile", save_profile_handler)
 
+    @handle_service_errors
     async def load_profile_handler(call: ServiceCall) -> ServiceResponse:
         """Handle load_profile service call."""
         return await profile_service.load_profile(call)
 
     hass.services.async_register(DOMAIN, "load_profile", load_profile_handler, supports_response=True)
 
+    @handle_service_errors
     async def add_profile_handler(call: ServiceCall):
         """Handle add_profile service call."""
         await profile_service.add_profile(call)
@@ -58,6 +61,7 @@ async def setup_services(hass: HomeAssistant, storage_manager: StorageManager) -
 
     hass.services.async_register(DOMAIN, "add_profile", add_profile_handler)
 
+    @handle_service_errors
     async def delete_profile_handler(call: ServiceCall):
         """Handle delete_profile service call."""
         await profile_service.delete_profile(call)
@@ -65,6 +69,7 @@ async def setup_services(hass: HomeAssistant, storage_manager: StorageManager) -
 
     hass.services.async_register(DOMAIN, "delete_profile", delete_profile_handler)
 
+    @handle_service_errors
     async def delete_controller_handler(call: ServiceCall):
         """Handle delete_controller service call."""
         await profile_service.delete_controller(call)
@@ -72,6 +77,7 @@ async def setup_services(hass: HomeAssistant, storage_manager: StorageManager) -
 
     hass.services.async_register(DOMAIN, "delete_controller", delete_controller_handler)
 
+    @handle_service_errors
     async def register_card_handler(call: ServiceCall) -> ServiceResponse:
         """Handle register_card service call."""
         return await profile_service.register_card(call)
@@ -80,6 +86,7 @@ async def setup_services(hass: HomeAssistant, storage_manager: StorageManager) -
 
     # === Settings Services ===
 
+    @handle_service_errors
     async def save_settings_handler(call: ServiceCall):
         """Handle save_settings service call."""
         settings = call.data.get("settings", {})
@@ -89,6 +96,7 @@ async def setup_services(hass: HomeAssistant, storage_manager: StorageManager) -
 
     hass.services.async_register(DOMAIN, "save_settings", save_settings_handler)
 
+    @handle_service_errors
     async def load_settings_handler(call: ServiceCall) -> ServiceResponse:
         """Handle load_settings service call."""
         return await settings_manager.load_settings()
@@ -97,23 +105,64 @@ async def setup_services(hass: HomeAssistant, storage_manager: StorageManager) -
 
     # === Utility Services ===
 
+    @handle_service_errors
     async def list_all_profiles_handler(call: ServiceCall) -> ServiceResponse:
         storage = storage_manager
         try:
             force_reload = call.data.get("force_reload", False)
-            files = await storage.list_profiles()
+            _LOGGER.info("[LIST_ALL] Request received (force_reload=%s)", force_reload)
+
+            # Use force_reload to clear cache if requested
+            files = await storage.list_profiles(force_reload=force_reload)
+            _LOGGER.info("[LIST_ALL] Found %d profile files on disk: %s", len(files), files)
 
             profiles_by_preset = {}
 
             for filename in files:
                 try:
+                    _LOGGER.debug("[LIST_ALL] Processing file: %s", filename)
                     data = await storage.load_profile_cached(filename, force_reload=force_reload)
 
-                    if not data or "meta" not in data or "profiles" not in data:
+                    if not data or not isinstance(data, dict):
+                        _LOGGER.error("[LIST_ALL] CRITICAL: File %s is empty or invalid JSON", filename)
                         continue
 
-                    preset_type = data["meta"].get("preset_type", "unknown")
-                    global_prefix = data["meta"].get("global_prefix", "")
+                    if "meta" not in data or "profiles" not in data:
+                        _LOGGER.error("[LIST_ALL] ANOMALY: File %s missing 'meta' or 'profiles' section. Content keys: %s", filename, list(data.keys()))
+                        if "meta" not in data: data["meta"] = {}
+                        if "profiles" not in data: data["profiles"] = {}
+
+                    # Primary Extraction (Direct from loaded JSON)
+                    meta = data.get("meta", {})
+                    preset_type = meta.get("preset_type", "unknown")
+                    global_prefix = meta.get("global_prefix", "")
+                    target_entity = meta.get("target_entity")
+
+                    _LOGGER.debug("[LIST_ALL] File: %s, Meta Preset: %s, Meta Target: %s", filename, preset_type, target_entity)
+
+                    # Fallback to ConfigEntry if JSON is missing critical data.
+                    # Normalise trailing underscore before comparing so that
+                    # "cronostar_ev_" matches an entry stored as "cronostar_ev_"
+                    # regardless of whether one side has the underscore or not.
+                    if not target_entity or preset_type == "unknown":
+                        if global_prefix:
+                            global_prefix_norm = global_prefix.rstrip("_")
+                            for entry in hass.config_entries.async_entries("cronostar"):
+                                entry_prefix_norm = entry.data.get("global_prefix", "").rstrip("_")
+                                if entry_prefix_norm == global_prefix_norm:
+                                    if not target_entity:
+                                        target_entity = entry.data.get("target_entity")
+                                        meta["target_entity"] = target_entity
+                                        _LOGGER.info("[LIST_ALL] Synced target '%s' from ConfigEntry for prefix '%s'", target_entity, global_prefix)
+                                    if preset_type == "unknown":
+                                        preset_type = entry.data.get("preset_type", "unknown")
+                                        meta["preset_type"] = preset_type
+                                        _LOGGER.info("[LIST_ALL] Synced preset '%s' from ConfigEntry for prefix '%s'", preset_type, global_prefix)
+                                    break
+
+                    # Grouping for frontend
+                    if not preset_type or preset_type == "unknown":
+                        preset_type = "thermostat"
 
                     if preset_type not in profiles_by_preset:
                         profiles_by_preset[preset_type] = {"files": []}
@@ -121,26 +170,49 @@ async def setup_services(hass: HomeAssistant, storage_manager: StorageManager) -
                     file_info = {
                         "filename": filename,
                         "global_prefix": global_prefix,
-                        "meta": data.get("meta", {}),
+                        "preset": preset_type,
+                        "meta": meta,
                         "profiles": [],
                     }
 
-                    # Basic validation logic
+                    # Validation
                     validation_errors = []
+                    validation_warnings = []
+
                     if not global_prefix:
                         validation_errors.append("Missing global prefix")
 
-                    target_entity = data["meta"].get("target_entity")
                     if not target_entity:
                         validation_errors.append("Target entity not configured")
-                    elif not hass.states.get(target_entity):
-                        # Only flag as error if HA is fully started, to avoid false positives during startup
-                        if hass.is_running:
-                            validation_errors.append(f"Target entity '{target_entity}' not found")
+                    else:
+                        entity_state = hass.states.get(target_entity)
+                        if not entity_state:
+                            if hass.is_running:
+                                validation_warnings.append(f"Target entity '{target_entity}' not found in Home Assistant")
+                            else:
+                                validation_warnings.append(f"Target entity '{target_entity}' not yet available")
+                        else:
+                            # Coherence check
+                            entity_unit = entity_state.attributes.get("unit_of_measurement")
+                            if entity_unit:
+                                is_thermal = any(u in entity_unit for u in ["°C", "°F", "K"])
+                                is_power = any(u in entity_unit.upper() for u in ["W", "KW", "A"])
+                                if preset_type == "ev_charging" and is_thermal:
+                                    validation_errors.append(f"Preset is EV Charging but unit is '{entity_unit}'")
+                                elif preset_type == "thermostat" and is_power:
+                                    validation_errors.append(f"Preset is Thermostat but unit is '{entity_unit}'")
 
-                    file_info["validation"] = {"valid": len(validation_errors) == 0, "errors": validation_errors}
+                    # Profile count
+                    if not data.get("profiles"):
+                        validation_warnings.append("No profiles defined in this file")
 
-                    for profile_name, profile_content in data["profiles"].items():
+                    file_info["validation"] = {
+                        "valid": len(validation_errors) == 0,
+                        "errors": validation_errors,
+                        "warnings": validation_warnings
+                    }
+
+                    for profile_name, profile_content in data.get("profiles", {}).items():
                         file_info["profiles"].append(
                             {
                                 "name": profile_name,
@@ -152,19 +224,20 @@ async def setup_services(hass: HomeAssistant, storage_manager: StorageManager) -
                     profiles_by_preset[preset_type]["files"].append(file_info)
 
                 except Exception as e:
-                    _LOGGER.warning("Error processing file %s: %s", filename, e, exc_info=True)
+                    _LOGGER.error("[LIST_ALL] Error processing file %s: %s", filename, e, exc_info=True)
                     continue
 
+            _LOGGER.info("[LIST_ALL] Completed. Presets found: %s", list(profiles_by_preset.keys()))
             return profiles_by_preset
 
         except Exception as e:
-            _LOGGER.error("Error listing profiles: %s", e, exc_info=True)
+            _LOGGER.error("[LIST_ALL] Uncaught error: %s", e, exc_info=True)
             return {"error": str(e)}
-
     hass.services.async_register(DOMAIN, "list_all_profiles", list_all_profiles_handler, supports_response=True)
 
     # === Schedule Application Service ===
 
+    @handle_service_errors
     async def apply_now_handler(call: ServiceCall):
         target_entity = call.data.get("target_entity")
         preset_type = call.data.get("preset_type")
@@ -185,15 +258,7 @@ async def setup_services(hass: HomeAssistant, storage_manager: StorageManager) -
 
             if "error" in profile_data:
                 _LOGGER.error("apply_now: Profile not found: %s", profile_data["error"])
-                raise ProfileNotFoundError(
-                    translation_domain=DOMAIN,
-                    translation_key="profile_not_found",
-                    translation_placeholders={
-                        "profile": profile_name,
-                        "preset": preset_type,
-                        "prefix": global_prefix,
-                    },
-                )
+                raise ProfileNotFoundError()
 
             schedule = profile_data.get("schedule", [])
 
@@ -280,6 +345,9 @@ async def setup_services(hass: HomeAssistant, storage_manager: StorageManager) -
             elif domain == "input_number":
                 service_called = "input_number.set_value"
                 await hass.services.async_call("input_number", "set_value", {"entity_id": target_entity, "value": value}, blocking=False)
+            elif domain == "input_select":
+                 _LOGGER.warning("apply_now: input_select target not directly supported yet via interpolation")
+                 return
             elif domain == "cover":
                 service_called = "cover.set_cover_position"
                 await hass.services.async_call("cover", "set_cover_position", {"entity_id": target_entity, "position": int(value)}, blocking=False)
@@ -315,14 +383,7 @@ async def setup_services(hass: HomeAssistant, storage_manager: StorageManager) -
         except Exception as e:
             _LOGGER.error("apply_now failed: %s", e, exc_info=True)
             log_operation("Manual apply value", False, entity=target_entity, error=str(e), profile=profile_name)
-            raise ScheduleApplicationError(
-                translation_domain=DOMAIN,
-                translation_key="schedule_application_error",
-                translation_placeholders={
-                    "entity": target_entity,
-                    "error": str(e),
-                },
-            ) from e
+            raise ScheduleApplicationError() from e
 
     hass.services.async_register(DOMAIN, "apply_now", apply_now_handler)
 

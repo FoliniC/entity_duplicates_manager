@@ -2,17 +2,17 @@
   "meta": {
     "title": "cronostar generic switch growlight",
     "y_axis_label": "State",
+    "unit_of_measurement": "",
     "min_value": 0,
     "max_value": 1,
     "step_value": 1,
     "allow_max_value": false,
     "target_entity": "switch.presa_luci_natale",
-    "enabled_entity": "switch.cronostar_generic_switch_growlight_enabled",
+    "enabled_entity": "switch.growlight",
     "profiles_select_entity": "select.cronostar_generic_switch_growlight_current_profile",
     "preset_type": "generic_switch",
     "global_prefix": "cronostar_generic_switch_growlight_",
-    "updated_at": "2026-03-01T20:59:48.353756",
-    "unit_of_measurement": ""
+    "updated_at": "2026-04-23T00:33:16.356867"
   },
   "profiles": {
     "Default": {
@@ -26,7 +26,7 @@
           "value": 0.0
         },
         {
-          "time": "04:25",
+          "time": "04:24",
           "value": 1.0
         },
         {
@@ -42,13 +42,13 @@
           "value": 0.0
         }
       ],
-      "updated_at": "2026-03-01T20:59:48.353795",
-      "enabled_entity": "switch.cronostar_generic_switch_growlight_enabled",
+      "updated_at": "2026-04-23T00:33:16.356910",
+      "enabled_entity": "switch.growlight",
       "profiles_select_entity": "select.cronostar_generic_switch_growlight_current_profile",
       "target_entity": "switch.presa_luci_natale",
       "entities": [
         "switch.presa_luci_natale",
-        "switch.cronostar_generic_switch_growlight_enabled",
+        "switch.growlight",
         "select.cronostar_generic_switch_growlight_current_profile"
       ]
     }

@@ -1,0 +1,4 @@
+template:
+  sensor:
+    - name: Test
+      state: "on"

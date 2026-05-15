@@ -1,37 +1,91 @@
-# Sensori Template Rev. 31 - Integrazione Smart Meter Real-Time
+# Sensori Template Rev. 40 - Fix finale Reason e Stabilità
 - name: "EV Charge 2025 Solar Max Ampere"
   unique_id: ev_charge_2025_solar_max_ampere
   unit_of_measurement: "A"
   state: >
-    {% set smart_meter = states('sensor.smart_meter_ts_100a_1_potenza_reale') %}
-    {% set grid_power = smart_meter | float if smart_meter not in ['unavailable', 'unknown'] else states('sensor.alfa_new_potenza_importata') | float(0) %}
-    {# Approssimazione a zero per fluttuazioni minime #}
-    {% set grid_power = 0 if grid_power | abs < 15 else grid_power %}
+    {% set smart_meter = states('sensor.smart_meter_ts_100a_1_potenza_reale') | float(0) %}
+    {% set unit_sm = state_attr('sensor.smart_meter_ts_100a_1_potenza_reale', 'unit_of_measurement') %}
+    {% set grid_p_w = (smart_meter * 1000) if unit_sm == 'kW' else smart_meter %}
     
-    {% set prism_power = states('sensor.prism_potenza_assorbita') | float(0) %}
+    {% set prism_p = states('sensor.prism_potenza_assorbita') | float(0) %}
     {% set soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) %}
     {% set voltage = states('sensor.folini_carlo_voltage_ac') | float(230) | round(1) %}
+    {% set b_discharge = states('sensor.solarnet_power_battery_discharge') | float(0) %}
+    {% set b_charge = states('sensor.solarnet_power_battery_charge') | float(0) %}
     
-    {# Surplus Reale = Quello che stiamo cedendo alla rete + quello che Prism sta già usando #}
-    {# Se grid_power è negativo (es. -1000W), stiamo esportando. Surplus = 1000 + prism #}
-    {% set surplus_reale = ((-grid_power if grid_power < 0 else 0) + prism_power) %}
+    {# Calcolo Surplus Solare REALE: #}
+    {# (Potenza Auto - Prelievo Rete) - Scarica Batteria + Carica Batteria #}
+    {# Esempio: (5000W auto - 0W rete) - 2000W scarica + 0W carica = 3000W di solo sole #}
+    {% set w_surplus = (prism_p - grid_p_w) - b_discharge + b_charge %}
     
-    {# Logica batteria casa: se < 30% preleva aggressivamente (sequestra surplus) #}
-    {% set w_battery = ((30 - soc) * -1000) if soc < 30 else ((soc - 30) / 70 * 4500) if soc <= 100 else 0 %}
+    {% set margine = 300 %}
+    {% set w_battery_bonus = 0 %}
+    {% if soc > 50 %}
+      {# Sopra il 50% usiamo la batteria generosamente #}
+      {% set bonus_val = [0, (soc - 50) * 150] | max %}
+      {% set w_battery_bonus = [bonus_val, 3500] | min %}
+    {% elif soc > 30 %}
+      {# Tra 30% e 50% usiamo la batteria con molta cautela #}
+      {% set bonus_val = [0, (soc - 30) * 50] | max %}
+      {% set w_battery_bonus = [bonus_val, 1000] | min %}
+    {% endif %}
     
-    {# Totale disponibile per ricarica EV (con margine di sicurezza ridotto grazie alla precisione dello meter) #}
-    {% set w_totale = surplus_reale + w_battery - 350 %}
-    {{ ([0, (w_totale / voltage) | int] | max) }}
+    {% set w_totale = w_surplus + w_battery_bonus - margine %}
+    {{ [0, (w_totale / voltage) | int] | max }}
+
+- name: "EV Charge 2025 Reason"
+  unique_id: ev_charge_2025_reason
+  state: >
+    {% set active = is_state('input_boolean.ev_charge_2025_charging_active', 'on') %}
+    {% set mode = states('input_select.ev_charge_2025_mode') %}
+    {% set crono = states('input_number.ev_charge_2025_cronostar_power_target') | float(0) %}
+    {% set cur_soc = states('sensor.ev_charge_2025_current_soc') | float(0) %}
+    {% set limit_soc = states('input_number.ev_charge_2025_vehicle_limit_soc') | float(100) %}
+    
+    {% if not active %}
+      Inattivo (OFF)
+    {% elif cur_soc >= limit_soc %}
+      Carica Completa
+    {% elif mode == 'Manuale' %}
+      Manuale
+    {% elif crono >= 7.9 %}
+      Solar Full
+    {% elif crono <= 0.1 %}
+      Sospeso (Zero Surplus)
+    {% else %}
+      Modulazione Auto
+    {% endif %}
 
 - name: "EV Charge 2025 Current SOC"
   unique_id: ev_charge_2025_current_soc
   unit_of_measurement: "%"
   state: >
     {% set veh_soc = states('sensor.selected_vehicle_soc') %}
-    {% if veh_soc not in ['unavailable', 'unknown', 'none'] %}
+    {% set mg_soc = states('sensor.mg_mg4_electric_state_of_charge') %}
+
+    {% if is_number(veh_soc) %}
       {{ veh_soc | float(0) | round(1) }}
+    {% elif is_number(mg_soc) %}
+      {{ mg_soc | float(0) | round(1) }}
     {% else %}
-      {{ states('sensor.mg_mg4_electric_state_of_charge') | float(0) | round(1) }}
+      {{ states('input_number.ev_charge_2025_target_soc') | float(0) }}
+    {% endif %}
+
+
+- name: "EV Charge 2025 Time to Limit"
+  unique_id: ev_charge_2025_time_to_limit
+  icon: mdi:timer-sand
+  unit_of_measurement: "min"
+  state: >
+    {% set cur = states('sensor.ev_charge_2025_current_soc') | float(None) %}
+    {% set limit = states('input_number.ev_charge_2025_vehicle_limit_soc') | float(None) %}
+    {% set cap = states('input_number.ev_charge_2025_battery_capacity') | float(55) %}
+    {% set power_w = states('sensor.prism_potenza_assorbita') | float(0) %}
+    {% if cur is none or limit is none or power_w <= 100 or cur >= limit %}
+      0
+    {% else %}
+      {% set hours = ((limit - cur) / 100 * cap) / (power_w / 1000) %}
+      {{ (hours * 60) | int }}
     {% endif %}
 
 - name: "EV Charge 2025 Remaining Time"
@@ -40,100 +94,48 @@
   state: >
     {% set end_time = states('input_datetime.ev_charge_2025_end_time') %}
     {% set active = is_state('input_boolean.ev_charge_2025_charging_active', 'on') %}
-    {% set duration = states('input_number.ev_charge_2025_duration') | int(240) %}
-    {% if active and duration < 240 and end_time != '00:00:00' %}
-      {% set end_dt = today_at(end_time) %}
-      {% set diff = (end_dt - now()).total_seconds() / 60 %}
-      {{ [0, diff | round(0) | int] | max }}
+    {% if active and end_time not in ['unavailable', 'unknown'] %}
+      {% set t_now = as_timestamp(now()) %}
+      {% set t_end = as_timestamp(today_at(end_time)) %}
+      {% if t_end < t_now %}
+        {% set t_end = t_end + 86400 %}
+      {% endif %}
+      {{ [0, ((t_end - t_now) / 60) | int] | max }}
     {% else %}
       0
-    {% endif %}
-  availability: "{{ states('input_datetime.ev_charge_2025_end_time') not in ['unavailable', 'unknown'] }}"
-
-- name: "EV Charge 2025 Reason"
-  unique_id: ev_charge_2025_reason
-  state: >
-    {% set can_charge = is_state('binary_sensor.ev_charge_2025_can_charge', 'on') %}
-    {% set active = is_state('input_boolean.ev_charge_2025_charging_active', 'on') %}
-    {% set cur = states('sensor.ev_charge_2025_current_soc') | float(0) %}
-    {% set tgt = states('input_number.ev_charge_2025_target_soc') | float(0) %}
-    {% set limit = states('input_number.ev_charge_2025_vehicle_limit_soc') | float(100) %}
-    {% set rem = states('sensor.ev_charge_2025_remaining_time') | int(0) %}
-    {% set dur = states('input_number.ev_charge_2025_duration') | int(240) %}
-    {% set mode = states('input_select.ev_charge_2025_mode') %}
-    {% set crono = states('input_number.ev_charge_2025_cronostar_power_target') | float(0) %}
-    {% set solar = states('sensor.ev_charge_2025_solar_max_ampere') | float(0) | int %}
-    {% set prism_state = states('sensor.prism_stato_wallbox') | lower %}
-
-    {% if prism_state in ['unplugged', 'idle', 'unknown'] %} Veicolo non collegato alla colonnina.
-    {% elif cur >= limit %} Carica Completata ({{cur}}% >= {{limit}}%)
-    {% elif active %}
-      {% if mode == 'Manuale' %}
-        In carica (Manuale: {{ states('input_number.ev_charge_2025_manual_power_kw') }}kW)
-      {% elif crono >= 7.9 %}
-        {% if solar >= 6 or (cur < tgt and states('sensor.byd_battery_box_premium_hv_state_of_charge')|float >= 30) %}
-          In carica (Solare: {{ [6, solar]|max }}A) {% if cur < tgt %}[Sotto Soglia Minima]{% endif %}
-        {% else %}
-          In pausa (Attesa energia solare sufficiente > 6A, attuale: {{ solar }}A)
-        {% endif %}
-      {% elif crono <= 0.1 %}
-        In pausa (Programmazione OFF)
-      {% else %}
-        In carica (Programmata: {{ crono }}kW)
-      {% endif %}
-      {% if dur < 240 %} - fine in {{rem}}m{% endif %}
-    {% else %}
-      Pronto {% if cur <= tgt %}(Sotto Soglia Minima){% endif %}
-    {% endif %}
-
-- name: "EV Charge 2025 Time to Limit"
-  unique_id: ev_charge_2025_time_to_limit
-  icon: mdi:timer-sand
-  state: >
-    {% set cur = states('sensor.ev_charge_2025_current_soc') | float(0) %}
-    {% set limit = states('input_number.ev_charge_2025_vehicle_limit_soc') | float(100) %}
-    {% set cap = states('input_number.ev_charge_2025_battery_capacity') | float(50) %}
-    {% set power_w = states('sensor.prism_potenza_assorbita') | float(0) %}
-
-    {% if power_w > 100 and cur < limit %}
-      {% set kwh_needed = (limit - cur) / 100 * cap %}
-      {% set hours = kwh_needed / (power_w / 1000) %}
-      {% set total_minutes = (hours * 60) | int %}
-      {% set hours_part = (total_minutes // 60) | int %}
-      {% set minutes_part = (total_minutes % 60) | int %}
-      {{ hours_part }}h {{ minutes_part }}min
-    {% else %}
-      In attesa di potenza
     {% endif %}
 
 - name: "EV Charge 2025 Power From Solar"
   unique_id: ev_charge_2025_power_from_solar
   unit_of_measurement: "W"
-  device_class: power
   state: >
     {% set prism = states('sensor.prism_potenza_assorbita') | float(0) %}
     {% set smart_meter = states('sensor.smart_meter_ts_100a_1_potenza_reale') | float(0) %}
-    {# Surplus reale = quello che c'è ora + quello che l'auto sta già usando #}
-    {% set surplus = ((-smart_meter if smart_meter < 0 else 0) + prism) %}
-    {{ [prism, surplus] | min | round(0) }}
+    {% set battery = states('sensor.solarnet_power_battery') | float(0) %}
+    {% set solar_avail = [0, prism - smart_meter - (battery if battery > 0 else 0)] | max %}
+    {{ [prism, solar_avail] | min | round(0) }}
 
 - name: "EV Charge 2025 Power From Battery"
   unique_id: ev_charge_2025_power_from_battery
   unit_of_measurement: "W"
-  device_class: power
   state: >
     {% set prism = states('sensor.prism_potenza_assorbita') | float(0) %}
     {% set solar_used = states('sensor.ev_charge_2025_power_from_solar') | float(0) %}
-    {% set soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) %}
-    {% set w_battery_available = [(soc - 30) / 70 * 4500, 0] | max if soc > 30 else 0 %}
-    {{ [prism - solar_used, w_battery_available] | min | round(0) }}
+    {% set battery = states('sensor.solarnet_power_battery') | float(0) %}
+    {% set battery_used = [0, battery] | max %}
+    {{ [prism - solar_used, battery_used] | min | round(0) }}
 
 - name: "EV Charge 2025 Power From Grid"
   unique_id: ev_charge_2025_power_from_grid
   unit_of_measurement: "W"
-  device_class: power
   state: >
     {% set prism = states('sensor.prism_potenza_assorbita') | float(0) %}
     {% set solar_used = states('sensor.ev_charge_2025_power_from_solar') | float(0) %}
     {% set battery_used = states('sensor.ev_charge_2025_power_from_battery') | float(0) %}
     {{ [0, prism - solar_used - battery_used] | max | round(0) }}
+- name: "Potenza immessa in rete"
+  unique_id: potenza_immessa_in_rete
+  unit_of_measurement: W
+  state_class: measurement
+  device_class: power
+  state: "{{ states('sensor.potenza_esportata_attuale') | float(0) }}"

@@ -7,6 +7,23 @@ sensor.fronius_smartmeter_energy_ac_consumed:
 sensor.fronius_smartmeter_energy_ac_sold:
   state_class: measurement
   last_reset: 1970-01-01T00:00:00+00:00
+sensor.forward_energy:
+  unit_of_measurement: kWh
+sensor.misuratore_canale_b:
+  unit_of_measurement: kWh
+sensor.wifi_dual_meter_b_new_a_old_energy_a:
+  unit_of_measurement: kWh
+sensor.wifi_dual_meter_b_new_a_old_energy_b:
+  unit_of_measurement: kWh
+sensor.wifi_dual_meter_b_new_a_old_reverse_energy_a:
+  unit_of_measurement: kWh
+sensor.wifi_dual_meter_b_new_a_old_reverse_energy_b:
+  unit_of_measurement: kWh
+sensor.wifi_dual_meter_b_new_a_old_power_a:
+  unit_of_measurement: W
+sensor.wifi_dual_meter_b_new_a_old_power_b:
+  unit_of_measurement: W
+
 #Cambia icona e colore icona del sensore che indica lo stato della wallbox
 sensor.prism_state:
   friendly_name: "Stato"

@@ -12,7 +12,6 @@ frontend:
   themes: !include_dir_merge_named themes
   extra_module_url:
     - /hacsfiles/lovelace-card-mod/card-mod.js
-    #- /local/cronostar_card/cronostar-card.js
 # Automation & Scripts
 automation: !include_dir_merge_list automations
 script: !include_dir_merge_named yaml_generator/scripts
@@ -35,177 +34,7 @@ homeassistant:
 # ============================================================================
 # TEMPLATE ENTITIES (CONSOLIDATO)
 # ============================================================================
-template:
-  # Sensors e Binary Sensors da file esterni
-  - sensor: !include_dir_merge_list yaml_generator/managed_sensors/
-  - !include yaml_generator/ev_charge_2025_triggers.yaml
-  - binary_sensor: !include_dir_merge_list yaml_generator/managed_binary_sensors/
-  - !include yaml_generator/managed_persistence/bagno_persistence.yaml
-  - !include yaml_generator/managed_persistence/camera_grande_persistence.yaml
-  - !include yaml_generator/managed_persistence/camera_persistence.yaml
-  - !include yaml_generator/managed_persistence/corridoio_persistence.yaml
-  - !include yaml_generator/managed_persistence/cucina_persistence.yaml
-  - !include yaml_generator/managed_persistence/sala_persistence.yaml
-  - !include yaml_generator/managed_persistence/th_persistence.yaml
-  - !include yaml_generator/managed_persistence/consumo_netto_pdc_persistence.yaml
-
-  # Template Sensor - Luce Scale Infos
-  - sensor:
-      - unique_id: luce_scale_switch_infos
-        name: Luce scale switch infos
-        unit_of_measurement: W
-        device_class: power
-        state_class: measurement
-        state: "{{ ((states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0))) | round(2) }}"
-        attributes:
-          power: "{{ ((states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0))) }}"
-          current: "{{ ((states('sensor.sonoff_10024024c4_current_1') | float(0)) + (states('sensor.sonoff_10024024c4_current_2') | float(0))) }}"
-          switch_1_attributes: "{{ states.sensor.sonoff_10024024c4_power_1.attributes | default({}) }}"
-          switch_2_attributes: "{{ states.sensor.sonoff_10024024c4_power_2.attributes | default({}) }}"
-
-  # Template Light - Luce Scale
-  - light:
-      - unique_id: luce_scale_switch
-        name: Luce scale
-        state: >-
-          {% set p1 = states('sensor.sonoff_10024024c4_power_1') %}
-          {% set p2 = states('sensor.sonoff_10024024c4_power_2') %}
-          {% if has_value('sensor.sonoff_10024024c4_power_1') or has_value('sensor.sonoff_10024024c4_power_2') %}
-            {{ (p1 | float(0) + p2 | float(0)) > 7 }}
-          {% else %}
-            {{ states('light.luce_scale_switch') == 'on' }}
-          {% endif %}
-        availability: >-
-          {{ has_value('sensor.sonoff_10024024c4_power_1') or has_value('sensor.sonoff_10024024c4_power_2') }}
-        turn_on:
-          - choose:
-              - conditions:
-                  - condition: state
-                    entity_id: switch.sonoff_10024024c4_1
-                    state: "off"
-                  - condition: state
-                    entity_id: switch.sonoff_10024024c4_2
-                    state: "off"
-                sequence:
-                  - action: switch.turn_on
-                    target:
-                      entity_id: switch.sonoff_10024024c4_1
-
-              - conditions:
-                  - condition: state
-                    entity_id: switch.sonoff_10024024c4_1
-                    state: "off"
-                  - condition: state
-                    entity_id: switch.sonoff_10024024c4_2
-                    state: "on"
-                sequence:
-                  - action: switch.turn_off
-                    target:
-                      entity_id: switch.sonoff_10024024c4_2
-                  - delay: "0:00:00.300000"
-                  - action: switch.turn_on
-                    target:
-                      entity_id: switch.sonoff_10024024c4_1
-
-              - conditions:
-                  - condition: state
-                    entity_id: switch.sonoff_10024024c4_1
-                    state: "on"
-                  - condition: state
-                    entity_id: switch.sonoff_10024024c4_2
-                    state: "on"
-                sequence:
-                  - action: switch.turn_off
-                    target:
-                      entity_id: switch.sonoff_10024024c4_2
-
-              - conditions:
-                  - condition: state
-                    entity_id: switch.sonoff_10024024c4_1
-                    state: "on"
-                  - condition: state
-                    entity_id: switch.sonoff_10024024c4_2
-                    state: "off"
-                sequence:
-                  - action: switch.turn_off
-                    target:
-                      entity_id: switch.sonoff_10024024c4_1
-                  - delay: "0:00:00.300000"
-                  - action: switch.turn_on
-                    target:
-                      entity_id: switch.sonoff_10024024c4_2
-
-          - action: system_log.write
-            data:
-              level: info
-              message: "Luce scale Turn ON - Switch1: {{ states('switch.sonoff_10024024c4_1') }}, Switch2: {{ states('switch.sonoff_10024024c4_2') }}, Power: {{ (states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0)) }}W"
-
-        turn_off:
-          - choose:
-              - conditions:
-                  - condition: state
-                    entity_id: switch.sonoff_10024024c4_1
-                    state: "on"
-                  - condition: state
-                    entity_id: switch.sonoff_10024024c4_2
-                    state: "off"
-                sequence:
-                  - action: switch.turn_off
-                    target:
-                      entity_id: switch.sonoff_10024024c4_1
-                  - delay: "0:00:00.300000"
-                  - action: switch.turn_on
-                    target:
-                      entity_id: switch.sonoff_10024024c4_2
-
-              - conditions:
-                  - condition: state
-                    entity_id: switch.sonoff_10024024c4_1
-                    state: "off"
-                  - condition: state
-                    entity_id: switch.sonoff_10024024c4_2
-                    state: "on"
-                sequence:
-                  - action: switch.turn_off
-                    target:
-                      entity_id: switch.sonoff_10024024c4_2
-                  - delay: "0:00:00.300000"
-                  - action: switch.turn_on
-                    target:
-                      entity_id: switch.sonoff_10024024c4_1
-
-              - conditions:
-                  - condition: state
-                    entity_id: switch.sonoff_10024024c4_1
-                    state: "on"
-                  - condition: state
-                    entity_id: switch.sonoff_10024024c4_2
-                    state: "on"
-                sequence:
-                  - action: switch.turn_off
-                    target:
-                      entity_id: switch.sonoff_10024024c4_1
-
-              - conditions:
-                  - condition: state
-                    entity_id: switch.sonoff_10024024c4_1
-                    state: "off"
-                  - condition: state
-                    entity_id: switch.sonoff_10024024c4_2
-                    state: "off"
-                sequence:
-                  - action: switch.turn_on
-                    target:
-                      entity_id: switch.sonoff_10024024c4_1
-                  - delay: "0:00:00.300000"
-                  - action: switch.turn_off
-                    target:
-                      entity_id: switch.sonoff_10024024c4_1
-
-          - action: system_log.write
-            data:
-              level: info
-              message: "Luce scale Turn OFF - Switch1: {{ states('switch.sonoff_10024024c4_1') }}, Switch2: {{ states('switch.sonoff_10024024c4_2') }}, Power: {{ (states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0)) }}W"
+template: !include yaml_generator/fancoil_templates_master.yaml
 
 # ============================================================================
 # CLIMATE
@@ -235,7 +64,7 @@ sensor:
     entity_id: sensor.th1a_temperature
     unique_id: sensor.temperatura_cucina_variance
     max_age:
-      minutes: 2
+      minutes: 5
 
   - platform: statistics
     name: statistics_temperatura_camera_grande_variance
@@ -276,6 +105,16 @@ sensor:
         query: >
           filter(fn: (r) => r["_measurement"] == "climate.camera_grande" )
           |> filter(fn: (r) => r["_field"] == "current_temperature")
+
+  # Media Mobile per Ricarica EV
+  - platform: filter
+    name: "EV Charge 2025 Solar Max Ampere Smoothed"
+    unique_id: ev_charge_2025_solar_max_ampere_smoothed
+    entity_id: sensor.ev_charge_2025_solar_max_ampere
+    filters:
+      - filter: time_simple_moving_average
+        window_size: "00:00:10"
+        precision: 1
 
 # ============================================================================
 # BINARY SENSORS
@@ -386,8 +225,8 @@ intent_script:
       - action: switch.turn_on
         target:
           entity_id:
-            - switch.luci_cucina_switch_3
-            - switch.luci_cucina_switch_2
+            - light.luci_cucina_switch_3
+            - light.luci_cucina_switch_2
 
   AccendiLuciScale:
     speech:
@@ -404,8 +243,8 @@ intent_script:
       - action: switch.turn_off
         target:
           entity_id:
-            - switch.luci_cucina_switch_3
-            - switch.luci_cucina_switch_2
+            - light.luci_cucina_switch_3
+            - light.luci_cucina_switch_2
 
   SpegniLuciScale:
     speech:
@@ -422,24 +261,26 @@ logger:
   default: info
   logs:
     custom_components.localtuya: error
-    fancoil_system: debug
+    fancoil_system: error
     #homeassistant.components.shell_command: debug
     #homeassistant.components.python_script: debug
     homeassistant.components.script: error
     system_log.external: error
+    homeassistant.components.mqtt: debug
+    homeassistant.components.automation: debug
     custom_components.cronostar: debug
     custom_components.azure_openai_sdk_conversation: error
-    homeassistant.core: error
-    homeassistant.components: error
-    homeassistant.bootstrap: error
-    homeassistant.loader: error
+    #homeassistant.core: error
+    #homeassistant.components: error
+    #homeassistant.bootstrap: error
+    #homeassistant.loader: error
     esphome: error
-    homeassistant.helpers.script: warning
+    homeassistant.helpers.script: error
     #custom_components.sinapsi_alfa: debug
     #homeassistant.components.http: debug
     #homeassistant.components.frontend: debug
     #homeassistant.components.automation: debug
-    xknx: debug             # Abilita tutti i log della libreria xknx
+    xknx: error             # Abilita tutti i log della libreria xknx
 # ============================================================================
 # LOGBOOK & RECORDER
 # ============================================================================
@@ -473,6 +314,7 @@ influxdb:
   include:
     domains:
       - sensor
+      - climate
   tags_attributes:
     - area
 
@@ -482,10 +324,10 @@ influxdb:
 lovelace:
   resource_mode: yaml
   resources:
+    - url: /local/cronostar_card/cronostar-card.js?v=6.6.6
+      type: module
     # - url: /local/community/entity-duplicates-manager-card/entity-duplicates-manager-card.js
     # type: module
-    #    - url: /local/cronostar_card/cronostar-card.js?v=3.10.5
-    #      type: module
     - url: /local/power-wheel-card.js?v=2
       type: module
     - url: /hacsfiles/mini-graph-card/mini-graph-card-bundle.js
@@ -513,14 +355,12 @@ lovelace:
       mode: yaml
       filename: ui-lovelace.yaml
       title: Overview
-      icon: mdi:view-dashboard
+    cronostar-admin:
+      mode: yaml
+      filename: cronostar_dashboard_v600.yaml
+      title: CronoStar Admin
       show_in_sidebar: true
-    # ev-charging:
-    #   mode: yaml
-    #   title: EV Charging
-    #   icon: mdi:ev-station
-    #   show_in_sidebar: true
-    #   filename: ui/charge_control.yaml
+      icon: mdi:clock-edit
     # ev-charging-1:
     #   mode: yaml
     #   title: EV Charging new
@@ -535,7 +375,7 @@ lovelace:
     #   filename: ui/charge_control_claude.yaml
     ev-charging-3:
       mode: yaml
-      title: EV Charging 2025
+      title: EV Charging 2025 effettivo
       icon: mdi:ev-station
       show_in_sidebar: true
       filename: ui/ev_charge_control_2025.yaml
@@ -557,12 +397,12 @@ lovelace:
       icon: mdi:hvac
       show_in_sidebar: true
       filename: ui/fix_entities.yaml
-    developer-tools:
-      mode: yaml
-      title: Developer tools
-      icon: mdi:tools
-      show_in_sidebar: true
-      filename: config/developer-tools/dashboard.yaml
+    # developer-tools:
+    #   mode: yaml
+    #   title: Developer tools
+    #   icon: mdi:tools
+    #   show_in_sidebar: true
+    #   filename: config/developer-tools/dashboard.yaml
     guacamole-remote:
       mode: yaml
       title: Guacamole
@@ -598,20 +438,32 @@ pyscript:
 # HTTP & NETWORKING
 # ============================================================================
 http:
-  server_port: 8124
   use_x_forwarded_for: true
-  cors_allowed_origins:
-    - https://ab63656bc719-3413626670021870382.ngrok-free.app
-    - https://folini.duckdns.org:9443
-    - https://home.vialeformica.org:9443
-    - https://google.com
-    - https://www.home-assistant.io
   trusted_proxies:
+    - 172.17.0.0/16
+    - 172.18.0.0/16
+    - 172.19.0.0/16
+    - 172.20.0.0/16
+    - 172.30.0.0/16
+    - 103.21.244.0/22
+    - 103.22.200.0/22
+    - 103.31.4.0/22
+    - 104.16.0.0/13
+    - 104.24.0.0/14
+    - 108.162.192.0/18
+    - 131.0.72.0/22
+    - 141.101.64.0/18
+    - 162.158.0.0/15
+    - 172.64.0.0/13
+    - 173.245.48.0/20
+    - 188.114.96.0/20
+    - 190.93.240.0/20
+    - 197.234.240.0/22
+    - 198.41.128.0/17
     - 127.0.0.1
-    - ::1
     - 172.16.0.0/12
-    - 192.168.0.0/24
-  ip_ban_enabled: false
+    - 192.168.0.0/16
+  server_port: 8124
 
 duckdns:
   domain: !secret duckdns_domain
@@ -642,7 +494,7 @@ scheduler:
       weekdays: [mon, tue, wed, thu, fri, sat, sun]
       time: "17:40"
       actions:
-        - service: switch.turn_on
+        - action: switch.turn_on
           target:
             entity_id: switch.presa_luci_natale
 
@@ -650,7 +502,7 @@ scheduler:
       weekdays: [mon, tue, wed, thu, fri, sat, sun]
       time: "23:00"
       actions:
-        - service: switch.turn_off
+        - action: switch.turn_off
           target:
             entity_id: switch.presa_luci_natale
 
@@ -658,7 +510,7 @@ scheduler:
       weekdays: [mon, tue, wed, thu, fri, sat, sun]
       time: "06:30"
       actions:
-        - service: switch.turn_on
+        - action: switch.turn_on
           target:
             entity_id: switch.presa_luci_natale
 
@@ -666,7 +518,7 @@ scheduler:
       weekdays: [mon, tue, wed, thu, fri, sat, sun]
       time: "07:30"
       actions:
-        - service: switch.turn_off
+        - action: switch.turn_off
           target:
             entity_id: switch.presa_luci_natale
 
@@ -710,5 +562,3 @@ google_assistant:
   service_account:
     private_key: "nokey"
     client_email: "support@homeway.io"
-
-

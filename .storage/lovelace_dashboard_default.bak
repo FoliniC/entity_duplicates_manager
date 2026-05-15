@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "key": "lovelace_dashboard_default",
+  "data": {
+    "config": {
+      "title": "Default",
+      "views": [
+        {
+          "path": "default_view",
+          "title": "Home",
+          "cards": []
+        }
+      ]
+    }
+  }
+}

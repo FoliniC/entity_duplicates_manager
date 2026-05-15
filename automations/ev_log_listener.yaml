@@ -1,0 +1,16 @@
+# HALog2026 — EV Log Listener
+# USES EVENTS TO AVOID SERVICE VALIDATION ISSUES AT BOOT
+
+- id: ev_listener_eventi_log
+  alias: "EV: Listener Eventi Log"
+  description: "Invia eventi log EV a HALog2026 tramite event bus"
+  initial_state: true
+  trigger:
+    - trigger: event
+      event_type: ev_log_event
+  actions:
+    - event: halog2026_write_event
+      event_data:
+        subsystem: ev
+        level: "{{ trigger.event.data.level | default('info') }}"
+        message: "{{ trigger.event.data.message | default('') }}"

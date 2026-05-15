@@ -1,0 +1,177 @@
+- id: "ev_charge_2025_control"
+  alias: "EV Charge 2025 Control"
+  description: >
+    Master Control Rev. 36
+    Fix Rev.35: rimossa correzione grid_correction_amp (ERRATA: solar_calc già include
+                il contatore smart meter nella sua formula di calcolo del surplus).
+    Fix Rev.36 (nuovo): range medio ora limitato a min(crono_amp, solar_calc) per
+                garantire zero prelievo anche quando CronoStar invia target > surplus reale.
+    Invariati: rimozione dead code (solar, v), voltage 230V, no duplicate last_mqtt_payload.
+  triggers:
+    - trigger: time_pattern
+      minutes: "/5"
+    - trigger: state
+      entity_id: input_boolean.ev_charge_2025_charging_active
+    - trigger: state
+      entity_id: input_select.ev_charge_2025_mode
+    - trigger: state
+      entity_id: input_number.ev_charge_2025_manual_power_kw
+    - trigger: state
+      entity_id: input_number.ev_charge_2025_cronostar_power_target
+    - trigger: state
+      entity_id: sensor.ev_charge_2025_solar_max_ampere_smoothed
+    - trigger: state
+      entity_id: sensor.byd_battery_box_premium_hv_state_of_charge
+    - trigger: state
+      entity_id: sensor.smart_meter_ts_100a_1_potenza_reale
+
+  action:
+    # ─── VARIABILI GLOBALI ──────────────────────────────────────────────────────
+    - variables:
+        is_active:  "{{ is_state('input_boolean.ev_charge_2025_charging_active', 'on') }}"
+        mode:       "{{ states('input_select.ev_charge_2025_mode') }}"
+        cur_soc:    "{{ states('sensor.ev_charge_2025_current_soc') | float(0) }}"
+        tgt_soc:    "{{ states('input_number.ev_charge_2025_target_soc') | float(0) }}"
+        limit_soc:  "{{ states('input_number.ev_charge_2025_vehicle_limit_soc') | float(100) }}"
+        voltage:    "{{ states('sensor.folini_carlo_voltage_ac') | float(230) }}"
+        duration:   "{{ states('input_number.ev_charge_2025_duration') | int(240) }}"
+        remaining:  "{{ states('sensor.ev_charge_2025_remaining_time') | int(0) }}"
+        byd_soc:    "{{ states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) }}"
+        is_low_soc: "{{ cur_soc < tgt_soc }}"
+        # Rimossa: variabile 'solar' (dead code — sensore non-smoothed, mai usata)
+
+    - choose:
+
+      # ═══════════════════════════════════════════════════════════════════════════
+      # START LOGIC
+      # ═══════════════════════════════════════════════════════════════════════════
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ trigger.platform == 'state'
+                 and trigger.entity_id == 'input_boolean.ev_charge_2025_charging_active'
+                 and trigger.to_state.state == 'on' }}
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ duration < 240 }}"
+            then:
+              - action: input_datetime.set_datetime
+                target:
+                  entity_id: input_datetime.ev_charge_2025_end_time
+                data:
+                  time: "{{ (now() + timedelta(minutes=duration)).strftime('%H:%M:%S') }}"
+          - delay: "00:00:02"
+
+      # ═══════════════════════════════════════════════════════════════════════════
+      # STOP LOGIC
+      # ═══════════════════════════════════════════════════════════════════════════
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ not is_active
+                 or cur_soc >= limit_soc
+                 or (is_active and duration < 240 and remaining <= 0
+                     and trigger.platform == 'time_pattern') }}
+        sequence:
+          - action: mqtt.publish
+            data:
+              topic: "home/prism/1/command/set_mode"
+              payload: "3"
+          - if:
+              - condition: template
+                value_template: "{{ is_active }}"
+            then:
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.ev_charge_2025_charging_active
+
+      # ═══════════════════════════════════════════════════════════════════════════
+      # RUN LOGIC
+      # ═══════════════════════════════════════════════════════════════════════════
+      - conditions:
+          - condition: template
+            value_template: "{{ is_active }}"
+        sequence:
+          - variables:
+              # solar_calc: surplus netto disponibile per l'EV in Ampere.
+              # IMPORTANTE: questo sensore include già il contatore smart meter nella
+              # sua formula (w_surplus = prism_p - grid_p_w - b_power), quindi
+              # NON va applicata nessuna ulteriore correzione dal contatore qui.
+              solar_calc: >
+                {{ states('sensor.ev_charge_2025_solar_max_ampere_smoothed') | int(0) }}
+              # Rimossa: variabile 'v' (dead code — stesso sensore di voltage, mai usata)
+
+          - choose:
+
+            # ─── MANUALE ──────────────────────────────────────────────────────
+            - conditions:
+                - condition: template
+                  value_template: "{{ mode == 'Manuale' }}"
+              sequence:
+                - variables:
+                    amp: >
+                      {{ (states('input_number.ev_charge_2025_manual_power_kw')
+                          | float * 1000 / voltage) | int | clamp(6, 32) }}
+                - action: mqtt.publish
+                  data:
+                    topic: "home/prism/1/command/set_mode"
+                    payload: "2"
+                - action: mqtt.publish
+                  data:
+                    topic: "home/prism/1/command/set_current_user"
+                    payload: "{{ amp }}"
+
+            # ─── AUTOMATICO ───────────────────────────────────────────────────
+            - conditions:
+                - condition: template
+                  value_template: "{{ mode == 'Automatico' }}"
+              sequence:
+                - variables:
+                    crono: >
+                      {{ states('input_number.ev_charge_2025_cronostar_power_target') | float(0) }}
+
+                    # Abilitazione ricarica:
+                    # • solare sufficiente (surplus ≥ 6A), OPPURE
+                    # • priorità SOC basso: auto scarica e BYD ha riserva (> 30%)
+                    can_charge: >
+                      {{ solar_calc >= 6 or (is_low_soc and byd_soc >= 30) }}
+
+                    target_amp: >
+                      {% if crono >= 7.9 %}
+                        {# Solar Full: usa il surplus solare netto direttamente.
+                           max(6, ...) garantisce il minimo tecnico SOLO nel caso
+                           low_soc + BYD > 30%, dove can_charge è True ma solar < 6A. #}
+                        {{ ([6, solar_calc] | max) | int }}
+
+                      {% elif crono <= 0.1 %}
+                        {# Nessun surplus schedulato: ferma la ricarica. #}
+                        0
+
+                      {% else %}
+                        {# Range schedulato (0.1 < crono < 7.9 kW):
+                           CronoStar indica un target temporale, ma il surplus reale
+                           potrebbe essere inferiore. Si prende il MINIMO tra:
+                           - target CronoStar in Ampere (limite massimo schedulato)
+                           - solar_calc (surplus netto disponibile in questo momento)
+                           → garantisce zero prelievo dalla rete anche con target stale. #}
+                        {{ ([crono * 1000 / voltage, solar_calc] | min) | int }}
+                      {% endif %}
+
+                - action: mqtt.publish
+                  data:
+                    topic: "home/prism/1/command/set_mode"
+                    payload: "{{ '2' if (can_charge and target_amp >= 6) else '3' }}"
+
+                - if:
+                    - condition: template
+                      value_template: "{{ can_charge and target_amp >= 6 }}"
+                  then:
+                    - action: mqtt.publish
+                      data:
+                        topic: "home/prism/1/command/set_current_user"
+                        payload: "{{ target_amp | clamp(6, 32) }}"
+
+                # Rimossa: scrittura duplicata su input_text.ev_charge_2025_last_mqtt_payload
+                # (gestita in modo completo da ev_charge_2025_log_mqtt_publish via event,
+                #  che cattura tutti i publish: set_mode E set_current_user).

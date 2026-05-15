@@ -5,16 +5,11 @@ sensor:
   - name: "EV Charge 2025 Remaining Time HMS"
     unique_id: ev_charge_2025_remaining_time_hms
     state: >-
-      {% set active = is_state('input_boolean.ev_charge_2025_charging_active', 'on') %}
-      {% set end = states('input_datetime.ev_charge_2025_end_time') %}
-      {% if not active or end in ['unknown','unavailable','none',''] or end == '00:00:00' %}
+      {% set minutes = states('sensor.ev_charge_2025_remaining_time') | int(0) %}
+      {% if minutes <= 0 %}
         00:00:00
       {% else %}
-        {% set end_dt = today_at(end) %}
-        {% set s = (end_dt - now()).total_seconds() | int(0) %}
-        {% set s = 0 if s < 0 else s %}
-        {% set h = (s // 3600) %}
-        {% set m = ((s % 3600) // 60) %}
-        {% set ss = (s % 60) %}
-        {{ '%02d:%02d:%02d' % (h, m, ss) }}
+        {% set h = (minutes // 60) %}
+        {% set m = (minutes % 60) %}
+        {{ '%02d:%02d:00' % (h, m) }}
       {% endif %}

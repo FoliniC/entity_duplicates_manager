@@ -22,16 +22,24 @@
         entity_id: input_text.ev_charge_2025_last_mqtt_topic
       data:
         value: "{{ topic }}"
-    - action: input_text.set_value
-      target:
-        entity_id: input_text.ev_charge_2025_last_mqtt_payload
-      data:
-        value: "{{ payload }}"
+    - if:
+        - condition: template
+          value_template: "{{ 'set_current' in topic }}"
+      then:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.ev_charge_2025_last_mqtt_payload
+          data:
+            value: "{{ payload }}"
     - action: input_text.set_value
       target:
         entity_id: input_text.ev_charge_2025_last_mqtt_time
       data:
         value: "{{ now_str }}"
+    - event: scale_log_event
+      event_data:
+        level: info
+        message: "MQTT publish -> topic={{ topic }} payload={{ payload }}"
     - choose:
         - conditions:
             - condition: state

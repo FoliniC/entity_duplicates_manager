@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "title": "Cronostar thermostat prova",
+    "y_axis_label": "Temperature",
+    "unit_of_measurement": "°C",
+    "min_value": 15,
+    "max_value": 30,
+    "step_value": 0.5,
+    "allow_max_value": false,
+    "target_entity": "climate.mg_mg4_electric_climate",
+    "enabled_entity": "switch.cronostar_thermostat_prova_enabled",
+    "profiles_select_entity": "select.cronostar_thermostat_prova_current_profile",
+    "preset_type": "thermostat",
+    "global_prefix": "cronostar_thermostat_prova_",
+    "updated_at": "2026-04-21T10:31:15.100665",
+    "_deleted_at": "2026-04-22T09:56:43.316847+00:00",
+    "_deleted_entry_title": "CronoStar: Prova",
+    "_deleted_global_prefix": "cronostar_thermostat_prova_",
+    "_deleted_preset_type": "thermostat"
+  },
+  "profiles": {
+    "Default": {
+      "schedule": [
+        {
+          "time": "00:00",
+          "value": 15.0
+        },
+        {
+          "time": "23:59",
+          "value": 15.0
+        }
+      ],
+      "updated_at": "2026-04-21T10:31:15.100687",
+      "enabled_entity": "switch.cronostar_thermostat_prova_enabled",
+      "profiles_select_entity": "select.cronostar_thermostat_prova_current_profile",
+      "target_entity": "climate.mg_mg4_electric_climate",
+      "entities": [
+        "climate.mg_mg4_electric_climate",
+        "switch.cronostar_thermostat_prova_enabled",
+        "select.cronostar_thermostat_prova_current_profile"
+      ]
+    }
+  }
+}

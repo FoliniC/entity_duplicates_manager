@@ -62,11 +62,11 @@ class PrismCommand(ButtonEntity):
         self.entity_description = description
         self._attr_unique_id = _get_unique_id(entry_data.serial, description.key)
 
-    async def async_added_to_hass(self) -> Coroutine[Any, Any, None]:
+    async def async_added_to_hass(self) -> None:
         """Subscribe to mqtt."""
-        return super().async_added_to_hass()
+        await super().async_added_to_hass()
 
-    async def async_will_remove_from_hass(self) -> Coroutine[Any, Any, None]:
+    async def async_will_remove_from_hass(self) -> None:
         """Unsubscribe from mqtt."""
         await super().async_will_remove_from_hass()
 

@@ -1,0 +1,36 @@
+title: CronoStar Admin v6.8.7
+views:
+- title: Admin
+  cards:
+  - type: markdown
+    content: '## CronoStar Admin v6.8.7'
+  - type: custom:cronostar-card
+    view_mode: admin
+    global_prefix: cronostar_thermostat_appartamento_
+    preset: thermostat
+    target_entity: climate.climatizzazione_appartamento
+    title: "CronoStar: Thermostat Appartamento \u2192 climate.climatizzazione_appartamento"
+    card_id: admin-cronostar-thermostat-appartamento-
+    initially_collapsed: true
+  - type: custom:cronostar-card
+    view_mode: admin
+    global_prefix: cronostar_ev_
+    preset: ev_charging
+    target_entity: input_number.ev_charge_2025_cronostar_power_target
+    title: "CronoStar: Ev \u2192 input_number.ev_charge_2025_cronostar_power_target"
+    card_id: admin-cronostar-ev-
+    initially_collapsed: true
+  - type: custom:cronostar-card
+    view_mode: admin
+    global_prefix: cronostar_generic_switch_growlight_
+    preset: generic_switch
+    target_entity: switch.presa_luci_natale
+    title: "CronoStar: Generic Switch Growlight \u2192 switch.presa_luci_natale"
+    card_id: admin-cronostar-generic-switch-growlight-
+    initially_collapsed: true
+  - type: custom:cronostar-card
+    view_mode: admin
+    not_configured: true
+    global_prefix: null
+    title: Add Controller
+    card_id: admin-footer-add-new

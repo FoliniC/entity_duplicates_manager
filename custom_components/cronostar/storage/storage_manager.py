@@ -213,17 +213,21 @@ class StorageManager:
             _LOGGER.error("Error deleting profile %s: %s", profile_name, e, exc_info=True)
             return False
 
-    async def list_profiles(self, preset_type: str | None = None, prefix: str | None = None) -> list[str]:
+    async def list_profiles(self, preset_type: str | None = None, prefix: str | None = None, force_reload: bool = False) -> list[str]:
         """
         List profile files
 
         Args:
             preset_type: Filter by preset type
             prefix: Filter by prefix
+            force_reload: Clear cache before listing
 
         Returns:
             List of filenames
         """
+        if force_reload:
+            await self.clear_cache()
+
         try:
             matches: list[str] = []
 
@@ -278,7 +282,13 @@ class StorageManager:
                             if base_noext.startswith("cronostar_"):
                                 rest = base_noext[len("cronostar_") :]
                                 base_part, sep, _suffix = rest.rpartition("_")
-                                wanted_base = norm_prefix_meta.rstrip("_")
+                                
+                                # Compare base parts without 'cronostar_' prefix
+                                wanted_base = norm_prefix_meta
+                                if wanted_base.startswith("cronostar_"):
+                                    wanted_base = wanted_base[len("cronostar_") :]
+                                wanted_base = wanted_base.rstrip("_")
+                                
                                 if base_part != wanted_base:
                                     continue
                             else:
@@ -341,8 +351,13 @@ class StorageManager:
             List of (filename, container) tuples from cache matching the filters.
         """
         norm_prefix = None
+        wanted_base = None
         if global_prefix:
             norm_prefix = global_prefix if global_prefix.endswith("_") else f"{global_prefix}_"
+            wanted_base = norm_prefix
+            if wanted_base.startswith("cronostar_"):
+                wanted_base = wanted_base[len("cronostar_") :]
+            wanted_base = wanted_base.rstrip("_")
 
         async with self._cache_lock:
             results: list[tuple[str, dict]] = []
@@ -350,10 +365,35 @@ class StorageManager:
                 if not isinstance(container, dict):
                     continue
                 meta = container.get("meta", {}) if isinstance(container, dict) else {}
-                if preset_type and meta.get("preset_type") != preset_type:
-                    continue
-                if norm_prefix and meta.get("global_prefix") != norm_prefix:
-                    continue
+                
+                # Filter by preset_type if provided
+                if preset_type:
+                    # Normalize preset types for comparison
+                    file_preset = meta.get("preset_type") or container.get("preset_type")
+                    if file_preset != preset_type:
+                        # Fallback normalization check
+                        try:
+                            from ..utils.prefix_normalizer import normalize_preset_type
+                            if normalize_preset_type(str(file_preset or "")) != normalize_preset_type(str(preset_type)):
+                                continue
+                        except Exception:
+                            continue
+
+                # Filter by global_prefix if provided
+                if norm_prefix:
+                    file_prefix = meta.get("global_prefix")
+                    if file_prefix != norm_prefix:
+                        # Fallback to filename-based match if meta prefix is missing or different
+                        # (Handles legacy files or prefix changes)
+                        base_noext = fname[:-5] if fname.endswith(".json") else fname
+                        if base_noext.startswith("cronostar_"):
+                            rest = base_noext[len("cronostar_") :]
+                            base_part, _sep, _suffix = rest.rpartition("_")
+                            if base_part != wanted_base:
+                                continue
+                        else:
+                            continue
+
                 results.append((fname, container))
 
             return results
@@ -388,6 +428,73 @@ class StorageManager:
             return True
         except Exception as e:
             _LOGGER.error("Error updating active profile: %s", e)
+            return False
+
+    async def update_enabled_state(self, preset_type: str, global_prefix: str, is_enabled: bool) -> bool:
+        """Update the enabled state in the container metadata."""
+        try:
+            from ..utils.filename_builder import build_profile_filename
+
+            filename = build_profile_filename(preset_type, global_prefix)
+            filepath = self.profiles_dir / filename
+
+            container = await self._load_container(filepath)
+            if not container:
+                return False
+
+            container.setdefault("meta", {})
+            container["meta"]["is_enabled"] = is_enabled
+            container["meta"]["updated_at"] = datetime.now().isoformat()
+
+            await self._write_json(filepath, container)
+
+            # Update cache
+            async with self._cache_lock:
+                self._cache[filename] = container
+                try:
+                    self._cache_mtimes[filename] = await self.hass.async_add_executor_job(os.path.getmtime, filepath)
+                except OSError:
+                    self._cache_mtimes[filename] = 0
+
+            _LOGGER.debug("Updated enabled state to '%s' in %s", is_enabled, filename)
+            return True
+        except Exception as e:
+            _LOGGER.error("Error updating enabled state: %s", e)
+            return False
+
+    async def delete_controller_files(self, global_prefix: str, preset_type: str | None = None) -> bool:
+        """
+        Delete all profile files associated with a controller prefix.
+
+        Args:
+            global_prefix: Controller prefix
+            preset_type: Optional preset type to narrow search
+
+        Returns:
+            True if any file was deleted
+        """
+        try:
+            files_to_delete = []
+            if preset_type:
+                filename = build_profile_filename(preset_type, global_prefix)
+                files_to_delete.append(filename)
+            else:
+                files_to_delete = await self.list_profiles(prefix=global_prefix)
+
+            deleted_any = False
+            for filename in files_to_delete:
+                filepath = self.profiles_dir / filename
+                if await self.hass.async_add_executor_job(filepath.exists):
+                    await self.hass.async_add_executor_job(filepath.unlink)
+                    async with self._cache_lock:
+                        self._cache.pop(filename, None)
+                        self._cache_mtimes.pop(filename, None)
+                    deleted_any = True
+                    _LOGGER.info("Deleted controller file: %s", filename)
+
+            return deleted_any
+        except Exception as e:
+            _LOGGER.error("Error deleting controller files for %s: %s", global_prefix, e)
             return False
 
     async def _load_container(self, filepath: Path) -> dict:
@@ -489,70 +596,3 @@ class StorageManager:
 
         except Exception as e:
             _LOGGER.warning("Backup cleanup failed: %s", e, exc_info=True)
-
-    async def load_all_profiles(self) -> dict[str, dict]:
-        """
-
-        Load all profiles from the profiles directory and perform data quality checks.
-
-
-
-        Returns:
-
-            A dictionary where keys are filenames and values are the loaded profile data,
-
-            including a 'validation_results' key with the outcome of the FileChecker.
-
-        """
-
-        _LOGGER.info("Loading all profiles from %s", self.profiles_dir)
-
-        from ..deep_checks.file_checker import FileChecker
-
-        file_checker = FileChecker(self.hass)
-
-        all_profiles_data: dict[str, dict] = {}
-
-        try:
-            # List all cronostar profile JSON files
-            def _get_files():
-                return list(self.profiles_dir.glob("cronostar_*.json"))
-
-            # Must run on executor because glob is I/O blocking
-            filepaths = await self.hass.async_add_executor_job(_get_files)
-
-            for filepath in filepaths:
-                filename = filepath.name
-
-                # Load the container data
-
-                container_data = await self._load_container(filepath)
-
-                # Perform data quality check for the file
-
-                # Note: FileChecker.check_files expects global_prefix and preset_type.
-
-                # We need to extract these from the filename or the loaded meta data.
-
-                # For now, let's just use _validate_profile_file directly as it's more generic.
-
-                validation_results = await file_checker._validate_profile_file(filepath)
-
-                if container_data:
-                    container_data["validation_results"] = validation_results
-
-                    all_profiles_data[filename] = container_data
-
-                    _LOGGER.debug("Loaded profile file: %s (valid: %s)", filename, validation_results.get("valid"))
-
-                else:
-                    _LOGGER.warning("Failed to load profile file: %s", filename)
-
-                    all_profiles_data[filename] = {"validation_results": validation_results}  # Store validation even if load failed
-
-        except Exception as e:
-            _LOGGER.error("Error loading all profiles: %s", e, exc_info=True)
-
-        _LOGGER.info("Finished loading all profiles. Found %d files.", len(all_profiles_data))
-
-        return all_profiles_data

@@ -55,9 +55,9 @@
   alias: accendi balcone
   description: ""
   triggers:
-    - event: sunset
+    - trigger: sun
+      event: sunset
       offset: 00:00:00
-      trigger: sun
   conditions: []
   actions:
     - data: {}
@@ -70,9 +70,9 @@
   alias: spegni balcone
   description: ""
   triggers:
-    - event: sunset
+    - trigger: sun
+      event: sunset
       offset: 03:20:00
-      trigger: sun
   conditions: []
   actions:
     - data: {}
@@ -112,21 +112,21 @@
                   | float(0) < 30 else ((states('sensor.byd_battery_box_premium_hv_state_of_charge')
                   | float(0) - 30) / 70 * 4500) if states('sensor.byd_battery_box_premium_hv_state_of_charge')
                   | float(0) <= 100 else 0 }}\n solarnet_power_battery: {{ states('sensor.solarnet_power_battery')
-                  | float(0)}}\n W pef PDC e appartamento : {{ ( ( states('sensor.consumo_pdc')
+                  | float(0)}}\n W pef PDC e appartamento : {{ ( ( states('sensor.consumo_netto_pdc_template')
                   | float(50)  + states('sensor.consumo_appartamento_template') | float(100)  )  )
                   }}\n W totale : {{  (states('sensor.envoy_122134037538_current_power_production'
                   ) | float(0) \n         + \n        (((30-states('sensor.byd_battery_box_premium_hv_state_of_charge')
                   | float(0)) / 30 * -4500) if states('sensor.byd_battery_box_premium_hv_state_of_charge')
                   | float(0) < 30 else ((states('sensor.byd_battery_box_premium_hv_state_of_charge')
                   | float(0) - 30) / 70 * 4500) if states('sensor.byd_battery_box_premium_hv_state_of_charge')
-                  | float(0) <= 100 else 0)\n        -  (states('sensor.consumo_pdc') |
+                  | float(0) <= 100 else 0)\n        -  (states('sensor.consumo_netto_pdc_template') |
                   float(50) +  states('sensor.consumo_appartamento_template') | float(100) ) \n       )
                   \ }}\n A per colonnina: {{ \n (\n   (\n     (\n        (states('sensor.envoy_122134037538_current_power_production'
                   ) | float(0) \n         + \n        (((30-states('sensor.byd_battery_box_premium_hv_state_of_charge')
                   | float(0)) / 30 * -4500) if states('sensor.byd_battery_box_premium_hv_state_of_charge')
                   | float(0) < 30 else ((states('sensor.byd_battery_box_premium_hv_state_of_charge')
                   | float(0) - 30) / 70 * 4500) if states('sensor.byd_battery_box_premium_hv_state_of_charge')
-                  | float(0) <= 100 else 0)\n        -  (states('sensor.consumo_pdc') |
+                  | float(0) <= 100 else 0)\n        -  (states('sensor.consumo_netto_pdc_template') |
                   float(50) +  states('sensor.consumo_appartamento_template') | float(100) ) \n       )
                   \n       / \n       (states('sensor.folini_carlo_voltage_ac') | float(220)\n
                   \      ) +0\n     ) | round(0)\n   )\n ) | string }}\n current_value:
@@ -141,7 +141,7 @@
           | float(0)) / 30 * -4500) if states('sensor.byd_battery_box_premium_hv_state_of_charge')
           | float(0) < 30 else ((states('sensor.byd_battery_box_premium_hv_state_of_charge')
           | float(0) - 30) / 70 * 4500) if states('sensor.byd_battery_box_premium_hv_state_of_charge')
-          | float(0) <= 100 else 0)\n        -  (states('sensor.consumo_pdc') | float(50)
+          | float(0) <= 100 else 0)\n        -  (states('sensor.consumo_netto_pdc_template') | float(50)
           +  states('sensor.consumo_appartamento_template') | float(100) ) \n       ) \n       /
           \n       (states('sensor.folini_carlo_voltage_ac') | float(220)\n       )
           +0\n     ) | round(0)\n   )\n ) | string }}"
@@ -160,10 +160,18 @@
                 "{{ current_value | int >= 6 and current_value != previous_recharge_ampere_value
                 }}"
           sequence:
+            - event: scale_log_event
+              event_data:
+                level: info
+                message: "LEGACY_AUTO (1706437692341) -> set_mode: 2"
             - data:
                 topic: home/prism/1/command/set_mode
                 payload: "2"
               action: mqtt.publish
+            - event: scale_log_event
+              event_data:
+                level: info
+                message: "LEGACY_AUTO (1706437692341) -> set_current_user: {{ current_value }}"
             - data:
                 topic: home/prism/1/command/set_current_user
                 payload: "{{ current_value }}"
@@ -172,6 +180,10 @@
             - condition: template
               value_template: "{{ current_value | int < 6  }}"
           sequence:
+            - event: scale_log_event
+              event_data:
+                level: info
+                message: "LEGACY_AUTO (1706437692341) -> set_mode: 3"
             - data:
                 topic: home/prism/1/command/set_mode
                 payload: "3"
@@ -275,7 +287,7 @@
         soc: "{{ states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) }}"
         power_production: "{{ states('sensor.envoy_122134037538_current_power_production') | float(0) }}"
         voltage: "{{ states('sensor.folini_carlo_voltage_ac') | float(220) }}"
-        consumo_pdc: "{{ states('sensor.consumo_pdc') | float(50) }}"
+        consumo_pdc: "{{ states('sensor.consumo_netto_pdc_template') | float(50) }}"
         consumo_appartamento: "{{ states('sensor.consumo_appartamento_template') | float(100) }}"
         solarnet_power_battery: "{{ states('sensor.solarnet_power_battery') | float(0) }}"
         w_battery: >
@@ -312,10 +324,18 @@
             - condition: template
               value_template: "{{ current_value | int >= 6 and current_value != previous_recharge_ampere_value }}"
           sequence:
+            - event: scale_log_event
+              event_data:
+                level: info
+                message: "LEGACY_GUI (1706437692342) -> set_mode: 2"
             - action: mqtt.publish
               data:
                 topic: home/prism/1/command/set_mode
                 payload: "2" # Modalità di ricarica
+            - event: scale_log_event
+              event_data:
+                level: info
+                message: "LEGACY_GUI (1706437692342) -> set_current_user: {{ current_value }}"
             - action: mqtt.publish
               data:
                 topic: home/prism/1/command/set_current_user
@@ -324,6 +344,10 @@
             - condition: template
               value_template: "{{ current_value | int < 6 }}"
           sequence:
+            - event: scale_log_event
+              event_data:
+                level: info
+                message: "LEGACY_GUI (1706437692342) -> set_mode: 3"
             - action: mqtt.publish
               data:
                 topic: home/prism/1/command/set_mode
@@ -340,6 +364,8 @@
         - sensor.statistics_temperatura_camera_variance
         - sensor.statistics_temperatura_sala_variance
       above: "0.1"
+      for:
+        minutes: 1
       trigger: numeric_state
   conditions: []
   actions:
@@ -354,7 +380,7 @@
                 message: TTS
                 data:
                   tts_text: Probabilmente la finestra del bagno è aperta.
-              action: notify.mobile_app_2312dra50g
+              action: notify.mobile_app_redmi_note_13_pro_5g
         - conditions:
             - condition: template
               value_template:
@@ -365,7 +391,7 @@
                 message: TTS
                 data:
                   tts_text: Probabilmente la finestra della cucina è aperta.
-              action: notify.mobile_app_2312dra50g
+              action: notify.mobile_app_redmi_note_13_pro_5g
         - conditions:
             - condition: template
               value_template:
@@ -376,7 +402,7 @@
                 message: TTS
                 data:
                   tts_text: Probabilmente la finestra della camera grande è aperta.
-              action: notify.mobile_app_2312dra50g
+              action: notify.mobile_app_redmi_note_13_pro_5g
         - conditions:
             - condition: template
               value_template:
@@ -387,7 +413,7 @@
                 message: TTS
                 data:
                   tts_text: Probabilmente la finestra della camera è aperta.
-              action: notify.mobile_app_2312dra50g
+              action: notify.mobile_app_redmi_note_13_pro_5g
         - conditions:
             - condition: template
               value_template:
@@ -398,7 +424,7 @@
                 message: TTS
                 data:
                   tts_text: Probabilmente la finestra della sala è aperta.
-              action: notify.mobile_app_2312dra50g
+              action: notify.mobile_app_redmi_note_13_pro_5g
   mode: single
 # - id: "1712908929755"
 #   alias: Example Automation When Condition Is False
@@ -451,7 +477,7 @@
     - trigger: event
       event_type: google_cloud_speech_to_text.result
   actions:
-    - action: notify.mobile_app_2312dra50g
+    - action: notify.mobile_app_redmi_note_13_pro_5g
       data:
         message: TTS
         data: Google calling
@@ -477,8 +503,8 @@
             - condition: template
               value_template: "{{ trigger.platform == 'homeassistant' }}"
           sequence:
-            - action: pyscript.scale_events_write
-              data:
+            - event: scale_log_event
+              event_data:
                 message: "DEBUG - Ripartito Home Assistant. {{ current_state_str }}"
                 level: INFO
                 action: "invariato"
@@ -493,8 +519,8 @@
             - condition: template
               value_template: "{{ trigger.platform == 'state' }}"
           sequence:
-            - action: pyscript.scale_events_write
-              data:
+            - event: scale_log_event
+              event_data:
                 message: "DEBUG - Cambio stato rilevato. {{ current_state_str }}"
                 level: INFO
                 action: "invariato"
@@ -511,8 +537,8 @@
             - condition: template
               value_template: "{{ current_state_str != last_state_str }}"
           sequence:
-            - action: pyscript.scale_events_write
-              data:
+            - event: scale_log_event
+              event_data:
                 message: "DEBUG - Aggiornamento periodico (stato disallineato?). {{ current_state_str }} (Era: {{ last_state_str }})"
                 level: INFO
                 action: "invariato"
@@ -562,15 +588,15 @@
                   S1: {{ states('switch.sonoff_10024024c4_1') }}, 
                   S2: {{ states('switch.sonoff_10024024c4_2') }},
                   Power: {{ (states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0)) }}W
-            - action: notify.mobile_app_2312dra50g
+            - action: notify.mobile_app_redmi_note_13_pro_5g
               data:
                 title: "⚠️ Deviatore Scale Corretto"
                 message: >-
                   Entrambi ON rilevati → Spento switch_2
                   Stato finale: S1={{ states('switch.sonoff_10024024c4_1') }}, S2={{ states('switch.sonoff_10024024c4_2') }}
                   Power: {{ (states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0)) }}W
-            - action: pyscript.scale_events_write
-              data:
+            - event: scale_log_event
+              event_data:
                 message: "Correzione ENTRAMBI ON: Spento switch_2. S1={{ states('switch.sonoff_10024024c4_1') }}, S2={{ states('switch.sonoff_10024024c4_2') }}"
                 level: WARNING
                 action: "spento"
@@ -594,15 +620,15 @@
                   S1: {{ states('switch.sonoff_10024024c4_1') }}, 
                   S2: {{ states('switch.sonoff_10024024c4_2') }},
                   Power: {{ (states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0)) }}W
-            - action: notify.mobile_app_2312dra50g
+            - action: notify.mobile_app_redmi_note_13_pro_5g
               data:
                 title: "⚠️ Deviatore Scale Corretto"
                 message: >-
                   Entrambi OFF rilevati → Acceso switch_1
                   Stato finale: S1={{ states('switch.sonoff_10024024c4_1') }}, S2={{ states('switch.sonoff_10024024c4_2') }}
                   Power: {{ (states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0)) }}W
-            - action: pyscript.scale_events_write
-              data:
+            - event: scale_log_event
+              event_data:
                 message: "Correzione ENTRAMBI OFF: Acceso switch_1. S1={{ states('switch.sonoff_10024024c4_1') }}, S2={{ states('switch.sonoff_10024024c4_2') }}"
                 level: WARNING
                 action: "acceso"
@@ -620,12 +646,12 @@
                   Stato problematico rilevato - 
                   Switch1: {{ states('switch.sonoff_10024024c4_1') }}, Switch2: {{ states('switch.sonoff_10024024c4_2') }},
                   Power: {{ power_total }}W
-            - action: notify.mobile_app_2312dra50g
+            - action: notify.mobile_app_redmi_note_13_pro_5g
               data:
                 title: "❌ Problema Deviatore Scale"
                 message: "Stato problematico: S1={{ states('switch.sonoff_10024024c4_1') }}, S2={{ states('switch.sonoff_10024024c4_2') }}"
-            - action: pyscript.scale_events_write
-              data:
+            - event: scale_log_event
+              event_data:
                 message: "Stato problematico rilevato. S1={{ states('switch.sonoff_10024024c4_1') }}, S2={{ states('switch.sonoff_10024024c4_2') }}"
                 level: ERROR
                 action: "nulla"
@@ -670,6 +696,7 @@
         minutes: 4
     - action: persistent_notification.create
       data:
+        title: "Luce Scale"
         message: >-
           Spegnimento automatico luci scale.
           Consumo: {{ states('sensor.luce_scale_switch_infos') }}W
@@ -677,8 +704,8 @@
     - action: light.turn_off
       target:
         entity_id: light.luce_scale
-    - action: pyscript.scale_events_write
-      data:
+    - event: scale_log_event
+      event_data:
         message: "Spegni luci scale dopo tempo - Spenta light.luce_scale dopo 4 min (Trigger: {{ trigger.platform }})"
         level: INFO
         action: "spento"
@@ -692,16 +719,17 @@
               entity_id: light.luce_scale
               state: "off"
           sequence:
-            - action: notify.mobile_app_2312dra50g
+            - action: notify.mobile_app_redmi_note_13_pro_5g
               data:
-                message: "Luce scale spenta automaticamente dopo 4 minuti"
+                title: "Luce Scale"
+                message: "Luce scale spenta automaticamente dopo 4 minuti. Consumo: {{ states('sensor.luce_scale_switch_infos') }}W"
                 data:
                   tts_text: "Spenta la luce scale"
       default:
-        - action: notify.mobile_app_2312dra50g
+        - action: notify.mobile_app_redmi_note_13_pro_5g
           data:
-            title: "⚠️ Errore spegnimento luce scale"
-            message: "La luce non si è spenta correttamente"
+            title: "⚠️ Errore Luce Scale"
+            message: "La luce non si è spenta correttamente dopo il timeout"
   mode: restart
 
 - id: "1740142914490"
@@ -740,7 +768,7 @@
 #       target:
 #         entity_id: light.luce_scale_switch
 #       data: {}
-#     - action: pyscript.scale_events_write
+#     - event: scale_log_event
 #       data:
 #         message: "Spegni luce scale dopo tempo - Spenta light.luce_scale_switch dopo 10 min"
 #         level: INFO
@@ -1026,7 +1054,7 @@
       value_template: "{{ trigger.to_state.state != trigger.from_state.state }}"
   actions:
     - alias: Invia notifica
-      action: notify.mobile_app_2312dra50g
+      action: notify.mobile_app_redmi_note_13_pro_5g
       data:
         message:
           "{%- if trigger.to_state.state == 'home' -%}           Rilevato ingresso
@@ -1117,7 +1145,7 @@
 #       value_template: "{{ trigger.to_state.state != (trigger.from_state.state if trigger.from_state else none) }}"
 #   actions:
 #     - alias: Scrivi nel Logbook
-#       action: notify.mobile_app_2312dra50g
+#       action: notify.mobile_app_redmi_note_13_pro_5g
 #       data:
 #         message: Cambio di stato in  {{ trigger.to_state.state }}
 #           context.id={{ trigger.to_state.context.id }},

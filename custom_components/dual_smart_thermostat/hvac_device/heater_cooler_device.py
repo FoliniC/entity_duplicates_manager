@@ -77,12 +77,8 @@ class HeaterCoolerDevice(MultiHvacDevice):
     def is_cold_or_hot(self) -> tuple[bool, bool, ToleranceDevice]:
         """Check if the environment is too cold or too hot.
 
-        When a device is active (heater/cooler), we check if the target has been reached
-        to determine if it should turn off. When inactive, we use tolerance to determine
-        if it should turn on.
-
-        Fix for issue #10: When heater is active, check if temp >= target_temp_low
-        (without hot_tolerance) to turn off. Similarly for cooler.
+        Tolerance is always used for hysteresis on both turn-on and turn-off
+        sides to prevent rapid cycling (fix for issue #506).
         """
 
         _LOGGER.debug("is_cold_or_hot")
@@ -90,8 +86,6 @@ class HeaterCoolerDevice(MultiHvacDevice):
         _LOGGER.debug("cooler_device.is_active: %s", self.cooler_device.is_active)
 
         if self.heater_device.is_active:
-            # Heater is ON: check if we should turn it off
-            # Turn off when temperature reaches target + hot_tolerance (issue #518)
             too_cold = self.environment.is_too_cold("_target_temp_low")
             too_hot = self.environment.is_too_hot("_target_temp_low")
             tolerance_device = ToleranceDevice.HEATER
@@ -103,8 +97,6 @@ class HeaterCoolerDevice(MultiHvacDevice):
                 too_hot,
             )
         elif self.cooler_device.is_active:
-            # Cooler is ON: check if we should turn it off
-            # Turn off when temperature reaches target - cold_tolerance (issue #518)
             too_hot = self.environment.is_too_hot("_target_temp_high")
             too_cold = self.environment.is_too_cold("_target_temp_high")
             tolerance_device = ToleranceDevice.COOLER
@@ -183,14 +175,15 @@ class HeaterCoolerDevice(MultiHvacDevice):
         if too_cold:
             await self.heater_device.async_control_hvac(time, force)
             self._hvac_action_reason = self.heater_device.HVACActionReason
-            await self.cooler_device.async_turn_off()
+            if self.cooler_device.is_active:
+                await self.cooler_device.async_turn_off()
         elif too_hot:
             await self.cooler_device.async_control_hvac(time, force)
             self._hvac_action_reason = self.cooler_device.HVACActionReason
-            await self.heater_device.async_turn_off()
+            if self.heater_device.is_active:
+                await self.heater_device.async_turn_off()
         else:
-            await self.heater_device.async_turn_off()
-            await self.cooler_device.async_turn_off()
+            await self.async_turn_off_all(time)
             self._hvac_action_reason = HVACActionReason.TARGET_TEMP_REACHED
 
     async def _async_check_device_initial_state(self) -> None:

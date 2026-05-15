@@ -59,6 +59,30 @@ class CronoStarConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_abort(reason="unknown")
 
+    async def async_step_reconfigure(self, user_input=None):
+        """Handle reconfiguration of a controller entry."""
+        entry_id = self.context.get("entry_id")
+        entry = self.hass.config_entries.async_get_entry(entry_id)
+
+        if user_input is not None:
+            # Update the entry
+            new_data = {**entry.data, **user_input}
+            if hasattr(self, "async_update_reload_and_abort"):
+                return await self.async_update_reload_and_abort(entry, data=new_data)
+            
+            # Fallback for HA < 2024.1
+            self.hass.config_entries.async_update_entry(entry, data=new_data)
+            await self.hass.config_entries.async_reload(entry.entry_id)
+            return self.async_abort(reason="reconfigure_successful")
+
+        # Pre-fill with current values
+        if entry.data.get("component_installed"):
+            schema = vol.Schema({vol.Optional(CONF_LOGGING_ENABLED, default=entry.data.get(CONF_LOGGING_ENABLED, False)): bool})
+        else:
+            schema = self._get_controller_schema(entry.data)
+            
+        return self.async_show_form(step_id="reconfigure", data_schema=schema)
+
     async def async_step_user(self, user_input=None):
         """Entry point: choose installation type or proceed with component install."""
         # If component not yet installed, offer install first
@@ -75,11 +99,13 @@ class CronoStarConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             # Added version tag to label
-            return self.async_create_entry(title="CronoStar [v5.4.74]", data={"component_installed": True})
+            data = {"component_installed": True}
+            data.update(user_input)
+            return self.async_create_entry(title="CronoStar", data=data)
 
         return self.async_show_form(
             step_id="install_component",
-            data_schema=vol.Schema({}),
+            data_schema=vol.Schema({vol.Optional(CONF_LOGGING_ENABLED, default=False): bool}),
             description_placeholders={
                 "info": (
                     "This will install the CronoStar component and register the Lovelace card.\n\n"
@@ -205,7 +231,7 @@ class CronoStarConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_success(self, user_input=None):
         """Final Step: Success confirmation dialog."""
         if user_input is not None:
-            title = f"CronoStar: {self._controller_data.get(CONF_NAME)} [v5.4.74]"
+            title = f"CronoStar: {self._controller_data.get(CONF_NAME)}"
 
             # Handle dashboard addition
             if self._controller_data.get("dashboard_path"):
@@ -427,7 +453,7 @@ class CronoStarOptionsFlow(config_entries.OptionsFlow):
             if clean_name.startswith("CronoStar: "):
                 clean_name = clean_name[len("CronoStar: ") :]
 
-            new_title = f"CronoStar: {clean_name} [v5.4.74]"
+            new_title = f"CronoStar: {clean_name}"
 
             _LOGGER.debug("[OptionsFlow] Updating entry. Title: %s, Data: %s", new_title, new_data)
 

@@ -1,0 +1,20 @@
+# HALog2026 — Scale Log Listener
+# initial_state: false prevents HA from validating pyscript.halog2026_write
+# at boot (before pyscript has registered its services).
+# The boot manager and pyscript startup both enable this automation once safe.
+
+- id: scale_log_event_listener
+  alias: "Scale: Listener Eventi Log"
+  description: "Ascolta gli eventi scale_log_event e li indirizza a HALog2026"
+  initial_state: false
+  trigger:
+    - trigger: event
+      event_type: scale_log_event
+  actions:
+    - action: pyscript.halog2026_write
+      data:
+        subsystem: scale
+        level: "{{ trigger.event.data.level | default('info') }}"
+        message: "{{ trigger.event.data.message | default('') }}"
+        action: "{{ trigger.event.data.action | default('nulla') }}"
+        # wait: 2  ← uncomment to delay writing while power sensors settle

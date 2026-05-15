@@ -88,7 +88,7 @@ class PrismGridEnergy(SensorEntity, RestoreEntity):
     async def async_added_to_hass(self) -> None:
         """Sensor is added to hass."""
         _LOGGER.debug("async_added_to_hass %s", self.entity_description.key)
-        await super().async_internal_added_to_hass()
+        await super().async_added_to_hass()
 
         if state := await self.async_get_last_state():
             _LOGGER.debug("async_added_to_hass last state %s", state)
@@ -218,6 +218,7 @@ class PrismSensor(PrismBaseEntity, SensorEntity):
     async def async_added_to_hass(self) -> None:
         """Subscribe to mqtt."""
         # _LOGGER.debug("async_added_to_hass")
+        await super().async_added_to_hass()
         self._attr_available = False
         await self._subscribe_topic()
 

@@ -95,7 +95,7 @@ DEVICE_CLOUD_DATA = "device_cloud_data"
 # Using list method so we can translate options.
 CONFIGURE_MENU = [CONF_ADD_DEVICE, CONF_EDIT_DEVICE, CONF_CONFIGURE_CLOUD]
 
-_LOGGER.error("[TRACER] Config flow file loaded")
+_LOGGER.debug("[TRACER] Config flow file loaded")
 
 def col_to_select(
     opt_list: dict | list, multi_select=False, is_dps=False, custom_value=False

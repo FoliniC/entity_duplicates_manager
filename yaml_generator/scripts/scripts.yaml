@@ -54,11 +54,19 @@ fancoil_log_v2:
 
     # 2. Gestione buffer di boot o scrittura su file tramite Pyscript
     - choose:
-        # CASO 1: Buffering attivo (Se il flag è ON)
+        # CASO 1: Buffering attivo 
+        # Attivo se:
+        # - il flag fancoil_boot_buffering è ON
+        # - lo stato del flag è ancora sconosciuto o non disponibile (fase di avvio)
+        # - l'uptime del sistema è inferiore a 60 secondi (pyscript potrebbe non essere ancora pronto)
         - conditions:
-            - condition: state
-              entity_id: input_boolean.fancoil_boot_buffering
-              state: "on"
+            - condition: template
+              value_template: >
+                {% set uptime = states('sensor.uptime') %}
+                {% set age = (as_timestamp(now()) - as_timestamp(uptime)) | int if uptime not in ['unknown', 'unavailable', None] else -1 %}
+                {{ is_state('input_boolean.fancoil_boot_buffering', 'on') or 
+                   states('input_boolean.fancoil_boot_buffering') in ['unknown', 'unavailable'] or
+                   (age >= 0 and age < 60) }}
           sequence:
             - action: python_script.set_state
               data:
@@ -71,18 +79,29 @@ fancoil_log_v2:
                   {% set new_entry = ts ~ ' [' ~ lvl ~ '] ' ~ (message | trim) ~ '[[BR]]' %}
                   {{ (current ~ new_entry)[-16000:] }}
       
-      # CASO 2: Normale operatività (Pyscript)
+      # CASO 2: Normale operatività (Pyscript pronto e buffering OFF)
       default:
-        - action: "{{ 'pyscript.fancoil_events_write' }}"
+        - action: script.fancoil_log_direct
           continue_on_error: true
           data:
             level: "{{ level.upper() if level is defined else 'INFO' }}"
             message: "{{ message if message is defined else '' }}"
 
+fancoil_log_direct:
+  alias: "Fancoil: Scrittura Diretta Pyscript"
+  mode: parallel
+  sequence:
+    - action: "{{ 'pyscript.fancoil_events_write' }}"
+      continue_on_error: true
+      data:
+        level: "{{ level }}"
+        message: "{{ message }}"
+
 fancoil_flush_logs:
   alias: "Fancoil: Svuota Buffer Log"
   sequence:
     - action: "{{ 'pyscript.fancoil_flush_boot_buffer' }}"
+      continue_on_error: true
       data:
         entity_id: input_boolean.fancoil_boot_buffering
     - action: python_script.set_state

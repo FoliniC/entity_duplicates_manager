@@ -2,7 +2,7 @@
   "meta": {
     "preset_type": "thermostat",
     "global_prefix": "cronostar_thermostat_appartamento_",
-    "updated_at": "2026-03-24T23:00:21.746856",
+    "updated_at": "2026-05-11T13:01:31.110390",
     "title": "CronoStar Thermostat",
     "y_axis_label": "Temperature",
     "unit_of_measurement": "°C",
@@ -13,8 +13,8 @@
     "target_entity": "climate.climatizzazione_appartamento",
     "enabled_entity": "switch.appartamento",
     "profiles_select_entity": "select.cronostar_thermostat_appartamento_current_profile",
-    "language": "it",
-    "last_active_profile": "Comfort",
+    "language": "en",
+    "last_active_profile": "Default",
     "entities": [
       "climate.climatizzazione_appartamento",
       "switch.appartamento",
@@ -26,34 +26,34 @@
       "schedule": [
         {
           "time": "00:00",
-          "value": 22.5
+          "value": 23.5
         },
         {
-          "time": "11:40",
-          "value": 22.5
+          "time": "11:00",
+          "value": 23.717082451262844
         },
         {
-          "time": "11:41",
-          "value": 22.5
+          "time": "11:01",
+          "value": 23.5
         },
         {
-          "time": "18:40",
-          "value": 22.5
+          "time": "18:00",
+          "value": 23.5
         },
         {
-          "time": "19:15",
-          "value": 22.5
+          "time": "18:35",
+          "value": 23.5
         },
         {
-          "time": "19:16",
-          "value": 22.5
+          "time": "18:36",
+          "value": 23.5
         },
         {
           "time": "23:59",
-          "value": 22.5
+          "value": 23.5
         }
       ],
-      "updated_at": "2026-03-24T23:00:15.293857",
+      "updated_at": "2026-05-11T13:01:31.110405",
       "enabled_entity": "switch.appartamento",
       "profiles_select_entity": "select.cronostar_thermostat_appartamento_current_profile",
       "target_entity": "climate.climatizzazione_appartamento",
@@ -67,44 +67,44 @@
       "schedule": [
         {
           "time": "00:00",
-          "value": 24.0
+          "value": 21.0
         },
         {
           "time": "07:21",
-          "value": 24.0
+          "value": 21.0
         },
         {
           "time": "09:25",
-          "value": 24.0
+          "value": 21.0
         },
         {
           "time": "14:25",
-          "value": 24.0
+          "value": 21.0
         },
         {
           "time": "17:25",
-          "value": 24.0
+          "value": 21.0
         },
         {
           "time": "18:20",
-          "value": 24.0
+          "value": 21.0
         },
         {
           "time": "20:05",
-          "value": 24.0
+          "value": 21.0
         },
         {
           "time": "23:59",
-          "value": 24.0
+          "value": 21.0
         }
       ],
-      "updated_at": "2026-03-24T22:59:53.761761",
-      "enabled_entity": "switch.cronostar_thermostat_appartamento_enabled",
+      "updated_at": "2026-04-21T19:13:45.230775",
+      "enabled_entity": "switch.appartamento",
       "profiles_select_entity": "select.cronostar_thermostat_appartamento_current_profile",
       "target_entity": "climate.climatizzazione_appartamento",
       "entities": [
         "climate.climatizzazione_appartamento",
-        "switch.cronostar_thermostat_appartamento_enabled",
+        "switch.appartamento",
         "select.cronostar_thermostat_appartamento_current_profile"
       ]
     },

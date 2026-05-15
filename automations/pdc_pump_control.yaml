@@ -1,6 +1,6 @@
 - id: pdc_pump_delayed_start
   alias: "PDC: Accensione ritardata pompa"
-  description: "Avvia la pompa 2 minuti dopo l'accensione della PDC"
+  description: "Avvia la pompa e abilita i fancoil 2 minuti dopo l'accensione della PDC"
   triggers:
     - trigger: state
       entity_id: switch.attiva_pdc
@@ -10,25 +10,59 @@
     - delay: "00:02:00"
     - action: switch.turn_on
       target:
-        entity_id: switch.attiva_pompa_circolazione
+        entity_id:
+          - switch.attiva_pompa_circolazione
+          - switch.attiva_fancoil
   mode: single
 
 - id: pdc_pump_thermostatic_stop
   alias: "PDC: Spegnimento termostatato pompa"
-  description: "Spegne la pompa quando la PDC è spenta e il fluido ha raggiunto la soglia di temperatura (condizione invalid per i termostati)"
+  description: "Spegne la pompa e mette i fancoil in standby quando la PDC è spenta e il fluido ha raggiunto la soglia di temperatura"
   triggers:
     - trigger: state
       entity_id: binary_sensor.fancoil_circuit_temp_invalid
       to: "on"
+    - trigger: state
+      entity_id: switch.attiva_pdc
+      to: "off"
+    - trigger: time_pattern
+      minutes: "/5"
+    - trigger: homeassistant
+      event: start
   conditions:
     - condition: state
       entity_id: switch.attiva_pdc
       state: "off"
     - condition: state
-      entity_id: switch.attiva_pompa_circolazione
+      entity_id: binary_sensor.fancoil_circuit_temp_invalid
       state: "on"
+    - condition: or
+      conditions:
+        - condition: state
+          entity_id: switch.attiva_pompa_circolazione
+          state: "on"
+        - condition: state
+          entity_id: switch.attiva_fancoil
+          state: "on"
   actions:
     - action: switch.turn_off
       target:
-        entity_id: switch.attiva_pompa_circolazione
+        entity_id:
+          - switch.attiva_pompa_circolazione
+          - switch.attiva_fancoil
   mode: single
+
+- id: pdc_pump_logging
+  alias: "PDC: Log stato pompa circolazione"
+  description: "Registra nel log dei fancoil ogni cambio di stato della pompa di circolazione"
+  triggers:
+    - trigger: state
+      entity_id: switch.attiva_pompa_circolazione
+  actions:
+    - action: script.fancoil_log_v2
+      data:
+        level: "INFO"
+        message: >-
+          [Pompa] Stato cambiato a {{ trigger.to_state.state | upper }}
+          (Origine: {{ 'Manuale/Altro' if trigger.from_state is defined and trigger.to_state.context.user_id is not none else 'Automazione' }})
+  mode: parallel

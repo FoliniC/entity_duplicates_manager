@@ -96,8 +96,8 @@ async def async_setup_entry(
                         device,
                         dev_entry,
                         entity_config[CONF_ID],
-                        # we need add_entites_callback in-case we want to add sub-entites, such as electric sensor "phase_a"
-                        add_entites_callback=async_add_entities,
+                        # we need add_entities_callback in-case we want to add sub-entities, such as electric sensor "phase_a"
+                        add_entities_callback=async_add_entities,
                     )
                 )
     # Once the entities have been created, add to the TuyaDevice instance
@@ -145,8 +145,8 @@ class LocalTuyaEntity(RestoreEntity, pytuya.ContextualLogger):
         self._last_state = None
         self._stored_states: State | None = None
         self.hass = device.hass
-        self.componet_add_entities: AddEntitiesCallback = kwargs.get(
-            "add_entites_callback"
+        self.component_add_entities: AddEntitiesCallback = kwargs.get(
+            "add_entities_callback"
         )
         self._loaded = False
 

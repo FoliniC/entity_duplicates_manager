@@ -13,7 +13,12 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up CronoStar switch entities from config entry."""
-    coordinator = entry.runtime_data
+    # Use runtime_data (HA 2024.4+) with fallback to hass.data
+    if hasattr(entry, "runtime_data"):
+        coordinator = entry.runtime_data
+    else:
+        coordinator = hass.data[DOMAIN][entry.entry_id]
+    _LOGGER.info("[SWITCH] Setting up enabled switch for controller '%s' (prefix: %s)", coordinator.name, coordinator.prefix)
     async_add_entities([CronoStarEnabledSwitch(coordinator)])
 
 
@@ -33,6 +38,8 @@ class CronoStarEnabledSwitch(CoordinatorEntity, SwitchEntity):
 
         # Explicit entity_id to prevent HA truncation (e.g. switch.cronostar_ev)
         self.entity_id = f"switch.{coordinator.prefix}enabled"
+        
+        _LOGGER.info("[SWITCH] Entity initialized: %s (unique_id: %s)", self.entity_id, self._attr_unique_id)
 
         # Device info for grouping
         self._attr_device_info = {
@@ -40,7 +47,7 @@ class CronoStarEnabledSwitch(CoordinatorEntity, SwitchEntity):
             "name": coordinator.name,
             "manufacturer": "CronoStar",
             "model": f"{coordinator.preset_type.capitalize()} Controller",
-            "sw_version": coordinator.hass.data[DOMAIN].get("version", "unknown"),
+            "sw_version": str(coordinator.hass.data[DOMAIN].get("version", "unknown")),
         }
 
     @property
@@ -63,3 +70,8 @@ class CronoStarEnabledSwitch(CoordinatorEntity, SwitchEntity):
             _LOGGER.info("Disabling controller '%s'", self.coordinator.name)
 
         await self.coordinator.set_enabled(False)
+
+    @property
+    def available(self) -> bool:
+        """Entity availability - always true if coordinator is initialized."""
+        return self.coordinator.last_update_success

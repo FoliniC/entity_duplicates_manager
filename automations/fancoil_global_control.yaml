@@ -11,84 +11,79 @@
         - schedule.riscaldamento
         - binary_sensor.pdc_acqua_calda
         - switch.attiva_fancoil
+        - binary_sensor.fancoil_circuit_temp_invalid
     - trigger: numeric_state
       entity_id: sensor.temperatura_circuito_riscaldamento
-      below: 25 # Soglia indicativa per blocco freddo in riscaldamento
+      below: 25
     - trigger: numeric_state
       entity_id: sensor.temperatura_circuito_riscaldamento
-      above: 28 # Soglia indicativa per ripartenza
+      above: 28
     - trigger: homeassistant
       event: start
   actions:
-    # Attendiamo che i servizi pyscript siano caricati se l'automazione è scattata all'avvio
     - if:
         - condition: template
           value_template: "{{ trigger.platform == 'homeassistant' and trigger.event == 'start' }}"
       then:
-        - delay: "00:00:15"
+        - delay: "00:00:30"
 
     - variables:
-        hvac_mode: "{{ states('input_select.fancoil_system_hvac_mode') }}"
+        hvac_mode_attuale: "{{ states('input_select.fancoil_system_hvac_mode') }}"
         pdc_h2o: "{{ is_state('binary_sensor.pdc_acqua_calda', 'on') }}"
         sched_on: "{{ is_state('schedule.riscaldamento', 'on') }}"
         switch_on: "{{ is_state('switch.attiva_fancoil', 'on') }}"
         circuit_temp: "{{ states('sensor.temperatura_circuito_riscaldamento') | float(0) }}"
         threshold_heat: "{{ states('input_number.circuit_temp_threshold_heat') | float(30) }}"
         
-        # Motivo del blocco
+        # Calcolo del modo target basato su schedulazione e switch
+        # Se uno dei due è ON, il modo desiderato è 'heat'
+        target_mode: >-
+          {% if sched_on or switch_on %} heat
+          {% else %} off
+          {% endif %}
+
+        # Motivo del blocco (solo se il sistema dovrebbe essere acceso)
         block_reason: >-
-          {% if pdc_h2o %} Produzione Acqua Calda
-          {% elif hvac_mode == 'heat' and circuit_temp < threshold_heat %} Temperatura Circuito Bassa ({{ circuit_temp }}°C)
-          {% elif not sched_on and not switch_on %} Schedulazione e Switch OFF
+          {% if target_mode == 'heat' %}
+            {% if pdc_h2o %} Produzione Acqua Calda
+            {% elif circuit_temp < threshold_heat %} Temperatura Circuito Bassa ({{ circuit_temp }}°C)
+            {% else %} none
+            {% endif %}
           {% else %} none
           {% endif %}
 
-    # 1. Gestione Schedulazione -> Accensione/Spegnimento Master
+    # 1. Allineamento del modo HVAC Master
     - if:
         - condition: template
-          value_template: "{{ trigger.entity_id == 'schedule.riscaldamento' }}"
+          value_template: "{{ target_mode != hvac_mode_attuale }}"
       then:
         - action: input_select.select_option
           target:
             entity_id: input_select.fancoil_system_hvac_mode
           data:
-            option: "{{ 'heat' if (sched_on or switch_on) else 'off' }}"
+            option: "{{ target_mode }}"
         - event: fancoil_log_event
           event_data:
             level: info
-            message: "[Global] (Created: {{ now().strftime('%H:%M:%S') }}) Cambio stato da schedulazione (Switch {{ 'ON' if switch_on else 'OFF' }}): {{ 'ON (heat)' if (sched_on or switch_on) else 'OFF' }}"
+            message: "[Global] (Created: {{ now().strftime('%H:%M:%S') }}) Cambio stato globale: {{ hvac_mode_attuale }} -> {{ target_mode }} (Sched: {{ 'ON' if sched_on else 'OFF' }}, Switch: {{ 'ON' if switch_on else 'OFF' }}, Trigger: {{ trigger.entity_id if trigger.entity_id is defined else trigger.platform }})"
 
-    # 2. Gestione Switch Manuale -> Accensione/Spegnimento Master
+    # 2. Logging Blocchi (solo se il sistema è acceso)
     - if:
         - condition: template
-          value_template: "{{ trigger.entity_id == 'switch.attiva_fancoil' }}"
-      then:
-        - action: input_select.select_option
-          target:
-            entity_id: input_select.fancoil_system_hvac_mode
-          data:
-            option: "{{ 'heat' if switch_on else 'off' }}"
-        - event: fancoil_log_event
-          event_data:
-            level: info
-            message: "[Global] (Created: {{ now().strftime('%H:%M:%S') }}) Cambio stato da switch manuale: {{ 'ON (heat)' if switch_on else 'OFF' }}"
-
-    # 2. Logging Blocchi (solo se il sistema è teoricamente acceso)
-    - if:
-        - condition: template
-          value_template: "{{ hvac_mode != 'off' and block_reason != 'none' }}"
+          value_template: "{{ target_mode != 'off' and block_reason != 'none' }}"
       then:
         - event: fancoil_log_event
           event_data:
             level: warning
             message: "[Global] (Created: {{ now().strftime('%H:%M:%S') }}) Sistema in blocco temporaneo. Motivo: {{ block_reason }}"
-    
-    # 3. Logging Ripristino
+
+    # 3. Logging Ripristino (se era bloccato e ora non lo è più)
     - if:
         - condition: template
-          value_template: "{{ hvac_mode != 'off' and block_reason == 'none' and trigger.from_state is defined and trigger.from_state.state != trigger.to_state.state }}"
+          value_template: "{{ target_mode != 'off' and block_reason == 'none' and (trigger.from_state is defined and trigger.from_state.state != trigger.to_state.state or trigger.platform == 'homeassistant') }}"
       then:
         - event: fancoil_log_event
           event_data:
             level: info
             message: "[Global] (Created: {{ now().strftime('%H:%M:%S') }}) Blocchi rimossi, sistema operativo."
+

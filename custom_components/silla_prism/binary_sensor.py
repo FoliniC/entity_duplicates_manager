@@ -103,6 +103,7 @@ class PrismBinarySensor(PrismBaseEntity, BinarySensorEntity):
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to mqtt."""
+        await super().async_added_to_hass()
         await self._subscribe_topic()
 
     async def async_will_remove_from_hass(self) -> None:

@@ -1,0 +1,57 @@
+# HALog2026 — Boot Log Manager
+# ─────────────────────────────────────────────────────────────────────────────
+# Centralised boot sequence for all HALog2026 subsystems.
+#
+# Flow:
+#   1. Turn on fancoil boot-buffering flag (collects messages before pyscript is ready).
+#   2. Clear any stale queue from a previous run.
+#   3. Wait up to 3 min for pyscript to register its services (wait_template).
+#   4. Safety delay of 2 min (belt-and-braces; also lets sensors settle).
+#   5. Flush the boot buffer via the unified pyscript service.
+#   6. Enable ALL log-listener automations.
+#      (pyscript startup already does this as a Double-Safety fallback.)
+# ─────────────────────────────────────────────────────────────────────────────
+
+- id: halog2026_boot_manager
+  alias: "HALog2026: Boot Manager"
+  description: >
+    Activates boot buffering on HA start, waits for pyscript to be ready,
+    flushes the buffer and enables all log-listener automations.
+  trigger:
+    - trigger: homeassistant
+      event: start
+
+  actions:
+    # ── Step 1 & 2: arm buffering and clear stale queue ───────────────────
+    - action: input_boolean.turn_on
+      target:
+        entity_id: input_boolean.fancoil_boot_buffering
+
+    - service: python_script.set_state
+      data:
+        entity_id: input_boolean.fancoil_boot_buffering
+        log_queue: ""
+
+    # ── Step 3: wait for pyscript services to register (max 3 min) ────────
+    - wait_template: >
+        {{ states.pyscript is defined or
+           'halog2026_write' in integration_entities('pyscript') }}
+      timeout: "00:03:00"
+      continue_on_timeout: true
+
+    # ── Step 4: safety delay ──────────────────────────────────────────────
+    - delay: "00:02:00"
+
+    # ── Step 5: flush boot buffer (fancoil subsystem) ─────────────────────
+    - action: pyscript.halog2026_flush_boot_buffer
+      data:
+        entity_id: input_boolean.fancoil_boot_buffering
+        subsystem: fancoil
+
+    # ── Step 6: enable all listeners ──────────────────────────────────────
+    - action: automation.turn_on
+      target:
+        entity_id:
+          - automation.fancoil_listener_eventi_log
+          - automation.scale_log_event_listener
+          - automation.ev_log_event_listener
