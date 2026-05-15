@@ -375,16 +375,9 @@ views:
                                 .grid-right { color: blue !important; }
                                 .cur-box ha-icon { transform: scale(2); }
 
-              # COLONNA 3: Info e Switch Sistema
+              # COLONNA 3: Info
               - type: vertical-stack
                 cards:
-                  - type: entities
-                    title: Stato Sistema
-                    state_color: true
-                    entities:
-                      - entity: switch.attiva_fancoil
-                      - entity: switch.attiva_pdc
-                      - entity: switch.attiva_pompa_circolazione
 
           # DESCRIZIONE SISTEMA (A tutta larghezza)
           - type: markdown
