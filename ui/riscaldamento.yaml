@@ -9,84 +9,82 @@ views:
     panel: true
     badges: []
     cards:
-      - type: vertical-stack
+    cards:
+      - type: grid
+        columns: 2
+        square: false
         cards:
-          # GRIGLIA PRINCIPALE A 3 COLONNE
-          - type: grid
-            columns: 3
-            square: false
+          # COLONNA 1: Stato e Comandi Generali
+          - type: vertical-stack
             cards:
-              # COLONNA 1: Stato e Comandi Generali
-              - type: vertical-stack
-                cards:
-                  - type: entities
-                    title: Stato Sistema
-                    state_color: true
-                    entities:
-                      - entity: switch.attiva_fancoil
-                      - entity: switch.attiva_pdc
-                      - entity: switch.attiva_pompa_circolazione
-                  - type: entities
-                    title: Comandi Generali
-                    entities:
-                      - entity: input_select.fancoil_verbosity_level_master
-                        name: Verbosity messaggi
-                        icon: mdi:bug
-                      - entity: input_number.climate_setpoint_offset
-                        name: Offset temperatura
-                        icon: mdi:thermometer-plus-minus
-                      - entity: input_boolean.fancoil_logging_master_enabled
-                        name: Logging Master
-                        icon: mdi:file-document-outline
-                  - show_name: true
-                    show_icon: true
-                    type: button
-                    name: Rigenera gestione fancoil
-                    icon: mdi:refresh
-                    tap_action:
-                      action: perform-action
-                      perform_action: shell_command.generate_fancoil_climates
-                      target: {}
+              - type: entities
+                title: Stato Sistema
+                state_color: true
+                entities:
+                  - entity: switch.attiva_fancoil
+                  - entity: switch.attiva_pdc
+                  - entity: switch.attiva_pompa_circolazione
+              - type: entities
+                title: Comandi Generali
+                entities:
+                  - entity: input_select.fancoil_verbosity_level_master
+                    name: Verbosity messaggi
+                    icon: mdi:bug
+                  - entity: input_number.climate_setpoint_offset
+                    name: Offset temperatura
+                    icon: mdi:thermometer-plus-minus
+                  - entity: input_boolean.fancoil_logging_master_enabled
+                    name: Logging Master
+                    icon: mdi:file-document-outline
+              - show_name: true
+                show_icon: true
+                type: button
+                name: Rigenera gestione fancoil
+                icon: mdi:refresh
+                tap_action:
+                  action: perform-action
+                  perform_action: shell_command.generate_fancoil_climates
+                  target: {}
 
-              # COLONNA 2: Soglie Operative
+          # COLONNA 2: Soglie Operative
+          - type: vertical-stack
+            cards:
               - type: vertical-stack
+                title: Soglie Operative
                 cards:
-                  - type: vertical-stack
-                    title: Soglie Operative
+                  # Inerzia Cambio Velocità
+                  - type: grid
+                    columns: 2
+                    square: false
+                    card_mod:
+                      style: |
+                        hui-grid-card { grid-template-columns: 80px 1fr !important; gap: 0px !important; margin-bottom: 4px !important; }
+                        #root { grid-template-columns: 80px 1fr !important; gap: 0px !important; }
                     cards:
-                      # Inerzia Cambio Velocità
-                      - type: grid
-                        columns: 2
-                        square: false
+                      - type: button
+                        icon: mdi:refresh
+                        tap_action:
+                          action: perform-action
+                          perform_action: input_number.set_value
+                          target: { entity_id: input_number.fancoil_debounce_seconds }
+                          data: { value: 30 }
                         card_mod:
                           style: |
-                            hui-grid-card { grid-template-columns: 80px 1fr !important; gap: 0px !important; margin-bottom: 4px !important; }
-                            #root { grid-template-columns: 80px 1fr !important; gap: 0px !important; }
-                        cards:
-                          - type: button
-                            icon: mdi:refresh
-                            tap_action:
-                              action: perform-action
-                              perform_action: input_number.set_value
-                              target: { entity_id: input_number.fancoil_debounce_seconds }
-                              data: { value: 30 }
-                            card_mod:
-                              style: |
-                                ha-card { border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0; height: 62px; width: 80px !important; background: none; display: flex; align-items: center; justify-content: center; }
-                                ha-state-icon { --mdc-icon-size: 24px; }
-                          - type: custom:numberbox-card
-                            entity: input_number.fancoil_debounce_seconds
-                            name: "Inerzia Ventola"
-                            border: true
-                            card_mod:
-                              style: |
-                                ha-card { border-left: none; border-top-left-radius: 0; border-bottom-left-radius: 0; background: none; }
-                                .cur-num { font-size: 25px !important; }
-                                .cur-unit { color: orange !important; font-size: 100% !important; opacity: 1 !important; }
-                                .grid-left { color: red !important; }
-                                .grid-right { color: blue !important; }
-                                .cur-box ha-icon { transform: scale(2); }
-                      # Distanza STOP
+                            ha-card { border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0; height: 62px; width: 80px !important; background: none; display: flex; align-items: center; justify-content: center; }
+                            ha-state-icon { --mdc-icon-size: 24px; }
+                      - type: custom:numberbox-card
+                        entity: input_number.fancoil_debounce_seconds
+                        name: "Inerzia Ventola"
+                        border: true
+                        card_mod:
+                          style: |
+                            ha-card { border-left: none; border-top-left-radius: 0; border-bottom-left-radius: 0; background: none; }
+                            .cur-num { font-size: 25px !important; }
+                            .cur-unit { color: orange !important; font-size: 100% !important; opacity: 1 !important; }
+                            .grid-left { color: red !important; }
+                            .grid-right { color: blue !important; }
+                            .cur-box ha-icon { transform: scale(2); }
+                  # Distanza STOP
                       - type: grid
                         columns: 2
                         square: false
@@ -375,12 +373,13 @@ views:
                                 .grid-right { color: blue !important; }
                                 .cur-box ha-icon { transform: scale(2); }
 
-              # COLONNA 3: Info
+              # COLONNA 2: Soglie Operative
               - type: vertical-stack
                 cards:
-
-          # DESCRIZIONE SISTEMA (A tutta larghezza)
-          - type: markdown
+                  - type: vertical-stack
+                    title: Soglie Operative
+                    cards:
+                      # Inerzia Cambio Velocità
             content: |
               ### Descrizione del Sistema Fancoil
               Questo sistema gestisce i fancoil dell'appartamento, controllando la velocità della ventola in base alla differenza tra la temperatura ambiente e il setpoint desiderato.
