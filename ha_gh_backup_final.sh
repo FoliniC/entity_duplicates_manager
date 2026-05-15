@@ -4,7 +4,7 @@ CONFIG_DIR="/home/carlo/docker/homeassistant/config"
 
 cd "$CONFIG_DIR" || exit 1
 
-export GIT_SSH_COMMAND="ssh -i /root/.ssh/ha_backup_key -F /root/.ssh/config -o StrictHostKeyChecking=no"
+export GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa -o StrictHostKeyChecking=no"
 git remote set-url origin git@github.com:FoliniC/ha-config.git
 
 echo "=== BACKUP IN CORSO: $(date) ==="
