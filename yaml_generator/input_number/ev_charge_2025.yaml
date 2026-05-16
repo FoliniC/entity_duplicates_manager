@@ -90,3 +90,21 @@ ev_charge_2025_byd_max_discharge_power:
   unit_of_measurement: "kW"
   initial: 5
   mode: slider
+
+ev_charge_2025_current_min_delta_a:
+  name: "Variazione Minima Corrente EV"
+  min: 1
+  max: 10
+  step: 1
+  unit_of_measurement: "A"
+  initial: 2
+  mode: slider
+
+ev_charge_2025_current_min_interval_min:
+  name: "Intervallo Minimo Variazione Corrente EV"
+  min: 0
+  max: 30
+  step: 1
+  unit_of_measurement: "min"
+  initial: 3
+  mode: slider

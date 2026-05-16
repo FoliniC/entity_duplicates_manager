@@ -17,3 +17,8 @@ ev_charge_2025_last_mqtt_time:
   name: EV Charge 2025 - Last MQTT Time
   max: 255
   icon: mdi:clock-outline
+
+ev_charge_2025_last_current_change_time:
+  name: EV Charge 2025 - Last Current Change Time
+  max: 255
+  icon: mdi:timer-sync-outline

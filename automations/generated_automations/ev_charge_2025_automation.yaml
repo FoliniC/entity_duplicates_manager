@@ -1,6 +1,6 @@
 - id: "ev_charge_2025_control"
   alias: "EV Charge 2025 Control"
-  description: "Master Control Rev. 53 - Instant Mode Switch"
+  description: "Master Control Rev. 54 - Current Inertia"
   mode: queued
   max: 10
   triggers:
@@ -41,6 +41,8 @@
         p_max_d: "{{ states('input_number.ev_charge_2025_byd_max_discharge_soc') | float(90) }}"
         w_max_c: "{{ states('input_number.ev_charge_2025_byd_max_charge_power') | float(5) * 1000 }}"
         w_max_d: "{{ states('input_number.ev_charge_2025_byd_max_discharge_power') | float(5) * 1000 }}"
+        inertia_delta_a: "{{ states('input_number.ev_charge_2025_current_min_delta_a') | int(2) }}"
+        inertia_interval_s: "{{ states('input_number.ev_charge_2025_current_min_interval_min') | int(3) * 60 }}"
 
         # 4. CALCOLO
         w_surplus_puro: "{{ (prism_p - grid_p_w) - b_discharge + b_charge }}"
@@ -90,6 +92,10 @@
         # Stato attuale salvato in HA
         last_amp: "{{ states('input_text.ev_charge_2025_last_mqtt_payload') | int(0) }}"
         last_mode: "{{ states('input_text.ev_charge_2025_last_mqtt_mode') }}"
+        last_current_change_ts: >
+          {% set raw = states('input_text.ev_charge_2025_last_current_change_time') %}
+          {% set parsed = strptime(raw, '%Y-%m-%d %H:%M:%S', none) %}
+          {{ as_timestamp(parsed) if parsed else 0 }}
         
         # Stato reale letto dalla Prism via MQTT
         real_prism_mode_num: >
@@ -109,7 +115,7 @@
     - event: scale_log_event
       event_data:
         level: info
-        message: "Step1_Check: mode={{mode}}, target={{target_amp}}A, target_mode={{target_mode}}, real_m={{real_prism_mode_num}}, crono={{crono}}"
+        message: "Step1_Check: mode={{mode}}, target={{target_amp}}A, target_mode={{target_mode}}, real_m={{real_prism_mode_num}}, crono={{crono}}, inertia={{inertia_delta_a}}A/{{inertia_interval_s}}s"
 
     - choose:
         # STOP
@@ -163,11 +169,29 @@
             # Sync Current
             - variables:
                 current_last_amp: "{{ states('input_text.ev_charge_2025_last_mqtt_payload') | int(0) }}"
+                amp_delta: "{{ ((target_amp | int) - (states('input_text.ev_charge_2025_last_mqtt_payload') | int(0))) | abs }}"
+                seconds_since_current_change: "{{ (as_timestamp(now()) - last_current_change_ts | float(0)) | int }}"
+                force_current_sync: >
+                  {{ target_amp | int == 0
+                     or states('input_text.ev_charge_2025_last_mqtt_payload') | int(0) < 0
+                     or ((target_amp | int) < (states('input_text.ev_charge_2025_last_mqtt_payload') | int(0))
+                         and (((target_amp | int) - (states('input_text.ev_charge_2025_last_mqtt_payload') | int(0))) | abs) >= (inertia_delta_a | int))
+                     or mode_helper_changed
+                     or is_boot
+                     or target_mode | int != last_mode | int
+                     or target_mode | int != real_prism_mode_num | int
+                     or (target_mode | int == 2 and states('input_text.ev_charge_2025_last_mqtt_payload') | int(0) < 6)
+                     or (target_mode | int == 2 and real_prism_amp | int < 6 and target_amp | int >= 6) }}
+            - variables:
+                should_send_current: >
+                  {% set last = states('input_text.ev_charge_2025_last_mqtt_payload') | int(0) %}
+                  {% set delta_ok = ((target_amp | int) - last) | abs >= inertia_delta_a | int %}
+                  {% set interval_ok = (as_timestamp(now()) - last_current_change_ts | float(0)) | int >= inertia_interval_s | int %}
+                  {{ target_amp | int != last and (force_current_sync or (delta_ok and interval_ok)) }}
             
             - if:
                 - condition: template
-                  value_template: >
-                    {{ (target_amp | int != current_last_amp | int) or (target_mode | int == 2 and target_amp | int != real_prism_amp | int) }}
+                  value_template: "{{ should_send_current }}"
               then:
                 - action: mqtt.publish
                   data: { topic: "home/prism/1/command/set_current_user", payload: "{{ target_amp | int }}" }
@@ -176,6 +200,11 @@
                 - action: input_text.set_value
                   target: { entity_id: input_text.ev_charge_2025_last_mqtt_payload }
                   data: { value: "{{ target_amp | int }}" }
+                - action: input_text.set_value
+                  target: { entity_id: input_text.ev_charge_2025_last_current_change_time }
+                  data: { value: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}" }
                 - event: scale_log_event
-                  event_data: { message: "Step3_MQTT_Sent: {{target_amp}}A (mode={{target_mode}})" }
-
+                  event_data: { message: "Step3_MQTT_Sent: {{target_amp}}A (mode={{target_mode}}, delta={{amp_delta}}A, age={{seconds_since_current_change}}s)" }
+              else:
+                - event: scale_log_event
+                  event_data: { level: debug, message: "Step3_MQTT_Held_By_Inertia: target={{target_amp}}A last={{current_last_amp}}A delta={{amp_delta}}A age={{seconds_since_current_change}}s min={{inertia_delta_a}}A/{{inertia_interval_s}}s" }
