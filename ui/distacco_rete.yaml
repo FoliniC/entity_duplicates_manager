@@ -1,0 +1,103 @@
+title: Protezione Distacco Rete
+views:
+  - title: Controlli
+    path: controlli
+    icon: mdi:transmission-tower-off
+    cards:
+      - type: markdown
+        content: >
+          {% if is_state('binary_sensor.distacco_rete_allarme_attivo', 'on') %}
+          ## Allarme distacco attivo
+
+          Tempo residuo: **{{ states('sensor.alfa_new_tempo_residuo_distacco') }}**
+          {% else %}
+          ## Nessun allarme distacco
+
+          Tempo residuo: **{{ states('sensor.alfa_new_tempo_residuo_distacco') }}**
+          {% endif %}
+
+          Ultimo intervento: {{ states('input_text.distacco_rete_ultimo_intervento') }}
+
+      - type: entities
+        title: Sensore e stato protezione
+        show_header_toggle: false
+        entities:
+          - entity: sensor.alfa_new_tempo_residuo_distacco
+            name: Tempo residuo distacco Alfa
+          - entity: binary_sensor.distacco_rete_allarme_attivo
+            name: Allarme distacco attivo
+          - entity: input_text.distacco_rete_ultimo_intervento
+            name: Ultimo intervento
+          - entity: automation.distacco_rete_protezione_carichi
+            name: Automazione protezione
+
+      - type: entities
+        title: Abilitazioni
+        show_header_toggle: false
+        entities:
+          - entity: input_boolean.distacco_rete_automatico_abilitato
+            name: Protezione automatica
+          - entity: input_boolean.distacco_rete_spegni_ev
+            name: Spegni ricarica EV
+          - entity: input_boolean.distacco_rete_spegni_pdc
+            name: Spegni pompa di calore
+
+      - type: grid
+        columns: 3
+        square: false
+        cards:
+          - type: button
+            name: Sgancia carichi ora
+            icon: mdi:power-plug-off
+            tap_action:
+              action: call-service
+              service: script.distacco_rete_spegni_carichi
+          - type: button
+            entity: input_boolean.ev_charge_2025_charging_active
+            name: Toggle ricarica EV
+            icon: mdi:ev-station
+            tap_action:
+              action: toggle
+          - type: button
+            entity: switch.attiva_pdc
+            name: Toggle PDC
+            icon: mdi:heat-pump
+            tap_action:
+              action: toggle
+
+      - type: entities
+        title: Ricarica EV coinvolta
+        show_header_toggle: false
+        entities:
+          - entity: input_boolean.ev_charge_2025_charging_active
+            name: Ricarica EV attiva
+          - entity: input_select.ev_charge_2025_mode
+            name: Modalita EV
+          - entity: sensor.ev_charge_2025_reason
+            name: Stato operativo EV
+          - entity: sensor.prism_stato_wallbox
+            name: Stato Prism
+          - entity: sensor.prism_potenza_assorbita
+            name: Potenza Prism
+          - entity: input_text.ev_charge_2025_last_mqtt_mode
+            name: Ultima modalita MQTT
+          - entity: input_text.ev_charge_2025_last_mqtt_payload
+            name: Ultima corrente MQTT
+
+      - type: entities
+        title: Pompa di calore coinvolta
+        show_header_toggle: false
+        entities:
+          - entity: switch.attiva_pdc
+            name: Attiva PDC
+          - entity: switch.attiva_pompa_circolazione
+            name: Pompa circolazione
+          - entity: sensor.temperatura_circuito_riscaldamento
+            name: Temperatura circuito
+
+      - type: entities
+        title: Diagnostica automazioni
+        show_header_toggle: false
+        entities:
+          - entity: automation.distacco_rete_protezione_carichi
+          - entity: automation.distacco_rete_esegui_se_abiliti_con_allarme_presente

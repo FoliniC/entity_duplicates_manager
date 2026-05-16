@@ -1,0 +1,149 @@
+input_boolean:
+  distacco_rete_automatico_abilitato:
+    name: "Protezione distacco rete automatica"
+    icon: mdi:shield-alert
+    initial: true
+
+  distacco_rete_spegni_ev:
+    name: "Distacco rete - spegni ricarica EV"
+    icon: mdi:ev-station
+    initial: true
+
+  distacco_rete_spegni_pdc:
+    name: "Distacco rete - spegni PDC"
+    icon: mdi:heat-pump
+    initial: true
+
+input_text:
+  distacco_rete_ultimo_intervento:
+    name: "Distacco rete - ultimo intervento"
+    icon: mdi:history
+    max: 255
+
+template:
+  - binary_sensor:
+      - name: "Distacco rete allarme attivo"
+        unique_id: distacco_rete_allarme_attivo
+        icon: >
+          {% set raw = states('sensor.alfa_new_tempo_residuo_distacco') %}
+          {% if raw not in ['unknown', 'unavailable', 'none', ''] and raw | float(0) > 0 %}
+            mdi:transmission-tower-off
+          {% else %}
+            mdi:transmission-tower
+          {% endif %}
+        state: >
+          {% set raw = states('sensor.alfa_new_tempo_residuo_distacco') %}
+          {{ raw not in ['unknown', 'unavailable', 'none', ''] and raw | float(0) > 0 }}
+        attributes:
+          tempo_residuo_distacco: "{{ states('sensor.alfa_new_tempo_residuo_distacco') }}"
+          automatico_abilitato: "{{ states('input_boolean.distacco_rete_automatico_abilitato') }}"
+          spegni_ev_abilitato: "{{ states('input_boolean.distacco_rete_spegni_ev') }}"
+          spegni_pdc_abilitato: "{{ states('input_boolean.distacco_rete_spegni_pdc') }}"
+
+script:
+  distacco_rete_spegni_carichi:
+    alias: "Distacco rete - spegni carichi"
+    description: "Spegne i carichi configurati quando Alfa segnala tempo residuo al distacco."
+    icon: mdi:power-plug-off
+    mode: single
+    sequence:
+      - variables:
+          tempo_residuo: "{{ states('sensor.alfa_new_tempo_residuo_distacco') }}"
+          ev_abilitato: "{{ 'on' if is_state('input_boolean.distacco_rete_spegni_ev', 'on') else 'off' }}"
+          pdc_abilitata: "{{ 'on' if is_state('input_boolean.distacco_rete_spegni_pdc', 'on') else 'off' }}"
+          ev_attiva_prima: "{{ is_state('input_boolean.ev_charge_2025_charging_active', 'on') }}"
+          prism_potenza_prima: "{{ states('sensor.prism_potenza_assorbita') | float(0) }}"
+          pdc_attiva_prima: "{{ is_state('switch.attiva_pdc', 'on') }}"
+
+      # Ricarica EV: spegni sia l'helper HA sia la Prism, anche se HA non la vede attiva.
+      - if:
+          - condition: template
+            value_template: "{{ ev_abilitato == 'on' }}"
+        then:
+          - service: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.ev_charge_2025_charging_active
+          - service: mqtt.publish
+            data:
+              topic: "home/prism/1/command/set_mode"
+              payload: "3"
+          - service: mqtt.publish
+            data:
+              topic: "home/prism/1/command/set_current_user"
+              payload: "0"
+          - service: mqtt.publish
+            data:
+              topic: "home/prism/1/command/set_current"
+              payload: "0"
+          - service: input_text.set_value
+            target:
+              entity_id: input_text.ev_charge_2025_last_mqtt_mode
+            data:
+              value: "3"
+          - service: input_text.set_value
+            target:
+              entity_id: input_text.ev_charge_2025_last_mqtt_payload
+            data:
+              value: "0"
+
+      # Pompa di calore.
+      - if:
+          - condition: template
+            value_template: "{{ pdc_abilitata == 'on' }}"
+        then:
+          - service: switch.turn_off
+            target:
+              entity_id: switch.attiva_pdc
+
+      # Punto di estensione per altri carichi futuri.
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.distacco_rete_ultimo_intervento
+        data:
+          value: >-
+            {{ now().strftime('%Y-%m-%d %H:%M:%S') }} -
+            tempo={{ tempo_residuo }};
+            EV={{ 'stop' if ev_abilitato == 'on' else 'ignorata' }} (attiva={{ ev_attiva_prima }}, W={{ prism_potenza_prima | round(0) }});
+            PDC={{ 'off' if pdc_abilitata == 'on' else 'ignorata' }} (attiva={{ pdc_attiva_prima }})
+      - service: persistent_notification.create
+        data:
+          title: "Protezione distacco rete"
+          message: >-
+            Intervento carichi eseguito alle {{ now().strftime('%H:%M:%S') }}.
+            Tempo residuo distacco: {{ tempo_residuo }}.
+
+automation:
+  - id: distacco_rete_protezione_carichi
+    alias: "Distacco rete - protezione carichi"
+    description: "Spegne i carichi configurati quando il sensore Alfa segnala tempo residuo al distacco."
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.distacco_rete_allarme_attivo
+        to: "on"
+      - platform: homeassistant
+        event: start
+    condition:
+      - condition: state
+        entity_id: input_boolean.distacco_rete_automatico_abilitato
+        state: "on"
+      - condition: state
+        entity_id: binary_sensor.distacco_rete_allarme_attivo
+        state: "on"
+    action:
+      - service: script.distacco_rete_spegni_carichi
+
+  - id: distacco_rete_protezione_abilitata_con_allarme_presente
+    alias: "Distacco rete - esegui se abiliti con allarme presente"
+    description: "Se la protezione viene riattivata mentre l'allarme e' gia' attivo, esegue subito lo sgancio."
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: input_boolean.distacco_rete_automatico_abilitato
+        to: "on"
+    condition:
+      - condition: state
+        entity_id: binary_sensor.distacco_rete_allarme_attivo
+        state: "on"
+    action:
+      - service: script.distacco_rete_spegni_carichi
