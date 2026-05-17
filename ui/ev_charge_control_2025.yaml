@@ -97,7 +97,7 @@ views:
             {% set byd_policy = 'Auto prioritaria con supporto BYD: usa tutto il surplus e puo aggiungere una quota controllata dalla batteria casa.' %}
           {% endif %}
           {% if mode == 'Manuale' %}
-            {% set raw_amp = (manual_kw * 1000 / voltage) | int %}
+            {% set raw_amp = (manual_kw * 1000 / 230) | int %}
             {% set target_amp = [[raw_amp, 6] | max, 32] | min %}
             {% set calc_amp = target_amp %}
             {% set can_force_min = true %}
@@ -126,7 +126,7 @@ views:
           {% set real_prism_mode_num = 1 if real_prism_mode == 'solar' else 2 if real_prism_mode == 'normal' else 3 if real_prism_mode == 'pause' else 7 if real_prism_mode == 'autolimit' else 0 %}
           {% set real_prism_amp = states('sensor.prism_user_current') | int(0) %}
           {% set amp_delta = (target_amp - last_current_amp) | abs %}
-          {% set force_current_sync = target_amp == 0 or last_current_amp < 0 or (target_amp < last_current_amp and amp_delta >= inertia_delta_a) or target_mode != last_mode or target_mode != real_prism_mode_num or (target_mode == 2 and last_current_amp < 6) or (target_mode == 2 and real_prism_amp < 6 and target_amp >= 6) %}
+          {% set force_current_sync = target_amp == 0 or last_current_amp < 0 or mode == 'Manuale' or (target_amp < last_current_amp and amp_delta >= inertia_delta_a) or target_mode != last_mode or target_mode != real_prism_mode_num or (target_mode == 2 and last_current_amp < 6) or (target_mode == 2 and real_prism_amp < 6 and target_amp >= 6) %}
           {% set delta_ok = amp_delta >= inertia_delta_a %}
           {% set interval_ok = seconds_since_current_change >= inertia_interval_s %}
           {% set should_send_current = target_amp != last_current_amp and (force_current_sync or (delta_ok and interval_ok)) %}
@@ -160,6 +160,9 @@ views:
           **Dettaglio calcolo**
           - Ricarica attiva: **{{ 'si' if active else 'no' }}**
           - Modalita: **{{ mode }}**, CronoStar: **{{ crono | round(1) }} kW**
+          {% if mode == 'Manuale' %}
+          - Manuale: **{{ manual_kw | round(1) }} kW nominali = {{ target_amp }} A** (7.4 kW invia 32 A)
+          {% endif %}
           - Stato Prism: **{{ states('sensor.prism_stato_wallbox') }}**, mode: **{{ states('sensor.prism_mode') }}**
           - Ricarica fisica Prism: **{{ 'si' if prism_is_charging else 'no' }}** ({{ prism_p | round(0) }} W)
           - SOC auto: **{{ cur_soc | round(1) }}%**, limite: **{{ limit_soc | round(1) }}%**, soglia minima: **{{ min_soc | round(1) }}%**
@@ -349,7 +352,7 @@ views:
 
           1. Manuale
 
-          Il sistema invia alla Prism la potenza esatta impostata nello slider Potenza Manuale. Ignora completamente la produzione solare e lo stato della batteria di casa. Utile per ricariche d'urgenza.
+          Il sistema converte lo slider Potenza Manuale in corrente Prism usando la tensione nominale 230 V. Il valore massimo 7.4 kW invia 32 A. Ignora completamente la produzione solare e lo stato della batteria di casa. Utile per ricariche d'urgenza.
 
           2. Automatico
 

@@ -65,7 +65,7 @@
 
         target_amp: >
           {% if mode == "Manuale" %}
-            {{ (manual_kw * 1000 / voltage) | int | clamp(6, 32) }}
+            {{ (manual_kw * 1000 / 230) | int | clamp(6, 32) }}
           {% else %}
             {% if crono >= 7.9 %}
               {# Modalità SOLARE: usa surplus solare #}
@@ -110,6 +110,7 @@
         
         # Rileviamo se l'utente ha appena cambiato il selettore Manuale/Automatico o se siamo al boot
         mode_helper_changed: "{{ trigger.platform == 'state' and trigger.entity_id == 'input_select.ev_charge_2025_mode' }}"
+        manual_power_changed: "{{ trigger.platform == 'state' and trigger.entity_id == 'input_number.ev_charge_2025_manual_power_kw' }}"
         is_boot: "{{ trigger.platform == 'homeassistant' }}"
 
     - event: scale_log_event
@@ -174,9 +175,11 @@
                 force_current_sync: >
                   {{ target_amp | int == 0
                      or states('input_text.ev_charge_2025_last_mqtt_payload') | int(0) < 0
+                     or mode == "Manuale"
                      or ((target_amp | int) < (states('input_text.ev_charge_2025_last_mqtt_payload') | int(0))
                          and (((target_amp | int) - (states('input_text.ev_charge_2025_last_mqtt_payload') | int(0))) | abs) >= (inertia_delta_a | int))
                      or mode_helper_changed
+                     or manual_power_changed
                      or is_boot
                      or target_mode | int != last_mode | int
                      or target_mode | int != real_prism_mode_num | int
