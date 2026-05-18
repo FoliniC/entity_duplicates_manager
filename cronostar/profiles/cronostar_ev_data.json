@@ -3,7 +3,7 @@
     "global_prefix": "cronostar_ev_",
     "preset_type": "ev_charging",
     "created_at": "2025-12-23T14:52:48.855745",
-    "updated_at": "2026-05-12T14:15:44.381014",
+    "updated_at": "2026-05-18T21:02:06.284943",
     "type": "custom:cronostar-card",
     "logging_enabled": true,
     "enabled_entity": "switch.cronostar_ev",
@@ -15,7 +15,7 @@
     "max_value": 12,
     "step_value": 0.5,
     "language": "en",
-    "last_active_profile": "solar",
+    "last_active_profile": "F3",
     "entities": [
       "input_number.ev_charge_2025_cronostar_power_target",
       "switch.cronostar_ev",
