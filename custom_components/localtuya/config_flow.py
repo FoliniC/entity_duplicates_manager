@@ -2,6 +2,7 @@
 
 import asyncio
 import errno
+import json
 import logging
 import time
 import copy
@@ -26,6 +27,7 @@ from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
 from homeassistant.const import (
     CONF_CLIENT_ID,
     CONF_CLIENT_SECRET,
+    CONF_DEVICE_CLASS,
     CONF_DEVICE_ID,
     CONF_DEVICES,
     CONF_ENTITIES,
@@ -38,6 +40,7 @@ from homeassistant.const import (
     CONF_PLATFORM,
     CONF_REGION,
     CONF_SCAN_INTERVAL,
+    CONF_UNIT_OF_MEASUREMENT,
     CONF_USERNAME,
     EntityCategory,
 )
@@ -57,13 +60,19 @@ from .const import (
     CONF_GATEWAY_ID,
     CONF_LOCAL_KEY,
     CONF_MANUAL_DPS,
+    CONF_MAX_VALUE,
+    CONF_MIN_VALUE,
     CONF_MODEL,
     CONF_NODE_ID,
     CONF_NO_CLOUD,
+    CONF_OPTIONS,
     CONF_PRODUCT_KEY,
     CONF_PRODUCT_NAME,
     CONF_PROTOCOL_VERSION,
     CONF_RESET_DPIDS,
+    CONF_SCALING,
+    CONF_STATE_CLASS,
+    CONF_STEPSIZE,
     CONF_TUYA_GWID,
     CONF_TUYA_IP,
     CONF_TUYA_VERSION,
@@ -96,6 +105,246 @@ DEVICE_CLOUD_DATA = "device_cloud_data"
 CONFIGURE_MENU = [CONF_ADD_DEVICE, CONF_EDIT_DEVICE, CONF_CONFIGURE_CLOUD]
 
 _LOGGER.debug("[TRACER] Config flow file loaded")
+
+
+def _redact_log_input(user_input):
+    """Return config-flow input with secrets masked for logs."""
+    if not isinstance(user_input, dict):
+        return user_input
+    redacted = dict(user_input)
+    for key in (CONF_LOCAL_KEY, CONF_CLIENT_SECRET, CONF_CLIENT_ID):
+        if redacted.get(key):
+            redacted[key] = "***"
+    return redacted
+
+
+def _cloud_func_values(func: dict[str, Any]) -> dict[str, Any]:
+    """Return parsed Tuya cloud values/typeSpec metadata."""
+    values = (func or {}).get("values")
+    if isinstance(values, dict):
+        return values
+    if not isinstance(values, str) or not values:
+        return {}
+    try:
+        return json.loads(values)
+    except (TypeError, ValueError):
+        return {}
+
+
+def _cloud_value_scale(values: dict[str, Any]) -> float | None:
+    """Return LocalTuya scale factor from Tuya decimal scale."""
+    if "scale" not in values:
+        return None
+    try:
+        return 1 / (10 ** int(values["scale"]))
+    except (TypeError, ValueError):
+        return None
+
+
+def _cloud_unit(values: dict[str, Any]) -> str | None:
+    """Return a Home Assistant friendly unit from Tuya metadata."""
+    unit = values.get("unit")
+    if unit is None:
+        return None
+
+    unit_str = str(unit).strip()
+    if not unit_str:
+        return None
+
+    normalized = unit_str.lower().replace(" ", "")
+    if normalized in {"kwh", "kw.h", "kw*h", "kw-h", "kw\u00b7h"}:
+        return "kWh"
+    if normalized == "mah":
+        return "mAh"
+    if normalized == "ma":
+        return "mA"
+    if normalized == "hz":
+        return "Hz"
+    if normalized == "v":
+        return "V"
+    if normalized == "w":
+        return "W"
+    if normalized == "kw":
+        return "kW"
+    if normalized in {"s", "sec", "second", "seconds"}:
+        return "s"
+    return unit_str
+
+
+def _platform_value(platform: Any) -> str:
+    """Return the string value of a HA Platform enum or plain platform."""
+    return str(getattr(platform, "value", platform))
+
+
+def _cloud_func_access_mode(func: dict[str, Any]) -> str:
+    return str((func or {}).get("accessMode") or "").lower()
+
+
+def _cloud_func_type(func: dict[str, Any]) -> str:
+    return str(_cloud_func_values(func).get("type") or "").lower()
+
+
+def _humanize_cloud_code(code: str) -> str:
+    if not code:
+        return ""
+    return code.replace("_", " ").strip().title()
+
+
+def _cloud_friendly_name(dp_id: str, func: dict[str, Any]) -> str:
+    code = str((func or {}).get("code") or "")
+    name = str((func or {}).get("name") or "")
+    return _humanize_cloud_code(code) or name or f"DP {dp_id}"
+
+
+def _cloud_sensor_device_class(code: str, unit: str | None) -> str | None:
+    code_l = code.lower()
+    unit_l = (unit or "").lower()
+
+    if "energy" in code_l or unit_l == "kwh":
+        return "energy"
+    if (
+        ("power" in code_l and "factor" not in code_l and "alarm" not in code_l)
+        or unit_l in {"w", "kw"}
+    ):
+        return "power"
+    if "current" in code_l or unit_l in {"a", "ma"}:
+        return "current"
+    if "voltage" in code_l or code_l.endswith("_v") or unit_l == "v":
+        return "voltage"
+    return None
+
+
+def _cloud_sensor_state_class(code: str, device_class: str | None) -> str | None:
+    if device_class == "energy" and "total" in code.lower():
+        return "total_increasing"
+    if device_class in {"current", "power", "voltage"}:
+        return "measurement"
+    return None
+
+
+def _infer_cloud_platform(func: dict[str, Any]) -> str:
+    """Infer a LocalTuya platform from Tuya cloud function metadata."""
+    code = str((func or {}).get("code") or "").lower()
+    access_mode = _cloud_func_access_mode(func)
+    value_type = _cloud_func_type(func)
+
+    if code.startswith("switch") or code in {"switch", "switch_all"}:
+        return "switch"
+    if code.startswith("alarm") or code.startswith("fault") or "_alarm" in code:
+        return "binary_sensor"
+    if value_type in {"bool", "boolean"}:
+        return "switch" if "w" in access_mode and access_mode != "ro" else "binary_sensor"
+    if value_type == "enum":
+        return "select" if "w" in access_mode and access_mode != "ro" else "sensor"
+    if value_type in {"integer", "value"}:
+        sensor_terms = (
+            "current",
+            "energy",
+            "freq",
+            "power",
+            "voltage",
+        )
+        config_terms = ("calibration", "control", "rate", "setting")
+        if any(term in code for term in config_terms):
+            return "number"
+        if any(term in code for term in sensor_terms):
+            return "sensor"
+        if not access_mode:
+            return "number"
+        return "number" if "w" in access_mode and access_mode != "ro" else "sensor"
+    return "sensor"
+
+
+def _enrich_cloud_entity(entity: dict[str, Any], func: dict[str, Any]) -> dict[str, Any]:
+    """Apply cloud typeSpec metadata to an auto-generated LocalTuya entity."""
+    values = _cloud_func_values(func)
+    value_type = str(values.get("type") or "").lower()
+    platform = _platform_value(entity.get(CONF_PLATFORM))
+    code = str((func or {}).get("code") or "")
+
+    if platform in {"sensor", "number"} and value_type in {"integer", "value"}:
+        if (scale_factor := _cloud_value_scale(values)) is not None:
+            entity[CONF_SCALING] = scale_factor
+        if unit := _cloud_unit(values):
+            entity[CONF_UNIT_OF_MEASUREMENT] = unit
+
+    if platform == "sensor":
+        unit = entity.get(CONF_UNIT_OF_MEASUREMENT) or _cloud_unit(values)
+        device_class = _cloud_sensor_device_class(code, unit)
+        if device_class and not entity.get(CONF_DEVICE_CLASS):
+            entity[CONF_DEVICE_CLASS] = device_class
+        if state_class := _cloud_sensor_state_class(code, entity.get(CONF_DEVICE_CLASS)):
+            entity.setdefault(CONF_STATE_CLASS, state_class)
+        elif value_type in {"integer", "value"}:
+            entity.setdefault(CONF_STATE_CLASS, "measurement")
+
+    if platform == "number" and value_type in {"integer", "value"}:
+        code_l = code.lower()
+        if any(term in code_l for term in ("calibration", "control", "rate", "setting")):
+            entity.setdefault(CONF_ENTITY_CATEGORY, EntityCategory.CONFIG)
+        for source_key, target_key in (
+            ("min", CONF_MIN_VALUE),
+            ("max", CONF_MAX_VALUE),
+            ("step", CONF_STEPSIZE),
+        ):
+            if source_key in values and values[source_key] is not None:
+                entity[target_key] = values[source_key]
+
+    if platform == "select" and value_type == "enum":
+        range_values = values.get("range")
+        if isinstance(range_values, list) and range_values:
+            entity.setdefault(CONF_OPTIONS, {str(v): str(v) for v in range_values})
+
+    if platform == "binary_sensor":
+        code_l = code.lower()
+        if (
+            code_l.startswith("alarm")
+            or code_l.startswith("fault")
+            or "_alarm" in code_l
+        ):
+            entity.setdefault(CONF_DEVICE_CLASS, "problem")
+
+    return entity
+
+
+def _cloud_entity_from_func(dp_id: str, func: dict[str, Any]) -> dict[str, Any]:
+    """Create a generic LocalTuya entity from Tuya cloud metadata."""
+    entity: dict[str, Any] = {
+        CONF_ID: int(dp_id),
+        CONF_PLATFORM: _infer_cloud_platform(func),
+        CONF_FRIENDLY_NAME: _cloud_friendly_name(dp_id, func),
+    }
+    return _enrich_cloud_entity(entity, func)
+
+
+def _merge_cloud_entities(
+    dev_data: list[dict[str, Any]] | None,
+    cloud_funcs: dict[str, Any],
+) -> tuple[list[dict[str, Any]], int]:
+    """Enrich generated entities and add any cloud DP not represented locally."""
+    entities = list(dev_data or [])
+    existing_by_id: dict[str, dict[str, Any]] = {
+        str(entity.get(CONF_ID)): entity
+        for entity in entities
+        if isinstance(entity, dict) and entity.get(CONF_ID) is not None
+    }
+
+    for dp_id, entity in existing_by_id.items():
+        if func := cloud_funcs.get(dp_id):
+            _enrich_cloud_entity(entity, func if isinstance(func, dict) else {})
+
+    forced_entities = 0
+    for dp_id, func in cloud_funcs.items():
+        dp_str = str(dp_id)
+        if not dp_str.isdigit() or dp_str in existing_by_id:
+            continue
+
+        entity = _cloud_entity_from_func(dp_str, func if isinstance(func, dict) else {})
+        entities.append(entity)
+        existing_by_id[dp_str] = entity
+        forced_entities += 1
+
+    return entities, forced_entities
 
 def col_to_select(
     opt_list: dict | list, multi_select=False, is_dps=False, custom_value=False
@@ -300,61 +549,8 @@ class LocaltuyaConfigFlow(ConfigFlow, domain=DOMAIN):
             # This is the long operation
             dev_data = gen_localtuya_entities(localtuya_data, category)
 
-            # Cloud-first fallback: ensure *every* cloud DP is represented by some entity.
-            # If gen_localtuya_entities didn't create entities for some DP IDs, create generic ones.
             if cloud_funcs:
-                dev_data = list(dev_data or [])
-                existing_entity_ids = {str(e.get('id')) for e in dev_data if isinstance(e, dict) and 'id' in e}
-
-                def _infer_platform(func: dict[str, Any]) -> str:
-                    code = (func or {}).get('code', '')
-                    v = (func or {}).get('values')
-                    vtype = None
-                    if isinstance(v, dict):
-                        vtype = v.get('type')
-                    # Heuristics: prefer semantic by code, then by type
-                    if code.startswith('switch') or code in {'switch', 'switch_all'}:
-                        return 'switch'
-                    if code.startswith('alarm') or code.startswith('fault'):
-                        return 'binary_sensor'
-                    if vtype in {'boolean'}:
-                        return 'switch'
-                    if vtype in {'enum'}:
-                        return 'select'
-                    if vtype in {'integer', 'value'}:
-                        # default numeric as number if range looks bounded, else sensor
-                        return 'number'
-                    return 'sensor'
-
-                forced_entities = 0
-                for dp_id, func in cloud_funcs.items():
-                    dp_str = str(dp_id)
-                    if not dp_str.isdigit():
-                        continue
-                    if dp_str in existing_entity_ids:
-                        continue
-
-                    platform = _infer_platform(func if isinstance(func, dict) else {})
-                    friendly = (func or {}).get('name') or (func or {}).get('code') or f"DP {dp_str}"
-                    ent: dict[str, Any] = {
-                        'id': int(dp_str),
-                        'platform': platform,
-                        'friendly_name': friendly,
-                    }
-
-                    # For select/number try to set options/range if provided in parsed values
-                    values = (func or {}).get('values')
-                    if platform == 'select' and isinstance(values, dict) and values.get('type') == 'enum':
-                        rng = values.get('range')
-                        if isinstance(rng, list) and rng:
-                            ent['select_options'] = {str(v): str(v) for v in rng}
-                    if platform == 'number' and isinstance(values, dict) and values.get('type') in {'integer', 'value'}:
-                        ent['min_value'] = values.get('min')
-                        ent['max_value'] = values.get('max')
-                        ent['step_size'] = values.get('step')
-
-                    dev_data.append(ent)
-                    forced_entities += 1
+                dev_data, forced_entities = _merge_cloud_entities(dev_data, cloud_funcs)
 
                 if forced_entities:
                     _LOGGER.error(
@@ -395,7 +591,7 @@ class LocaltuyaConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input=None):
         """Handle the initial step."""
-        _LOGGER.error(f"[TRACER] async_step_user called. Input: {user_input}")
+        _LOGGER.error(f"[TRACER] async_step_user called. Input: {_redact_log_input(user_input)}")
         _LOGGER.error(f"[TRACER] Current language: {self.hass.config.language}")
         errors = {}
         placeholders = {}
@@ -596,58 +792,8 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             # This is the long operation
             dev_data = gen_localtuya_entities(localtuya_data, category)
 
-            # Cloud-first fallback: ensure *every* cloud DP is represented by some entity.
-            # If gen_localtuya_entities didn't create entities for some DP IDs, create generic ones.
             if cloud_funcs:
-                dev_data = list(dev_data or [])
-                existing_entity_ids = {str(e.get('id')) for e in dev_data if isinstance(e, dict) and 'id' in e}
-
-                def _infer_platform(func: dict[str, Any]) -> str:
-                    code = (func or {}).get('code', '')
-                    v = (func or {}).get('values')
-                    vtype = None
-                    if isinstance(v, dict):
-                        vtype = v.get('type')
-                    if code.startswith('switch') or code in {'switch', 'switch_all'}:
-                        return 'switch'
-                    if code.startswith('alarm') or code.startswith('fault'):
-                        return 'binary_sensor'
-                    if vtype in {'boolean'}:
-                        return 'switch'
-                    if vtype in {'enum'}:
-                        return 'select'
-                    if vtype in {'integer', 'value'}:
-                        return 'number'
-                    return 'sensor'
-
-                forced_entities = 0
-                for dp_id, func in cloud_funcs.items():
-                    dp_str = str(dp_id)
-                    if not dp_str.isdigit():
-                        continue
-                    if dp_str in existing_entity_ids:
-                        continue
-
-                    platform = _infer_platform(func if isinstance(func, dict) else {})
-                    friendly = (func or {}).get('name') or (func or {}).get('code') or f"DP {dp_str}"
-                    ent: dict[str, Any] = {
-                        'id': int(dp_str),
-                        'platform': platform,
-                        'friendly_name': friendly,
-                    }
-
-                    values = (func or {}).get('values')
-                    if platform == 'select' and isinstance(values, dict) and values.get('type') == 'enum':
-                        rng = values.get('range')
-                        if isinstance(rng, list) and rng:
-                            ent['select_options'] = {str(v): str(v) for v in rng}
-                    if platform == 'number' and isinstance(values, dict) and values.get('type') in {'integer', 'value'}:
-                        ent['min_value'] = values.get('min')
-                        ent['max_value'] = values.get('max')
-                        ent['step_size'] = values.get('step')
-
-                    dev_data.append(ent)
-                    forced_entities += 1
+                dev_data, forced_entities = _merge_cloud_entities(dev_data, cloud_funcs)
 
                 if forced_entities:
                     _LOGGER.error(
@@ -675,7 +821,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         return self.localtuya_data.cloud_data
 
     async def async_step_init(self, user_input=None):
-        _LOGGER.error(f"[TRACER] async_step_init called. Input: {user_input}")
+        _LOGGER.error(f"[TRACER] async_step_init called. Input: {_redact_log_input(user_input)}")
         """Manage basic options."""
         configure_menu = CONFIGURE_MENU.copy()
         # Remove Reconfigure existing device option if there is no existed devices.
@@ -688,7 +834,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         return self.async_show_menu(step_id="init", menu_options=configure_menu)
 
     async def async_step_configure_cloud(self, user_input=None):
-        _LOGGER.error(f"[TRACER] async_step_configure_cloud called. Input: {user_input}")
+        _LOGGER.error(f"[TRACER] async_step_configure_cloud called. Input: {_redact_log_input(user_input)}")
         """Handle the initial step."""
         errors = {}
         placeholders = {}
@@ -730,7 +876,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         )
 
     async def async_step_add_device(self, user_input=None):
-        _LOGGER.error(f"[TRACER] async_step_add_device called. Input: {user_input}")
+        _LOGGER.error(f"[TRACER] async_step_add_device called. Input: {_redact_log_input(user_input)}")
         """Handle adding a new device."""
         # Use cache if available or fallback to manual discovery
         self.editing_device = False
@@ -848,7 +994,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         return await self.async_step_configure_device()
 
     async def async_step_edit_device(self, user_input=None):
-        _LOGGER.error(f"[TRACER] async_step_edit_device called. Input: {user_input}")
+        _LOGGER.error(f"[TRACER] async_step_edit_device called. Input: {_redact_log_input(user_input)}")
         """Handle editing a device."""
         self.editing_device = True
         # Use cache if available or fallback to manual discovery
@@ -879,7 +1025,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         )
 
     async def async_step_confirm_cloud_dps(self, user_input=None):
-        _LOGGER.error(f"[TRACER] async_step_confirm_cloud_dps called. Input: {user_input}")
+        _LOGGER.error(f"[TRACER] async_step_confirm_cloud_dps called. Input: {_redact_log_input(user_input)}")
         """Step to confirm adding missing Cloud DPS."""
         if user_input is not None:
             if user_input.get("add_cloud_dps"):
@@ -901,7 +1047,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         )
 
     async def async_step_configure_device(self, user_input=None):
-        _LOGGER.error(f"[TRACER] async_step_configure_device called. Input: {user_input}")
+        _LOGGER.error(f"[TRACER] async_step_configure_device called. Input: {_redact_log_input(user_input)}")
         """Handle input of basic info."""
         errors = {}
         placeholders = {}
@@ -1767,9 +1913,13 @@ async def validate_input(entry_runtime: HassLocalTuyaData, data, cloud_dps=None,
                 # Reset the interface
                 await interface.reset(reset_ids, cid=cid)
 
-            # Detect any other non-manual DPS strings
-            if not detected_dps:
-                detected_dps = await interface.detect_available_dps(cid=cid)
+            # Detect any other non-manual DPS strings.  If the local DP query
+            # already timed out and we have cloud DPS, do not issue another
+            # unbounded local query: some devices negotiate the session but
+            # reject DP_QUERY_NEW, which otherwise leaves the config flow stuck.
+            if not detected_dps and not (error and cloud_dps):
+                async with asyncio.timeout(10):
+                    detected_dps = await interface.detect_available_dps(cid=cid)
 
         except (ValueError, pytuya.parser.DecodeError) as ex:
             error = ex

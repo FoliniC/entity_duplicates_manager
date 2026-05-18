@@ -338,6 +338,9 @@ async def _fetch_cloud_devices(cloud_conf: dict) -> dict:
 CLOUD_DEVICE_CACHE_SECONDS = 300
 _cloud_devices_cache: dict = {"updated_at": 0.0, "devices": {}}
 _cloud_devices_lock = asyncio.Lock()
+_cloud_functions_cache: dict[str, dict] = {}
+_cloud_functions_updated_at: dict[str, float] = {}
+_cloud_functions_lock = asyncio.Lock()
 
 
 async def _get_cloud_devices_cached(force_update: bool = False) -> dict:
@@ -392,6 +395,115 @@ async def _connection_config(dev_id: str, d: dict, force_cloud_update: bool = Fa
 
 def _negotiation_failed(logs: str) -> bool:
     return "session key negotiation failed on step 1" in logs.lower()
+
+
+def _parse_function_values(funcs: dict) -> dict:
+    parsed = {}
+    for dp_id, info in (funcs or {}).items():
+        if not isinstance(info, dict):
+            continue
+        item = dict(info)
+        values = item.get("values")
+        if isinstance(values, str):
+            try:
+                item["values"] = json.loads(values)
+            except Exception:
+                pass
+        parsed[str(dp_id)] = item
+    return parsed
+
+
+async def _get_cloud_functions_cached(
+    dev_id: str, cfg: dict, force_update: bool = False
+) -> dict:
+    if TuyaCloudApi is None:
+        return {}
+    cloud_conf = _build_cloud_conf()
+    if not cloud_conf:
+        return {}
+
+    cloud_id = cfg.get("device_id") or cfg.get("gwId") or dev_id
+    now = time.monotonic()
+    async with _cloud_functions_lock:
+        if (
+            not force_update
+            and cloud_id in _cloud_functions_cache
+            and now - _cloud_functions_updated_at.get(cloud_id, 0) < CLOUD_DEVICE_CACHE_SECONDS
+        ):
+            return _cloud_functions_cache[cloud_id]
+
+        try:
+            api = TuyaCloudApi(
+                cloud_conf["region"],
+                cloud_conf["client_id"],
+                cloud_conf["client_secret"],
+                cloud_conf["user_id"],
+            )
+            await api.async_connect()
+            funcs = await api.async_get_device_functions(cloud_id)
+        except Exception:
+            return _cloud_functions_cache.get(cloud_id, {})
+        funcs = _parse_function_values(funcs or {})
+        _cloud_functions_cache[cloud_id] = funcs
+        _cloud_functions_updated_at[cloud_id] = now
+        return funcs
+
+
+def _local_scaling_by_dp(cfg: dict) -> dict:
+    scalings = {}
+    for entity in cfg.get("entities", []):
+        if not isinstance(entity, dict) or entity.get("id") is None:
+            continue
+        if entity.get("scaling") is not None:
+            scalings[str(entity["id"])] = entity.get("scaling")
+    return scalings
+
+
+def _scale_display_value(value, scale):
+    if value is None or isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        if value.lower() in {"unknown", "unavailable", "none", ""}:
+            return value
+        try:
+            value = float(value) if "." in value else int(value)
+        except ValueError:
+            return value
+    if not isinstance(value, (int, float)):
+        return value
+    try:
+        scale = int(scale or 0)
+    except (TypeError, ValueError):
+        scale = 0
+    if scale <= 0:
+        return value
+    scaled = value / (10 ** scale)
+    return round(scaled, scale)
+
+
+def _display_status_from_model(
+    status: dict, cfg: dict, funcs: dict, already_scaled_dps: set[str] | None = None
+) -> tuple[dict, dict]:
+    """Apply Tuya data-model scale to values for display only."""
+    already_scaled_dps = already_scaled_dps or set()
+    display = {}
+    units = {}
+    for dp_id, value in (status or {}).items():
+        dp = str(dp_id)
+        info = funcs.get(dp, {}) if isinstance(funcs, dict) else {}
+        values = info.get("values") if isinstance(info, dict) else {}
+        if not isinstance(values, dict):
+            values = {}
+
+        units[dp] = values.get("unit") or ""
+        # Values read from HA state storage may already be scaled by LocalTuya.
+        # LAN status and Tuya Cloud status are raw Tuya DP values and must still
+        # be scaled for display even when the LocalTuya entity has scaling set.
+        if dp in already_scaled_dps:
+            display[dp] = value
+        else:
+            display[dp] = _scale_display_value(value, values.get("scale"))
+    return display, units
 
 
 def _read_json(path: Path, fallback):
@@ -493,14 +605,7 @@ async def _cloud_status_as_dps(dev_id: str, cfg: dict) -> dict:
     if not isinstance(status_items, list):
         return {}
 
-    api = TuyaCloudApi(
-        cloud_conf["region"],
-        cloud_conf["client_id"],
-        cloud_conf["client_secret"],
-        cloud_conf["user_id"],
-    )
-    await api.async_connect()
-    funcs = await api.async_get_device_functions(cloud_id)
+    funcs = await _get_cloud_functions_cached(dev_id, cfg)
     if not isinstance(funcs, dict):
         return {}
 
@@ -646,7 +751,7 @@ HTML_TEMPLATE = """
         </div>
     </div>
     <script>
-        let devices = {}; let currentDps = {}; let cloudDps = {}; let selectedId = null; let currentSort = "name";
+        let devices = {}; let currentDps = {}; let currentDisplayDps = {}; let currentDisplayUnits = {}; let cloudDps = {}; let selectedId = null; let currentSort = "name";
         let unaddedDevices = {}; let selectedUnaddedId = null;
         function deviceDisplayName(d, fallbackId) {
             if(!d) return fallbackId;
@@ -710,7 +815,12 @@ HTML_TEMPLATE = """
                 const r = await fetch(`/api/device/${selectedId}/status?timeout=${document.getElementById('timeout').value}`);
                 const data = await r.json();
                 document.getElementById('techLogs').innerText = data.tech_logs || "No data.";
-                if (!data.error) { currentDps = data.status || {}; renderTable(); }
+                if (!data.error) {
+                    currentDps = data.status || {};
+                    currentDisplayDps = data.display_status || currentDps;
+                    currentDisplayUnits = data.display_units || {};
+                    renderTable();
+                }
                 else { alert(data.error); }
             } catch(e) { alert(e); }
             finally { overlay.classList.add('hidden'); }
@@ -736,7 +846,9 @@ HTML_TEMPLATE = """
             const mapping = devices[selectedId].entities || [];
             const allIds = new Set([...Object.keys(currentDps), ...Object.keys(cloudDps)]);
             document.getElementById('dpBody').innerHTML = Array.from(allIds).sort((a,b)=>Number(a)-Number(b)).map(id => {
-                const localVal = currentDps[id] !== undefined ? currentDps[id] : '<span style="color:#999">?</span>';
+                const displayVal = currentDisplayDps[id] !== undefined ? currentDisplayDps[id] : currentDps[id];
+                const unit = currentDisplayUnits[id] ? ` ${currentDisplayUnits[id]}` : '';
+                const localVal = currentDps[id] !== undefined ? `${displayVal}${unit}` : '<span style="color:#999">?</span>';
                 const cloudInfo = cloudDps[id] || {};
                 const entity = mapping.find(e => e.id == id);
                 return `<tr onclick="onRowClick('${id}', '${currentDps[id]}')" style="cursor:pointer">
@@ -1140,6 +1252,16 @@ def api_status(dev_id: str):
                         fallback_dps = dict(cloud_dps)
                         fallback_dps.update(ha_dps)
                         if fallback_dps:
+                            funcs = await _get_cloud_functions_cached(dev_id, conn_cfg)
+                            local_scaled = _local_scaling_by_dp(conn_cfg)
+                            already_scaled_dps = {
+                                str(dp_id)
+                                for dp_id in ha_dps
+                                if str(dp_id) in local_scaled
+                            }
+                            display_dps, display_units = _display_status_from_model(
+                                fallback_dps, conn_cfg, funcs, already_scaled_dps
+                            )
                             source_parts = []
                             if ha_dps:
                                 source_parts.append("homeassistant")
@@ -1152,6 +1274,8 @@ def api_status(dev_id: str):
                             )
                             return {
                                 "status": fallback_dps,
+                                "display_status": display_dps,
+                                "display_units": display_units,
                                 "source": source,
                                 "tech_logs": logs,
                             }
@@ -1160,7 +1284,16 @@ def api_status(dev_id: str):
                             "error_type": "no_data",
                             "tech_logs": logs,
                         }
-                    return {"status": res, "tech_logs": logs}
+                    funcs = await _get_cloud_functions_cached(dev_id, conn_cfg)
+                    display_dps, display_units = _display_status_from_model(
+                        res, conn_cfg, funcs
+                    )
+                    return {
+                        "status": res,
+                        "display_status": display_dps,
+                        "display_units": display_units,
+                        "tech_logs": logs,
+                    }
 
                 except ConnectionResetError as exc:
                     # Device-initiated disconnection — the firmware closed the
