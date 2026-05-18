@@ -18,14 +18,17 @@ LOCALTUYA_CORE_PATH = Path(
 ).expanduser()
 
 if str(LOCALTUYA_CORE_PATH) not in sys.path:
-    sys.path.append(str(LOCALTUYA_CORE_PATH))
+    sys.path.insert(0, str(LOCALTUYA_CORE_PATH))
 try:
     from pytuya import connect, TuyaListener
     from cloud_api import TuyaCloudApi
-except ImportError:
+except ImportError as e:
     connect = None
     TuyaCloudApi = None
-    print("Dependencies not found. Set LOCALTUYA_CORE_PATH to localtuya/core path.")
+    import traceback
+    print("Dependencies not found. Traceback follows:")
+    traceback.print_exc()
+    print("Set LOCALTUYA_CORE_PATH to localtuya/core path.")
 
 app = Flask(__name__)
 HA_CONFIG_BASE = Path(os.environ.get("HA_CONFIG_DIR", str(BASE_DIR))).expanduser()
@@ -689,15 +692,23 @@ def api_status(dev_id):
     async def _run():
         h = ListHandler(); logging.getLogger('pytuya').addHandler(h); logging.getLogger('pytuya').setLevel(logging.DEBUG)
         p = None
-        try:
-            p = await asyncio.wait_for(connect(address=d['host'], device_id=d['device_id'], local_key=d['local_key'],
-                protocol_version=float(d.get('protocol_version', 3.3)), enable_debug=True, timeout=t), timeout=t + 1)
-            res = await p.detect_available_dps(); return {"status": res, "tech_logs": "\\n".join(h.records)}
-        except Exception as e: return {"error": str(e), "tech_logs": "\\n".join(h.records)}
-        finally:
-            if p and p.transport:
-                p.transport.close()
-            logging.getLogger('pytuya').removeHandler(h)
+        for attempt in range(3):
+            try:
+                p = await asyncio.wait_for(connect(address=d['host'], device_id=d['device_id'], local_key=d['local_key'],
+                    protocol_version=float(d.get('protocol_version', 3.3)), enable_debug=True, timeout=15), timeout=20)
+                res = await p.status(); return {"status": res, "tech_logs": "\\n".join(h.records)}
+            except Exception as e:
+                if attempt == 2: return {"error": str(e), "tech_logs": "\\n".join(h.records)}
+                await asyncio.sleep(5)
+            finally:
+                if p and p.transport:
+                    try:
+                        p.transport.close()
+                    except:
+                        pass
+                p = None
+                await asyncio.sleep(2)
+        logging.getLogger('pytuya').removeHandler(h)
     
     future = asyncio.run_coroutine_threadsafe(_run(), loop)
     try: return jsonify(future.result(timeout=t+5))
