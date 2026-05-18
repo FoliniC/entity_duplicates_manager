@@ -14,6 +14,7 @@ import voluptuous as vol
 from .config_validation import validate_config_with_models
 from .const import (
     CONF_AC_MODE,
+    CONF_AUTO_OUTSIDE_DELTA_BOOST,
     CONF_AUX_HEATER,
     CONF_AUX_HEATING_DUAL_MODE,
     CONF_AUX_HEATING_TIMEOUT,
@@ -33,6 +34,7 @@ from .const import (
     CONF_MAX_TEMP,
     CONF_MIN_DUR,
     CONF_MIN_TEMP,
+    CONF_OUTSIDE_SENSOR,
     CONF_PRECISION,
     CONF_PRESETS,
     CONF_STALE_DURATION,
@@ -41,6 +43,7 @@ from .const import (
     CONF_TARGET_TEMP_HIGH,
     CONF_TARGET_TEMP_LOW,
     CONF_TEMP_STEP,
+    CONF_USE_APPARENT_TEMP,
     SYSTEM_TYPE_AC_ONLY,
     SYSTEM_TYPE_DUAL_STAGE,
     SYSTEM_TYPE_FLOOR_HEATING,
@@ -451,6 +454,45 @@ class OptionsFlowHandler(OptionsFlow):
             ] = get_tolerance_selector(
                 hass=self.hass, min_value=0, max_value=5.0, step=0.1
             )
+
+            # Auto-mode outside-delta boost (Phase 1.3) — heater+cooler/heat_pump
+            # systems always satisfy the AUTO ≥2-device rule, so we only need
+            # to gate on outside_sensor being configured.
+            if current_config.get(CONF_OUTSIDE_SENSOR):
+                advanced_dict[
+                    vol.Optional(
+                        CONF_AUTO_OUTSIDE_DELTA_BOOST,
+                        description={
+                            "suggested_value": current_config.get(
+                                CONF_AUTO_OUTSIDE_DELTA_BOOST
+                            )
+                        },
+                    )
+                ] = selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        mode=selector.NumberSelectorMode.BOX,
+                        min=1.0,
+                        max=30.0,
+                        step=0.5,
+                        unit_of_measurement=DEGREE,
+                    )
+                )
+
+        # Phase 1.4 — apparent temp toggle. Available for any system with a
+        # cooler (heater_cooler, heat_pump, ac_only); requires humidity sensor.
+        # Lives OUTSIDE the heater_cooler/heat_pump tolerance block so ac_only
+        # users can opt in too.
+        if system_type in (
+            SYSTEM_TYPE_HEATER_COOLER,
+            SYSTEM_TYPE_HEAT_PUMP,
+            SYSTEM_TYPE_AC_ONLY,
+        ) and current_config.get(CONF_HUMIDITY_SENSOR):
+            advanced_dict[
+                vol.Optional(
+                    CONF_USE_APPARENT_TEMP,
+                    default=current_config.get(CONF_USE_APPARENT_TEMP, False),
+                )
+            ] = selector.BooleanSelector()
 
         # Add advanced settings section if there are any fields
         if advanced_dict:
