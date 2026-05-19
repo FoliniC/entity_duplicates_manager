@@ -34,6 +34,8 @@
         cur_soc: "{{ states('sensor.ev_charge_2025_current_soc') | float(0) }}"
         limit_soc: "{{ states('input_number.ev_charge_2025_vehicle_limit_soc') | float(100) }}"
         tgt_soc: "{{ states('input_number.ev_charge_2025_target_soc') | float(0) }}"
+        duration: "{{ states('input_number.ev_charge_2025_duration') | int(240) }}"
+        remaining: "{{ states('sensor.ev_charge_2025_remaining_time') | int(0) }}"
 
         # 3. PARAMETRI BYD
         p_prot: "{{ states('input_number.ev_charge_2025_byd_protection_soc') | float(10) }}"
@@ -113,6 +115,22 @@
         manual_power_changed: "{{ trigger.platform == 'state' and trigger.entity_id == 'input_number.ev_charge_2025_manual_power_kw' }}"
         is_boot: "{{ trigger.platform == 'homeassistant' }}"
 
+    # Nuova logica: Set End Time quando si attiva la ricarica o al boot
+    - if:
+        - condition: template
+          value_template: >
+            {{ (trigger.platform == 'state' and trigger.entity_id == 'input_boolean.ev_charge_2025_charging_active' and trigger.to_state.state == 'on')
+                 or (is_active and states('input_datetime.ev_charge_2025_end_time') == '00:00:00') }}
+      then:
+        - if:
+            - condition: template
+              value_template: "{{ duration < 240 }}"
+          then:
+            - action: input_datetime.set_datetime
+              target: { entity_id: input_datetime.ev_charge_2025_end_time }
+              data:
+                time: "{{ (now() + timedelta(minutes=duration)).strftime('%H:%M:%S') }}"
+
     - event: scale_log_event
       event_data:
         level: info
@@ -122,7 +140,10 @@
         # STOP
         - conditions:
             - condition: template
-              value_template: "{{ not is_active or cur_soc >= limit_soc }}"
+              value_template: >
+                {{ not is_active 
+                   or cur_soc >= limit_soc 
+                   or (is_active and duration < 240 and remaining <= 0 and trigger.platform == "time_pattern") }}
           sequence:
             - action: mqtt.publish
               data: { topic: "home/prism/1/command/set_mode", payload: "3" }
