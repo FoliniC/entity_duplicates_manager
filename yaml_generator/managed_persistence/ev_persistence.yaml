@@ -1,0 +1,38 @@
+# Trigger-based sensors for EV Persistence
+trigger:
+  - platform: state
+    entity_id:
+      - input_number.ev_charge_2025_byd_min_soc_stop
+      - input_number.ev_charge_2025_target_soc
+      - input_number.ev_charge_2025_vehicle_limit_soc
+      - input_number.ev_charge_2025_manual_power_kw
+  - platform: homeassistant
+    event: start
+
+sensor:
+  - name: "EV Charge 2025 Saved BYD Min SOC"
+    unique_id: ev_charge_2025_saved_byd_min_soc
+    state: >-
+      {% if trigger.entity_id == 'input_number.ev_charge_2025_byd_min_soc_stop' %}
+        {{ states('input_number.ev_charge_2025_byd_min_soc_stop') }}
+      {% else %}
+        {{ this.state | default(states('input_number.ev_charge_2025_byd_min_soc_stop')) }}
+      {% endif %}
+
+  - name: "EV Charge 2025 Saved Target SOC"
+    unique_id: ev_charge_2025_saved_target_soc
+    state: >-
+      {% if trigger.entity_id == 'input_number.ev_charge_2025_target_soc' %}
+        {{ states('input_number.ev_charge_2025_target_soc') }}
+      {% else %}
+        {{ this.state | default(states('input_number.ev_charge_2025_target_soc')) }}
+      {% endif %}
+
+  - name: "EV Charge 2025 Saved Manual Power"
+    unique_id: ev_charge_2025_saved_manual_power
+    state: >-
+      {% if trigger.entity_id == 'input_number.ev_charge_2025_manual_power_kw' %}
+        {{ states('input_number.ev_charge_2025_manual_power_kw') }}
+      {% else %}
+        {{ this.state | default(states('input_number.ev_charge_2025_manual_power_kw')) }}
+      {% endif %}

@@ -7,8 +7,6 @@
 # Core Configuration
 default_config:
 
-environment:
-  - OPENROUTER_API_KEY=!secret openrouter_api_key
 # Frontend
 frontend:
   themes: !include_dir_merge_named themes

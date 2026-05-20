@@ -17,6 +17,11 @@
         - input_number.ev_charge_2025_manual_power_kw
         - input_number.ev_charge_2025_cronostar_power_target
   action:
+    # 0. Ripristina stato salvato
+    - action: pyscript.halog2026_states_restore
+      data:
+        subsystem: "ev"
+        
     # Attendi che i sensori si stabilizzino al boot
     - if:
         - condition: template
@@ -52,6 +57,7 @@
         p_inv: "{{ states('input_number.ev_charge_2025_byd_inversion_soc') | float(30) }}"
         p_max_d: "{{ states('input_number.ev_charge_2025_byd_max_discharge_soc') | float(90) }}"
         p_min_stop: "{{ states('input_number.ev_charge_2025_byd_min_soc_stop') | float(20) }}"
+        byd_soc_float: "{{ states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(-1) }}"
         w_max_c: "{{ states('input_number.ev_charge_2025_byd_max_charge_power') | float(5) * 1000 }}"
         w_max_d: "{{ states('input_number.ev_charge_2025_byd_max_discharge_power') | float(5) * 1000 }}"
         inertia_delta_a: "{{ states('input_number.ev_charge_2025_current_min_delta_a') | int(2) }}"
@@ -94,14 +100,13 @@
             {% if crono >= 7.9 %}
               {# Modalità SOLARE: usa surplus solare #}
               {% set calculated_amp = (w_disponibile | float / voltage) | int %}
-              {# Se BYD scarica, can_charge è condizionato solo dal surplus solare #}
               {% set can_charge = (calculated_amp >= 6 or (cur_soc < tgt_soc and byd_soc >= p_inv and byd_soc > p_min_stop)) %}
               {{ [6, calculated_amp] | max if can_charge else 0 }}
             {% elif crono > 0.1 %}
-              {# Modalità PROGRAMMATA: usa valore CronoStar #}
+              {# Modalità PROGRAMMATA: usa valore CronoStar, ma limita se BYD è scarica #}
               {% set base_amp = (crono * 1000 / voltage) | int %}
               {% if byd_soc <= p_min_stop %}
-                {# Se BYD scarica, limita al surplus solare reale per non scaricarla ulteriormente #}
+                {# Limita al surplus solare reale per non scaricare ulteriormente la BYD #}
                 {% set solar_p_no_batt = [0, (prism_p - grid_p_w) - 200] | max %}
                 {% set solar_amp_only = (solar_p_no_batt / voltage) | int %}
                 {{ [solar_amp_only, base_amp] | min | clamp(6, 32) if solar_amp_only >= 6 else 0 }}
@@ -175,7 +180,8 @@
               value_template: >
                 {{ not is_active 
                    or cur_soc >= limit_soc 
-                   or (is_active and duration < 240 and remaining <= 0 and trigger.platform == "time_pattern") }}
+                   or (is_active and duration < 240 and remaining <= 0 and trigger.platform == "time_pattern")
+                   or (is_active and byd_soc_float >= 0 and byd_soc_float <= p_min_stop) }}
           sequence:
             - action: mqtt.publish
               data: { topic: "home/prism/1/command/set_mode", payload: "3" }

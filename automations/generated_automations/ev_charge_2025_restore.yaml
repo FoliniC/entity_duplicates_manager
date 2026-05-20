@@ -1,0 +1,18 @@
+automation:
+  - alias: "EV Charge 2025: Restore Saved Settings"
+    trigger:
+      - platform: homeassistant
+        event: start
+    action:
+      - action: input_number.set_value
+        target: { entity_id: input_number.ev_charge_2025_byd_min_soc_stop }
+        data:
+          value: "{{ states('sensor.ev_charge_2025_saved_byd_min_soc') | float(20) }}"
+      - action: input_number.set_value
+        target: { entity_id: input_number.ev_charge_2025_target_soc }
+        data:
+          value: "{{ states('sensor.ev_charge_2025_saved_target_soc') | float(100) }}"
+      - action: input_number.set_value
+        target: { entity_id: input_number.ev_charge_2025_manual_power_kw }
+        data:
+          value: "{{ states('sensor.ev_charge_2025_saved_manual_power') | float(2.0) }}"

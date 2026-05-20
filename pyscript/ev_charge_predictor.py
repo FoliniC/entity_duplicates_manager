@@ -98,11 +98,16 @@ def ev_charge_predict_time():
                             for p in points:
                                 if t_sim >= p['min']: current_kw = p['kw']
                                 else: break
-                        
-                        if abs(current_kw - last_kw) > 0.05:
-                            t_now_sim = (now + datetime.timedelta(minutes=sim_min))
-                            log.info(f"EV_PREDICT: Ore {t_now_sim.strftime('%H:%M')} -> {current_kw:.2f}kW (Accumulato: {sim_energy:.2f}/{energy_needed_kwh:.2f} kWh)")
+                        # Logging cambi fascia (logga l'intervallo concluso)
+                        if current_kw != last_kw:
+                            if sim_min > 0:
+                                t_start_str = (now + datetime.timedelta(minutes=interval_start_min)).strftime('%H:%M')
+                                t_end_str = (now + datetime.timedelta(minutes=sim_min)).strftime('%H:%M')
+                                log.info(f"EV_PREDICT: Ore {t_start_str} fino alle {t_end_str} -> {last_kw:.2f}kW. Al termine accumulati: {sim_energy:.2f}/{energy_needed_kwh:.2f} kWh")
+
                             last_kw = current_kw
+                            interval_start_min = sim_min
+
 
                         if current_kw > 0.1:
                             sim_energy += (current_kw / 60.0)
