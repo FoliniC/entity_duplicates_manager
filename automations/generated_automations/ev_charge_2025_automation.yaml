@@ -51,6 +51,7 @@
         p_prot: "{{ states('input_number.ev_charge_2025_byd_protection_soc') | float(10) }}"
         p_inv: "{{ states('input_number.ev_charge_2025_byd_inversion_soc') | float(30) }}"
         p_max_d: "{{ states('input_number.ev_charge_2025_byd_max_discharge_soc') | float(90) }}"
+        p_min_stop: "{{ states('input_number.ev_charge_2025_byd_min_soc_stop') | float(20) }}"
         w_max_c: "{{ states('input_number.ev_charge_2025_byd_max_charge_power') | float(5) * 1000 }}"
         w_max_d: "{{ states('input_number.ev_charge_2025_byd_max_discharge_power') | float(5) * 1000 }}"
         inertia_delta_a: "{{ states('input_number.ev_charge_2025_current_min_delta_a') | int(2) }}"
@@ -81,6 +82,11 @@
             {% if no_grid %}
               {% set solar_amp = (w_disponibile | float / voltage) | int %}
               {{ [solar_amp, manual_amp] | min | clamp(6, 32) if solar_amp >= 6 else 0 }}
+            {% elif byd_soc <= p_min_stop %}
+              {# Se batteria casa scarica, limita ricarica manuale al solo sole per non pesare sulla batteria #}
+              {% set solar_p_no_batt = [0, (prism_p - grid_p_w) - 200] | max %}
+              {% set solar_amp_only = (solar_p_no_batt / voltage) | int %}
+              {{ [solar_amp_only, manual_amp] | min | clamp(6, 32) if solar_amp_only >= 6 else 0 }}
             {% else %}
               {{ manual_amp | clamp(6, 32) }}
             {% endif %}
@@ -88,11 +94,20 @@
             {% if crono >= 7.9 %}
               {# Modalità SOLARE: usa surplus solare #}
               {% set calculated_amp = (w_disponibile | float / voltage) | int %}
-              {% set can_charge = (calculated_amp >= 6 or (cur_soc < tgt_soc and byd_soc >= p_inv)) %}
+              {# Se BYD scarica, can_charge è condizionato solo dal surplus solare #}
+              {% set can_charge = (calculated_amp >= 6 or (cur_soc < tgt_soc and byd_soc >= p_inv and byd_soc > p_min_stop)) %}
               {{ [6, calculated_amp] | max if can_charge else 0 }}
             {% elif crono > 0.1 %}
               {# Modalità PROGRAMMATA: usa valore CronoStar #}
-              {{ (crono * 1000 / voltage) | int | clamp(6, 32) }}
+              {% set base_amp = (crono * 1000 / voltage) | int %}
+              {% if byd_soc <= p_min_stop %}
+                {# Se BYD scarica, limita al surplus solare reale per non scaricarla ulteriormente #}
+                {% set solar_p_no_batt = [0, (prism_p - grid_p_w) - 200] | max %}
+                {% set solar_amp_only = (solar_p_no_batt / voltage) | int %}
+                {{ [solar_amp_only, base_amp] | min | clamp(6, 32) if solar_amp_only >= 6 else 0 }}
+              {% else %}
+                {{ base_amp | clamp(6, 32) }}
+              {% endif %}
             {% else %}
               0
             {% endif %}

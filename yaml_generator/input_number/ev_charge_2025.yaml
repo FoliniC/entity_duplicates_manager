@@ -91,6 +91,15 @@ ev_charge_2025_byd_max_discharge_power:
   initial: 5
   mode: slider
 
+ev_charge_2025_byd_min_soc_stop:
+  name: "SOC Minimo BYD per ricarica EV"
+  min: 5
+  max: 100
+  step: 1
+  unit_of_measurement: "%"
+  initial: 20
+  mode: slider
+
 ev_charge_2025_current_min_delta_a:
   name: "Variazione Minima Corrente EV"
   min: 1

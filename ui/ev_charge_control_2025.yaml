@@ -34,7 +34,7 @@ views:
       # RIEPILOGO STATO
       - type: markdown
         content: >
-          {% set mins = states('sensor.ev_charge_2025_time_to_limit') | int(0) %}
+          {% set mins = states('sensor.ev_charge_2025_time_to_limit_sim') | int(0) %}
           {% set h = mins // 60 %}
           {% set m = mins % 60 %}
           {% set end_time = (now() + timedelta(minutes=mins)).strftime('%H:%M') %}
@@ -318,6 +318,8 @@ views:
           entities:
             - entity: input_number.ev_charge_2025_byd_protection_soc
               name: "Soglia Protezione (Stop)"
+            - entity: input_number.ev_charge_2025_byd_min_soc_stop
+              name: "Blocco Scarica BYD per EV"
             - entity: input_number.ev_charge_2025_byd_inversion_soc
               name: "Soglia Inversione (100% Sole)"
             - entity: input_number.ev_charge_2025_byd_max_discharge_soc
@@ -376,6 +378,8 @@ views:
           **🔋 Parametri Batteria BYD**
 
           - **Soglia Protezione**: Sotto questa percentuale (es. 10%), l'auto viene spenta per dare priorità assoluta alla ricarica della batteria di casa.
+
+          - **Blocco Scarica BYD**: Raggiunta questa soglia, la ricarica EV smette di prelevare energia dalla batteria di casa. In modalità Manuale o Programmata, l'auto continuerà a caricare usando solo il surplus solare reale (se disponibile) o la rete, preservando il residuo della batteria per i consumi domestici.
 
           - **Soglia Inversione**: È il punto di equilibrio (es. 30%). Tra Protezione e Inversione, il sole viene diviso tra auto e batteria. Al raggiungimento di questa soglia, l'auto usa il 100% del surplus solare.
 

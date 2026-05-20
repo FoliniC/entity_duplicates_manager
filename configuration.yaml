@@ -399,12 +399,12 @@ lovelace:
       mode: yaml
       filename: ui-lovelace.yaml
       title: Overview
-    cronostar-admin:
-      mode: yaml
-      filename: cronostar_dashboard_v600.yaml
-      title: CronoStar Admin
-      show_in_sidebar: true
-      icon: mdi:clock-edit
+#    cronostar-admin:
+#      mode: yaml
+#      filename: cronostar_dashboard_v600.yaml
+#      title: CronoStar Admin
+#      show_in_sidebar: true
+#      icon: mdi:clock-edit
 # ev-charging-1:
     #   mode: yaml
     #   title: EV Charging new
@@ -419,7 +419,7 @@ lovelace:
     #   filename: ui/charge_control_claude.yaml
     ev-charging-3:
       mode: yaml
-      title: EV Charging 2025 effettivo
+      title: EV Charging 2025
       icon: mdi:ev-station
       show_in_sidebar: true
       filename: ui/ev_charge_control_2025.yaml
