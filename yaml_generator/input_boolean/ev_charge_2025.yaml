@@ -1,3 +1,7 @@
 ev_charge_2025_charging_active:
   name: "Ricarica Attiva"
   icon: mdi:power
+
+ev_charge_2025_no_grid:
+  name: "Escludi Rete"
+  icon: mdi:transmission-tower-off

@@ -62,6 +62,7 @@ views:
           {% set voltage_raw = states('sensor.folini_carlo_voltage_ac') | float(230) %}
           {% set voltage = 230 if voltage_raw <= 0 else voltage_raw %}
           {% set active = is_state('input_boolean.ev_charge_2025_charging_active', 'on') %}
+          {% set no_grid = is_state('input_boolean.ev_charge_2025_no_grid', 'on') %}
           {% set connected = is_state('binary_sensor.ev_charge_2025_can_charge', 'on') %}
           {% set mode = states('input_select.ev_charge_2025_mode') %}
           {% set crono = states('input_number.ev_charge_2025_cronostar_power_target') | float(0) %}
@@ -97,9 +98,15 @@ views:
             {% set byd_policy = 'Auto prioritaria con supporto BYD: usa tutto il surplus e puo aggiungere una quota controllata dalla batteria casa.' %}
           {% endif %}
           {% if mode == 'Manuale' %}
-            {% set raw_amp = (manual_kw * 1000 / 230) | int %}
-            {% set target_amp = [[raw_amp, 6] | max, 32] | min %}
-            {% set calc_amp = target_amp %}
+            {% set manual_amp = (manual_kw * 1000 / 230) | int %}
+            {% if no_grid %}
+              {% set solar_amp = (w_disponibile / voltage) | int %}
+              {% set target_amp = [[solar_amp, manual_amp] | min | clamp(6, 32), 0] | max if solar_amp >= 6 else 0 %}
+              {% set calc_amp = solar_amp %}
+            {% else %}
+              {% set target_amp = manual_amp | clamp(6, 32) %}
+              {% set calc_amp = target_amp %}
+            {% endif %}
             {% set can_force_min = true %}
           {% elif crono >= 7.9 %}
             {% set calc_amp = (w_disponibile / voltage) | int %}
@@ -115,7 +122,7 @@ views:
             {% set calc_amp = 0 %}
             {% set can_force_min = false %}
           {% endif %}
-          {% set target_mode = 3 if (not active or cur_soc >= limit_soc or (mode != 'Manuale' and target_amp < 6)) else 2 %}
+          {% set target_mode = 3 if (not active or cur_soc >= limit_soc or target_amp < 6) else 2 %}
           {% set last_current_amp = states('input_text.ev_charge_2025_last_mqtt_payload') | int(0) %}
           {% set last_mode = states('input_text.ev_charge_2025_last_mqtt_mode') | int(0) %}
           {% set last_current_raw = states('input_text.ev_charge_2025_last_current_change_time') %}
@@ -137,6 +144,8 @@ views:
           **Motivo blocco:** SOC auto {{ cur_soc | round(1) }}% >= limite {{ limit_soc | round(1) }}%.
           {% elif not connected %}
           **Motivo blocco:** veicolo o colonnina non pronti (`{{ states('sensor.prism_stato_wallbox') }}`).
+          {% elif mode == 'Manuale' and no_grid and target_amp < 6 %}
+          **Motivo blocco:** "Escludi Rete" attivo e surplus utile insufficiente. Disponibili {{ w_disponibile | round(0) }} W = {{ calc_amp }} A, sotto il minimo 6 A.
           {% elif mode == 'Automatico' and crono <= 0.1 %}
           **Motivo blocco:** CronoStar e' a {{ crono | round(1) }} kW, quindi la fascia attuale sospende la ricarica.
           {% elif mode == 'Automatico' and crono >= 7.9 and target_amp < 6 %}
@@ -144,15 +153,15 @@ views:
           {% elif target_mode == 3 %}
           **Motivo blocco:** la logica sta chiedendo pausa alla colonnina.
           {% elif prism_is_charging and target_amp != last_current_amp and not should_send_current %}
-          **Ricarica in corso:** la Prism sta assorbendo {{ prism_p | round(0) }} W. L'inerzia trattiene il nuovo target {{ target_amp }} A: ultimo invio {{ last_current_amp }} A, variazione {{ amp_delta }} A su soglia {{ inertia_delta_a }} A, tempo {{ (seconds_since_current_change / 60) | round(1) }} min su soglia {{ inertia_interval_min }} min.
+          **Ricarica in corso:** la Prism sta assorbendo {{ prism_p | round(0) }} W. {{ '"Escludi Rete" attivo: ' if mode == 'Manuale' and no_grid else '' }}L'inerzia trattiene il nuovo target {{ target_amp }} A: ultimo invio {{ last_current_amp }} A, variazione {{ amp_delta }} A su soglia {{ inertia_delta_a }} A, tempo {{ (seconds_since_current_change / 60) | round(1) }} min su soglia {{ inertia_interval_min }} min.
           {% elif target_amp != last_current_amp and not should_send_current %}
-          **Motivo mancato invio:** inerzia attiva. Nuovo target {{ target_amp }} A, ultimo invio {{ last_current_amp }} A; variazione {{ amp_delta }} A su soglia {{ inertia_delta_a }} A, tempo {{ (seconds_since_current_change / 60) | round(1) }} min su soglia {{ inertia_interval_min }} min.
+          **Motivo mancato invio:** {{ '"Escludi Rete" attivo e ' if mode == 'Manuale' and no_grid else '' }}inerzia attiva. Nuovo target {{ target_amp }} A, ultimo invio {{ last_current_amp }} A; variazione {{ amp_delta }} A su soglia {{ inertia_delta_a }} A, tempo {{ (seconds_since_current_change / 60) | round(1) }} min su soglia {{ inertia_interval_min }} min.
           {% elif prism_is_charging and target_amp == last_current_amp %}
-          **Ricarica in corso:** la Prism sta assorbendo {{ prism_p | round(0) }} W con target {{ target_amp }} A gia' inviato.
+          **Ricarica in corso:** la Prism sta assorbendo {{ prism_p | round(0) }} W con target {{ target_amp }} A gia' inviato{{ ' (limitato da "Escludi Rete")' if mode == 'Manuale' and no_grid and target_amp < manual_amp else '' }}.
           {% elif target_amp == last_current_amp %}
-          **Corrente gia' inviata:** la Prism ha gia' target {{ target_amp }} A.
+          **Corrente gia' inviata:** la Prism ha gia' target {{ target_amp }} A{{ ' (limitato da "Escludi Rete")' if mode == 'Manuale' and no_grid and target_amp < manual_amp else '' }}.
           {% elif prism_is_charging %}
-          **Ricarica in corso:** la Prism sta assorbendo {{ prism_p | round(0) }} W. Target calcolato {{ target_amp }} A, ultimo invio {{ last_current_amp }} A; l'automazione aggiornera' la corrente se necessario.
+          **Ricarica in corso:** la Prism sta assorbendo {{ prism_p | round(0) }} W. {{ '"Escludi Rete" attivo: ' if mode == 'Manuale' and no_grid else '' }}Target calcolato {{ target_amp }} A, ultimo invio {{ last_current_amp }} A; l'automazione aggiornera' la corrente se necessario.
           {% else %}
           **Aggiornamento corrente richiesto:** target {{ target_amp }} A, ultimo invio {{ last_current_amp }} A.
           {% endif %}
@@ -161,7 +170,8 @@ views:
           - Ricarica attiva: **{{ 'si' if active else 'no' }}**
           - Modalita: **{{ mode }}**, CronoStar: **{{ crono | round(1) }} kW**
           {% if mode == 'Manuale' %}
-          - Manuale: **{{ manual_kw | round(1) }} kW nominali = {{ target_amp }} A** (7.4 kW invia 32 A)
+          - Manuale: **{{ manual_kw | round(1) }} kW nominali = {{ manual_amp }} A**
+          - Escludi Rete: **{{ 'SI' if no_grid else 'NO' }}**
           {% endif %}
           - Stato Prism: **{{ states('sensor.prism_stato_wallbox') }}**, mode: **{{ states('sensor.prism_mode') }}**
           - Ricarica fisica Prism: **{{ 'si' if prism_is_charging else 'no' }}** ({{ prism_p | round(0) }} W)
@@ -222,6 +232,11 @@ views:
             row:
               entity: input_number.ev_charge_2025_manual_power_kw
               name: "Potenza Manuale (kW)"
+          - type: conditional
+            conditions: [{ entity: input_select.ev_charge_2025_mode, state: "Manuale" }]
+            row:
+              entity: input_boolean.ev_charge_2025_no_grid
+              name: "Escludi Rete (Solo Manuale)"
           - entity: input_number.ev_charge_2025_vehicle_limit_soc
             name: "Obiettivo Carica %"
           - entity: input_number.ev_charge_2025_battery_capacity

@@ -1,6 +1,7 @@
 - id: "ev_charge_2025_control"
   alias: "EV Charge 2025 Control"
   description: "Master Control Rev. 54 - Current Inertia"
+  initial_state: true
   mode: queued
   max: 10
   triggers:
@@ -11,10 +12,18 @@
     - trigger: state
       entity_id: 
         - input_boolean.ev_charge_2025_charging_active
+        - input_boolean.ev_charge_2025_no_grid
         - input_select.ev_charge_2025_mode
         - input_number.ev_charge_2025_manual_power_kw
         - input_number.ev_charge_2025_cronostar_power_target
   action:
+    # Attendi che i sensori si stabilizzino al boot
+    - if:
+        - condition: template
+          value_template: "{{ trigger.platform == 'homeassistant' }}"
+      then:
+        - delay: "00:00:10"
+    
     - variables:
         # 1. INPUT FISICI
         smart_meter: "{{ states('sensor.smart_meter_ts_100a_1_potenza_reale') | float(0) }}"
@@ -28,6 +37,7 @@
         
         # 2. INPUT UTENTE
         is_active: "{{ is_state('input_boolean.ev_charge_2025_charging_active', 'on') }}"
+        no_grid: "{{ is_state('input_boolean.ev_charge_2025_no_grid', 'on') }}"
         mode: "{{ states('input_select.ev_charge_2025_mode') }}"
         crono: "{{ states('input_number.ev_charge_2025_cronostar_power_target') | float(0) }}"
         manual_kw: "{{ states('input_number.ev_charge_2025_manual_power_kw') | float(2.0) }}"
@@ -67,7 +77,13 @@
 
         target_amp: >
           {% if mode == "Manuale" %}
-            {{ (manual_kw * 1000 / 230) | int | clamp(6, 32) }}
+            {% set manual_amp = (manual_kw * 1000 / 230) | int %}
+            {% if no_grid %}
+              {% set solar_amp = (w_disponibile | float / voltage) | int %}
+              {{ [solar_amp, manual_amp] | min | clamp(6, 32) if solar_amp >= 6 else 0 }}
+            {% else %}
+              {{ manual_amp | clamp(6, 32) }}
+            {% endif %}
           {% else %}
             {% if crono >= 7.9 %}
               {# Modalità SOLARE: usa surplus solare #}
@@ -85,7 +101,7 @@
         target_mode: >
           {% if not is_active or cur_soc >= limit_soc %}
             3
-          {% elif mode != "Manuale" and target_amp | int < 6 %}
+          {% elif target_amp | int < 6 %}
             3
           {% else %}
             2
@@ -113,6 +129,7 @@
         # Rileviamo se l'utente ha appena cambiato il selettore Manuale/Automatico o se siamo al boot
         mode_helper_changed: "{{ trigger.platform == 'state' and trigger.entity_id == 'input_select.ev_charge_2025_mode' }}"
         manual_power_changed: "{{ trigger.platform == 'state' and trigger.entity_id == 'input_number.ev_charge_2025_manual_power_kw' }}"
+        no_grid_changed: "{{ trigger.platform == 'state' and trigger.entity_id == 'input_boolean.ev_charge_2025_no_grid' }}"
         is_boot: "{{ trigger.platform == 'homeassistant' }}"
 
     # Nuova logica: Set End Time quando si attiva la ricarica o al boot
@@ -175,6 +192,7 @@
                        or target_mode | int != real_prism_mode_num | int
                        or last_mode in ['unknown','unavailable',''] 
                        or mode_helper_changed 
+                       or no_grid_changed
                        or is_boot }}
               then:
                 - action: mqtt.publish
@@ -201,6 +219,7 @@
                          and (((target_amp | int) - (states('input_text.ev_charge_2025_last_mqtt_payload') | int(0))) | abs) >= (inertia_delta_a | int))
                      or mode_helper_changed
                      or manual_power_changed
+                     or no_grid_changed
                      or is_boot
                      or target_mode | int != last_mode | int
                      or target_mode | int != real_prism_mode_num | int
