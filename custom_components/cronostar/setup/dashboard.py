@@ -5,7 +5,7 @@ from pathlib import Path
 from datetime import datetime
 from homeassistant.components.frontend import async_register_built_in_panel
 from homeassistant.core import HomeAssistant
-from homeassistant.components.lovelace import LOVELACE_DATA, _register_panel
+from homeassistant.components.lovelace import LOVELACE_DATA
 from homeassistant.components.lovelace.dashboard import LovelaceYAML
 from ..const import DOMAIN, STORAGE_DIR
 from ..utils.filename_builder import build_profile_filename
@@ -232,17 +232,28 @@ async def setup_dashboard(hass):
             "require_admin": True
         }
 
-        # Istanzio LovelaceYAML
+        # Istanzio un LovelaceYAML puntato allo stesso file della dashboard YAML
         lovelace_config = LovelaceYAML(hass, url_path, dashboard_conf)
-        
-        # Memorizzo nel registro Lovelace di Home Assistant
+
+        # Registro nel dizionario interno di HA (come fa async_setup di lovelace)
         lovelace_data = hass.data[LOVELACE_DATA]
-        lovelace_data.dashboards[url_path] = lovavelace_config = lovelace_config
-        lovelace_data.yaml_dashboards[url_path] = dashboard_conf
+        if url_path not in lovelace_data.dashboards:
+            lovelace_data.dashboards[url_path] = lovelace_config
+            lovelace_data.yaml_dashboards[url_path] = dashboard_conf
 
-        # Registro il pannello nel frontend
-        _register_panel(hass, url_path, "yaml", dashboard_conf, False)
-
-        _LOGGER.info("✅ CronoStar: Sidebar panel programmatically registered at /%s using LovelaceYAML.", url_path)
+            # Registro il pannello nel frontend (stessa firma usata da _register_panel interno di HA)
+            async_register_built_in_panel(
+                hass,
+                component_name="lovelace",
+                sidebar_title=dashboard_conf["title"],
+                sidebar_icon=dashboard_conf["icon"],
+                frontend_url_path=url_path,
+                config={"mode": "yaml"},
+                require_admin=dashboard_conf["require_admin"],
+                show_in_sidebar=dashboard_conf["show_in_sidebar"],
+            )
+            _LOGGER.info("✅ CronoStar: Sidebar panel programmaticamente registrato su /%s.", url_path)
+        else:
+            _LOGGER.info("CronoStar: Panel /%s già registrato, skip.", url_path)
     except Exception as e:
         _LOGGER.error("Failed to setup dashboard panel: %s", e)
