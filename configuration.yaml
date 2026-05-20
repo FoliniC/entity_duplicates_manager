@@ -7,6 +7,8 @@
 # Core Configuration
 default_config:
 
+environment:
+  - OPENROUTER_API_KEY=!secret openrouter_api_key
 # Frontend
 frontend:
   themes: !include_dir_merge_named themes
@@ -20,6 +22,7 @@ shell_command: !include_dir_merge_named yaml_generator/shell_command/
 # Media
 ffmpeg:
 stream:
+
 
 # ============================================================================
 # HOMEASSISTANT CORE
