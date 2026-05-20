@@ -396,13 +396,7 @@ lovelace:
       mode: yaml
       filename: ui-lovelace.yaml
       title: Overview
-    cronostar-admin:
-      mode: yaml
-      filename: cronostar_dashboard_v600.yaml
-      title: CronoStar Admin
-      show_in_sidebar: true
-      icon: mdi:clock-edit
-    # ev-charging-1:
+# ev-charging-1:
     #   mode: yaml
     #   title: EV Charging new
     #   icon: mdi:ev-station

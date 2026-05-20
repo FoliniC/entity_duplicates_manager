@@ -382,12 +382,16 @@
       alias: "Verifica differenziale termico interno/esterno > 5 gradi"
       value_template: >
         {% set temp_ext = states('sensor.temperatura_strenscia') | float(none) %}
-        {% if trigger.entity_id.startswith('sensor.statistics_temperatura') %}
-          {% set source_entity = state_attr(trigger.entity_id, 'entity_id') %}
-        {% else %}
-          {% set source_entity = state_attr(trigger.entity_id.replace('umidita', 'temperatura'), 'entity_id') %}
-        {% endif %}
-        {% set temp_int = states(source_entity) | float(none) %}
+        {% set room = trigger.entity_id.replace('sensor.statistics_temperatura_', '').replace('sensor.statistics_umidita_', '').replace('_variance', '') %}
+        {% set room_temps = {
+          'bagno': 'sensor.temperatura_bagno',
+          'cucina': 'sensor.th1a_temperature',
+          'camera_grande': 'sensor.temperatura_camera_grande',
+          'camera': 'sensor.temperatura_camera',
+          'sala': 'sensor.temperatura_sala'
+        } %}
+        {% set source_entity = room_temps.get(room) %}
+        {% set temp_int = states(source_entity) | float(none) if source_entity else none %}
         
         {% if temp_ext is not none and temp_int is not none %}
           {{ (temp_int - temp_ext) | abs > 3 }}
@@ -572,6 +576,7 @@
               data:
                 value: "{{ current_state_str }}"
       default: []
+  mode: queued
 
 - id: keepDeviatoreScaleTurnedOn
   alias: Controlla stati deviatore scale (anti-oscillazione)

@@ -224,7 +224,7 @@ async def setup_dashboard(hass):
             component_name="lovelace",
             sidebar_title="CronoStar",
             sidebar_icon="mdi:calendar-star",
-            url_path=PANEL_URL_PATH,
+            frontend_url_path=PANEL_URL_PATH,
             config={"mode": "yaml", "title": "CronoStar", "show_in_sidebar": True, "filename": DASHBOARD_YAML_FILENAME},
             require_admin=True
         )
