@@ -21,24 +21,24 @@ input_text:
     max: 255
 
 template:
-  - binary_sensor:
-      - name: "Distacco rete allarme attivo"
-        unique_id: distacco_rete_allarme_attivo
-        icon: >
-          {% set raw = states('sensor.alfa_new_tempo_residuo_distacco') %}
-          {% if raw not in ['unknown', 'unavailable', 'none', ''] and raw | float(0) > 0 %}
-            mdi:transmission-tower-off
-          {% else %}
-            mdi:transmission-tower
-          {% endif %}
-        state: >
-          {% set raw = states('sensor.alfa_new_tempo_residuo_distacco') %}
-          {{ raw not in ['unknown', 'unavailable', 'none', ''] and raw | float(0) > 0 }}
-        attributes:
-          tempo_residuo_distacco: "{{ states('sensor.alfa_new_tempo_residuo_distacco') }}"
-          automatico_abilitato: "{{ states('input_boolean.distacco_rete_automatico_abilitato') }}"
-          spegni_ev_abilitato: "{{ states('input_boolean.distacco_rete_spegni_ev') }}"
-          spegni_pdc_abilitato: "{{ states('input_boolean.distacco_rete_spegni_pdc') }}"
+   - binary_sensor:
+       - name: "Distacco rete allarme attivo"
+         unique_id: distacco_rete_allarme_attivo
+         icon: >
+           {% set raw = states('sensor.alfa_new_tempo_residuo_distacco') %}
+           {% if raw not in ['unknown', 'unavailable', 'none', ''] and raw | float(0) > 0 %}
+             mdi:transmission-tower-off
+           {% else %}
+             mdi:transmission-tower
+           {% endif %}
+         state: >
+           {% set raw = states('sensor.alfa_new_tempo_residuo_distacco') %}
+           {{ raw not in ['unknown', 'unavailable', 'none', ''] and raw | float(0) > 0 }}
+         attributes:
+           tempo_residuo_distacco: "{{ states('sensor.alfa_new_tempo_residuo_distacco') }}"
+           automatico_abilitato: "{{ states('input_boolean.distacco_rete_automatico_abilitato') }}"
+           spegni_ev_abilitato: "{{ states('input_boolean.distacco_rete_spegni_ev') }}"
+           spegni_pdc_abilitato: "{{ states('input_boolean.distacco_rete_spegni_pdc') }}"
 
 script:
   distacco_rete_spegni_carichi:
@@ -107,7 +107,7 @@ script:
             PDC={{ 'off' if pdc_abilitata == 'on' else 'ignorata' }} (attiva={{ pdc_attiva_prima }})
       - service: persistent_notification.create
         data:
-          title: "Protezione distacco rete"
+          title: "Protezione distacco reteXXX"
           message: >-
             Intervento carichi eseguito alle {{ now().strftime('%H:%M:%S') }}.
             Tempo residuo distacco: {{ tempo_residuo }}.
