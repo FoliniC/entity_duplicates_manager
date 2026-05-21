@@ -1,6 +1,5 @@
 # Escludi tutto
 *
-
 # Permetti file testuali
 !*.yaml
 !*.py
@@ -11,8 +10,10 @@
 !*.txt
 !*.conf
 !*.ini
+!*.toml
+!*.j2
+!*.ok
 !.gitignore
-
 # Directory
 !automations/
 !blueprints/
@@ -24,7 +25,6 @@
 !esphome/
 !www/
 !.storage/
-
 # Ricorsivamente
 !**/
 !**/*.yaml
@@ -32,11 +32,12 @@
 !**/*.json
 !**/*.js
 !**/*.md
-
+!**/*.toml
+!**/*.j2
+!**/*.ok
 # .storage: SOLO le dashboard
 .storage/*
 !.storage/lovelace*
-
 # Esclusioni fisse
 *.db
 *.db-shm

@@ -1,0 +1,17 @@
+#import requests
+
+@time_trigger("period(now, 30s)")
+def log_message():
+    # url1 = "http://192.168.0.11:88/cgi-bin/get_password_cookie.sh"
+
+    # # Imposto la password da passare tramite post
+    # data = {"password": "Qv&#$SG8MGb^i\"tr"}
+
+    # # Invio la richiesta post all'url1 con la password
+    # r1 = s.post(url1, data=data)
+
+    # # Verifico se la richiesta è andata a buon fine
+    # if r1.status_code == 200:
+    log.info("Logging a message every 30 seconds.")
+    # else:
+    #     log.info("1111111111Logging a message every 30 seconds.")
