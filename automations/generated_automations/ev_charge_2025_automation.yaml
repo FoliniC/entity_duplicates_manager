@@ -17,11 +17,6 @@
         - input_number.ev_charge_2025_manual_power_kw
         - input_number.ev_charge_2025_cronostar_power_target
   action:
-    # 0. Ripristina stato salvato
-    - action: pyscript.halog2026_states_restore
-      data:
-        subsystem: "ev"
-        
     # Attendi che i sensori si stabilizzino al boot
     - if:
         - condition: template

@@ -49,7 +49,6 @@
       target:
         entity_id:
           - switch.attiva_pompa_circolazione
-          - switch.attiva_fancoil
   mode: single
 
 - id: pdc_pump_logging
