@@ -1009,36 +1009,35 @@ HTML_TEMPLATE = """
                 }
 
                 if (data.device) {
+                    const devId = data.device_id;
                     const dev = data.device;
-                    const devId = data.device_id || 'unknown';
                     
-                    let info = `<b>Device Found!</b><br>`;
-                    info += `IP: ${dev.ip || dev.local_ip || ip}<br>`;
-                    info += `Port: ${dev.port || 6666}<br>`;
-                    if (dev.name) info += `Name: ${dev.name}<br>`;
-                    if (dev.product_name) info += `Product: ${dev.product_name}<br>`;
-                    if (dev.category) info += `Category: ${dev.category}<br>`;
-                    if (dev.mac) info += `MAC: ${dev.mac}<br>`;
-                    if (dev.device_id) info += `Device ID: ${dev.device_id}<br>`;
+                    // Ricarica la lista dei dispositivi gestiti (potrebbe essere già presente)
+                    await loadDevices();
                     
-                    if (dev.status === 'discovered') {
-                        info += `<br><b>✓ Successfully matched in Tuya Cloud</b>`;
-                        if (dev.cloud_functions && dev.cloud_functions.length) {
-                            info += `<br>Cloud Functions: ${dev.cloud_functions.length}`;
-                        }
-                        if (dev.cloud_properties && dev.cloud_properties.length) {
-                            info += `<br>Cloud Properties: ${dev.cloud_properties.length}`;
-                        }
-                    } else if (dev.status === 'responding_but_not_in_cloud') {
-                        info += `<br><b>⚠ Device responds but not in cloud</b><br>${dev.note || ''}`;
-                    } else {
-                        info += `<br><b>✓ Device Responding</b><br>${dev.note || ''}`;
+                    // Se l'ID è nella lista dei dispositivi gestiti, selezionalo direttamente
+                    if (devices[devId]) {
+                        switchTab('manage');
+                        select(devId);
+                        // Opzionale: mostra un messaggio di conferma
+                        alert(`Device ${devices[devId].friendly_name || devId} selected. Check the DPs in the table below.`);
+                        return;
                     }
-
+                    
+                    // Altrimenti, mostra i dettagli per configurazione manuale
+                    let info = `Device found but not in managed list.\\n\\n`;
+                    info += `Device ID: ${devId}\\n`;
+                    info += `IP: ${dev.ip || dev.local_ip || ip}\\n`;
+                    info += `Port: ${dev.port || 6668}\\n`;
+                    if (dev.mac) info += `MAC: ${dev.mac}\\n`;
+                    if (dev.local_key) info += `Local Key: ${dev.local_key}\\n`;
+                    if (dev.product_name) info += `Product: ${dev.product_name}\\n`;
+                    info += `\nStatus: ${dev.status || 'unknown'}\\n`;
+                    if (dev.note) info += `Note: ${dev.note}\\n`;
                     alert(info);
                     
-                    // Store discovery result for later use
-                    window.lastDiscoveredDevice = { id: devId, ...dev };
+                    // Se il dispositivo ha un local_key, possiamo aggiungerlo temporaneamente alla lista "unadded"?
+                    // Per ora ci fermiamo qui.
                 }
             } catch(e) {
                 logsDiv.innerHTML = `<div style="color:red">Error: ${e}</div>`;
@@ -1368,16 +1367,11 @@ def api_discover_by_ip():
         pytuya_log.propagate = True
         
         try:
-            # Attempt to query the device without auth first to get device info
             h.records.append(f"[discover] Scanning {target_ip}...")
             
-            # Try common Tuya ports (6666 is default, also try 6667 for some devices)
-            for port in [6666, 6667]:
+            for port in [6668, 6666, 6667]:
                 try:
                     h.records.append(f"[discover] Trying {target_ip}:{port}...")
-                    
-                    # Create a minimal connection config to probe the device
-                    # We use None values for keys since we're just trying to discover
                     import socket
                     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     sock.settimeout(2)
@@ -1387,7 +1381,12 @@ def api_discover_by_ip():
                     if result == 0:
                         h.records.append(f"[discover] ✓ Device responding on {target_ip}:{port}")
                         
-                        # Query cloud API to find this IP in device list
+                        # Ottieni MAC via ARP
+                        mac = _lan_mac_for_ip(target_ip)
+                        if mac:
+                            h.records.append(f"[discover] MAC address from ARP: {mac}")
+                        
+                        # 1) Prova a cercare nel cloud
                         ha_config = get_ha_config()
                         cloud_conf = None
                         for entry in ha_config.get("data", {}).get("entries", []):
@@ -1395,78 +1394,83 @@ def api_discover_by_ip():
                                 cloud_conf = entry.get("data")
                                 break
                         
-                        if not cloud_conf:
+                        cloud_device = None
+                        cloud_device_id = None
+                        if cloud_conf and TuyaCloudApi is not None:
+                            try:
+                                h.records.append("[discover] Querying cloud API for device details...")
+                                api = TuyaCloudApi(
+                                    cloud_conf["region"],
+                                    cloud_conf["client_id"],
+                                    cloud_conf["client_secret"],
+                                    cloud_conf["user_id"],
+                                )
+                                await api.async_connect()
+                                cloud_devs = await api.async_get_devices_list(force_update=True)
+                                
+                                # Debug: stampa tipo e primi elementi
+                                h.records.append(f"[discover] Cloud devices type: {type(cloud_devs)}")
+                                if isinstance(cloud_devs, dict):
+                                    sample = list(cloud_devs.items())[:2]
+                                    h.records.append(f"[discover] Cloud devices sample: {sample}")
+                                    # Cerca per IP o MAC
+                                    for dev_id, dev_info in cloud_devs.items():
+                                        if not isinstance(dev_info, dict):
+                                            continue
+                                        dev_ip = dev_info.get("local_ip") or dev_info.get("ip") or ""
+                                        dev_mac = _extract_mac(dev_info.get("mac") or dev_info.get("device_mac"))
+                                        if dev_ip == target_ip or (mac and dev_mac == mac):
+                                            cloud_device = dev_info
+                                            cloud_device_id = dev_id
+                                            h.records.append(f"[discover] Found cloud device: {dev_id} (IP match={dev_ip==target_ip}, MAC match={dev_mac==mac})")
+                                            break
+                                else:
+                                    h.records.append(f"[discover] Cloud devices is not a dict: {cloud_devs}")
+                            except Exception as e:
+                                h.records.append(f"[discover] Cloud API error: {e}")
+                                import traceback
+                                h.records.append(traceback.format_exc())
+                        
+                        # 2) Se non trovato nel cloud, cerca nella configurazione locale di localtuya
+                        local_device = None
+                        local_device_id = None
+                        devices_local = get_devices_data()  # dict {dev_id: config}
+                        for dev_id, dev_cfg in devices_local.items():
+                            if dev_cfg.get("host") == target_ip:
+                                local_device = dev_cfg
+                                local_device_id = dev_id
+                                h.records.append(f"[discover] Found device in local configuration: {dev_id}")
+                                break
+                        
+                        # Prepara la risposta
+                        if cloud_device:
+                            cloud_device["local_ip"] = target_ip
+                            cloud_device["port"] = port
+                            cloud_device["status"] = "discovered_from_cloud"
+                            # Aggiungi anche la local_key se presente
                             return {
-                                "error": "No cloud config - cannot query device database",
-                                "device": {
-                                    "ip": target_ip,
-                                    "port": port,
-                                    "status": "responding",
-                                    "note": "Device is responding but cloud credentials needed for more info"
-                                },
+                                "device": cloud_device,
+                                "device_id": cloud_device_id,
                                 "tech_logs": "\\n".join(h.records)
                             }
-                        
-                        try:
-                            h.records.append("[discover] Querying cloud API for device details...")
-                            api = TuyaCloudApi(
-                                cloud_conf["region"],
-                                cloud_conf["client_id"],
-                                cloud_conf["client_secret"],
-                                cloud_conf["user_id"],
-                            )
-                            await api.async_connect()
-                            cloud_devs = await api.async_get_devices_list(force_update=True)
-                            
-                            # Find device with matching IP
-                            matching_devices = []
-                            if isinstance(cloud_devs, dict):
-                                for dev_id, dev_info in cloud_devs.items():
-                                    dev_ip = dev_info.get("local_ip") or dev_info.get("ip") or ""
-                                    if dev_ip == target_ip:
-                                        matching_devices.append((dev_id, dev_info))
-                                        h.records.append(f"[discover] Found cloud device: {dev_id}")
-                            
-                            if matching_devices:
-                                dev_id, dev_info = matching_devices[0]
-                                dev_info["local_ip"] = target_ip
-                                dev_info["port"] = port
-                                dev_info["status"] = "discovered"
-                                
-                                # Enhance with cloud functions
-                                try:
-                                    cloud_funcs = await api.async_get_device_info(dev_id)
-                                    if cloud_funcs and isinstance(cloud_funcs, dict):
-                                        dev_info["cloud_functions"] = cloud_funcs.get("functions", [])
-                                        dev_info["cloud_properties"] = cloud_funcs.get("property", [])
-                                        h.records.append(f"[discover] Retrieved {len(dev_info.get('cloud_functions', []))} cloud functions")
-                                except Exception as e:
-                                    h.records.append(f"[discover] Cloud functions query failed: {e}")
-                                
-                                return {
-                                    "device": dev_info,
-                                    "device_id": dev_id,
-                                    "tech_logs": "\\n".join(h.records)
-                                }
-                            else:
-                                return {
-                                    "device": {
-                                        "ip": target_ip,
-                                        "port": port,
-                                        "status": "responding_but_not_in_cloud",
-                                        "note": "Device responds but not found in Tuya Cloud. It may be unconfigured or use a different network."
-                                    },
-                                    "tech_logs": "\\n".join(h.records)
-                                }
-                        except Exception as e:
-                            h.records.append(f"[discover] Cloud API error: {e}")
+                        elif local_device:
+                            local_device["status"] = "discovered_from_local_config"
+                            local_device["port"] = port
+                            local_device["match_mac"] = mac
+                            return {
+                                "device": local_device,
+                                "device_id": local_device_id,
+                                "tech_logs": "\\n".join(h.records)
+                            }
+                        else:
+                            # Restituisci solo le info di base, chiedendo all'utente di inserire ID e chiave
                             return {
                                 "device": {
                                     "ip": target_ip,
                                     "port": port,
-                                    "status": "responding",
-                                    "note": "Device is responding but cloud lookup failed",
-                                    "error": str(e)
+                                    "mac": mac,
+                                    "status": "needs_manual_config",
+                                    "note": "Device responds but not found in cloud or local config. Please provide device_id and local_key manually (obtain from Tuya IoT app or cloud)."
                                 },
                                 "tech_logs": "\\n".join(h.records)
                             }
@@ -1478,7 +1482,6 @@ def api_discover_by_ip():
                 "error": f"No response from {target_ip} on common Tuya ports",
                 "tech_logs": "\\n".join(h.records)
             }
-            
         except Exception as e:
             h.records.append(f"[discover] Fatal error: {e}")
             return {
@@ -1493,7 +1496,6 @@ def api_discover_by_ip():
         return jsonify(future.result(timeout=30))
     except Exception as e:
         return jsonify({"error": str(e), "tech_logs": ""})
-
 
 # ---------------------------------------------------------------------------
 # /api/device/<dev_id>/status  — uses connection pool + classified errors
