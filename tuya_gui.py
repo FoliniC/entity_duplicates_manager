@@ -9,9 +9,9 @@ from pathlib import Path
 from threading import Thread
 import subprocess
 
-# v1.2.1 - Refresh stale local_key from Tuya Cloud at runtime and classify
-#          session-key negotiation failures explicitly.
-VERSION = "1.2.1"
+# v1.2.2 - Added "Scan LAN by IP" feature in Add new device tab to probe
+#          unregistered Tuya devices by IP address.
+VERSION = "1.2.2"
 
 # ---------------------------------------------------------------------------
 # Library path – prioritise the local localtuya/core over any system package
@@ -736,6 +736,13 @@ HTML_TEMPLATE = """
                 <button class="btn-cloud" style="flex:1" onclick="loadUnaddedDevices()">Refresh Unadded</button>
             </div>
             <div class="list" id="unaddedList">Press "Refresh Unadded"</div>
+            <hr style="margin:12px 0; border:none; border-top:1px solid #ccc;">
+            <label>LAN Scan by IP</label>
+            <div style="display:flex; gap:6px; margin-bottom:4px;">
+                <input type="text" id="scanIp" placeholder="e.g. 192.168.0.28" style="flex:2" value="">
+                <button class="btn-refresh" style="flex:1" onclick="scanLan()">Scan</button>
+            </div>
+            <div class="list" id="scanResults" style="flex:0; max-height:150px; font-size:11px;">Enter an IP and press Scan.</div>
         </div>
         <div class="main" id="unaddedDetails" style="display:none">
             <h3 id="unaddedName" style="margin:0"></h3>
@@ -949,6 +956,38 @@ HTML_TEMPLATE = """
                 }).join('');
             } catch(e) {
                 list.innerHTML = `<div class="item">Error: ${e}</div>`;
+            }
+        }
+
+        async function scanLan() {
+            const ip = document.getElementById('scanIp').value.trim();
+            const resultsDiv = document.getElementById('scanResults');
+            if (!ip) { resultsDiv.innerHTML = '<div class="item">Please enter an IP address.</div>'; return; }
+            resultsDiv.innerHTML = '<div class="item">Scanning...</div>';
+            try {
+                const r = await fetch(`/api/devices/scan_lan?ip=${encodeURIComponent(ip)}`);
+                const data = await r.json();
+                if (data.error) {
+                    resultsDiv.innerHTML = `<div class="item" style="color:#721c24;background:#f8d7da">Error: ${data.error}</div>`;
+                    return;
+                }
+                let html = '<div class="item" style="background:#d4edda;color:#155724">';
+                html += `<strong>Device found at ${data.ip}</strong><br>`;
+                html += `<small>MAC: ${data.mac || 'Unknown'}</small><br>`;
+                html += `<small>Port 6668: ${data.port_open ? 'OPEN' : 'CLOSED'}</small><br>`;
+                if (data.already_configured) {
+                    html += `<small style="color:#856404">Already configured in HA as: ${data.configured_name || data.configured_id}</small>`;
+                }
+                if (data.cloud_device_id) {
+                    html += `<br><small>Cloud Device ID: ${data.cloud_device_id}</small>`;
+                }
+                if (data.cloud_name) {
+                    html += `<br><small>Cloud Name: ${data.cloud_name}</small>`;
+                }
+                html += '</div>';
+                resultsDiv.innerHTML = html;
+            } catch(e) {
+                resultsDiv.innerHTML = `<div class="item" style="color:#721c24;background:#f8d7da">Error: ${e}</div>`;
             }
         }
 
@@ -1186,6 +1225,83 @@ def api_unadded_devices():
         return jsonify(future.result(timeout=25))
     except Exception as e:
         return jsonify({"error": str(e)})
+
+
+# ---------------------------------------------------------------------------
+# /api/devices/scan_lan — scan a device by IP on the LAN
+# ---------------------------------------------------------------------------
+@app.route("/api/devices/scan_lan")
+def api_scan_lan():
+    ip = request.args.get("ip", "").strip()
+    if not ip:
+        return jsonify({"error": "No IP provided"}), 400
+
+    result = {"ip": ip, "mac": None, "port_open": False, "already_configured": False}
+    logs = []
+
+    # 1) Resolve MAC from ARP cache
+    mac = _lan_mac_for_ip(ip)
+    if mac:
+        result["mac"] = mac
+        logs.append(f"MAC: {mac}")
+    else:
+        logs.append("MAC: not found in ARP cache")
+        # Try to trigger ARP via ping
+        try:
+            subprocess.run(["ping", "-c", "1", "-W", "1", ip],
+                           capture_output=True, timeout=2)
+            mac = _lan_mac_for_ip(ip)
+            if mac:
+                result["mac"] = mac
+                logs.append(f"MAC (after ping): {mac}")
+        except Exception:
+            pass
+
+    # 2) Check if port 6668 (Tuya) is open
+    try:
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(2)
+        s.connect((ip, 6668))
+        s.close()
+        result["port_open"] = True
+        logs.append("Port 6668: OPEN (Tuya protocol)")
+    except Exception:
+        logs.append("Port 6668: closed/unreachable")
+
+    # 3) Check if this device (by MAC or IP) is already configured in HA
+    if mac:
+        configured = get_devices_data()
+        configured_by_mac = {}
+        for cid, cdata in (configured or {}).items():
+            cmac = _extract_mac(cdata.get("mac") or cdata.get("match_mac"))
+            if cmac:
+                configured_by_mac[cmac] = {"id": cid, "name": cdata.get("friendly_name", cid)}
+        if mac in configured_by_mac:
+            result["already_configured"] = True
+            result["configured_id"] = configured_by_mac[mac]["id"]
+            result["configured_name"] = configured_by_mac[mac]["name"]
+            logs.append(f"Already configured: {configured_by_mac[mac]['name']} ({configured_by_mac[mac]['id']})")
+        # 4) Check Tuya Cloud for this MAC
+        try:
+            cloud_conf = _build_cloud_conf()
+            if cloud_conf:
+                future = asyncio.run_coroutine_threadsafe(
+                    _get_cloud_devices_cached(force_update=False), loop
+                )
+                cloud_devices = future.result(timeout=15)
+                for cid, cinfo in (cloud_devices or {}).items():
+                    cmac = _extract_mac(cinfo.get("mac") or cinfo.get("device_mac"))
+                    if cmac == mac:
+                        result["cloud_device_id"] = cid
+                        result["cloud_name"] = cinfo.get("name", "")
+                        logs.append(f"Cloud match: {cinfo.get('name', '')} ({cid})")
+                        break
+        except Exception as e:
+            logs.append(f"Cloud lookup error: {e}")
+
+    result["tech_logs"] = "\n".join(logs)
+    return jsonify(result)
 
 
 # ---------------------------------------------------------------------------
