@@ -44,6 +44,18 @@ _log = logging.getLogger("tuya_gui")
 _log.info("=== tuya_gui %s starting ===", VERSION)
 _log.info("connect=%s  TuyaCloudApi=%s", connect, TuyaCloudApi)
 
+def _filter_numeric_dps(dps_dict: dict) -> dict:
+    """Restituisce un dict contenente solo chiavi numeriche (int o stringhe di cifre)."""
+    if not isinstance(dps_dict, dict):
+        return {}
+    filtered = {}
+    for k, v in dps_dict.items():
+        if isinstance(k, int):
+            filtered[k] = v
+        elif isinstance(k, str) and k.isdigit():
+            filtered[int(k)] = v
+    return filtered
+    
 app = Flask(__name__)
 HA_CONFIG_BASE = Path(os.environ.get("HA_CONFIG_DIR", str(BASE_DIR))).expanduser()
 CONFIG_PATH = Path(
@@ -577,7 +589,9 @@ def _ha_states_as_dps(dev_id: str, cfg: dict) -> dict:
     """Return LocalTuya entity states keyed by DP id from HA storage."""
     registry = _read_json(ENTITY_REGISTRY_PATH, {})
     restore = _read_json(RESTORE_STATE_PATH, {})
-
+    print(f"[DEBUG] ENTITY_REGISTRY_PATH: {ENTITY_REGISTRY_PATH}")
+    print(f"[DEBUG] registry keys: {list(registry.get('data', {}).get('entities', [])[:2])}")
+    
     entities = registry.get("data", {}).get("entities", [])
     restore_items = restore.get("data", []) if isinstance(restore, dict) else []
 
@@ -752,7 +766,7 @@ HTML_TEMPLATE = """
                     <input type="text" id="dpValText">
                     <select id="dpValSelect" style="display:none"></select>
                 </div>
-                <div><label>Timeout</label><input type="number" id="timeout" value="10"></div>
+                <div><label>Timeout</label><input type="number" id="timeout" value="90"></div>
                 <div style="display:flex; align-items:flex-end;"><button class="btn-refresh" style="width:100%" onclick="refresh()">Refresh Local</button></div>
                 <div style="grid-column: span 2;"><button class="btn-cloud" style="width:100%" onclick="cloudCheck()">Verify Cloud Response</button></div>
                 <div style="grid-column: span 2;"><button class="btn-send" style="width:100%" id="sendBtn" onclick="send()">Send Command</button></div>
@@ -766,6 +780,7 @@ HTML_TEMPLATE = """
             <div style="display:grid; grid-template-columns: 1fr auto; gap:8px; margin-bottom:12px;">
                 <input type="text" id="manualDeviceIp" placeholder="e.g., 192.168.0.28" style="padding:8px; border:1px solid #ccc; border-radius:4px;">
                 <button class="btn-refresh" style="padding:8px 12px;" onclick="discoverByIp()">Scan</button>
+                <button class="btn-cloud" style="width:100%" onclick="forceFallback()">Force HA Fallback</button>
             </div>
             <div id="manualDiscoveryLogs" style="font-size:11px; color:#666; padding:8px; background:#f5f5f5; border-radius:4px; max-height:100px; overflow-y:auto; margin-bottom:12px; display:none;">
                 Scanning...
@@ -917,22 +932,32 @@ HTML_TEMPLATE = """
             } catch(e) { alert(e); }
             finally { overlay.classList.add('hidden'); }
         }
+
         function renderTable() {
             const mapping = devices[selectedId].entities || [];
             const allIds = new Set([...Object.keys(currentDps), ...Object.keys(cloudDps)]);
             document.getElementById('dpBody').innerHTML = Array.from(allIds).sort((a,b)=>Number(a)-Number(b)).map(id => {
                 const displayVal = currentDisplayDps[id] !== undefined ? currentDisplayDps[id] : currentDps[id];
                 const unit = currentDisplayUnits[id] ? ` ${currentDisplayUnits[id]}` : '';
+                const rawVal = currentDps[id];
+                let valStr = '';
+                if (rawVal === undefined || rawVal === null) valStr = '';
+                else if (typeof rawVal === 'object') valStr = JSON.stringify(rawVal);
+                else valStr = String(rawVal);
                 const localVal = currentDps[id] !== undefined ? `${displayVal}${unit}` : '<span style="color:#999">?</span>';
                 const cloudInfo = cloudDps[id] || {};
                 const entity = mapping.find(e => e.id == id);
-                return `<tr onclick="onRowClick(${JSON.stringify(id)}, ${JSON.stringify(String(currentDps[id] ?? ''))})" style="cursor:pointer">
-                    <td><b>${id}</b></td><td>${entity?entity.friendly_name:(cloudInfo.name || 'Unknown')}</td>
-                    <td>${localVal}</td><td><small>${cloudInfo.code || '-'}</small></td>
+                // Passa valStr (stringa sicura) al click
+                return `<tr onclick="onRowClick(${JSON.stringify(id)}, ${JSON.stringify(valStr)})" style="cursor:pointer">
+                    <td><b>${id}</b></td>
+                    <td>${entity ? entity.friendly_name : (cloudInfo.name || 'Unknown')}</td>
+                    <td>${localVal}</td>
+                    <td><small>${cloudInfo.code || '-'}</small></td>
                 </tr>`;
             }).join('');
             updateValueInput();
         }
+
         function onRowClick(id, val) {
             document.getElementById('dpId').value = id;
             updateValueInput(val);
@@ -984,6 +1009,24 @@ HTML_TEMPLATE = """
                     body: JSON.stringify({ dps:{[dpId]:finalVal}, timeout:document.getElementById('timeout').value })
                 });
                 refresh();
+            } catch(e) { alert(e); }
+            finally { overlay.classList.add('hidden'); }
+        }
+
+        async function forceFallback() {
+            if(!selectedId) return;
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.classList.remove('hidden');
+            try {
+                const r = await fetch(`/api/device/${selectedId}/force_ha`);
+                const data = await r.json();
+                document.getElementById('techLogs').innerText = data.tech_logs || "No data.";
+                if (!data.error) {
+                    currentDps = data.status || {};
+                    currentDisplayDps = data.display_status || currentDps;
+                    currentDisplayUnits = data.display_units || {};
+                    renderTable();
+                } else { alert(data.error); }
             } catch(e) { alert(e); }
             finally { overlay.classList.add('hidden'); }
         }
@@ -1522,118 +1565,126 @@ def api_status(dev_id: str):
         pytuya_log.addHandler(h)
         pytuya_log.propagate = True
 
-        def _log(msg: str) -> None:
+        def _debug(msg: str) -> None:
             h.records.append(msg)
             _log_main = logging.getLogger("tuya_gui.status")
             _log_main.debug("%s %s", dev_id[:8], msg)
-
+            print(f"[DEBUG] {msg}")   # stampa sul terminale
+            
         def _proto_dps_cache(proto) -> dict:
-            """Extract any DPS cached by pytuya on the protocol object."""
             for attr in ("dps", "_dps", "dps_cache", "_dps_cache", "status_cache"):
                 val = getattr(proto, attr, None)
                 if isinstance(val, dict) and val:
-                    _log(f"[tuya_gui] proto.{attr} cache hit: {list(val.keys())} = {val}")
-                    return dict(val)
-            _log("[tuya_gui] proto: no DPS cache attributes found")
+                    filtered = _filter_numeric_dps(val)
+                    if filtered:
+                        _debug(f"[tuya_gui] proto.{attr} cache hit: {list(filtered.keys())}")
+                        return filtered
+            _debug("[tuya_gui] proto: no numeric DPS cache found")
             return {}
 
         def _extract_dps(res) -> dict:
-            """Pull DPS out of whatever status() returned, logging every step."""
-            _log(f"[tuya_gui] status() raw result: type={type(res).__name__} repr={repr(res)[:300]}")
+            _debug(f"[tuya_gui] status() raw result: type={type(res).__name__} repr={repr(res)[:300]}")
             if not res:
-                _log("[tuya_gui] status() returned falsy value — no DPS")
+                _debug("[tuya_gui] status() returned falsy value — no DPS")
                 return {}
             if isinstance(res, dict):
-                # Case 1: {"dps": {...}}
+                # Caso {"dps": {...}}
                 if "dps" in res and isinstance(res["dps"], dict):
-                    _log(f"[tuya_gui] DPS extracted from res['dps']: {list(res['dps'].keys())}")
-                    return dict(res["dps"])
-                # Case 2: res IS the dps dict (all-int or all-str keys)
-                if res and all(isinstance(k, (int, str)) for k in res):
-                    _log(f"[tuya_gui] res looks like a raw DPS dict: {list(res.keys())}")
-                    return dict(res)
-            _log(f"[tuya_gui] Could not extract DPS from: {repr(res)[:200]}")
-            return {}
-
+                    filtered = _filter_numeric_dps(res["dps"])
+                    if filtered:
+                        _debug(f"[tuya_gui] DPS extracted from res['dps'] (filtered): {list(filtered.keys())}")
+                        return filtered
+                # Caso res stesso è il dict dei DPS
+                filtered = _filter_numeric_dps(res)
+                if filtered:
+                    _debug(f"[tuya_gui] DPS extracted from direct dict (filtered): {list(filtered.keys())}")
+                    return filtered
+            _debug(f"[tuya_gui] Could not extract DPS from: {repr(res)[:200]}")
+            return {}            
+            
         async def _try_detect(proto) -> dict:
             """Call detect_available_dps() and return whatever it gives us."""
             try:
-                _log("[tuya_gui] detect_available_dps() → sending…")
+                _debug("[tuya_gui] detect_available_dps() → sending…")
                 detected = await asyncio.wait_for(proto.detect_available_dps(), timeout=t + 2)
-                _log(f"[tuya_gui] detect_available_dps() returned: {repr(detected)[:200]}")
+                _debug(f"[tuya_gui] detect_available_dps() returned: {repr(detected)[:200]}")
                 dps = _extract_dps(detected)
                 if not dps:
                     dps = _proto_dps_cache(proto)
                 return dps
             except Exception as exc:
-                _log(f"[tuya_gui] detect_available_dps() exception: {exc}")
+                _debug(f"[tuya_gui] detect_available_dps() exception: {exc}")
                 return {}
 
         async def _try_status(proto, label: str = "") -> dict:
             """Call status(), extract DPS and check cache."""
             try:
-                _log(f"[tuya_gui] status(){' ' + label if label else ''} → sending…")
+                _debug(f"[tuya_gui] status(){' ' + label if label else ''} → sending…")
                 res = await asyncio.wait_for(proto.status(), timeout=t + 2)
                 dps = _extract_dps(res)
                 if not dps:
                     dps = _proto_dps_cache(proto)
                 return dps
             except Exception as exc:
-                _log(f"[tuya_gui] status(){' ' + label if label else ''} exception: {exc}")
+                _debug(f"[tuya_gui] status(){' ' + label if label else ''} exception: {exc}")
                 return {}
 
-        async def _wait_for_push(proto, wait_s: float = 3.0) -> dict:
-            """For v3.4/v3.5 devices that send DPS via push instead of
-            responding to active queries: wait for a push event.
-            Tries set_updater callback first; falls back to polling proto.dps."""
-            pushed: dict = {}
+        async def _wait_for_push(proto, wait_times: list = None) -> dict:
+            """Attesa multipla con heartbeat periodici e controlli della cache.
+            wait_times: lista di secondi da attendere a ogni step (default [4, 10, 30, 60])
+            """
+            if wait_times is None:
+                wait_times = [4, 10, 30, 60]
+            pushed = {}
             event = asyncio.Event()
 
             def _on_push(data: dict) -> None:
-                _log(f"[tuya_gui] push callback received: {repr(data)[:200]}")
+                _debug(f"[tuya_gui] push callback received: {repr(data)[:200]}")
                 if isinstance(data, dict):
-                    pushed.update(data)
-                    event.set()
+                    # Filtra solo chiavi numeriche
+                    for k, v in data.items():
+                        if isinstance(k, int) or (isinstance(k, str) and k.isdigit()):
+                            pushed[int(k)] = v
+                    if pushed:
+                        event.set()
 
-            # 1) Try callback-based listener
+            # Registra callback
             for setter in ("set_updater", "add_listener", "set_status_callback"):
                 fn = getattr(proto, setter, None)
                 if callable(fn):
                     try:
                         fn(_on_push)
-                        _log(f"[tuya_gui] Registered push listener via proto.{setter}()")
+                        _debug(f"[tuya_gui] Registered push via {setter}")
                         break
                     except Exception as exc:
-                        _log(f"[tuya_gui] proto.{setter}() failed: {exc}")
+                        _debug(f"[tuya_gui] {setter} failed: {exc}")
 
-            # 2) Send heartbeat to tickle the device into sending a status push
-            try:
-                _log("[tuya_gui] Sending heartbeat to trigger push…")
-                await asyncio.wait_for(proto.heartbeat(), timeout=5)
-                _log("[tuya_gui] Heartbeat sent OK")
-            except Exception as exc:
-                _log(f"[tuya_gui] Heartbeat error (non-fatal): {exc}")
+            for i, wait_s in enumerate(wait_times):
+                # Invia heartbeat prima di ogni attesa
+                try:
+                    _debug(f"[tuya_gui] Sending heartbeat (step {i+1})")
+                    await asyncio.wait_for(proto.heartbeat(), timeout=5)
+                    _debug("[tuya_gui] Heartbeat sent OK")
+                except Exception as exc:
+                    _debug(f"[tuya_gui] Heartbeat error: {exc}")
 
-            # 3) Wait for the push event or fall back to polling proto.dps
-            _log(f"[tuya_gui] Waiting {wait_s}s for device push…")
-            try:
-                await asyncio.wait_for(event.wait(), timeout=wait_s)
-                _log(f"[tuya_gui] Push event received: {list(pushed.keys())}")
-            except asyncio.TimeoutError:
-                _log("[tuya_gui] No push event in time — checking proto.dps cache")
+                _debug(f"[tuya_gui] Waiting {wait_s}s for device push (step {i+1}/{len(wait_times)})")
+                try:
+                    await asyncio.wait_for(event.wait(), timeout=wait_s)
+                    if pushed:
+                        _debug(f"[tuya_gui] Push event received at step {i+1}: {list(pushed.keys())}")
+                        return _filter_numeric_dps(pushed)
+                except asyncio.TimeoutError:
+                    _debug(f"[tuya_gui] No push event after {wait_s}s, checking cache")
 
-            # 4) Merge pushed data with proto.dps cache
-            dps = dict(pushed) if pushed else {}
-            cached = _proto_dps_cache(proto)
-            if cached and not dps:
-                dps = cached
-            elif cached:
-                cached.update(dps)
-                dps = cached
+                # Controlla cache del protocollo
+                cached = _proto_dps_cache(proto)
+                if cached:
+                    _debug(f"[tuya_gui] Cache hit after step {i+1}: {list(cached.keys())}")
+                    return cached
 
-            _log(f"[tuya_gui] _wait_for_push result: {dps}")
-            return dps
-
+            _debug("[tuya_gui] Push wait completed without data")
+            return {}
         async def _build_result(dps: dict, source: str) -> dict:
             """Build the final API response dict from a DPS dict."""
             funcs = await _get_cloud_functions_cached(dev_id, conn_cfg)
@@ -1649,14 +1700,14 @@ def api_status(dev_id: str):
         try:
             conn_cfg = await _connection_config(dev_id, d)
             if conn_cfg.get("_cloud_key_refreshed"):
-                _log("[tuya_gui] Using refreshed local_key from Tuya Cloud")
+                _debug("[tuya_gui] Using refreshed local_key from Tuya Cloud")
 
             proto_ver = float(conn_cfg.get("protocol_version", 3.3))
             is_push_device = proto_ver >= 3.4
-            _log(f"[tuya_gui] protocol_version={proto_ver}, push_mode={is_push_device}")
+            _debug(f"[tuya_gui] protocol_version={proto_ver}, push_mode={is_push_device}")
 
             for attempt in range(3):
-                _log(f"[tuya_gui] === Attempt {attempt + 1}/3 ===")
+                _debug(f"[tuya_gui] === Attempt {attempt + 1}/3 ===")
                 try:
                     # ----------------------------------------------------------
                     # Attempt 0 & 1: pool connection
@@ -1664,10 +1715,10 @@ def api_status(dev_id: str):
                     # ----------------------------------------------------------
                     if attempt < 2:
                         proto = await _conn_pool.get(dev_id, conn_cfg)
-                        _log(f"[tuya_gui] Pool connection obtained for {dev_id}")
+                        _debug(f"[tuya_gui] Pool connection obtained for {dev_id}")
                     else:
                         _conn_pool.invalidate(dev_id)
-                        _log("[tuya_gui] Attempt 3: fresh direct connection (pool bypassed)")
+                        _debug("[tuya_gui] Attempt 3: fresh direct connection (pool bypassed)")
                         proto = await asyncio.wait_for(
                             connect(
                                 address=conn_cfg["host"],
@@ -1679,39 +1730,42 @@ def api_status(dev_id: str):
                             ),
                             timeout=t + 5,
                         )
-                        _log("[tuya_gui] Fresh connection established")
+                        _debug("[tuya_gui] Fresh connection established")
 
                     # ----------------------------------------------------------
                     # Strategy A: detect_available_dps() — explicit call with log
                     # ----------------------------------------------------------
                     dps = await _try_detect(proto)
-                    if dps:
-                        _log(f"[tuya_gui] ✓ Got {len(dps)} DPS via detect_available_dps()")
+                    if dps and any(str(k).isdigit() for k in dps.keys()):
+                        _debug(f"[tuya_gui] ✓ Got {len(dps)} numeric DPS via detect_available_dps()")
                         return await _build_result(dps, "local")
+                    else:
+                        _debug("[tuya_gui] No numeric DPS from detect_available_dps(), continuing...")
 
                     # ----------------------------------------------------------
                     # Strategy B: status()
                     # ----------------------------------------------------------
                     dps = await _try_status(proto, label="(first call)")
-                    if dps:
-                        _log(f"[tuya_gui] ✓ Got {len(dps)} DPS via status()")
+                    if dps and any(str(k).isdigit() for k in dps.keys()):
+                        _debug(f"[tuya_gui] ✓ Got {len(dps)} numeric DPS via detect_available_dps()")
                         return await _build_result(dps, "local")
-
+                    else:
+                        _debug("[tuya_gui] No numeric DPS from detect_available_dps(), continuing to status/push")
                     # ----------------------------------------------------------
                     # Strategy C: for v3.4/v3.5 — wait for device push
                     # ----------------------------------------------------------
                     if is_push_device:
-                        _log("[tuya_gui] v3.4/v3.5 device: trying push-wait strategy")
+                        _debug("[tuya_gui] v3.4/v3.5 device: trying push-wait strategy")
                         dps = await _wait_for_push(proto, wait_s=4.0 if attempt < 2 else 6.0)
                         if dps:
-                            _log(f"[tuya_gui] ✓ Got {len(dps)} DPS via push-wait")
+                            _debug(f"[tuya_gui] ✓ Got {len(dps)} DPS via push-wait")
                             return await _build_result(dps, "local-push")
 
                         # After push wait, try status() once more — device may
                         # have updated its internal cache during the wait
                         dps = await _try_status(proto, label="(after push-wait)")
                         if dps:
-                            _log(f"[tuya_gui] ✓ Got {len(dps)} DPS via status() after wait")
+                            _debug(f"[tuya_gui] ✓ Got {len(dps)} DPS via status() after wait")
                             return await _build_result(dps, "local")
 
                     # ----------------------------------------------------------
@@ -1726,7 +1780,7 @@ def api_status(dev_id: str):
                                 dev_id, d, force_cloud_update=True
                             )
                             if conn_cfg.get("_cloud_key_refreshed"):
-                                _log("[tuya_gui] Refreshed local_key from cloud after negotiation failure")
+                                _debug("[tuya_gui] Refreshed local_key from cloud after negotiation failure")
                         if attempt < 2:
                             await asyncio.sleep(3)
                             continue
@@ -1740,18 +1794,19 @@ def api_status(dev_id: str):
                         }
 
                     if attempt < 2:
-                        _log(f"[tuya_gui] No DPS from local on attempt {attempt + 1}, retrying…")
+                        _debug(f"[tuya_gui] No DPS from local on attempt {attempt + 1}, retrying…")
                         await asyncio.sleep(2)
                         continue
 
                     # ----------------------------------------------------------
                     # All 3 attempts exhausted — HA/cloud fallback
                     # ----------------------------------------------------------
-                    _log("[tuya_gui] All local strategies failed — falling back to HA/cloud")
+                    _debug("[tuya_gui] All local strategies failed — falling back to HA/cloud")
                     ha_dps = _ha_states_as_dps(dev_id, conn_cfg)
+                    
                     cloud_dps = await _cloud_status_as_dps(dev_id, conn_cfg)
-                    _log(f"[tuya_gui] HA fallback DPs: {list(ha_dps.keys())}")
-                    _log(f"[tuya_gui] Cloud fallback DPs: {list(cloud_dps.keys())}")
+                    _debug(f"[tuya_gui] HA fallback DPs: {list(ha_dps.keys())}")
+                    _debug(f"[tuya_gui] Cloud fallback DPs: {list(cloud_dps.keys())}")
                     fallback_dps = dict(cloud_dps)
                     fallback_dps.update(ha_dps)
                     if fallback_dps:
@@ -1771,7 +1826,7 @@ def api_status(dev_id: str):
                         if cloud_dps:
                             source_parts.append("cloud")
                         source = "+".join(source_parts)
-                        _log(f"[tuya_gui] Fallback source: {source}")
+                        _debug(f"[tuya_gui] Fallback source: {source}")
                         return {
                             "status": fallback_dps,
                             "display_status": display_dps,
@@ -1787,7 +1842,7 @@ def api_status(dev_id: str):
 
                 except ConnectionResetError as exc:
                     _conn_pool.invalidate(dev_id)
-                    _log(f"[tuya_gui] ConnectionResetError on attempt {attempt + 1}: {exc}")
+                    _debug(f"[tuya_gui] ConnectionResetError on attempt {attempt + 1}: {exc}")
                     if attempt == 2:
                         return {
                             "error": f"Device closed the connection (ConnectionResetError): {exc}",
@@ -1798,7 +1853,7 @@ def api_status(dev_id: str):
 
                 except (asyncio.TimeoutError, TimeoutError) as exc:
                     _conn_pool.invalidate(dev_id)
-                    _log(f"[tuya_gui] TimeoutError on attempt {attempt + 1}: {exc}")
+                    _debug(f"[tuya_gui] TimeoutError on attempt {attempt + 1}: {exc}")
                     if attempt == 2:
                         return {
                             "error": f"Network timeout waiting for device: {exc}",
@@ -1809,14 +1864,14 @@ def api_status(dev_id: str):
 
                 except Exception as exc:
                     _conn_pool.invalidate(dev_id)
-                    _log(f"[tuya_gui] Exception on attempt {attempt + 1}: {type(exc).__name__}: {exc}")
+                    _debug(f"[tuya_gui] Exception on attempt {attempt + 1}: {type(exc).__name__}: {exc}")
                     logs = "\\n".join(h.records)
                     if _negotiation_failed(logs) and attempt == 0:
                         conn_cfg = await _connection_config(
                             dev_id, d, force_cloud_update=True
                         )
                         if conn_cfg.get("_cloud_key_refreshed"):
-                            _log("[tuya_gui] Refreshed local_key from cloud after negotiation failure")
+                            _debug("[tuya_gui] Refreshed local_key from cloud after negotiation failure")
                     if attempt == 2:
                         if _negotiation_failed(logs):
                             return {
@@ -1840,11 +1895,32 @@ def api_status(dev_id: str):
 
     future = asyncio.run_coroutine_threadsafe(_run(), loop)
     try:
-        res = future.result(timeout=max(t + 10, 35))
+        res = future.result(timeout=max(t + 80, 90))   # prima era max(t+10,35)
         return jsonify(res)
     except Exception as e:
         return jsonify({"error": str(e)})
 
+@app.route("/api/device/<dev_id>/force_ha")
+def api_force_ha(dev_id: str):
+    devices = get_devices_data()
+    d = devices.get(dev_id)
+    if not d:
+        return jsonify({"error": "Unknown device"}), 404
+    ha_dps = _ha_states_as_dps(dev_id, d)
+    if not ha_dps:
+        return jsonify({"error": "No HA state found"}), 404
+    # Usa le stesse funzioni di scaling
+    loop_for_ha = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop_for_ha)
+    funcs = loop_for_ha.run_until_complete(_get_cloud_functions_cached(dev_id, d))
+    display, units = _display_status_from_model(ha_dps, d, funcs)
+    return jsonify({
+        "status": ha_dps,
+        "display_status": display,
+        "display_units": units,
+        "source": "forced_ha",
+        "tech_logs": "Forced Home Assistant fallback"
+    })
 
 @app.route("/api/device/<dev_id>/cloud_check")
 def api_cloud_check(dev_id: str):
