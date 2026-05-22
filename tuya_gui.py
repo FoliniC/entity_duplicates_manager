@@ -1079,7 +1079,7 @@ HTML_TEMPLATE = """
                     if (dev.mac) info += `MAC: ${dev.mac}\\n`;
                     if (dev.local_key) info += `Local Key: ${dev.local_key}\\n`;
                     if (dev.product_name) info += `Product: ${dev.product_name}\\n`;
-                    info += `\nStatus: ${dev.status || 'unknown'}\\n`;
+                    info += `\\nStatus: ${dev.status || 'unknown'}\\n`;
                     if (dev.note) info += `Note: ${dev.note}\\n`;
                     alert(info);
                     
@@ -1565,83 +1565,89 @@ def api_status(dev_id: str):
         pytuya_log.addHandler(h)
         pytuya_log.propagate = True
 
-        def _debug(msg: str) -> None:
+        def _log(msg: str) -> None:
             h.records.append(msg)
             _log_main = logging.getLogger("tuya_gui.status")
             _log_main.debug("%s %s", dev_id[:8], msg)
-            print(f"[DEBUG] {msg}")   # stampa sul terminale
-            
+            print(f"[DEBUG] {msg}")   # stampa anche sul terminale
+
+        # Helper per filtrare solo chiavi numeriche
+        def _filter_numeric(dps_dict: dict) -> dict:
+            if not isinstance(dps_dict, dict):
+                return {}
+            filtered = {}
+            for k, v in dps_dict.items():
+                if isinstance(k, int):
+                    filtered[k] = v
+                elif isinstance(k, str) and k.isdigit():
+                    filtered[int(k)] = v
+            return filtered
+
+        # Estrae DPS da una risposta di pytuya
+        def _extract_dps(res) -> dict:
+            _log(f"status() raw result: type={type(res).__name__} repr={repr(res)[:300]}")
+            if not res:
+                return {}
+            if isinstance(res, dict):
+                if "dps" in res and isinstance(res["dps"], dict):
+                    filtered = _filter_numeric(res["dps"])
+                    if filtered:
+                        _log(f"DPS from res['dps']: {list(filtered.keys())}")
+                        return filtered
+                filtered = _filter_numeric(res)
+                if filtered:
+                    _log(f"DPS from direct dict: {list(filtered.keys())}")
+                    return filtered
+            return {}
+
+        # Legge la cache interna di pytuya
         def _proto_dps_cache(proto) -> dict:
             for attr in ("dps", "_dps", "dps_cache", "_dps_cache", "status_cache"):
                 val = getattr(proto, attr, None)
                 if isinstance(val, dict) and val:
-                    filtered = _filter_numeric_dps(val)
+                    filtered = _filter_numeric(val)
                     if filtered:
-                        _debug(f"[tuya_gui] proto.{attr} cache hit: {list(filtered.keys())}")
+                        _log(f"proto.{attr} cache hit: {list(filtered.keys())}")
                         return filtered
-            _debug("[tuya_gui] proto: no numeric DPS cache found")
             return {}
 
-        def _extract_dps(res) -> dict:
-            _debug(f"[tuya_gui] status() raw result: type={type(res).__name__} repr={repr(res)[:300]}")
-            if not res:
-                _debug("[tuya_gui] status() returned falsy value — no DPS")
-                return {}
-            if isinstance(res, dict):
-                # Caso {"dps": {...}}
-                if "dps" in res and isinstance(res["dps"], dict):
-                    filtered = _filter_numeric_dps(res["dps"])
-                    if filtered:
-                        _debug(f"[tuya_gui] DPS extracted from res['dps'] (filtered): {list(filtered.keys())}")
-                        return filtered
-                # Caso res stesso è il dict dei DPS
-                filtered = _filter_numeric_dps(res)
-                if filtered:
-                    _debug(f"[tuya_gui] DPS extracted from direct dict (filtered): {list(filtered.keys())}")
-                    return filtered
-            _debug(f"[tuya_gui] Could not extract DPS from: {repr(res)[:200]}")
-            return {}            
-            
+        # Tentativo di detect_available_dps
         async def _try_detect(proto) -> dict:
-            """Call detect_available_dps() and return whatever it gives us."""
             try:
-                _debug("[tuya_gui] detect_available_dps() → sending…")
-                detected = await asyncio.wait_for(proto.detect_available_dps(), timeout=t + 2)
-                _debug(f"[tuya_gui] detect_available_dps() returned: {repr(detected)[:200]}")
+                _log("detect_available_dps() → sending…")
+                detected = await asyncio.wait_for(proto.detect_available_dps(), timeout=t+2)
+                _log(f"detect_available_dps() returned: {repr(detected)[:200]}")
                 dps = _extract_dps(detected)
                 if not dps:
                     dps = _proto_dps_cache(proto)
                 return dps
             except Exception as exc:
-                _debug(f"[tuya_gui] detect_available_dps() exception: {exc}")
+                _log(f"detect_available_dps() exception: {exc}")
                 return {}
 
-        async def _try_status(proto, label: str = "") -> dict:
-            """Call status(), extract DPS and check cache."""
+        # Tentativo di status()
+        async def _try_status(proto, label="") -> dict:
             try:
-                _debug(f"[tuya_gui] status(){' ' + label if label else ''} → sending…")
-                res = await asyncio.wait_for(proto.status(), timeout=t + 2)
+                _log(f"status(){' '+label if label else ''} → sending…")
+                res = await asyncio.wait_for(proto.status(), timeout=t+2)
                 dps = _extract_dps(res)
                 if not dps:
                     dps = _proto_dps_cache(proto)
                 return dps
             except Exception as exc:
-                _debug(f"[tuya_gui] status(){' ' + label if label else ''} exception: {exc}")
+                _log(f"status(){' '+label if label else ''} exception: {exc}")
                 return {}
 
-        async def _wait_for_push(proto, wait_times: list = None) -> dict:
-            """Attesa multipla con heartbeat periodici e controlli della cache.
-            wait_times: lista di secondi da attendere a ogni step (default [4, 10, 30, 60])
-            """
+        # Attesa push progressiva (4,10,30,60 secondi)
+        async def _wait_for_push(proto, wait_times=None):
             if wait_times is None:
                 wait_times = [4, 10, 30, 60]
             pushed = {}
             event = asyncio.Event()
 
             def _on_push(data: dict) -> None:
-                _debug(f"[tuya_gui] push callback received: {repr(data)[:200]}")
+                _log(f"push callback: {repr(data)[:200]}")
                 if isinstance(data, dict):
-                    # Filtra solo chiavi numeriche
                     for k, v in data.items():
                         if isinstance(k, int) or (isinstance(k, str) and k.isdigit()):
                             pushed[int(k)] = v
@@ -1654,39 +1660,40 @@ def api_status(dev_id: str):
                 if callable(fn):
                     try:
                         fn(_on_push)
-                        _debug(f"[tuya_gui] Registered push via {setter}")
+                        _log(f"Registered push via {setter}")
                         break
                     except Exception as exc:
-                        _debug(f"[tuya_gui] {setter} failed: {exc}")
+                        _log(f"{setter} failed: {exc}")
 
-            for i, wait_s in enumerate(wait_times):
+            # Ciclo di attesa progressivo
+            for step, wait_sec in enumerate(wait_times, 1):
                 # Invia heartbeat prima di ogni attesa
                 try:
-                    _debug(f"[tuya_gui] Sending heartbeat (step {i+1})")
+                    _log(f"Sending heartbeat (step {step})")
                     await asyncio.wait_for(proto.heartbeat(), timeout=5)
-                    _debug("[tuya_gui] Heartbeat sent OK")
+                    _log("Heartbeat sent OK")
                 except Exception as exc:
-                    _debug(f"[tuya_gui] Heartbeat error: {exc}")
+                    _log(f"Heartbeat error: {exc}")
 
-                _debug(f"[tuya_gui] Waiting {wait_s}s for device push (step {i+1}/{len(wait_times)})")
+                _log(f"Waiting {wait_sec}s for device push (step {step}/{len(wait_times)})...")
                 try:
-                    await asyncio.wait_for(event.wait(), timeout=wait_s)
+                    await asyncio.wait_for(event.wait(), timeout=wait_sec)
                     if pushed:
-                        _debug(f"[tuya_gui] Push event received at step {i+1}: {list(pushed.keys())}")
-                        return _filter_numeric_dps(pushed)
+                        _log(f"Push received at step {step}: {list(pushed.keys())}")
+                        return _filter_numeric(pushed)
                 except asyncio.TimeoutError:
-                    _debug(f"[tuya_gui] No push event after {wait_s}s, checking cache")
+                    _log(f"No push after {wait_sec}s, checking cache")
 
-                # Controlla cache del protocollo
                 cached = _proto_dps_cache(proto)
                 if cached:
-                    _debug(f"[tuya_gui] Cache hit after step {i+1}: {list(cached.keys())}")
+                    _log(f"Cache hit after step {step}: {list(cached.keys())}")
                     return cached
 
-            _debug("[tuya_gui] Push wait completed without data")
+            _log("All push wait steps exhausted, no data")
             return {}
+
+        # Costruzione risposta finale
         async def _build_result(dps: dict, source: str) -> dict:
-            """Build the final API response dict from a DPS dict."""
             funcs = await _get_cloud_functions_cached(dev_id, conn_cfg)
             display_dps, display_units = _display_status_from_model(dps, conn_cfg, funcs)
             return {
@@ -1700,202 +1707,88 @@ def api_status(dev_id: str):
         try:
             conn_cfg = await _connection_config(dev_id, d)
             if conn_cfg.get("_cloud_key_refreshed"):
-                _debug("[tuya_gui] Using refreshed local_key from Tuya Cloud")
+                _log("Using refreshed local_key from Tuya Cloud")
 
             proto_ver = float(conn_cfg.get("protocol_version", 3.3))
             is_push_device = proto_ver >= 3.4
-            _debug(f"[tuya_gui] protocol_version={proto_ver}, push_mode={is_push_device}")
+            _log(f"protocol_version={proto_ver}, push_mode={is_push_device}")
 
-            for attempt in range(3):
-                _debug(f"[tuya_gui] === Attempt {attempt + 1}/3 ===")
-                try:
-                    # ----------------------------------------------------------
-                    # Attempt 0 & 1: pool connection
-                    # Attempt 2: fresh direct connection (bypasses pool)
-                    # ----------------------------------------------------------
-                    if attempt < 2:
-                        proto = await _conn_pool.get(dev_id, conn_cfg)
-                        _debug(f"[tuya_gui] Pool connection obtained for {dev_id}")
-                    else:
-                        _conn_pool.invalidate(dev_id)
-                        _debug("[tuya_gui] Attempt 3: fresh direct connection (pool bypassed)")
-                        proto = await asyncio.wait_for(
-                            connect(
-                                address=conn_cfg["host"],
-                                device_id=conn_cfg["device_id"],
-                                local_key=conn_cfg["local_key"],
-                                protocol_version=proto_ver,
-                                enable_debug=True,
-                                timeout=t,
-                            ),
-                            timeout=t + 5,
-                        )
-                        _debug("[tuya_gui] Fresh connection established")
+            # Un solo tentativo LAN (con attesa push lunga), poi fallback immediato a HA
+            _log("Starting LAN attempt with progressive push wait...")
+            try:
+                proto = await _conn_pool.get(dev_id, conn_cfg)
+                _log("Pool connection obtained")
 
-                    # ----------------------------------------------------------
-                    # Strategy A: detect_available_dps() — explicit call with log
-                    # ----------------------------------------------------------
-                    dps = await _try_detect(proto)
-                    if dps and any(str(k).isdigit() for k in dps.keys()):
-                        _debug(f"[tuya_gui] ✓ Got {len(dps)} numeric DPS via detect_available_dps()")
-                        return await _build_result(dps, "local")
-                    else:
-                        _debug("[tuya_gui] No numeric DPS from detect_available_dps(), continuing...")
+                # 1. detect_available_dps
+                dps = await _try_detect(proto)
+                if dps:
+                    _log(f"Got DPS via detect: {list(dps.keys())}")
+                    return await _build_result(dps, "local")
 
-                    # ----------------------------------------------------------
-                    # Strategy B: status()
-                    # ----------------------------------------------------------
-                    dps = await _try_status(proto, label="(first call)")
-                    if dps and any(str(k).isdigit() for k in dps.keys()):
-                        _debug(f"[tuya_gui] ✓ Got {len(dps)} numeric DPS via detect_available_dps()")
-                        return await _build_result(dps, "local")
-                    else:
-                        _debug("[tuya_gui] No numeric DPS from detect_available_dps(), continuing to status/push")
-                    # ----------------------------------------------------------
-                    # Strategy C: for v3.4/v3.5 — wait for device push
-                    # ----------------------------------------------------------
-                    if is_push_device:
-                        _debug("[tuya_gui] v3.4/v3.5 device: trying push-wait strategy")
-                        dps = await _wait_for_push(proto, wait_s=4.0 if attempt < 2 else 6.0)
-                        if dps:
-                            _debug(f"[tuya_gui] ✓ Got {len(dps)} DPS via push-wait")
-                            return await _build_result(dps, "local-push")
+                # 2. status()
+                dps = await _try_status(proto, "(first)")
+                if dps:
+                    _log(f"Got DPS via status: {list(dps.keys())}")
+                    return await _build_result(dps, "local")
 
-                        # After push wait, try status() once more — device may
-                        # have updated its internal cache during the wait
-                        dps = await _try_status(proto, label="(after push-wait)")
-                        if dps:
-                            _debug(f"[tuya_gui] ✓ Got {len(dps)} DPS via status() after wait")
-                            return await _build_result(dps, "local")
+                # 3. push-wait (solo v3.4+)
+                if is_push_device:
+                    _log("v3.4+ device: starting progressive push-wait")
+                    # Sequenza progressiva: 4,10,30,60 secondi
+                    wait_seq = [4, 10, 30, 60]
+                    dps = await _wait_for_push(proto, wait_times=wait_seq)
+                    if dps:
+                        _log(f"Got DPS via push-wait: {list(dps.keys())}")
+                        return await _build_result(dps, "local-push")
 
-                    # ----------------------------------------------------------
-                    # All local strategies failed for this attempt
-                    # ----------------------------------------------------------
-                    _conn_pool.invalidate(dev_id)
-                    logs = "\\n".join(h.records)
+                # Se arriviamo qui, LAN ha fallito
+                _conn_pool.invalidate(dev_id)
+                _log("LAN attempt failed, falling back to Home Assistant/Cloud")
 
-                    if _negotiation_failed(logs):
-                        if attempt == 0:
-                            conn_cfg = await _connection_config(
-                                dev_id, d, force_cloud_update=True
-                            )
-                            if conn_cfg.get("_cloud_key_refreshed"):
-                                _debug("[tuya_gui] Refreshed local_key from cloud after negotiation failure")
-                        if attempt < 2:
-                            await asyncio.sleep(3)
-                            continue
-                        return {
-                            "error": (
-                                "Session key negotiation failed. "
-                                "The local_key or protocol_version may be stale."
-                            ),
-                            "error_type": "negotiation_failed",
-                            "tech_logs": logs,
-                        }
+            except Exception as exc:
+                _log(f"LAN exception: {exc}")
+                _conn_pool.invalidate(dev_id)
 
-                    if attempt < 2:
-                        _debug(f"[tuya_gui] No DPS from local on attempt {attempt + 1}, retrying…")
-                        await asyncio.sleep(2)
-                        continue
+            # FALLBACK: Home Assistant + Cloud
+            ha_dps = _ha_states_as_dps(dev_id, conn_cfg)
+            cloud_dps = await _cloud_status_as_dps(dev_id, conn_cfg)
+            _log(f"HA DPS keys: {list(ha_dps.keys())}")
+            _log(f"Cloud DPS keys: {list(cloud_dps.keys())}")
 
-                    # ----------------------------------------------------------
-                    # All 3 attempts exhausted — HA/cloud fallback
-                    # ----------------------------------------------------------
-                    _debug("[tuya_gui] All local strategies failed — falling back to HA/cloud")
-                    ha_dps = _ha_states_as_dps(dev_id, conn_cfg)
-                    
-                    cloud_dps = await _cloud_status_as_dps(dev_id, conn_cfg)
-                    _debug(f"[tuya_gui] HA fallback DPs: {list(ha_dps.keys())}")
-                    _debug(f"[tuya_gui] Cloud fallback DPs: {list(cloud_dps.keys())}")
-                    fallback_dps = dict(cloud_dps)
-                    fallback_dps.update(ha_dps)
-                    if fallback_dps:
-                        funcs = await _get_cloud_functions_cached(dev_id, conn_cfg)
-                        local_scaled = _local_scaling_by_dp(conn_cfg)
-                        already_scaled_dps = {
-                            str(dp_id)
-                            for dp_id in ha_dps
-                            if str(dp_id) in local_scaled
-                        }
-                        display_dps, display_units = _display_status_from_model(
-                            fallback_dps, conn_cfg, funcs, already_scaled_dps
-                        )
-                        source_parts = []
-                        if ha_dps:
-                            source_parts.append("homeassistant")
-                        if cloud_dps:
-                            source_parts.append("cloud")
-                        source = "+".join(source_parts)
-                        _debug(f"[tuya_gui] Fallback source: {source}")
-                        return {
-                            "status": fallback_dps,
-                            "display_status": display_dps,
-                            "display_units": display_units,
-                            "source": source,
-                            "tech_logs": "\\n".join(h.records),
-                        }
-                    return {
-                        "error": "Device returned no data and no HA/cloud fallback available.",
-                        "error_type": "no_data",
-                        "tech_logs": "\\n".join(h.records),
-                    }
+            fallback_dps = dict(cloud_dps)
+            fallback_dps.update(ha_dps)
+            if fallback_dps:
+                funcs = await _get_cloud_functions_cached(dev_id, conn_cfg)
+                local_scaled = _local_scaling_by_dp(conn_cfg)
+                already_scaled = {str(dp) for dp in ha_dps if str(dp) in local_scaled}
+                display_dps, display_units = _display_status_from_model(fallback_dps, conn_cfg, funcs, already_scaled)
+                source_parts = []
+                if ha_dps:
+                    source_parts.append("homeassistant")
+                if cloud_dps:
+                    source_parts.append("cloud")
+                source = "+".join(source_parts) if source_parts else "fallback"
+                return {
+                    "status": fallback_dps,
+                    "display_status": display_dps,
+                    "display_units": display_units,
+                    "source": source,
+                    "tech_logs": "\\n".join(h.records),
+                }
+            else:
+                return {
+                    "error": "No data from device and no HA/cloud fallback",
+                    "error_type": "no_data",
+                    "tech_logs": "\\n".join(h.records),
+                }
 
-                except ConnectionResetError as exc:
-                    _conn_pool.invalidate(dev_id)
-                    _debug(f"[tuya_gui] ConnectionResetError on attempt {attempt + 1}: {exc}")
-                    if attempt == 2:
-                        return {
-                            "error": f"Device closed the connection (ConnectionResetError): {exc}",
-                            "error_type": "connection_reset",
-                            "tech_logs": "\\n".join(h.records),
-                        }
-                    await asyncio.sleep(2)
-
-                except (asyncio.TimeoutError, TimeoutError) as exc:
-                    _conn_pool.invalidate(dev_id)
-                    _debug(f"[tuya_gui] TimeoutError on attempt {attempt + 1}: {exc}")
-                    if attempt == 2:
-                        return {
-                            "error": f"Network timeout waiting for device: {exc}",
-                            "error_type": "timeout",
-                            "tech_logs": "\\n".join(h.records),
-                        }
-                    await asyncio.sleep(3)
-
-                except Exception as exc:
-                    _conn_pool.invalidate(dev_id)
-                    _debug(f"[tuya_gui] Exception on attempt {attempt + 1}: {type(exc).__name__}: {exc}")
-                    logs = "\\n".join(h.records)
-                    if _negotiation_failed(logs) and attempt == 0:
-                        conn_cfg = await _connection_config(
-                            dev_id, d, force_cloud_update=True
-                        )
-                        if conn_cfg.get("_cloud_key_refreshed"):
-                            _debug("[tuya_gui] Refreshed local_key from cloud after negotiation failure")
-                    if attempt == 2:
-                        if _negotiation_failed(logs):
-                            return {
-                                "error": (
-                                    "Session key negotiation failed. "
-                                    "The local_key or protocol_version may be stale."
-                                ),
-                                "error_type": "negotiation_failed",
-                                "tech_logs": logs,
-                            }
-                        return {
-                            "error": str(exc),
-                            "error_type": "unknown",
-                            "tech_logs": logs,
-                        }
-                    await asyncio.sleep(5)
-
-            return {"error": "Max retries exceeded.", "error_type": "unknown", "tech_logs": "\\n".join(h.records)}
         finally:
             pytuya_log.removeHandler(h)
 
     future = asyncio.run_coroutine_threadsafe(_run(), loop)
     try:
-        res = future.result(timeout=max(t + 80, 90))   # prima era max(t+10,35)
+        # Timeout maggiorato per permettere l'attesa push lunga (max ~104 secondi)
+        res = future.result(timeout=120)
         return jsonify(res)
     except Exception as e:
         return jsonify({"error": str(e)})
