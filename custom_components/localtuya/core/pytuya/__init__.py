@@ -1030,16 +1030,16 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
         self.remote_nonce = b""
         self.local_key = self.real_local_key
 
+        rkey = None
         try:
             rkey = await self.exchange_quick(
                 MessagePayload(CMDType.SESS_KEY_NEG_START, self.local_nonce), 2
             )
-        except:
+        except Exception:
             # Device may instantly disconnect if we sent send wrong localkey.
             if not self.is_connected:
                 raise ConnectionAbortedError("Session key negotiation failed on step 1")
-
-        if not rkey or not isinstance(rkey, TuyaMessage) or len(rkey.payload) < 48:
+            raise  # Re-raise if exchange failed for other reasons
             # error
             self.debug("session key negotiation failed on step 1")
 

@@ -780,6 +780,7 @@ HTML_TEMPLATE = """
             <div style="display:grid; grid-template-columns: 1fr auto; gap:8px; margin-bottom:12px;">
                 <input type="text" id="manualDeviceIp" placeholder="e.g., 192.168.0.28" style="padding:8px; border:1px solid #ccc; border-radius:4px;">
                 <button class="btn-refresh" style="padding:8px 12px;" onclick="discoverByIp()">Scan</button>
+                <button class="btn-send" style="padding:8px 12px;" onclick="discoverByIpAdvanced()">Advanced Scan v3.4</button>
                 <button class="btn-cloud" style="width:100%" onclick="forceFallback()">Force HA Fallback</button>
             </div>
             <div id="manualDiscoveryLogs" style="font-size:11px; color:#666; padding:8px; background:#f5f5f5; border-radius:4px; max-height:100px; overflow-y:auto; margin-bottom:12px; display:none;">
@@ -1089,6 +1090,40 @@ HTML_TEMPLATE = """
             } catch(e) {
                 logsDiv.innerHTML = `<div style="color:red">Error: ${e}</div>`;
                 alert('Discovery failed: ' + e);
+            }
+        }
+
+        async function discoverByIpAdvanced() {
+            const ip = document.getElementById('manualDeviceIp').value;
+            if (!ip) { alert('IP address required'); return; }
+            
+            const logsDiv = document.getElementById('manualDiscoveryLogs');
+            logsDiv.style.display = 'block';
+            logsDiv.innerHTML = 'Starting Advanced Scan v3.4...';
+            
+            try {
+                const r = await fetch('/api/device/discover_by_ip_advanced', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ip: ip})
+                });
+                const data = await r.json();
+                
+                logsDiv.innerHTML = (data.tech_logs || '').split('\\n').map(l => l ? `<div>${l}</div>` : '').join('');
+
+                if (data.error && !data.device) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+
+                if (data.device && data.device.local_test_status) {
+                    alert(`✓ SUCCESS! Local data retrieved via v3.4 Push/Active Strategy:\n\n${JSON.stringify(data.device.local_test_status, null, 2)}`);
+                } else if (data.device) {
+                    alert(`Scan finished. Device found but local data polling failed even with advanced strategy.\n\nNote: ${data.device.note || ''}`);
+                }
+            } catch(e) {
+                logsDiv.innerHTML = `<div style="color:red">Error: ${e}</div>`;
+                alert('Advanced Discovery failed: ' + e);
             }
         }
 
@@ -1543,6 +1578,192 @@ def api_discover_by_ip():
         return jsonify(future.result(timeout=30))
     except Exception as e:
         return jsonify({"error": str(e), "tech_logs": ""})
+
+# ---------------------------------------------------------------------------
+# /api/device/discover_by_ip_advanced — Strategy 3x3 (Active, Cmd 16, Push-wait)
+# ---------------------------------------------------------------------------
+@app.route("/api/device/discover_by_ip_advanced", methods=["POST"])
+def api_discover_by_ip_advanced():
+    if connect is None: return jsonify({"error": "Dependencies missing"}), 503
+    data = request.json or {}
+    target_ip = data.get("ip", "").strip()
+    if not target_ip: return jsonify({"error": "IP address required"}), 400
+
+    async def _run():
+        h = ListHandler()
+        from pytuya import _LOGGER as pytuya_log
+        pytuya_log.setLevel(logging.DEBUG)
+        pytuya_log.addHandler(h)
+
+        def _log(msg):
+            h.records.append(msg)
+            print(f"[DISCOVER-ADV] {msg}")
+
+        def _filter_numeric(dps_dict: dict) -> dict:
+            return {int(k): v for k, v in dps_dict.items() if (isinstance(k, int) or (isinstance(k, str) and k.isdigit()))}
+
+        def _extract_dps(res, proto=None) -> dict:
+            if not res and proto:
+                # Ispeziona cache interne se la risposta diretta è vuota
+                for attr in ('dps', '_dps', 'dps_cache', '_dps_cache', 'status_cache'):
+                    val = getattr(proto, attr, None)
+                    if isinstance(val, dict) and val:
+                        f = _filter_numeric(val)
+                        if f: 
+                            _log(f"✓ Found DPS in internal proto.{attr}")
+                            return f
+            if isinstance(res, dict):
+                d = res.get("dps") if isinstance(res.get("dps"), dict) else res
+                return _filter_numeric(d)
+            return {}
+
+        # Listener per catturare i push asincroni
+        class ScanListener(TuyaListener):
+            def __init__(self):
+                self.future = asyncio.get_running_loop().create_future()
+            def status_updated(self, status):
+                _log(f"PUSH RECEIVED via Listener: {repr(status)[:100]}")
+                if not self.future.done():
+                    self.future.set_result(status)
+            def disconnected(self, exc=""): 
+                _log(f"Listener disconnected: {exc}")
+            def subdevice_state_updated(self, state): pass
+
+        try:
+            _log(f"Starting ADVANCED scan for {target_ip}...")
+            # ... rest of the code ...
+            mac = _lan_mac_for_ip(target_ip)
+            cloud_conf = _build_cloud_conf()
+            cloud_device = None
+            
+            if cloud_conf:
+                _log("Querying cloud API...")
+                cloud_devs = await _fetch_cloud_devices(cloud_conf)
+                known_id = "bf0e2041fb7f7875c4bcss"
+                if target_ip == "192.168.0.28" and known_id in cloud_devs:
+                    cloud_device = cloud_devs[known_id]
+                    _log(f"Cloud Match: Known Smart Meter ID {known_id}")
+                else:
+                    for d_id, d_info in cloud_devs.items():
+                        if _extract_mac(d_info.get("mac")) == mac:
+                            cloud_device = d_info
+                            _log(f"Cloud Match: {d_id} by MAC")
+                            break
+
+            local_key = cloud_device.get("local_key") if cloud_device else None
+            dev_id = cloud_device.get("id") if cloud_device else (known_id if target_ip == "192.168.0.28" else None)
+
+            local_status = None
+            if local_key and dev_id:
+                for ver in [3.4, 3.3, 3.1]:
+                    _log(f"--- Strategy Attempt (Protocol v{ver}) ---")
+                    proto = None
+                    listener = ScanListener()
+                    try:
+                        # Corretta firma: connect(address, device_id, local_key, protocol_version, enable_debug, listener=None, port=6668, timeout=TIMEOUT_CONNECT)
+                        proto = await asyncio.wait_for(
+                            connect(target_ip, dev_id, local_key, ver, True, listener=listener), 
+                            15
+                        )
+                        
+                        # A) detect_available_dps (cmd 16)
+                        _log("A) Sending CMD 16 (Detect DPs)...")
+                        try:
+                            # Alcuni device v3.4 richiedono CMD 16 per iniziare a spingere dati
+                            await asyncio.wait_for(proto.detect_available_dps(), 8)
+                        except: pass
+                        local_status = _extract_dps(None, proto)
+                        
+                        # B) Active status query
+                        if not local_status:
+                            _log("B) Sending active status query...")
+                            try:
+                                res = await asyncio.wait_for(proto.status(), 8)
+                                local_status = _extract_dps(res, proto)
+                            except Exception as e:
+                                _log(f"Active status query error: {e}")
+                        
+                        # C) Push-wait (v3.4 only)
+                        if not local_status and ver == 3.4:
+                            _log("C) Push-wait mode enabled. Waiting for asynchronous data (max 60s)...")
+                            try:
+                                # Ciclo di heartbeat ogni 15s per sollecitare il push
+                                for i in range(4):
+                                    if listener.future.done(): break
+                                    _log(f"Soliciting push via heartbeat {i+1}/4...")
+                                    try: await proto.heartbeat()
+                                    except: pass
+                                    try:
+                                        pushed = await asyncio.wait_for(asyncio.shield(listener.future), 15)
+                                        local_status = _extract_dps(pushed, proto)
+                                        if local_status: break
+                                    except asyncio.TimeoutError: continue
+                            except Exception as push_err:
+                                _log(f"Push-wait error: {push_err}")
+
+                        # D) Strategy D: Pure Listening (v3.4 only, no active queries at all)
+                        if not local_status and ver == 3.4:
+                            _log("D) Strategy D: Pure Listening (max 60s)...")
+                            if hasattr(proto, 'transport') and proto.transport:
+                                proto.transport.close()
+                            await asyncio.sleep(3)
+                            
+                            listener = ScanListener()
+                            try:
+                                # Nuova connessione pulita
+                                proto = await asyncio.wait_for(
+                                    connect(target_ip, dev_id, local_key, ver, True, listener=listener), 
+                                    15
+                                )
+                                # Aspettiamo senza bombardare di query, solo heartbeat ogni 25s
+                                for i in range(2):
+                                    if listener.future.done(): break
+                                    _log(f"Passive wait cycle {i+1}/2 (Long wait, heartbeat every 25s)...")
+                                    try:
+                                        pushed = await asyncio.wait_for(asyncio.shield(listener.future), 25)
+                                        local_status = _extract_dps(pushed, proto)
+                                        if local_status: break
+                                    except asyncio.TimeoutError:
+                                        _log("No push in this cycle, sending heartbeat...")
+                                        try: await proto.heartbeat()
+                                        except: pass
+                                        continue
+                            except Exception as d_err:
+                                _log(f"Strategy D connection failed: {d_err}")
+                        
+                        if local_status:
+                            _log(f"✓ SUCCESS! Data: {local_status}")
+                            break
+                    except BaseException as e:
+                        _log(f"v{ver} attempt failed: {type(e).__name__}: {e}")
+                    finally:
+                        if proto and hasattr(proto, 'transport') and proto.transport:
+                            proto.transport.close()
+
+            return {
+                "device": {
+                    "ip": target_ip, "id": dev_id, "mac": mac, 
+                    "local_test_status": local_status,
+                    "note": f"Cloud Key found: {'YES' if local_key else 'NO'}"
+                },
+                "tech_logs": "\\n".join(h.records)
+            }
+        except Exception as e:
+            return {"error": str(e), "tech_logs": "\\n".join(h.records)}
+        finally:
+            pytuya_log.removeHandler(h)
+
+    future = asyncio.run_coroutine_threadsafe(_run(), loop)
+    try:
+        # Aumentato a 180 secondi per coprire l'intera durata del test (C + D)
+        return jsonify(future.result(timeout=180))
+    except Exception as e:
+        _log.error("Advanced discovery request timed out or failed: %s", e)
+        return jsonify({
+            "error": "Timeout or server error during advanced scan. Check terminal for background logs.",
+            "device": {"ip": target_ip, "id": "timeout"},
+            "tech_logs": "Scan exceeded 180 seconds. Check terminal for results."
+        }), 504
 
 # ---------------------------------------------------------------------------
 # /api/device/<dev_id>/status  — uses connection pool + classified errors
