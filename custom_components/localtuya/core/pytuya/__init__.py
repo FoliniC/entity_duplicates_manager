@@ -368,6 +368,14 @@ class MessageDispatcher(ContextualLogger):
 
         self.debug("Dispatching message CMD %r %s", msg.cmd, msg)
 
+        # Hook per catturare messaggi raw nel listener
+        listener_obj = self.listener and self.listener()
+        if listener_obj and hasattr(listener_obj, "message_received"):
+            try:
+                listener_obj.message_received(msg)
+            except Exception:
+                self.exception("Failed to call message_received callback")
+
         if msg.seqno in self.listeners:
             self.debug("Dispatching sequence number %d", msg.seqno)
             self._release_listener(msg.seqno, msg)
@@ -388,6 +396,9 @@ class MessageDispatcher(ContextualLogger):
             else:
                 self.debug("Got status update")
                 self.callback_status_update(msg)
+        elif msg.cmd in (CMDType.DP_QUERY_NEW, CMDType.WIFI_INFO):
+            self.debug("Got push status update (cmd %d)", msg.cmd)
+            self.callback_status_update(msg)
         elif msg.cmd == CMDType.LAN_EXT_STREAM:
             self._release_listener(self.SUB_DEVICE_QUERY_SEQNO, msg)
             if msg.payload:
@@ -572,7 +583,7 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
             if msg.cmd == CMDType.LAN_EXT_STREAM:
                 return self._msg_subdevs_query(decoded_message)
 
-            if "dps" not in decoded_message:
+            if not decoded_message or "dps" not in decoded_message:
                 return
 
             if dps_payload := decoded_message.get("dps"):
@@ -974,13 +985,12 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
 
                 # self.debug("decrypted 3.x payload=%r", payload)
                 # Try to detect if type_0d found
-
             if not isinstance(payload, str):
                 try:
                     payload = payload.decode()
-                except Exception as ex:
-                    self.debug("payload was not string type and decoding failed")
-                    return self.error_json(ERR_JSON, payload)
+                except Exception:
+                    self.debug("Failed to decode payload: %r", payload)
+                    return {}
 
             if "data unvalid" in payload:  # codespell:ignore
                 if self.version == 3.3:
@@ -1039,10 +1049,10 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
             # Device may instantly disconnect if we sent send wrong localkey.
             if not self.is_connected:
                 raise ConnectionAbortedError("Session key negotiation failed on step 1")
-            raise  # Re-raise if exchange failed for other reasons
-            # error
-            self.debug("session key negotiation failed on step 1")
+            raise
 
+        if not rkey or not isinstance(rkey, TuyaMessage) or len(rkey.payload) < 48:
+            self.debug("session key negotiation failed on step 1")
             return False
 
         if rkey.cmd != CMDType.SESS_KEY_NEG_RESP:
