@@ -11,7 +11,7 @@ import subprocess
 
 # v1.2.1 - Refresh stale local_key from Tuya Cloud at runtime and classify
 #          session-key negotiation failures explicitly.
-VERSION = "1.2.1"
+VERSION = "1.2.4"
 
 # ---------------------------------------------------------------------------
 # Library path – prioritise the local localtuya/core over any system package
@@ -34,6 +34,15 @@ except ImportError as e:
     print("Dependencies not found. Traceback follows:")
     traceback.print_exc()
     print("Set LOCALTUYA_CORE_PATH to localtuya/core path.")
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%H:%M:%S",
+)
+_log = logging.getLogger("tuya_gui")
+_log.info("=== tuya_gui %s starting ===", VERSION)
+_log.info("connect=%s  TuyaCloudApi=%s", connect, TuyaCloudApi)
 
 app = Flask(__name__)
 HA_CONFIG_BASE = Path(os.environ.get("HA_CONFIG_DIR", str(BASE_DIR))).expanduser()
@@ -237,18 +246,34 @@ class ListHandler(logging.Handler):
 # Config helpers
 # ---------------------------------------------------------------------------
 def get_ha_config() -> dict:
+    _log.debug("get_ha_config: reading %s", CONFIG_PATH)
     try:
         with CONFIG_PATH.open("r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
+            cfg = json.load(f)
+        _log.debug("get_ha_config: OK, %d entries", len(cfg.get("data", {}).get("entries", [])))
+        return cfg
+    except FileNotFoundError:
+        _log.warning("get_ha_config: file not found: %s", CONFIG_PATH)
+        return {}
+    except Exception as exc:
+        _log.error("get_ha_config: failed to read config: %s", exc)
         return {}
 
 
 def get_devices_data() -> dict:
     ha = get_ha_config()
     for e in ha.get("data", {}).get("entries", []):
-        if e["domain"] == "localtuya":
-            return e["data"]["devices"]
+        if e.get("domain") == "localtuya":
+            devices = e.get("data", {}).get("devices")
+            if devices is None:
+                _log.error(
+                    "get_devices_data: localtuya entry found but 'devices' key missing. "
+                    "Keys present: %s", list(e.get("data", {}).keys())
+                )
+                return {}
+            _log.debug("get_devices_data: found %d devices", len(devices))
+            return devices
+    _log.warning("get_devices_data: no 'localtuya' domain entry found in config")
     return {}
 
 
@@ -318,6 +343,8 @@ def _lan_mac_for_ip(ip: str) -> str | None:
 
 
 async def _fetch_cloud_devices(cloud_conf: dict) -> dict:
+    _log.debug("_fetch_cloud_devices: connecting to Tuya Cloud (region=%s)", cloud_conf.get("region"))
+    t0 = time.monotonic()
     api = TuyaCloudApi(
         cloud_conf["region"],
         cloud_conf["client_id"],
@@ -325,8 +352,12 @@ async def _fetch_cloud_devices(cloud_conf: dict) -> dict:
         cloud_conf["user_id"],
     )
     await api.async_connect()
+    _log.debug("_fetch_cloud_devices: connected, fetching device list…")
     devs = await api.async_get_devices_list(force_update=True)
+    elapsed = time.monotonic() - t0
+    _log.info("_fetch_cloud_devices: done in %.2fs, raw type=%s", elapsed, type(devs).__name__)
     if isinstance(devs, dict):
+        _log.debug("_fetch_cloud_devices: got %d devices", len(devs))
         return devs
     if isinstance(getattr(api, "device_list", None), dict):
         return api.device_list
@@ -782,14 +813,36 @@ HTML_TEMPLATE = """
             document.getElementById('tabAddBtn').classList.toggle('active', !isManage);
         }
         async function init() {
-            const s = await (await fetch('/api/settings')).json();
-            currentSort = s.sort_order || "name"; document.getElementById('sort').value = currentSort;
+            console.log('[tuya_gui] init: start');
+            try {
+                const s = await (await fetch('/api/settings')).json();
+                currentSort = s.sort_order || "name";
+                document.getElementById('sort').value = currentSort;
+                console.log('[tuya_gui] init: settings OK, sort=', currentSort);
+            } catch(e) {
+                console.error('[tuya_gui] init: failed to load settings', e);
+            }
             loadDevices();
         }
         async function loadDevices() {
+            console.log('[tuya_gui] loadDevices: start');
+            const listEl = document.getElementById('deviceList');
             try {
-                const r = await fetch('/api/devices'); const data = await r.json();
-                devices = data.devices; const usage = data.usage || {};
+                const r = await fetch('/api/devices');
+                console.log('[tuya_gui] loadDevices: /api/devices HTTP', r.status);
+                if (!r.ok) {
+                    const text = await r.text();
+                    console.error('[tuya_gui] loadDevices: server error', r.status, text);
+                    listEl.innerHTML = `<div style="color:red;padding:10px">Server error ${r.status}:<br><pre style="font-size:10px;white-space:pre-wrap">${text.slice(0,500)}</pre></div>`;
+                    return;
+                }
+                const data = await r.json();
+                console.log('[tuya_gui] loadDevices: data received, devices=', Object.keys(data.devices||{}).length, 'error=', data.error||null);
+                if (data.error) {
+                    console.warn('[tuya_gui] loadDevices: server returned error:', data.error);
+                }
+                devices = data.devices || {};
+                const usage = data.usage || {};
                 const keys = Object.keys(devices).sort((a,b) => {
                     if(currentSort === 'usage') return (usage[b]||0) - (usage[a]||0);
                     if(currentSort === 'ip') {
@@ -801,13 +854,22 @@ HTML_TEMPLATE = """
                     }
                     return (devices[a].friendly_name || '').localeCompare(devices[b].friendly_name || '');
                 });
-                document.getElementById('deviceList').innerHTML = keys.map(k => `
-                    <div class="item ${selectedId===k?'active':''}" onclick="select('${k}')">
-                        <strong>${devices[k].friendly_name || k}</strong><br>
-                        <small>local: ${(devices[k].local_ip || devices[k].host || 'no local ip')} | cloud: ${(devices[k].cloud_ip || 'no cloud ip')} | mac: ${(devices[k].match_mac || devices[k].mac || '-') }</small>
-                    </div>
-                `).join('');
-            } catch(e) { console.error(e); }
+                if (keys.length === 0) {
+                    const errMsg = data.error ? `<br><span style="color:red">Error: ${data.error}</span>` : '';
+                    listEl.innerHTML = `<div style="padding:10px;color:#666">No devices found.${errMsg}</div>`;
+                } else {
+                    listEl.innerHTML = keys.map(k => `
+                        <div class="item ${selectedId===k?'active':''}" onclick="select(${JSON.stringify(k)})">
+                            <strong>${devices[k].friendly_name || k}</strong><br>
+                            <small>local: ${(devices[k].local_ip || devices[k].host || 'no local ip')} | cloud: ${(devices[k].cloud_ip || 'no cloud ip')} | mac: ${(devices[k].match_mac || devices[k].mac || '-') }</small>
+                        </div>
+                    `).join('');
+                }
+                console.log('[tuya_gui] loadDevices: rendered', keys.length, 'devices');
+            } catch(e) {
+                console.error('[tuya_gui] loadDevices: exception', e);
+                listEl.innerHTML = `<div style="color:red;padding:10px">Failed to load devices:<br>${e}</div>`;
+            }
         }
         function select(id) {
             selectedId = id; const d = devices[id];
@@ -860,7 +922,7 @@ HTML_TEMPLATE = """
                 const localVal = currentDps[id] !== undefined ? `${displayVal}${unit}` : '<span style="color:#999">?</span>';
                 const cloudInfo = cloudDps[id] || {};
                 const entity = mapping.find(e => e.id == id);
-                return `<tr onclick="onRowClick('${id}', '${currentDps[id]}')" style="cursor:pointer">
+                return `<tr onclick="onRowClick(${JSON.stringify(id)}, ${JSON.stringify(String(currentDps[id] ?? ''))})" style="cursor:pointer">
                     <td><b>${id}</b></td><td>${entity?entity.friendly_name:(cloudInfo.name || 'Unknown')}</td>
                     <td>${localVal}</td><td><small>${cloudInfo.code || '-'}</small></td>
                 </tr>`;
@@ -939,7 +1001,7 @@ HTML_TEMPLATE = """
                 });
                 const data = await r.json();
                 
-                logsDiv.innerHTML = (data.tech_logs || '').split('\n').map(l => l ? `<div>${l}</div>` : '').join('');
+                logsDiv.innerHTML = (data.tech_logs || '').split('\\n').map(l => l ? `<div>${l}</div>` : '').join('');
 
                 if (data.error && !data.device) {
                     alert('Error: ' + data.error);
@@ -1012,7 +1074,7 @@ HTML_TEMPLATE = """
                     const name = deviceDisplayName(d, k);
                     const isDup = mset.has(String(name).trim().toLowerCase());
                     const dupNote = 'Same name as an already managed device: it may be a different Tuya Cloud record (different deviceId/IP).';
-                    return `<div class="item ${selectedUnaddedId===k?'active':''} ${isDup?'dup-name':''}" onclick="selectUnadded('${k}')">
+                    return `<div class="item ${selectedUnaddedId===k?'active':''} ${isDup?'dup-name':''}" onclick="selectUnadded(${JSON.stringify(k)})">
                         <strong>${name}${isDup?'<span class="badge badge-warn">DUPLICATE NAME</span>':''}</strong><br>
                         <small>${d.product_name || d.category || '-'} | local: ${localIp} | cloud: ${cloudIp} | mac: ${mac}</small>
                         ${isDup?`<br><small style="color:#856404">${dupNote}</small>`:''}
@@ -1088,14 +1150,21 @@ def settings():
 
 @app.route("/api/devices")
 def api_devices():
+    _log.info("GET /api/devices — start")
+    t0 = time.monotonic()
     devices = get_devices_data()
+    _log.info("GET /api/devices — local devices: %d", len(devices))
 
     if TuyaCloudApi is None:
+        _log.warning("GET /api/devices — TuyaCloudApi not available, returning local only")
         return jsonify({"devices": devices, "usage": load_settings()["usage"]})
 
     cloud_conf = _build_cloud_conf()
     if not cloud_conf:
+        _log.warning("GET /api/devices — no cloud config found, returning local only")
         return jsonify({"devices": devices, "usage": load_settings()["usage"]})
+
+    _log.info("GET /api/devices — cloud config OK (region=%s), starting async fetch", cloud_conf.get("region"))
 
     async def _run():
         h = ListHandler()
@@ -1103,7 +1172,10 @@ def api_devices():
         cl_logger.addHandler(h)
         cl_logger.setLevel(logging.DEBUG)
         try:
-            cloud_devices = await _fetch_cloud_devices(cloud_conf)
+            _log.debug("api_devices._run: calling _fetch_cloud_devices with 20s timeout")
+            cloud_devices = await asyncio.wait_for(_fetch_cloud_devices(cloud_conf), timeout=20)
+
+            _log.info("api_devices._run: cloud returned %d devices", len(cloud_devices))
 
             cloud_by_mac: dict = {}
             cloud_by_id: dict = {}
@@ -1148,25 +1220,40 @@ def api_devices():
                 d["match_mac"] = resolved_mac
                 enriched[dev_id] = d
 
+            _log.info("api_devices._run: enriched %d devices", len(enriched))
             return {
                 "devices": enriched,
                 "usage": load_settings()["usage"],
-                "tech_logs": "\n".join(h.records),
+                "tech_logs": "\\n".join(h.records),
+            }
+        except asyncio.TimeoutError:
+            _log.error("api_devices._run: _fetch_cloud_devices timed out after 20s — Tuya Cloud unreachable or credentials wrong")
+            return {
+                "devices": devices,
+                "usage": load_settings()["usage"],
+                "error": "Tuya Cloud API timed out (20s). Check credentials and network.",
+                "tech_logs": "\\n".join(h.records),
             }
         except Exception as e:
+            _log.error("api_devices._run: exception: %s", e, exc_info=True)
             return {
                 "devices": devices,
                 "usage": load_settings()["usage"],
                 "error": str(e),
-                "tech_logs": "\n".join(h.records),
+                "tech_logs": "\\n".join(h.records),
             }
         finally:
             cl_logger.removeHandler(h)
 
     future = asyncio.run_coroutine_threadsafe(_run(), loop)
     try:
-        return jsonify(future.result(timeout=25))
+        result = future.result(timeout=25)
+        elapsed = time.monotonic() - t0
+        _log.info("GET /api/devices — done in %.2fs, error=%s", elapsed, result.get("error"))
+        return jsonify(result)
     except Exception as e:
+        elapsed = time.monotonic() - t0
+        _log.error("GET /api/devices — future.result failed after %.2fs: %s", elapsed, e)
         return jsonify({"devices": devices, "usage": load_settings()["usage"], "error": str(e)})
 
 
@@ -1246,9 +1333,9 @@ def api_unadded_devices():
                 info["local_ip"] = local_ip
                 info["match_mac"] = mac
                 unadded[dev_id] = info
-            return {"devices": unadded, "tech_logs": "\n".join(h.records)}
+            return {"devices": unadded, "tech_logs": "\\n".join(h.records)}
         except Exception as e:
-            return {"error": str(e), "tech_logs": "\n".join(h.records)}
+            return {"error": str(e), "tech_logs": "\\n".join(h.records)}
         finally:
             cl_logger.removeHandler(h)
 
@@ -1317,7 +1404,7 @@ def api_discover_by_ip():
                                     "status": "responding",
                                     "note": "Device is responding but cloud credentials needed for more info"
                                 },
-                                "tech_logs": "\n".join(h.records)
+                                "tech_logs": "\\n".join(h.records)
                             }
                         
                         try:
@@ -1359,7 +1446,7 @@ def api_discover_by_ip():
                                 return {
                                     "device": dev_info,
                                     "device_id": dev_id,
-                                    "tech_logs": "\n".join(h.records)
+                                    "tech_logs": "\\n".join(h.records)
                                 }
                             else:
                                 return {
@@ -1369,7 +1456,7 @@ def api_discover_by_ip():
                                         "status": "responding_but_not_in_cloud",
                                         "note": "Device responds but not found in Tuya Cloud. It may be unconfigured or use a different network."
                                     },
-                                    "tech_logs": "\n".join(h.records)
+                                    "tech_logs": "\\n".join(h.records)
                                 }
                         except Exception as e:
                             h.records.append(f"[discover] Cloud API error: {e}")
@@ -1381,7 +1468,7 @@ def api_discover_by_ip():
                                     "note": "Device is responding but cloud lookup failed",
                                     "error": str(e)
                                 },
-                                "tech_logs": "\n".join(h.records)
+                                "tech_logs": "\\n".join(h.records)
                             }
                 except Exception as e:
                     h.records.append(f"[discover] Port {port} error: {e}")
@@ -1389,14 +1476,14 @@ def api_discover_by_ip():
             
             return {
                 "error": f"No response from {target_ip} on common Tuya ports",
-                "tech_logs": "\n".join(h.records)
+                "tech_logs": "\\n".join(h.records)
             }
             
         except Exception as e:
             h.records.append(f"[discover] Fatal error: {e}")
             return {
                 "error": str(e),
-                "tech_logs": "\n".join(h.records)
+                "tech_logs": "\\n".join(h.records)
             }
         finally:
             pytuya_log.removeHandler(h)
@@ -1444,7 +1531,7 @@ def api_status(dev_id: str):
                     # the cached entry is missing or its transport is closing.
                     proto = await _conn_pool.get(dev_id, conn_cfg)
                     res = await asyncio.wait_for(proto.status(), timeout=12)
-                    logs = "\n".join(h.records)
+                    logs = "\\n".join(h.records)
                     if not res:
                         _conn_pool.invalidate(dev_id)
                         if _negotiation_failed(logs):
@@ -1489,7 +1576,7 @@ def api_status(dev_id: str):
                                 source_parts.append("cloud")
                             source = "+".join(source_parts)
                             logs = logs + (
-                                "\n[tuya_gui] Local status returned no DPS; "
+                                "\\n[tuya_gui] Local status returned no DPS; "
                                 f"using {source} fallback"
                             )
                             return {
@@ -1519,7 +1606,7 @@ def api_status(dev_id: str):
                     # Device-initiated disconnection — the firmware closed the
                     # TCP socket on its side.  Evict so next call renegotiates.
                     _conn_pool.invalidate(dev_id)
-                    logs = "\n".join(h.records)
+                    logs = "\\n".join(h.records)
                     if attempt == 2:
                         return {
                             "error": f"Device closed the connection (ConnectionResetError): {exc}",
@@ -1533,7 +1620,7 @@ def api_status(dev_id: str):
                     # the wait window.  Distinct from a device-reset so operators
                     # can identify network interference vs firmware behaviour.
                     _conn_pool.invalidate(dev_id)
-                    logs = "\n".join(h.records)
+                    logs = "\\n".join(h.records)
                     if attempt == 2:
                         return {
                             "error": f"Network timeout waiting for device: {exc}",
@@ -1546,7 +1633,7 @@ def api_status(dev_id: str):
                     # Covers session-key negotiation failures (null payload),
                     # OSError, and any other pytuya exception.
                     _conn_pool.invalidate(dev_id)
-                    logs = "\n".join(h.records)
+                    logs = "\\n".join(h.records)
                     if _negotiation_failed(logs) and attempt == 0:
                         conn_cfg = await _connection_config(
                             dev_id, d, force_cloud_update=True
@@ -1618,9 +1705,9 @@ def api_cloud_check(dev_id: str):
                         funcs[dp]["values"] = json.loads(funcs[dp]["values"])
                     except Exception:
                         pass
-            return {"result": funcs, "tech_logs": "\n".join(h.records)}
+            return {"result": funcs, "tech_logs": "\\n".join(h.records)}
         except Exception as e:
-            return {"error": str(e), "tech_logs": "\n".join(h.records)}
+            return {"error": str(e), "tech_logs": "\\n".join(h.records)}
         finally:
             cl_logger.removeHandler(h)
 
