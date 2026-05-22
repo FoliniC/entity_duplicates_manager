@@ -9,9 +9,9 @@ from pathlib import Path
 from threading import Thread
 import subprocess
 
-# v1.2.2 - Added "Scan LAN by IP" feature in Add new device tab to probe
-#          unregistered Tuya devices by IP address.
-VERSION = "1.2.2"
+# v1.2.1 - Refresh stale local_key from Tuya Cloud at runtime and classify
+#          session-key negotiation failures explicitly.
+VERSION = "1.2.1"
 
 # ---------------------------------------------------------------------------
 # Library path – prioritise the local localtuya/core over any system package
@@ -731,18 +731,20 @@ HTML_TEMPLATE = """
 
     <div id="tabAdd" class="container tab-content">
         <div class="sidebar">
-            <label>Cloud devices not yet configured</label>
+            <label>Manual Device Discovery</label>
+            <div style="display:grid; grid-template-columns: 1fr auto; gap:8px; margin-bottom:12px;">
+                <input type="text" id="manualDeviceIp" placeholder="e.g., 192.168.0.28" style="padding:8px; border:1px solid #ccc; border-radius:4px;">
+                <button class="btn-refresh" style="padding:8px 12px;" onclick="discoverByIp()">Scan</button>
+            </div>
+            <div id="manualDiscoveryLogs" style="font-size:11px; color:#666; padding:8px; background:#f5f5f5; border-radius:4px; max-height:100px; overflow-y:auto; margin-bottom:12px; display:none;">
+                Scanning...
+            </div>
+
+            <label style="margin-top:16px;">Cloud devices not yet configured</label>
             <div style="display:flex; gap:8px; margin-bottom:8px;">
                 <button class="btn-cloud" style="flex:1" onclick="loadUnaddedDevices()">Refresh Unadded</button>
             </div>
             <div class="list" id="unaddedList">Press "Refresh Unadded"</div>
-            <hr style="margin:12px 0; border:none; border-top:1px solid #ccc;">
-            <label>LAN Scan by IP</label>
-            <div style="display:flex; gap:6px; margin-bottom:4px;">
-                <input type="text" id="scanIp" placeholder="e.g. 192.168.0.28" style="flex:2" value="">
-                <button class="btn-refresh" style="flex:1" onclick="scanLan()">Scan</button>
-            </div>
-            <div class="list" id="scanResults" style="flex:0; max-height:150px; font-size:11px;">Enter an IP and press Scan.</div>
         </div>
         <div class="main" id="unaddedDetails" style="display:none">
             <h3 id="unaddedName" style="margin:0"></h3>
@@ -920,6 +922,68 @@ HTML_TEMPLATE = """
             finally { overlay.classList.add('hidden'); }
         }
 
+        async function discoverByIp() {
+            const ipInput = document.getElementById('manualDeviceIp');
+            const ip = ipInput.value.trim();
+            if (!ip) { alert('Enter an IP address'); return; }
+
+            const logsDiv = document.getElementById('manualDiscoveryLogs');
+            logsDiv.style.display = 'block';
+            logsDiv.innerHTML = 'Scanning...';
+
+            try {
+                const r = await fetch('/api/device/discover_by_ip', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ ip: ip })
+                });
+                const data = await r.json();
+                
+                logsDiv.innerHTML = (data.tech_logs || '').split('\n').map(l => l ? `<div>${l}</div>` : '').join('');
+
+                if (data.error && !data.device) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+
+                if (data.device) {
+                    const dev = data.device;
+                    const devId = data.device_id || 'unknown';
+                    
+                    let info = `<b>Device Found!</b><br>`;
+                    info += `IP: ${dev.ip || dev.local_ip || ip}<br>`;
+                    info += `Port: ${dev.port || 6666}<br>`;
+                    if (dev.name) info += `Name: ${dev.name}<br>`;
+                    if (dev.product_name) info += `Product: ${dev.product_name}<br>`;
+                    if (dev.category) info += `Category: ${dev.category}<br>`;
+                    if (dev.mac) info += `MAC: ${dev.mac}<br>`;
+                    if (dev.device_id) info += `Device ID: ${dev.device_id}<br>`;
+                    
+                    if (dev.status === 'discovered') {
+                        info += `<br><b>✓ Successfully matched in Tuya Cloud</b>`;
+                        if (dev.cloud_functions && dev.cloud_functions.length) {
+                            info += `<br>Cloud Functions: ${dev.cloud_functions.length}`;
+                        }
+                        if (dev.cloud_properties && dev.cloud_properties.length) {
+                            info += `<br>Cloud Properties: ${dev.cloud_properties.length}`;
+                        }
+                    } else if (dev.status === 'responding_but_not_in_cloud') {
+                        info += `<br><b>⚠ Device responds but not in cloud</b><br>${dev.note || ''}`;
+                    } else {
+                        info += `<br><b>✓ Device Responding</b><br>${dev.note || ''}`;
+                    }
+
+                    alert(info);
+                    
+                    // Store discovery result for later use
+                    window.lastDiscoveredDevice = { id: devId, ...dev };
+                }
+            } catch(e) {
+                logsDiv.innerHTML = `<div style="color:red">Error: ${e}</div>`;
+                alert('Discovery failed: ' + e);
+            }
+        }
+
         async function loadUnaddedDevices() {
             const list = document.getElementById('unaddedList');
             const logs = document.getElementById('unaddedLogs');
@@ -956,38 +1020,6 @@ HTML_TEMPLATE = """
                 }).join('');
             } catch(e) {
                 list.innerHTML = `<div class="item">Error: ${e}</div>`;
-            }
-        }
-
-        async function scanLan() {
-            const ip = document.getElementById('scanIp').value.trim();
-            const resultsDiv = document.getElementById('scanResults');
-            if (!ip) { resultsDiv.innerHTML = '<div class="item">Please enter an IP address.</div>'; return; }
-            resultsDiv.innerHTML = '<div class="item">Scanning...</div>';
-            try {
-                const r = await fetch(`/api/devices/scan_lan?ip=${encodeURIComponent(ip)}`);
-                const data = await r.json();
-                if (data.error) {
-                    resultsDiv.innerHTML = `<div class="item" style="color:#721c24;background:#f8d7da">Error: ${data.error}</div>`;
-                    return;
-                }
-                let html = '<div class="item" style="background:#d4edda;color:#155724">';
-                html += `<strong>Device found at ${data.ip}</strong><br>`;
-                html += `<small>MAC: ${data.mac || 'Unknown'}</small><br>`;
-                html += `<small>Port 6668: ${data.port_open ? 'OPEN' : 'CLOSED'}</small><br>`;
-                if (data.already_configured) {
-                    html += `<small style="color:#856404">Already configured in HA as: ${data.configured_name || data.configured_id}</small>`;
-                }
-                if (data.cloud_device_id) {
-                    html += `<br><small>Cloud Device ID: ${data.cloud_device_id}</small>`;
-                }
-                if (data.cloud_name) {
-                    html += `<br><small>Cloud Name: ${data.cloud_name}</small>`;
-                }
-                html += '</div>';
-                resultsDiv.innerHTML = html;
-            } catch(e) {
-                resultsDiv.innerHTML = `<div class="item" style="color:#721c24;background:#f8d7da">Error: ${e}</div>`;
             }
         }
 
@@ -1228,80 +1260,152 @@ def api_unadded_devices():
 
 
 # ---------------------------------------------------------------------------
-# /api/devices/scan_lan — scan a device by IP on the LAN
+# /api/device/discover_by_ip  — discover Tuya device at IP via local scan
 # ---------------------------------------------------------------------------
-@app.route("/api/devices/scan_lan")
-def api_scan_lan():
-    ip = request.args.get("ip", "").strip()
-    if not ip:
-        return jsonify({"error": "No IP provided"}), 400
-
-    result = {"ip": ip, "mac": None, "port_open": False, "already_configured": False}
-    logs = []
-
-    # 1) Resolve MAC from ARP cache
-    mac = _lan_mac_for_ip(ip)
-    if mac:
-        result["mac"] = mac
-        logs.append(f"MAC: {mac}")
-    else:
-        logs.append("MAC: not found in ARP cache")
-        # Try to trigger ARP via ping
+@app.route("/api/device/discover_by_ip", methods=["POST"])
+def api_discover_by_ip():
+    """Discover a Tuya device at a specific IP address by attempting local connection."""
+    if connect is None:
+        return jsonify({"error": "LocalTuya core dependencies unavailable"}), 503
+    
+    data = request.json or {}
+    target_ip = data.get("ip", "").strip()
+    if not target_ip:
+        return jsonify({"error": "IP address required"}), 400
+    
+    async def _run():
+        h = ListHandler()
+        from pytuya import _LOGGER as pytuya_log
+        pytuya_log.setLevel(logging.DEBUG)
+        pytuya_log.addHandler(h)
+        pytuya_log.propagate = True
+        
         try:
-            subprocess.run(["ping", "-c", "1", "-W", "1", ip],
-                           capture_output=True, timeout=2)
-            mac = _lan_mac_for_ip(ip)
-            if mac:
-                result["mac"] = mac
-                logs.append(f"MAC (after ping): {mac}")
-        except Exception:
-            pass
-
-    # 2) Check if port 6668 (Tuya) is open
-    try:
-        import socket
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(2)
-        s.connect((ip, 6668))
-        s.close()
-        result["port_open"] = True
-        logs.append("Port 6668: OPEN (Tuya protocol)")
-    except Exception:
-        logs.append("Port 6668: closed/unreachable")
-
-    # 3) Check if this device (by MAC or IP) is already configured in HA
-    if mac:
-        configured = get_devices_data()
-        configured_by_mac = {}
-        for cid, cdata in (configured or {}).items():
-            cmac = _extract_mac(cdata.get("mac") or cdata.get("match_mac"))
-            if cmac:
-                configured_by_mac[cmac] = {"id": cid, "name": cdata.get("friendly_name", cid)}
-        if mac in configured_by_mac:
-            result["already_configured"] = True
-            result["configured_id"] = configured_by_mac[mac]["id"]
-            result["configured_name"] = configured_by_mac[mac]["name"]
-            logs.append(f"Already configured: {configured_by_mac[mac]['name']} ({configured_by_mac[mac]['id']})")
-        # 4) Check Tuya Cloud for this MAC
-        try:
-            cloud_conf = _build_cloud_conf()
-            if cloud_conf:
-                future = asyncio.run_coroutine_threadsafe(
-                    _get_cloud_devices_cached(force_update=False), loop
-                )
-                cloud_devices = future.result(timeout=15)
-                for cid, cinfo in (cloud_devices or {}).items():
-                    cmac = _extract_mac(cinfo.get("mac") or cinfo.get("device_mac"))
-                    if cmac == mac:
-                        result["cloud_device_id"] = cid
-                        result["cloud_name"] = cinfo.get("name", "")
-                        logs.append(f"Cloud match: {cinfo.get('name', '')} ({cid})")
-                        break
+            # Attempt to query the device without auth first to get device info
+            h.records.append(f"[discover] Scanning {target_ip}...")
+            
+            # Try common Tuya ports (6666 is default, also try 6667 for some devices)
+            for port in [6666, 6667]:
+                try:
+                    h.records.append(f"[discover] Trying {target_ip}:{port}...")
+                    
+                    # Create a minimal connection config to probe the device
+                    # We use None values for keys since we're just trying to discover
+                    import socket
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.settimeout(2)
+                    result = sock.connect_ex((target_ip, port))
+                    sock.close()
+                    
+                    if result == 0:
+                        h.records.append(f"[discover] ✓ Device responding on {target_ip}:{port}")
+                        
+                        # Query cloud API to find this IP in device list
+                        ha_config = get_ha_config()
+                        cloud_conf = None
+                        for entry in ha_config.get("data", {}).get("entries", []):
+                            if entry.get("domain") == "localtuya":
+                                cloud_conf = entry.get("data")
+                                break
+                        
+                        if not cloud_conf:
+                            return {
+                                "error": "No cloud config - cannot query device database",
+                                "device": {
+                                    "ip": target_ip,
+                                    "port": port,
+                                    "status": "responding",
+                                    "note": "Device is responding but cloud credentials needed for more info"
+                                },
+                                "tech_logs": "\n".join(h.records)
+                            }
+                        
+                        try:
+                            h.records.append("[discover] Querying cloud API for device details...")
+                            api = TuyaCloudApi(
+                                cloud_conf["region"],
+                                cloud_conf["client_id"],
+                                cloud_conf["client_secret"],
+                                cloud_conf["user_id"],
+                            )
+                            await api.async_connect()
+                            cloud_devs = await api.async_get_devices_list(force_update=True)
+                            
+                            # Find device with matching IP
+                            matching_devices = []
+                            if isinstance(cloud_devs, dict):
+                                for dev_id, dev_info in cloud_devs.items():
+                                    dev_ip = dev_info.get("local_ip") or dev_info.get("ip") or ""
+                                    if dev_ip == target_ip:
+                                        matching_devices.append((dev_id, dev_info))
+                                        h.records.append(f"[discover] Found cloud device: {dev_id}")
+                            
+                            if matching_devices:
+                                dev_id, dev_info = matching_devices[0]
+                                dev_info["local_ip"] = target_ip
+                                dev_info["port"] = port
+                                dev_info["status"] = "discovered"
+                                
+                                # Enhance with cloud functions
+                                try:
+                                    cloud_funcs = await api.async_get_device_info(dev_id)
+                                    if cloud_funcs and isinstance(cloud_funcs, dict):
+                                        dev_info["cloud_functions"] = cloud_funcs.get("functions", [])
+                                        dev_info["cloud_properties"] = cloud_funcs.get("property", [])
+                                        h.records.append(f"[discover] Retrieved {len(dev_info.get('cloud_functions', []))} cloud functions")
+                                except Exception as e:
+                                    h.records.append(f"[discover] Cloud functions query failed: {e}")
+                                
+                                return {
+                                    "device": dev_info,
+                                    "device_id": dev_id,
+                                    "tech_logs": "\n".join(h.records)
+                                }
+                            else:
+                                return {
+                                    "device": {
+                                        "ip": target_ip,
+                                        "port": port,
+                                        "status": "responding_but_not_in_cloud",
+                                        "note": "Device responds but not found in Tuya Cloud. It may be unconfigured or use a different network."
+                                    },
+                                    "tech_logs": "\n".join(h.records)
+                                }
+                        except Exception as e:
+                            h.records.append(f"[discover] Cloud API error: {e}")
+                            return {
+                                "device": {
+                                    "ip": target_ip,
+                                    "port": port,
+                                    "status": "responding",
+                                    "note": "Device is responding but cloud lookup failed",
+                                    "error": str(e)
+                                },
+                                "tech_logs": "\n".join(h.records)
+                            }
+                except Exception as e:
+                    h.records.append(f"[discover] Port {port} error: {e}")
+                    continue
+            
+            return {
+                "error": f"No response from {target_ip} on common Tuya ports",
+                "tech_logs": "\n".join(h.records)
+            }
+            
         except Exception as e:
-            logs.append(f"Cloud lookup error: {e}")
-
-    result["tech_logs"] = "\n".join(logs)
-    return jsonify(result)
+            h.records.append(f"[discover] Fatal error: {e}")
+            return {
+                "error": str(e),
+                "tech_logs": "\n".join(h.records)
+            }
+        finally:
+            pytuya_log.removeHandler(h)
+    
+    future = asyncio.run_coroutine_threadsafe(_run(), loop)
+    try:
+        return jsonify(future.result(timeout=30))
+    except Exception as e:
+        return jsonify({"error": str(e), "tech_logs": ""})
 
 
 # ---------------------------------------------------------------------------
