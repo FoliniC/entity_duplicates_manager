@@ -112,7 +112,7 @@ views:
           display_zero_state: true
         home:
           secondary_info:
-            entity: sensor.consumo_pdc
+            entity: sensor.consumo_netto_pdc
           entity: sensor.consumo_appartamento_template
           name: appartamento
         fossil_fuel_percentage:
@@ -121,7 +121,7 @@ views:
         individual:
         - entity: sensor.prism_potenza
           name: Colonnina
-        - entity: sensor.consumo_pdc
+        - entity: sensor.consumo_netto_pdc
           name: PDC
         - entity: sensor.consumo_appartamento_template
           name: appartamento
@@ -155,7 +155,7 @@ views:
       - entity: sensor.smart_meter_2025_power_a
       - entity: sensor.byd_battery_box_premium_hv_state_of_charge
       - entity: sensor.consumo_appartamento_template
-      - entity: sensor.consumo_pdc
+      - entity: sensor.consumo_netto_pdc
       - entity: sensor.lavastoviglie_wifi_digital_meter_lavastoviglie_potenza
       - entity: sensor.potenza_consumata_attuale
       - entity: sensor.potenza_misuratore
@@ -395,7 +395,7 @@ views:
     - entity: sensor.alfa_new_energia_prelevata_giornaliera_f4
     - entity: sensor.alfa_new_energia_prelevata_giornaliera_f5
     - entity: sensor.alfa_new_energia_prelevata_giornaliera_f6
-    - entity: sensor.consumo_pdc
+    - entity: sensor.consumo_netto_pdc
     - entity: sensor.consumo_appartamento_template
     - entity: sensor.potenza_misuratore_2
     - entity: sensor.potenza
@@ -724,7 +724,7 @@ views:
     - type: divider
     - entity: sensor.envoy_122134037538_current_power_production
     - entity: sensor.consumo_appartamento_template
-    - entity: sensor.consumo_pdc
+    - entity: sensor.consumo_netto_pdc
     - entity: sensor.smart_meter_ts_100a_1_power_real
     - entity: sensor.prism_risultato_set_current_ko
     - entity: sensor.prism_risultato_set_current_ok
@@ -1023,7 +1023,7 @@ views:
       - type: divider
       - entity: sensor.envoy_122134037538_current_power_production
       - entity: sensor.consumo_appartamento_template
-      - entity: sensor.consumo_pdc
+      - entity: sensor.consumo_netto_pdc
       - entity: sensor.smart_meter_ts_100a_1_power_real
       - entity: sensor.prism_risultato_set_current_ko
       - entity: sensor.prism_risultato_set_current_ok
@@ -1218,7 +1218,7 @@ views:
         < 0 else 0 }}'
     - source: totale
       target: pdc
-      value: '{{ states(''sensor.consumo_pdc'')|float }}'
+      value: '{{ states(''sensor.consumo_netto_pdc'')|float }}'
     - source: totale
       target: appartamento
       value: '{{ states(''sensor.consumo_appartamento_template'')|float }}'

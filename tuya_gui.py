@@ -30,6 +30,7 @@ try:
 except ImportError as e:
     connect = None
     TuyaCloudApi = None
+    TuyaListener = object
     import traceback
     print("Dependencies not found. Traceback follows:")
     traceback.print_exc()
@@ -252,6 +253,36 @@ class ListHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         self.records.append(self.format(record))
+
+
+class QueueTuyaListener(TuyaListener):
+    """Listener used by v3.4/v3.5 devices that report state via push updates."""
+
+    sub_devices: dict[str, object] = {}
+
+    def __init__(self, log_func=None):
+        self.queue: asyncio.Queue = asyncio.Queue()
+        self.latest: dict = {}
+        self._log = log_func
+
+    def _record(self, message: str) -> None:
+        if callable(self._log):
+            self._log(message)
+
+    def status_updated(self, status):
+        self._record(f"PUSH RECEIVED via listener: {repr(status)[:200]}")
+        if isinstance(status, dict):
+            self.latest = status
+        try:
+            self.queue.put_nowait(status)
+        except Exception:
+            pass
+
+    def disconnected(self, exc=""):
+        self._record(f"Listener disconnected: {exc}")
+
+    def subdevice_state_updated(self, state):
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -645,14 +676,20 @@ async def _cloud_status_as_dps(dev_id: str, cfg: dict) -> dict:
 
     cloud_devices = await _get_cloud_devices_cached(force_update=True)
     cloud_id = cfg.get("device_id") or cfg.get("gwId") or dev_id
+    funcs = await _get_cloud_functions_cached(dev_id, cfg, force_update=True)
+    if not isinstance(funcs, dict):
+        funcs = {}
+
+    dps = {
+        str(dp_id): info.get("value")
+        for dp_id, info in funcs.items()
+        if isinstance(info, dict) and "value" in info
+    }
+
     cloud = cloud_devices.get(cloud_id) or cloud_devices.get(dev_id) or {}
     status_items = cloud.get("status") if isinstance(cloud, dict) else None
     if not isinstance(status_items, list):
-        return {}
-
-    funcs = await _get_cloud_functions_cached(dev_id, cfg)
-    if not isinstance(funcs, dict):
-        return {}
+        return dps
 
     code_to_dp = {
         info.get("code"): str(dp_id)
@@ -660,7 +697,6 @@ async def _cloud_status_as_dps(dev_id: str, cfg: dict) -> dict:
         if isinstance(info, dict) and info.get("code")
     }
 
-    dps = {}
     for item in status_items:
         if not isinstance(item, dict):
             continue
@@ -927,6 +963,11 @@ HTML_TEMPLATE = """
                 logsBox.innerText = data.tech_logs || "";
                 if (!data.error) { 
                     cloudDps = data.result || {}; 
+                    if (data.status) {
+                        currentDps = data.status || {};
+                        currentDisplayDps = data.display_status || currentDps;
+                        currentDisplayUnits = data.display_units || {};
+                    }
                     logsBox.innerText += "\\n\\n--- CLOUD JSON RESULT ---\\n" + JSON.stringify(data.result, null, 2);
                     renderTable(); 
                 } else { alert(data.error); }
@@ -934,18 +975,24 @@ HTML_TEMPLATE = """
             finally { overlay.classList.add('hidden'); }
         }
 
+        function cloudValueFromInfo(id) {
+            const info = cloudDps[id] || {};
+            return Object.prototype.hasOwnProperty.call(info, 'value') ? info.value : undefined;
+        }
+
         function renderTable() {
             const mapping = devices[selectedId].entities || [];
             const allIds = new Set([...Object.keys(currentDps), ...Object.keys(cloudDps)]);
             document.getElementById('dpBody').innerHTML = Array.from(allIds).sort((a,b)=>Number(a)-Number(b)).map(id => {
-                const displayVal = currentDisplayDps[id] !== undefined ? currentDisplayDps[id] : currentDps[id];
+                const cloudValue = cloudValueFromInfo(id);
+                const rawVal = currentDps[id] !== undefined ? currentDps[id] : cloudValue;
+                const displayVal = currentDisplayDps[id] !== undefined ? currentDisplayDps[id] : rawVal;
                 const unit = currentDisplayUnits[id] ? ` ${currentDisplayUnits[id]}` : '';
-                const rawVal = currentDps[id];
                 let valStr = '';
                 if (rawVal === undefined || rawVal === null) valStr = '';
                 else if (typeof rawVal === 'object') valStr = JSON.stringify(rawVal);
                 else valStr = String(rawVal);
-                const localVal = currentDps[id] !== undefined ? `${displayVal}${unit}` : '<span style="color:#999">?</span>';
+                const localVal = rawVal !== undefined ? `${displayVal}${unit}` : '<span style="color:#999">?</span>';
                 const cloudInfo = cloudDps[id] || {};
                 const entity = mapping.find(e => e.id == id);
                 // Passa valStr (stringa sicura) al click
@@ -1116,8 +1163,32 @@ HTML_TEMPLATE = """
                     return;
                 }
 
-                if (data.device && data.device.local_test_status) {
+                const localStatus = (data.device && data.device.local_test_status) || {};
+                const cloudStatus = (data.device && data.device.cloud_test_status) || {};
+                const localCount = Object.keys(localStatus).length;
+                const cloudCount = Object.keys(cloudStatus).length;
+
+                if (data.device && data.device.id) {
+                    await loadDevices();
+                    if (devices[data.device.id]) {
+                        switchTab('manage');
+                        selectedId = data.device.id;
+                        document.getElementById('details').style.display = 'flex';
+                        document.getElementById('name').innerText = devices[selectedId].friendly_name || selectedId;
+                        document.getElementById('meta').innerText = `ID: ${selectedId} | Local IP: ${(devices[selectedId].local_ip || devices[selectedId].host || 'N/A')} | Cloud IP: ${(devices[selectedId].cloud_ip || 'N/A')} | MAC: ${(devices[selectedId].match_mac || devices[selectedId].mac || 'N/A')}`;
+                        if (cloudCount) {
+                            currentDps = cloudStatus;
+                            currentDisplayDps = data.device.cloud_display_status || cloudStatus;
+                            currentDisplayUnits = data.device.cloud_display_units || {};
+                            renderTable();
+                        }
+                    }
+                }
+
+                if (localCount) {
                     alert(`✓ SUCCESS! Local data retrieved via v3.4 Push/Active Strategy:\n\n${JSON.stringify(data.device.local_test_status, null, 2)}`);
+                } else if (cloudCount) {
+                    alert(`Local polling failed, but Cloud returned ${cloudCount} DPS. The managed device view has been opened with Cloud values.\n\nNote: ${data.device.note || ''}`);
                 } else if (data.device) {
                     alert(`Scan finished. Device found but local data polling failed even with advanced strategy.\n\nNote: ${data.device.note || ''}`);
                 }
@@ -1608,12 +1679,28 @@ def api_discover_by_ip_advanced():
                 for attr in ('dps', '_dps', 'dps_cache', '_dps_cache', 'status_cache'):
                     val = getattr(proto, attr, None)
                     if isinstance(val, dict) and val:
+                        if isinstance(val.get("parent"), dict):
+                            f = _filter_numeric(val["parent"])
+                            if f:
+                                _log(f"✓ Found DPS in internal proto.{attr}['parent']")
+                                return f
                         f = _filter_numeric(val)
                         if f: 
                             _log(f"✓ Found DPS in internal proto.{attr}")
                             return f
+                        for cache_key, cache_val in val.items():
+                            if isinstance(cache_val, dict):
+                                f = _filter_numeric(cache_val)
+                                if f:
+                                    _log(f"✓ Found DPS in internal proto.{attr}[{cache_key!r}]")
+                                    return f
             if isinstance(res, dict):
-                d = res.get("dps") if isinstance(res.get("dps"), dict) else res
+                if isinstance(res.get("dps"), dict):
+                    d = res["dps"]
+                elif isinstance(res.get("parent"), dict):
+                    d = res["parent"]
+                else:
+                    d = res
                 return _filter_numeric(d)
             return {}
 
@@ -1654,6 +1741,11 @@ def api_discover_by_ip_advanced():
             dev_id = cloud_device.get("id") if cloud_device else (known_id if target_ip == "192.168.0.28" else None)
 
             local_status = None
+            cloud_status = {}
+            cloud_display_status = {}
+            cloud_display_units = {}
+            local_error_type = None
+            local_note = f"Cloud Key found: {'YES' if local_key else 'NO'}"
             if local_key and dev_id:
                 for ver in [3.4, 3.3, 3.1]:
                     _log(f"--- Strategy Attempt (Protocol v{ver}) ---")
@@ -1665,6 +1757,8 @@ def api_discover_by_ip_advanced():
                             connect(target_ip, dev_id, local_key, ver, True, listener=listener), 
                             15
                         )
+                        if ver == 3.4:
+                            _log("✓ Protocol v3.4 session established")
                         
                         # A) detect_available_dps (cmd 16)
                         _log("A) Sending CMD 16 (Detect DPs)...")
@@ -1682,6 +1776,17 @@ def api_discover_by_ip_advanced():
                                 local_status = _extract_dps(res, proto)
                             except Exception as e:
                                 _log(f"Active status query error: {e}")
+
+                        if not local_status and ver == 3.4:
+                            local_error_type = "local_query_rejected"
+                            local_note = (
+                                "Protocol v3.4 session established, but the device did not "
+                                "return local DPS. DP_QUERY_NEW is being rejected (retcode=1 "
+                                "in pytuya logs) or the socket is closed by the device."
+                            )
+                            _log("Local v3.4 session works, but active status DPS are not available locally.")
+                            _log("Skipping push-wait and legacy 3.3/3.1 attempts; use the Cloud/HA fallback for state.")
+                            break
                         
                         # C) Push-wait (v3.4 only)
                         if not local_status and ver == 3.4:
@@ -1734,17 +1839,38 @@ def api_discover_by_ip_advanced():
                         if local_status:
                             _log(f"✓ SUCCESS! Data: {local_status}")
                             break
+                        if ver == 3.4:
+                            local_error_type = "local_query_rejected"
+                            local_note = (
+                                "Protocol v3.4 session established, but the device did not "
+                                "return local DPS. DP_QUERY_NEW is being rejected (retcode=1 "
+                                "in pytuya logs) or the socket is closed by the device."
+                            )
+                            _log("Local v3.4 session works, but status DPS are not available locally; skipping legacy 3.3/3.1 attempts.")
+                            break
                     except BaseException as e:
                         _log(f"v{ver} attempt failed: {type(e).__name__}: {e}")
                     finally:
                         if proto and hasattr(proto, 'transport') and proto.transport:
                             proto.transport.close()
 
+            if dev_id:
+                cloud_cfg = get_devices_data().get(dev_id, {"device_id": dev_id, "gwId": dev_id})
+                cloud_status = await _cloud_status_as_dps(dev_id, cloud_cfg)
+                if cloud_status:
+                    funcs = await _get_cloud_functions_cached(dev_id, cloud_cfg)
+                    cloud_display_status, cloud_display_units = _display_status_from_model(cloud_status, cloud_cfg, funcs)
+                    _log(f"Cloud fallback status available: {len(cloud_status)} DPS")
+
             return {
                 "device": {
                     "ip": target_ip, "id": dev_id, "mac": mac, 
                     "local_test_status": local_status,
-                    "note": f"Cloud Key found: {'YES' if local_key else 'NO'}"
+                    "cloud_test_status": cloud_status,
+                    "cloud_display_status": cloud_display_status,
+                    "cloud_display_units": cloud_display_units,
+                    "local_error_type": local_error_type,
+                    "note": local_note
                 },
                 "tech_logs": "\\n".join(h.records)
             }
@@ -1815,6 +1941,11 @@ def api_status(dev_id: str):
                     if filtered:
                         _log(f"DPS from res['dps']: {list(filtered.keys())}")
                         return filtered
+                if "parent" in res and isinstance(res["parent"], dict):
+                    filtered = _filter_numeric(res["parent"])
+                    if filtered:
+                        _log(f"DPS from res['parent']: {list(filtered.keys())}")
+                        return filtered
                 filtered = _filter_numeric(res)
                 if filtered:
                     _log(f"DPS from direct dict: {list(filtered.keys())}")
@@ -1826,10 +1957,21 @@ def api_status(dev_id: str):
             for attr in ("dps", "_dps", "dps_cache", "_dps_cache", "status_cache"):
                 val = getattr(proto, attr, None)
                 if isinstance(val, dict) and val:
+                    if isinstance(val.get("parent"), dict):
+                        filtered = _filter_numeric(val["parent"])
+                        if filtered:
+                            _log(f"proto.{attr}['parent'] cache hit: {list(filtered.keys())}")
+                            return filtered
                     filtered = _filter_numeric(val)
                     if filtered:
                         _log(f"proto.{attr} cache hit: {list(filtered.keys())}")
                         return filtered
+                    for cache_key, cache_val in val.items():
+                        if isinstance(cache_val, dict):
+                            filtered = _filter_numeric(cache_val)
+                            if filtered:
+                                _log(f"proto.{attr}[{cache_key!r}] cache hit: {list(filtered.keys())}")
+                                return filtered
             return {}
 
         # Tentativo di detect_available_dps
@@ -1842,7 +1984,7 @@ def api_status(dev_id: str):
                 if not dps:
                     dps = _proto_dps_cache(proto)
                 return dps
-            except Exception as exc:
+            except (Exception, asyncio.CancelledError) as exc:
                 _log(f"detect_available_dps() exception: {exc}")
                 return {}
 
@@ -1855,12 +1997,12 @@ def api_status(dev_id: str):
                 if not dps:
                     dps = _proto_dps_cache(proto)
                 return dps
-            except Exception as exc:
+            except (Exception, asyncio.CancelledError) as exc:
                 _log(f"status(){' '+label if label else ''} exception: {exc}")
                 return {}
 
         # Attesa push progressiva (4,10,30,60 secondi)
-        async def _wait_for_push(proto, wait_times=None):
+        async def _wait_for_push(proto, wait_times=None, listener=None):
             if wait_times is None:
                 wait_times = [4, 10, 30, 60]
             pushed = {}
@@ -1875,35 +2017,58 @@ def api_status(dev_id: str):
                     if pushed:
                         event.set()
 
-            # Registra callback
-            for setter in ("set_updater", "add_listener", "set_status_callback"):
-                fn = getattr(proto, setter, None)
-                if callable(fn):
-                    try:
-                        fn(_on_push)
-                        _log(f"Registered push via {setter}")
-                        break
-                    except Exception as exc:
-                        _log(f"{setter} failed: {exc}")
+            if listener is not None:
+                _log("Using connect-time TuyaListener for push updates")
+                cached = _extract_dps(getattr(listener, "latest", {}))
+                if cached:
+                    return cached
+            else:
+                # Registra callback, se supportato dalla versione pytuya caricata.
+                for setter in ("set_updater", "add_listener", "set_status_callback"):
+                    fn = getattr(proto, setter, None)
+                    if callable(fn):
+                        try:
+                            fn(_on_push)
+                            _log(f"Registered push via {setter}")
+                            break
+                        except Exception as exc:
+                            _log(f"{setter} failed: {exc}")
 
             # Ciclo di attesa progressivo
             for step, wait_sec in enumerate(wait_times, 1):
                 # Invia heartbeat prima di ogni attesa
+                heartbeat_ok = True
                 try:
                     _log(f"Sending heartbeat (step {step})")
                     await asyncio.wait_for(proto.heartbeat(), timeout=5)
                     _log("Heartbeat sent OK")
-                except Exception as exc:
+                except (Exception, asyncio.CancelledError) as exc:
+                    heartbeat_ok = False
                     _log(f"Heartbeat error: {exc}")
+                if not heartbeat_ok or not getattr(proto, "is_connected", False):
+                    _log("Socket is closed; stopping push wait")
+                    break
 
                 _log(f"Waiting {wait_sec}s for device push (step {step}/{len(wait_times)})...")
                 try:
-                    await asyncio.wait_for(event.wait(), timeout=wait_sec)
-                    if pushed:
-                        _log(f"Push received at step {step}: {list(pushed.keys())}")
-                        return _filter_numeric(pushed)
+                    if listener is not None:
+                        pushed_status = await asyncio.wait_for(listener.queue.get(), timeout=wait_sec)
+                        dps = _extract_dps(pushed_status)
+                        if not dps:
+                            dps = _proto_dps_cache(proto)
+                        if dps:
+                            _log(f"Push received at step {step}: {list(dps.keys())}")
+                            return dps
+                    else:
+                        await asyncio.wait_for(event.wait(), timeout=wait_sec)
+                        if pushed:
+                            _log(f"Push received at step {step}: {list(pushed.keys())}")
+                            return _filter_numeric(pushed)
                 except asyncio.TimeoutError:
                     _log(f"No push after {wait_sec}s, checking cache")
+                except asyncio.CancelledError as exc:
+                    _log(f"Push wait cancelled: {exc}")
+                    break
 
                 cached = _proto_dps_cache(proto)
                 if cached:
@@ -1912,6 +2077,53 @@ def api_status(dev_id: str):
 
             _log("All push wait steps exhausted, no data")
             return {}
+
+        async def _try_listener_status(conn_cfg: dict) -> dict:
+            """Fresh v3.4/v3.5 read path that mirrors Advanced Scan."""
+            listener = QueueTuyaListener(_log)
+            proto = None
+            try:
+                _log("Opening dedicated listener connection for v3.4+ status")
+                proto = await asyncio.wait_for(
+                    connect(
+                        address=conn_cfg["host"],
+                        device_id=conn_cfg["device_id"],
+                        local_key=conn_cfg["local_key"],
+                        protocol_version=float(conn_cfg.get("protocol_version", 3.4)),
+                        enable_debug=True,
+                        listener=listener,
+                        port=int(conn_cfg.get("port", 6668)),
+                        timeout=15,
+                    ),
+                    timeout=20,
+                )
+                _log("Dedicated listener connection obtained")
+
+                dps = await _try_detect(proto)
+                if dps:
+                    _log(f"Dedicated listener got DPS via detect: {list(dps.keys())}")
+                    return dps
+
+                dps = await _try_status(proto, "(listener)")
+                if dps:
+                    _log(f"Dedicated listener got DPS via status: {list(dps.keys())}")
+                    return dps
+
+                wait_seq = [4, 10, min(max(t, 10), 30)]
+                dps = await _wait_for_push(proto, wait_times=wait_seq, listener=listener)
+                if dps:
+                    _log(f"Dedicated listener got DPS via push: {list(dps.keys())}")
+                    return dps
+                return {}
+            except (Exception, asyncio.CancelledError) as exc:
+                _log(f"Dedicated listener status exception: {type(exc).__name__}: {exc}")
+                return {}
+            finally:
+                if proto and getattr(proto, "transport", None):
+                    try:
+                        proto.transport.close()
+                    except Exception:
+                        pass
 
         # Costruzione risposta finale
         async def _build_result(dps: dict, source: str) -> dict:
@@ -1934,41 +2146,48 @@ def api_status(dev_id: str):
             is_push_device = proto_ver >= 3.4
             _log(f"protocol_version={proto_ver}, push_mode={is_push_device}")
 
-            # Un solo tentativo LAN (con attesa push lunga), poi fallback immediato a HA
-            _log("Starting LAN attempt with progressive push wait...")
-            try:
-                proto = await _conn_pool.get(dev_id, conn_cfg)
-                _log("Pool connection obtained")
-
-                # 1. detect_available_dps
-                dps = await _try_detect(proto)
+            if is_push_device:
+                _conn_pool.invalidate(dev_id)
+                _log("v3.4+ device: trying dedicated listener strategy first")
+                dps = await _try_listener_status(conn_cfg)
                 if dps:
-                    _log(f"Got DPS via detect: {list(dps.keys())}")
-                    return await _build_result(dps, "local")
+                    return await _build_result(dps, "local-listener")
+                _log("Dedicated listener strategy returned no DPS; skipping pooled LAN for v3.4+")
+            else:
+                # Un solo tentativo LAN (con attesa push lunga), poi fallback immediato a HA
+                _log("Starting LAN attempt with progressive push wait...")
+                try:
+                    proto = await _conn_pool.get(dev_id, conn_cfg)
+                    _log("Pool connection obtained")
 
-                # 2. status()
-                dps = await _try_status(proto, "(first)")
-                if dps:
-                    _log(f"Got DPS via status: {list(dps.keys())}")
-                    return await _build_result(dps, "local")
-
-                # 3. push-wait (solo v3.4+)
-                if is_push_device:
-                    _log("v3.4+ device: starting progressive push-wait")
-                    # Sequenza progressiva: 4,10,30,60 secondi
-                    wait_seq = [4, 10, 30, 60]
-                    dps = await _wait_for_push(proto, wait_times=wait_seq)
+                    # 1. detect_available_dps
+                    dps = await _try_detect(proto)
                     if dps:
-                        _log(f"Got DPS via push-wait: {list(dps.keys())}")
-                        return await _build_result(dps, "local-push")
+                        _log(f"Got DPS via detect: {list(dps.keys())}")
+                        return await _build_result(dps, "local")
 
-                # Se arriviamo qui, LAN ha fallito
-                _conn_pool.invalidate(dev_id)
-                _log("LAN attempt failed, falling back to Home Assistant/Cloud")
+                    # 2. status()
+                    dps = await _try_status(proto, "(first)")
+                    if dps:
+                        _log(f"Got DPS via status: {list(dps.keys())}")
+                        return await _build_result(dps, "local")
 
-            except Exception as exc:
-                _log(f"LAN exception: {exc}")
-                _conn_pool.invalidate(dev_id)
+                    # 3. push-wait (solo v3.4+)
+                    if is_push_device:
+                        _log("v3.4+ device: starting progressive push-wait")
+                        wait_seq = [4, 10, min(max(t, 10), 30)]
+                        dps = await _wait_for_push(proto, wait_times=wait_seq)
+                        if dps:
+                            _log(f"Got DPS via push-wait: {list(dps.keys())}")
+                            return await _build_result(dps, "local-push")
+
+                    # Se arriviamo qui, LAN ha fallito
+                    _conn_pool.invalidate(dev_id)
+                    _log("LAN attempt failed, falling back to Home Assistant/Cloud")
+
+                except (Exception, asyncio.CancelledError) as exc:
+                    _log(f"LAN exception: {exc}")
+                    _conn_pool.invalidate(dev_id)
 
             # FALLBACK: Home Assistant + Cloud
             ha_dps = _ha_states_as_dps(dev_id, conn_cfg)
@@ -1976,15 +2195,20 @@ def api_status(dev_id: str):
             _log(f"HA DPS keys: {list(ha_dps.keys())}")
             _log(f"Cloud DPS keys: {list(cloud_dps.keys())}")
 
+            valid_ha_dps = {
+                dp: value
+                for dp, value in ha_dps.items()
+                if str(value).strip().lower() not in {"unknown", "unavailable", "none", ""}
+            }
             fallback_dps = dict(cloud_dps)
-            fallback_dps.update(ha_dps)
+            fallback_dps.update(valid_ha_dps)
             if fallback_dps:
                 funcs = await _get_cloud_functions_cached(dev_id, conn_cfg)
                 local_scaled = _local_scaling_by_dp(conn_cfg)
-                already_scaled = {str(dp) for dp in ha_dps if str(dp) in local_scaled}
+                already_scaled = {str(dp) for dp in valid_ha_dps if str(dp) in local_scaled}
                 display_dps, display_units = _display_status_from_model(fallback_dps, conn_cfg, funcs, already_scaled)
                 source_parts = []
-                if ha_dps:
+                if valid_ha_dps:
                     source_parts.append("homeassistant")
                 if cloud_dps:
                     source_parts.append("cloud")
@@ -2069,7 +2293,21 @@ def api_cloud_check(dev_id: str):
                         funcs[dp]["values"] = json.loads(funcs[dp]["values"])
                     except Exception:
                         pass
-            return {"result": funcs, "tech_logs": "\\n".join(h.records)}
+            dps = {
+                str(dp): info.get("value")
+                for dp, info in funcs.items()
+                if isinstance(info, dict) and "value" in info
+            }
+            cfg = get_devices_data().get(dev_id, {"device_id": dev_id})
+            display, units = _display_status_from_model(dps, cfg, funcs)
+            return {
+                "result": funcs,
+                "status": dps,
+                "display_status": display,
+                "display_units": units,
+                "source": "cloud-shadow",
+                "tech_logs": "\\n".join(h.records),
+            }
         except Exception as e:
             return {"error": str(e), "tech_logs": "\\n".join(h.records)}
         finally:

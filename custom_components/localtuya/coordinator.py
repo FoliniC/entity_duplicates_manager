@@ -90,6 +90,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         # last_update_time: Sleep timer, a device that reports the status every x seconds then goes into sleep.
         self._last_update_time = time.monotonic() - 5
         self._pending_status: dict[str, dict[str, Any]] = {}
+        self._cloud_fallback_active = False
 
         self.is_closing = False
         self._task_connect: asyncio.Task | None = None
@@ -264,6 +265,14 @@ class TuyaDevice(TuyaListener, ContextualLogger):
                 except Exception as e:
                     self.warning(f"Wake-up failed for {host}: {e}")
                     status = {}
+                if not status:
+                    status = await self._cloud_status_as_dps(force_update=True)
+                    if status:
+                        self._cloud_fallback_active = True
+                        self.info(
+                            "Using Tuya Cloud shadow fallback for state (%s DPS)",
+                            len(status),
+                        )
                 self.status_updated(status)
             except (UnicodeDecodeError, DecodeError) as e:
                 self.exception(f"Handshake with {host} failed: due to {type(e)}: {e}")
@@ -305,7 +314,10 @@ class TuyaDevice(TuyaListener, ContextualLogger):
                     self.hass, signal, _new_entity_handler
                 )
 
-            if (scan_inv := int(self._device_config.scan_interval)) > 0:
+            scan_inv = int(self._device_config.scan_interval)
+            if self._cloud_fallback_active and scan_inv <= 0:
+                scan_inv = 60
+            if scan_inv > 0:
                 self._unsub_refresh = async_track_time_interval(
                     self.hass, self._async_refresh, timedelta(seconds=scan_inv)
                 )
@@ -331,6 +343,18 @@ class TuyaDevice(TuyaListener, ContextualLogger):
 
         # If not connected try to handle the errors.
         if not self.connected and not self.is_closing:
+            status = await self._cloud_status_as_dps(force_update=True)
+            if status:
+                self._cloud_fallback_active = True
+                self.info(
+                    "Using Tuya Cloud shadow fallback while local connection is unavailable (%s DPS)",
+                    len(status),
+                )
+                self.status_updated(status)
+                if self._unsub_refresh is None:
+                    self._unsub_refresh = async_track_time_interval(
+                        self.hass, self._async_refresh, timedelta(seconds=60)
+                    )
             if update_localkey:
                 # Check if the cloud device info has changed!
                 await self._update_local_key()
@@ -432,6 +456,14 @@ class TuyaDevice(TuyaListener, ContextualLogger):
                 await self._interface.update_dps(cid=self._node_id)
             except TimeoutError:
                 pass
+        if self._cloud_fallback_active:
+            status = await self._cloud_status_as_dps(force_update=True)
+            if status:
+                self.debug(
+                    "Refreshing dps from Tuya Cloud shadow fallback: %s",
+                    list(status.keys()),
+                )
+                self.status_updated(status)
 
     async def _async_reconnect(self):
         """Task: continuously attempt to reconnect to the device."""
@@ -479,6 +511,48 @@ class TuyaDevice(TuyaListener, ContextualLogger):
                 break
 
         self._task_reconnect = None
+
+    async def _cloud_status_as_dps(self, force_update: bool = False) -> dict:
+        """Return Tuya Cloud shadow values keyed by DP id."""
+        if self._entry.data.get(CONF_NO_CLOUD, True) or self.is_subdevice:
+            return {}
+        try:
+            if float(self._device_config.protocol_version) < 3.4:
+                return {}
+        except (TypeError, ValueError):
+            return {}
+
+        cloud_api = self._hass_entry.cloud_data
+        dev_id = self._device_config.id
+
+        try:
+            if force_update or dev_id not in cloud_api.device_list:
+                await cloud_api.async_get_devices_list(force_update=True)
+
+            if dev_id not in cloud_api.device_list:
+                self.debug("Cloud fallback skipped: device not found in cloud list")
+                return {}
+
+            dps_data = await cloud_api.async_get_device_functions(
+                dev_id, force_update=force_update
+            )
+        except Exception as ex:  # pylint: disable=broad-except
+            self.debug("Cloud fallback failed for %s: %s", dev_id, ex, force=True)
+            return {}
+
+        if not isinstance(dps_data, dict):
+            return {}
+
+        status = {
+            str(dp_id): dp_data.get("value")
+            for dp_id, dp_data in dps_data.items()
+            if isinstance(dp_data, dict) and "value" in dp_data
+        }
+        if status:
+            self.debug(
+                "Cloud fallback retrieved %s DPS for %s", len(status), dev_id, force=True
+            )
+        return status
 
     async def _shutdown_entities(self, exc=""):
         """Shutdown device entities"""

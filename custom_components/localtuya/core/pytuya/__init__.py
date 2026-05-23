@@ -368,14 +368,6 @@ class MessageDispatcher(ContextualLogger):
 
         self.debug("Dispatching message CMD %r %s", msg.cmd, msg)
 
-        # Hook per catturare messaggi raw nel listener
-        listener_obj = self.listener and self.listener()
-        if listener_obj and hasattr(listener_obj, "message_received"):
-            try:
-                listener_obj.message_received(msg)
-            except Exception:
-                self.exception("Failed to call message_received callback")
-
         if msg.seqno in self.listeners:
             self.debug("Dispatching sequence number %d", msg.seqno)
             self._release_listener(msg.seqno, msg)
