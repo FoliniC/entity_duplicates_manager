@@ -922,8 +922,7 @@ views:
       type: line
       name: appartamento
       color: red
-    - entity: switch.consumo_pdc
-      attribute: current_consumption
+    - entity: sensor.consumo_netto_pdc_template
       type: line
       name: pdc
       color: blue

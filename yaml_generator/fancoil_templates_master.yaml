@@ -8,3 +8,4 @@
 - !include managed_persistence/corridoio_persistence.yaml
 - !include managed_persistence/bagno_persistence.yaml
 - !include managed_persistence/sala_persistence.yaml
+- !include managed_persistence/consumo_netto_pdc_persistence.yaml

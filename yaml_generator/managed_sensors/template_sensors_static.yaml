@@ -83,7 +83,7 @@
     {# Priorità 1: Misuratore Totale Impianto Nuovo #}
     {% set p_tot = states('sensor.wifi_dual_meter_b_new_a_old_power_b') %}
     {% if p_tot not in ['unavailable', 'unknown', 'none'] %}
-      {{ (p_tot | float(0) / 10) | round(2) }}
+      {{ (p_tot | float(0)) | round(2) }}
     {% else %}
       {# Fallback: Somma dei carichi noti #}
       {% set pdc = states('sensor.consumo_netto_pdc_template') | float(0) %}

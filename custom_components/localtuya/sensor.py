@@ -72,6 +72,9 @@ class LocalTuyaSensor(LocalTuyaEntity, SensorEntity):
 
         self._has_sub_entities = False
         self._attr_device_class = self._config.get(CONF_DEVICE_CLASS)
+        self._attr_native_unit_of_measurement = self._config.get(
+            CONF_UNIT_OF_MEASUREMENT
+        )
 
     @property
     def native_value(self):
@@ -89,8 +92,8 @@ class LocalTuyaSensor(LocalTuyaEntity, SensorEntity):
         return getattr(
             self,
             "_attr_native_unit_of_measurement",
-            self._config.get(CONF_UNIT_OF_MEASUREMENT),
-        )
+            None,
+        ) or self._config.get(CONF_UNIT_OF_MEASUREMENT)
 
     def status_updated(self):
         """Device status was updated."""
