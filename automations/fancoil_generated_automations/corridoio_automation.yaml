@@ -747,55 +747,37 @@
 #                 level: info
 #                 message: "[Corridoio] Ripristino COMPLETATO. Gli switch sono tornati disponibili."
 
-# - id: "fancoil_corridoio_recovery_stuck"
-#   alias: "Fancoil Corridoio: Ripristino temperatura bloccata"
-#   initial_state: true
-#   mode: single
-#   triggers:
-#     - trigger: state
-#       entity_id: sensor.fancoil_corridoio_last_temperature
-#       for: "02:45:00"
-#   conditions:
-#     - condition: state
-#       entity_id: input_boolean.fancoil_corridoio_enabled
-#       state: "on"
-#     - condition: template
-#       value_template: >-
-#         {% set mode = states('sensor.fancoil_corridoio_hvac_temp_mode') %}
-#         {% set stop = is_state('binary_sensor.fancoil_corridoio_stop_condition', 'on') %}
-#         {% set speed = state_attr('climate.controllo_temperatura_corridoio', 'fan_mode') %}
-#         {{ mode != 'off' and not stop and speed in ['low', 'medium', 'high'] }}
-#   actions:
-#     - variables:
-#         hvac_temp_mode: "{{ states('sensor.fancoil_corridoio_hvac_temp_mode') }}"
-#         circuit_temp: "{{ states('sensor.temperatura_circuito_riscaldamento') | float(0) }}"
-#         threshold_heat: "{{ states('input_number.circuit_temp_threshold_heat') | float(30) }}"
-#         threshold_cool: "{{ states('input_number.circuit_temp_threshold_cool') | float(20) }}"
-#         pdc_heating: "{{ is_state('binary_sensor.pdc_heating', 'on') }}"
-#         is_climate_active: >-
-#           {% if hvac_temp_mode == 'heat' %}
-#             {{ circuit_temp >= threshold_heat and not stop_condition }}
-#           {% elif hvac_temp_mode == 'cool' %}
-#             {{ circuit_temp <= threshold_cool and not stop_condition }}
-#           {% else %}
-#             false
-#           {% endif %}
-#     - if:
-#         - condition: template
-#           value_template: "{{ is_climate_active }}"
-#       then:
-#         - event: fancoil_log_event
-#           event_data:
-#             level: warning
-#             message: "[Corridoio] Rilevata temperatura bloccata ({{ states('sensor.fancoil_corridoio_last_temperature') }}°C) per 45 min con ventola attiva. Avvio Power Cycle Stox."
-#         - action: switch.turn_off
-#           target:
-#             entity_id: switch.stox_fancoil_corridoio_switch
-#         - delay: "00:00:10"
-#         - action: switch.turn_on
-#           target:
-#             entity_id: switch.stox_fancoil_corridoio_switch
-#         - event: fancoil_log_event
-#           event_data:
-#             level: info
-#             message: "[Corridoio] Power Cycle Stox per temperatura bloccata completato."
+- id: "fancoil_corridoio_recovery_stuck"
+  alias: "Fancoil Corridoio: Ripristino temperatura bloccata"
+  initial_state: true
+  mode: single
+  triggers:
+    - trigger: state
+      entity_id: sensor.fancoil_corridoio_last_temperature
+      for: "00:45:00"
+  conditions:
+    - condition: state
+      entity_id: input_boolean.fancoil_corridoio_enabled
+      state: "on"
+    - condition: template
+      value_template: >-
+        {% set mode = states('sensor.fancoil_corridoio_hvac_temp_mode') %}
+        {% set stop = is_state('binary_sensor.fancoil_corridoio_stop_condition', 'on') %}
+        {% set speed = state_attr('climate.controllo_temperatura_corridoio', 'fan_mode') %}
+        {{ mode != 'off' and not stop and speed in ['low', 'medium', 'high'] }}
+  actions:
+    - event: fancoil_log_event
+      event_data:
+        level: warning
+        message: "[Corridoio] Rilevata anomalia: Ventola attiva ma temperatura bloccata ({{ states('sensor.fancoil_corridoio_last_temperature') }}°C). Avvio Power Cycle Stox."
+    - action: switch.turn_off
+      target:
+        entity_id: switch.stox_fancoil_corridoio_switch
+    - delay: "00:00:10"
+    - action: switch.turn_on
+      target:
+        entity_id: switch.stox_fancoil_corridoio_switch
+    - event: fancoil_log_event
+      event_data:
+        level: info
+        message: "[Corridoio] Power Cycle Stox per anomalia temperatura completato."
