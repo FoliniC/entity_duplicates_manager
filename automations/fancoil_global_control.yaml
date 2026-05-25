@@ -34,19 +34,34 @@
         switch_on: "{{ is_state('switch.attiva_fancoil', 'on') }}"
         circuit_temp: "{{ states('sensor.temperatura_circuito_riscaldamento') | float(0) }}"
         threshold_heat: "{{ states('input_number.circuit_temp_threshold_heat') | float(30) }}"
+        threshold_cool: "{{ states('input_number.circuit_temp_threshold_cool') | float(20) }}"
         
-        # Calcolo del modo target basato su schedulazione e switch
-        # Se uno dei due è ON, il modo desiderato è 'heat'
+        # Il modo desiderato è quello impostato sul climate master, 
+        # a meno che il sistema non debba essere spento per schedulazione/switch
+        master_hvac_mode: "{{ states('climate.climatizzazione_appartamento') }}"
+        
         target_mode: >-
-          {% if sched_on or switch_on %} heat
+          {% if sched_on or switch_on %}
+            {% if master_hvac_mode in ['heat', 'cool', 'dry', 'fan_only'] %}
+              {{ master_hvac_mode }}
+            {% else %}
+              {# Fallback se il master è off ma lo switch è on: usa l'ultima modalità dell'input_select se valida, altrimenti heat #}
+              {% set last_mode = states('input_select.fancoil_system_hvac_mode') %}
+              {{ last_mode if last_mode in ['heat', 'cool'] else 'heat' }}
+            {% endif %}
           {% else %} off
           {% endif %}
 
-        # Motivo del blocco (solo se il sistema dovrebbe essere acceso)
+        # Motivo del blocco
         block_reason: >-
           {% if target_mode == 'heat' %}
             {% if pdc_h2o %} Produzione Acqua Calda
             {% elif circuit_temp < threshold_heat %} Temperatura Circuito Bassa ({{ circuit_temp }}°C)
+            {% else %} none
+            {% endif %}
+          {% elif target_mode == 'cool' %}
+            {% if pdc_h2o %} Produzione Acqua Calda
+            {% elif circuit_temp > threshold_cool %} Temperatura Circuito Alta ({{ circuit_temp }}°C)
             {% else %} none
             {% endif %}
           {% else %} none

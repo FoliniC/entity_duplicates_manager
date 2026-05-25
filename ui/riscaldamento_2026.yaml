@@ -85,7 +85,11 @@ views:
           - entity: switch.attiva_fancoil
           - entity: switch.attiva_pdc
           - entity: switch.attiva_pompa_circolazione
-        title: Riscaldamento
+          - entity: input_number.circuit_temp_threshold_heat
+            name: "Soglia Riscaldamento (°C)"
+          - entity: input_number.circuit_temp_threshold_cool
+            name: "Soglia Raffrescamento (°C)"
+        title: Climatizzazione
         state_color: true
   - title: Termostati
     path: riscaldamento

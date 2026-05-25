@@ -5,3 +5,5 @@ fancoil_verbosity_level_master:
     - "error"
     - "info"
     - "verbose"
+
+
