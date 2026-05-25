@@ -37,10 +37,10 @@ condition:
           ] %}
         {% for entity_id in climate_entities %}
           {% if states(entity_id) is not none and states(entity_id).attributes.temperature is defined %}
-            {% set original_setpoint = states(entity_id).attributes.temperature | float %}
+            {% set original_setpoint = states(entity_id).attributes.temperature | float(0) %}
             {% set current_offset = states('input_number.climate_setpoint_offset') | float(0) %}
             {% set expected_setpoint = original_setpoint + current_offset %}
-            {% if (states(entity_id).attributes.temperature | float) != expected_setpoint %}
+            {% if (states(entity_id).attributes.temperature | float(0)) != expected_setpoint %}
               {{ true }}
             {% endif %}
           {% endif %}

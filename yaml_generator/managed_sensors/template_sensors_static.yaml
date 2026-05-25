@@ -97,7 +97,7 @@
   state: >-
     {# Priorità 1: Envoy #}
     {% if states('sensor.envoy_122134037538_current_power_production') not in ['unavailable', 'unknown', 'none'] %}
-      {% set value = states('sensor.envoy_122134037538_current_power_production') | float %}
+      {% set value = states('sensor.envoy_122134037538_current_power_production') | float(0) %}
       {% if 'kW' in state_attr('sensor.envoy_122134037538_current_power_production', 'unit_of_measurement') | string %}
         {{ (value * 1000) | round(1) }}
       {% else %}
@@ -105,7 +105,7 @@
       {% endif %}
     {# Priorità 2: Alfa New #}
     {% elif states('sensor.produzione_solare') not in ['unavailable', 'unknown', 'none'] %}
-      {% set value = states('sensor.produzione_solare') | float %}
+      {% set value = states('sensor.produzione_solare') | float(0) %}
       {% if 'kW' in state_attr('sensor.produzione_solare', 'unit_of_measurement') | string %}
         {{ (value * 1000) | round(1) }}
       {% else %}

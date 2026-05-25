@@ -138,7 +138,7 @@ views:
           {% set interval_ok = seconds_since_current_change >= inertia_interval_s %}
           {% set should_send_current = target_amp != last_current_amp and (force_current_sync or (delta_ok and interval_ok)) %}
 
-          {% if byd_soc | float < states('input_number.ev_charge_2025_byd_min_soc_stop') | float %}
+          {% if byd_soc | float(0) < states('input_number.ev_charge_2025_byd_min_soc_stop') | float(0) %}
           **Motivo blocco:** Batteria BYD ({{ byd_soc | round(1) }}%) sotto la soglia di protezione ({{ states('input_number.ev_charge_2025_byd_min_soc_stop') | round(1) }}%).
           {% elif not active %}
           **Motivo blocco:** ricarica disattivata dal comando principale.

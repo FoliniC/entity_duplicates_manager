@@ -114,8 +114,6 @@ class XRemoteSensor(BinarySensorEntity, RestoreEntity):
         self._attr_name = child["name"]
         self._attr_unique_id = f"{bridge['deviceid']}_{self.channel}"
 
-        self.entity_id = DOMAIN + "." + self._attr_unique_id
-
     def internal_update(self, ts: str):
         if self.task:
             self.task.cancel()

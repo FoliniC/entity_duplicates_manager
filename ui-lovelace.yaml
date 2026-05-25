@@ -1206,24 +1206,24 @@ views:
     links:
     - source: rete
       target: totale
-      value: '{{ states(''sensor.potenza_prelevata_attuale'')|float }}'
+      value: '{{ states(''sensor.potenza_prelevata_attuale'')|float(0) }}'
     - source: solare
       target: totale
-      value: '{{ states(''sensor.alfa_potenza_attiva_prodotta_istantanea'')|float
+      value: '{{ states(''sensor.alfa_potenza_attiva_prodotta_istantanea'')|float(0)
         }}'
     - source: batteria
       target: totale
-      value: '{{ states(''sensor.solarnet_power_battery'')|float if states(''sensor.solarnet_power_battery'')|float
+      value: '{{ states(''sensor.solarnet_power_battery'')|float(0) if states(''sensor.solarnet_power_battery'')|float(0)
         < 0 else 0 }}'
     - source: totale
       target: pdc
-      value: '{{ states(''sensor.consumo_netto_pdc'')|float }}'
+      value: '{{ states(''sensor.consumo_netto_pdc'')|float(0) }}'
     - source: totale
       target: appartamento
-      value: '{{ states(''sensor.consumo_appartamento_template'')|float }}'
+      value: '{{ states(''sensor.consumo_appartamento_template'')|float(0) }}'
     - source: totale
       target: colonnina
-      value: '{{ states(''sensor.prism_potenza'')|float }}'
+      value: '{{ states(''sensor.prism_potenza'')|float(0) }}'
     time_period_from: now-5m
   - type: grid
     square: false

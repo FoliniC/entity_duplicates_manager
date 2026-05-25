@@ -300,7 +300,7 @@ intent_script:
 # LOGGER
 # ============================================================================
 logger:
-  default: info
+  default: warning
   logs:
     custom_components.localtuya: error
     fancoil_system: error
@@ -308,9 +308,9 @@ logger:
     #homeassistant.components.python_script: debug
     homeassistant.components.script: error
     system_log.external: error
-    homeassistant.components.mqtt: debug
-    homeassistant.components.automation: debug
-    custom_components.cronostar: debug
+    homeassistant.components.mqtt: error
+    homeassistant.components.automation: error
+    custom_components.cronostar: error
     custom_components.azure_openai_sdk_conversation: error
     #homeassistant.core: error
     #homeassistant.components: error

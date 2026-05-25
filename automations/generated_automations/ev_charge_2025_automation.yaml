@@ -62,7 +62,7 @@
         w_surplus_puro: "{{ (prism_p - grid_p_w) - b_discharge + b_charge }}"
         
         w_disponibile: >
-          {% set surplus = [0, w_surplus_puro | float - 200] | max %}
+          {% set surplus = [0, w_surplus_puro | float(0) - 200] | max %}
           {% if byd_soc < p_prot %}
             {% set w_to_battery = [surplus, w_max_c] | min %}
             {{ surplus - w_to_battery }}
@@ -81,7 +81,7 @@
           {% if mode == "Manuale" %}
             {% set manual_amp = (manual_kw * 1000 / 230) | int %}
             {% if no_grid %}
-              {% set solar_amp = (w_disponibile | float / voltage) | int %}
+              {% set solar_amp = (w_disponibile | float(0) / voltage) | int %}
               {{ [solar_amp, manual_amp] | min | clamp(6, 32) if solar_amp >= 6 else 0 }}
             {% elif byd_soc <= p_min_stop %}
               {# Se batteria casa scarica, limita ricarica manuale al solo sole per non pesare sulla batteria #}
@@ -94,7 +94,7 @@
           {% else %}
             {% if crono >= 7.9 %}
               {# Modalità SOLARE: usa surplus solare #}
-              {% set calculated_amp = (w_disponibile | float / voltage) | int %}
+              {% set calculated_amp = (w_disponibile | float(0) / voltage) | int %}
               {% set can_charge = (calculated_amp >= 6 or (cur_soc < tgt_soc and byd_soc >= p_inv and byd_soc > p_min_stop)) %}
               {{ [6, calculated_amp] | max if can_charge else 0 }}
             {% elif crono > 0.1 %}

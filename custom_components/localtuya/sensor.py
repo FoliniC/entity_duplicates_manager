@@ -17,11 +17,14 @@ from homeassistant.components.sensor import (
 from homeassistant.const import (
     CONF_DEVICE_CLASS,
     CONF_UNIT_OF_MEASUREMENT,
+    PERCENTAGE,
     Platform,
     STATE_UNKNOWN,
     UnitOfElectricCurrent,
     UnitOfElectricPotential,
+    UnitOfEnergy,
     UnitOfPower,
+    UnitOfTemperature,
 )
 from homeassistant.helpers import entity_registry as er
 
@@ -31,6 +34,14 @@ from .const import CONF_SCALING, CONF_STATE_CLASS
 _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_PRECISION = 2
+
+DEFAULT_UNITS = {
+    SensorDeviceClass.TEMPERATURE: UnitOfTemperature.CELSIUS,
+    SensorDeviceClass.HUMIDITY: PERCENTAGE,
+    SensorDeviceClass.BATTERY: PERCENTAGE,
+    SensorDeviceClass.POWER: UnitOfPower.WATT,
+    SensorDeviceClass.ENERGY: UnitOfEnergy.KILO_WATT_HOUR,
+}
 
 ATTR_POWER = "power"
 ATTR_VOLTAGE = "voltage"
@@ -89,11 +100,15 @@ class LocalTuyaSensor(LocalTuyaEntity, SensorEntity):
     @property
     def native_unit_of_measurement(self):
         """Return the unit of measurement of this entity, if any."""
-        return getattr(
+        unit = getattr(
             self,
             "_attr_native_unit_of_measurement",
             None,
         ) or self._config.get(CONF_UNIT_OF_MEASUREMENT)
+
+        if unit is None and self.device_class:
+            return DEFAULT_UNITS.get(self.device_class)
+        return unit
 
     def status_updated(self):
         """Device status was updated."""
