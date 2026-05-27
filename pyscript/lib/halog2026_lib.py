@@ -71,7 +71,8 @@ def _should_rotate_time(log_file: str, when: str, interval: int = 1) -> bool:
         return now.date() > last_rot.date()
     
     seconds_map = {"S": 1, "M": 60, "H": 3600, "D": 86400, "W": 604800}
-    limit_seconds = seconds_map.get(when, 86400) * interval
+    when_key = when[0].upper() if when else "D"
+    limit_seconds = seconds_map.get(when_key, 86400) * interval
     return (now - last_rot).total_seconds() > limit_seconds
 
 # ── Public API ────────────────────────────────────────────────────────────────

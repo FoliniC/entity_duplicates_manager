@@ -54,9 +54,9 @@ class DuplicatesCountSensor(RestoreEntity, SensorEntity):
         # Limit the list of duplicates to prevent recorder warnings (max 16KB)
         return {
             "total_duplicates": len(self._duplicates),
-            "duplicates": self._duplicates[:50],
+            "duplicates": self._duplicates[:15],
             "config": config,
-            "truncated": len(self._duplicates) > 50
+            "truncated": len(self._duplicates) > 15
         }
 
     @callback

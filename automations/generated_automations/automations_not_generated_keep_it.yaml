@@ -394,7 +394,7 @@
         {% set temp_int = states(source_entity) | float(none) if source_entity else none %}
         
         {% if temp_ext is not none and temp_int is not none %}
-          {{ (temp_int - temp_ext) | abs > 3 }}
+          {{ (temp_int - temp_ext) | abs > 5 }}
         {% else %}
           true
         {% endif %}
