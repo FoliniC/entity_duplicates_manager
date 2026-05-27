@@ -137,14 +137,15 @@
               target:
                 entity_id: switch.fancoil_%%id%%_switch_4
             - delay: "00:00:01"
-            - action: switch.turn_on
-              target:
-                entity_id: switch.fancoil_%%id%%_switch_1
             - action: switch.turn_off
               target:
                 entity_id:
                   - switch.fancoil_%%id%%_switch_2
                   - switch.fancoil_%%id%%_switch_3
+            - delay: "00:00:02"
+            - action: switch.turn_on
+              target:
+                entity_id: switch.fancoil_%%id%%_switch_1
 
         # MEDIUM: velocità 2 + valvola
         - conditions:
@@ -155,14 +156,15 @@
               target:
                 entity_id: switch.fancoil_%%id%%_switch_4
             - delay: "00:00:01"
-            - action: switch.turn_on
-              target:
-                entity_id: switch.fancoil_%%id%%_switch_2
             - action: switch.turn_off
               target:
                 entity_id:
                   - switch.fancoil_%%id%%_switch_1
                   - switch.fancoil_%%id%%_switch_3
+            - delay: "00:00:02"
+            - action: switch.turn_on
+              target:
+                entity_id: switch.fancoil_%%id%%_switch_2
 
         # HIGH: velocità 3 + valvola
         - conditions:
@@ -173,14 +175,16 @@
               target:
                 entity_id: switch.fancoil_%%id%%_switch_4
             - delay: "00:00:01"
-            - action: switch.turn_on
-              target:
-                entity_id: switch.fancoil_%%id%%_switch_3
             - action: switch.turn_off
               target:
                 entity_id:
                   - switch.fancoil_%%id%%_switch_1
                   - switch.fancoil_%%id%%_switch_2
+            - delay: "00:00:02"
+            - action: switch.turn_on
+              target:
+                entity_id: switch.fancoil_%%id%%_switch_3
+
 
     # Log verbose se richiesto
     - if:
