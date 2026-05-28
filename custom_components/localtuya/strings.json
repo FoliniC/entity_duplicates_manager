@@ -1,49 +1,55 @@
 {
     "config": {
         "abort": {
-            "already_configured": "This Account ID has already been configured.",
-            "unsupported_device_type": "Unsupported device type!"
+            "already_configured": "This account has already been configured.",
+            "device_updated": "Device configuration has been updated."
         },
         "error": {
-            "progress_update": "Please wait...",
-            "cannot_connect": "Cannot connect to device. Verify that address is correct.",
-            "invalid_auth": "Failed to authenticate with device. Verify that device id and local key are correct.",
-            "unknown": "An unknown error occurred. See log for details.",
-            "switch_already_configured": "Switch with this ID has already been configured."
+            "auto_configure_progress": "Discovering entities automatically...",
+            "connecting": "Connecting to device and detecting DPS. Please wait...",
+            "authentication_failed": "Failed to authenticate.\n{msg}",
+            "cannot_connect": "Cannot connect to device. Confirm the IP Address is correct then try again.",
+            "device_list_failed": "Failed to retrieve device list.\n{msg}",
+            "invalid_auth": "Failed to authenticate with device. Confirm the Device Id and Local Key are correct.",
+            "unknown": "An unknown error occurred.\n{ex}.",
+            "entity_already_configured": "This entity has already been configured.",
+            "address_in_use": "TCP port 6668 (used for discovery) is already in use. Check no other integration is using it.",
+            "discovery_failed": "Something failed when discovering devices. See log for details. If problem persists, create a new issue (including debug logs).",
+            "empty_dps": "Connection to device succeeded but no datapoints could be found. Please try set-up again. If problem persists, create a new issue (including debug logs)."
         },
         "step": {
             "user": {
-                "title": "Main Configuration",
-                "description": "Input the credentials for Tuya Cloud API.",
+                "title": "Cloud API account configuration",
+                "description": "Configure the credentials used to connect to the Tuya Cloud API.",
                 "data": {
-                    "region": "API server region",
+                    "region": "Data Center Region",
                     "client_id": "Client ID",
-                    "client_secret": "Secret",
-                    "user_id": "User ID"
+                    "client_secret": "Client Secret",
+                    "user_id": "User ID",
+                    "username": "Username",
+                    "no_cloud": "Disable Cloud API?"
                 }
-            },
-            "configure_device": {
-                "title": "Configuring device connectivity (FIXED)",
-                "description": "Validating connection..."
-            },
-            "connecting": {
-                "title": "Device Connection",
-                "description": "Connecting to device and detecting DP status. Please wait..."
             }
         }
     },
     "options": {
-        "step": {
-            "init": {
-                "title": "LocalTuya Configuration",
-                "description": "Please select the desired action.",
-                "data": {
-                    "add_device": "Add a new device",
-                    "edit_device": "Edit a device",
-                    "delete_device": "Delete a device",
-                    "setup_cloud": "Reconfigure Cloud API account"
-                }
-            }
+        "abort": {
+            "already_configured": "This account has already been configured.",
+            "device_success": "Device {dev_name} successfully {action}.",
+            "no_entities": "Cannot remove all entities from a device."
+        },
+        "error": {
+            "auto_configure_progress": "Discovering entities automatically...",
+            "connecting": "Connecting to device and detecting DPS. Please wait...",
+            "authentication_failed": "Failed to authenticate.\n{msg}",
+            "cannot_connect": "Cannot connect to device. Confirm the IP Address is correct then try again.",
+            "device_list_failed": "Failed to retrieve device list.\n{msg}",
+            "invalid_auth": "Failed to authenticate with device. Confirm the Device Id and Local Key are correct.",
+            "unknown": "An unknown error occurred.\n{ex}.",
+            "entity_already_configured": "This entity has already been configured.",
+            "address_in_use": "TCP port 6668 (used for discovery) is already in use. Check no other integration is using it.",
+            "discovery_failed": "Something failed when discovering devices. See log for details. If problem persists, create a new issue (including debug logs).",
+            "empty_dps": "Connection to device succeeded but no datapoints could be found. Please try set-up again. If problem persists, create a new issue (including debug logs)."
         }
     },
     "title": "LocalTuya"

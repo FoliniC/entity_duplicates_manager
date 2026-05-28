@@ -39,15 +39,21 @@
         # Il modo desiderato è quello impostato sul climate master, 
         # a meno che il sistema non debba essere spento per schedulazione/switch
         master_hvac_mode: "{{ states('climate.climatizzazione_appartamento') }}"
+        saved_mode: "{{ states('sensor.fancoil_system_saved_hvac_mode') }}"
         
         target_mode: >-
           {% if sched_on or switch_on %}
             {% if master_hvac_mode in ['heat', 'cool', 'dry', 'fan_only'] %}
               {{ master_hvac_mode }}
             {% else %}
-              {# Fallback se il master è off ma lo switch è on: usa l'ultima modalità dell'input_select se valida, altrimenti heat #}
-              {% set last_mode = states('input_select.fancoil_system_hvac_mode') %}
-              {{ last_mode if last_mode in ['heat', 'cool'] else 'heat' }}
+              {# Fallback se il master è off/unavail ma lo switch è on: usa il modo salvato #}
+              {% if saved_mode in ['heat', 'cool', 'dry', 'fan_only'] %}
+                {{ saved_mode }}
+              {% else %}
+                {# Ultima spiaggia: se anche il salvato è ignoto, prova l'input_select o infine heat #}
+                {% set last_mode = states('input_select.fancoil_system_hvac_mode') %}
+                {{ last_mode if last_mode in ['heat', 'cool'] else 'heat' }}
+              {% endif %}
             {% endif %}
           {% else %} off
           {% endif %}

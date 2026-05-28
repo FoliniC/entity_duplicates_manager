@@ -1,0 +1,21 @@
+
+trigger:
+  - platform: state
+    entity_id: input_select.fancoil_system_hvac_mode
+    not_to:
+      - "unknown"
+      - "unavailable"
+  - platform: homeassistant
+    event: start
+
+sensor:
+  - name: "Fancoil System Saved HVAC Mode"
+    unique_id: fancoil_system_saved_hvac_mode
+    state: >-
+      {% set current = states('input_select.fancoil_system_hvac_mode') %}
+      {% if current in ['heat', 'cool', 'dry', 'fan_only'] %}
+        {{ current }}
+      {% else %}
+        {{ this.state | default('heat') }}
+      {% endif %}
+    icon: mdi:hvac

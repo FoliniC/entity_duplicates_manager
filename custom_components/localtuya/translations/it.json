@@ -5,13 +5,17 @@
             "device_updated": "La configurazione del dispositivo è stata aggiornata."
         },
         "error": {
-            "progress_update": "Attendere prego...",
             "auto_configure_progress": "Scoperta automatica delle entità in corso...",
             "connecting": "Connessione al dispositivo e rilevamento DPS. Attendere prego...",
             "authentication_failed": "Autenticazione fallita.\n{msg}",
             "cannot_connect": "Impossibile connettersi al dispositivo. Conferma che l'indirizzo IP sia corretto e riprova.",
+            "device_list_failed": "Recupero dell'elenco dei dispositivi fallito.\n{msg}",
             "invalid_auth": "Autenticazione fallita con il dispositivo. Conferma che l'ID dispositivo e la chiave locale siano corretti.",
-            "unknown": "Si è verificato un errore sconosciuto.\n{ex}."
+            "unknown": "Si è verificato un errore sconosciuto.\n{ex}.",
+            "entity_already_configured": "Questa entità è già stata configurata.",
+            "address_in_use": "La porta TCP 6668 (usata per la scoperta) è già in uso. Verifica che nessun'altra integrazione la stia utilizzando.",
+            "discovery_failed": "Qualcosa è fallito durante la scoperta dei dispositivi. Consulta il log per i dettagli.",
+            "empty_dps": "Connessione al dispositivo riuscita ma non è stato possibile trovare datapoint. Riprova la configurazione."
         },
         "step": {
             "user": {
@@ -83,8 +87,17 @@
             }
         },
         "error": {
+            "auto_configure_progress": "Scoperta automatica delle entità in corso...",
             "connecting": "Connessione al dispositivo e rilevamento DPS. Attendere prego...",
-            "auto_configure_progress": "Scoperta automatica delle entità in corso..."
+            "authentication_failed": "Autenticazione fallita.\n{msg}",
+            "cannot_connect": "Impossibile connettersi al dispositivo. Conferma che l'indirizzo IP sia corretto e riprova.",
+            "device_list_failed": "Recupero dell'elenco dei dispositivi fallito.\n{msg}",
+            "invalid_auth": "Autenticazione fallita con il dispositivo. Conferma che l'ID dispositivo e la chiave locale siano corretti.",
+            "unknown": "Si è verificato un errore sconosciuto.\n{ex}.",
+            "entity_already_configured": "Questa entità è già stata configurata.",
+            "address_in_use": "La porta TCP 6668 (usata per la scoperta) è già in uso. Verifica che nessun'altra integrazione la stia utilizzando.",
+            "discovery_failed": "Qualcosa è fallito durante la scoperta dei dispositivi. Consulta il log per i dettagli.",
+            "empty_dps": "Connessione al dispositivo riuscita ma non è stato possibile trovare datapoint. Riprova la configurazione."
         }
     },
     "title": "LocalTuya"
