@@ -25,7 +25,13 @@ Documentazione della configurazione di rete per l'ambiente Home Assistant.
 ### Sistema Wi-Fi Mesh
 - **Hardware:** Tenda AC1200 Mesh5 (MW5)
 - **Configurazione:**
-  - **Base (Cucina):** Collegata via Ethernet Gigabit al router TP-Link.
+  - **Base (Cucina):**
+    - **IP:** `192.168.0.10`
+    - **Firmware:** `V1.0.0.33(6048)`
+    - **MAC LAN:** `CC:2D:21:27:28:68` (Collegata via Ethernet al router)
+    - **MAC WAN:** `CC:2D:21:27:28:6F`
+    - **MAC Wi-Fi 2.4GHz:** `CC:2D:21:27:28:69`
+    - **MAC Wi-Fi 5GHz:** `CC:2D:21:27:28:6C`
   - **Satellite 1 (Camera):** Collegamento mesh wireless.
   - **Satellite 2 (Balcone):** Collegamento mesh wireless.
 - **Funzione:** Estensione della copertura Wi-Fi per aree non raggiunte direttamente dal router.
