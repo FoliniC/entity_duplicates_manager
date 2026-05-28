@@ -136,16 +136,15 @@ sensor:
   - platform: influxdb
     api_version: 2
     ssl: false
+    host: 127.0.0.1
     token: VwnOdiOeE5fGqtgj00OLReRCeRJfCklVZzcatPE0ncJkZ1m3tXEFwGGC659PK7bX2fPwUWCBJ-kKJM6C4gcSlw==
     organization: ViaGrande50
     bucket: HAData
-    host: 127.0.0.1
-    port: 8086
     queries_flux:
       - range_start: "-10d"
-        name: "How long have I been here"
+        name: "Camera Grande Current Temperature Influx"
         query: >
-          filter(fn: (r) => r["_measurement"] == "climate.camera_grande" )
+          filter(fn: (r) => r["_measurement"] == "climate.controllo_temperatura_camera_grande" )
           |> filter(fn: (r) => r["_field"] == "current_temperature")
 
   # Media Mobile per Ricarica EV
