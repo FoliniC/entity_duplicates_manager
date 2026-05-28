@@ -45,12 +45,15 @@ Documentazione della configurazione di rete per l'ambiente Home Assistant.
   - **MAC:** `68:f6:3b:99:6b:a3`
 
 ## Analisi Impatto Mesh su Alexa
-L'integrazione del sistema Tenda Mesh5 ha un impatto significativo sulla stabilità dei dispositivi Echo:
+L'integrazione del sistema Tenda Mesh5 e la gestione dei canali su OpenWrt hanno portato alla seguente configurazione ottimizzata:
 
-1.  **Backhaul Ethernet:** La base in cucina collegata via cavo garantisce che il traffico generato dalle Alexa in quell'area non consumi banda Wi-Fi aggiuntiva per il transito verso il router.
-2.  **Roaming (Camera):** `alexa-camera` potrebbe trovarsi in una zona di sovrapposizione tra la 5GHz del router TP-Link e il satellite Tenda in camera. Se le due reti hanno lo stesso SSID, il dispositivo potrebbe saltare tra i due, causando micro-disconnessioni.
-3.  **Interferenza Canali:** Il sistema Tenda Mesh tende a scegliere canali automaticamente. È fondamentale che il router OpenWrt usi un canale fisso (es. 36-48) per evitare che il Mesh entri in conflitto sulla stessa frequenza 5GHz.
-4.  **Latenza:** I satelliti wireless (Balcone/Camera) aggiungono un leggero ritardo (latenza) rispetto alla connessione diretta al router o alla base cablata.
+1.  **Backhaul Ethernet:** La base in cucina collegata via cavo garantisce prestazioni elevate per l'area giorno.
+2.  **Ottimizzazione alexa-camera:**
+    *   **Stato:** Forzata sulla **5GHz** del router OpenWrt.
+    *   **Configurazione:** Inserita in **Blacklist** sulla 2.4GHz del router e sul sistema Tenda Mesh.
+    *   **Performance:** Bitrate rilevato ~**260 MBit/s** (VHT80), segnale **-65 dBm** (SNR 43). Questo garantisce una banda passante molto superiore alla 2.4GHz e una latenza ridotta.
+3.  **Ottimizzazione alexa-cucina:** Agganciata alla base Tenda Mesh (cablata), garantendo stabilità tramite il backhaul ethernet.
+4.  **Interferenza Canali:** Il router OpenWrt utilizza il **canale 149 (5GHz)** in modalità **VHT80** (fisso), mentre il Tenda Mesh opera sui canali bassi (es. 40), eliminando le sovrapposizioni.
 
 ## Note di Configurazione
 - Il server Debian (`192.168.0.3`) funge da centro di controllo sia per la domotica che per i servizi di rete critici (DNS/DHCP tramite AdGuard).

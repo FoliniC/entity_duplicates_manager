@@ -73,6 +73,8 @@
         fan_target: >-
           {% if hvac_temp_mode == 'off' %}
             off
+          {% elif hvac_temp_mode == 'dry' %}
+            idle
           {% elif stop_condition %}
             off
           {% elif is_state('binary_sensor.pdc_acqua_calda', 'on') %}
@@ -116,7 +118,7 @@
           {% set ts = states('input_datetime.fancoil_corridoio_last_main_off') %}
           {{ ((as_timestamp(now()) - as_timestamp(ts)) / 60) | default(9999) | float(9999) if ts not in ['unavailable', 'unknown', '', None] and as_timestamp(ts) > 0 else 9999 }}
         # Al reboot (first_run) ignoriamo il ritardo minimo per ripartire subito se serve
-        resume_allowed: "{{ not stop_condition and diff >= soglia_resume and (minutes_since_off >= resume_delay_minutes or first_run) }}"
+        resume_allowed: "{{ hvac_temp_mode == 'dry' or (not stop_condition and diff >= soglia_resume and (minutes_since_off >= resume_delay_minutes or first_run)) }}"
         logging_active: >-
           {% set follow = is_state('input_boolean.fancoil_corridoio_logging_follow_master', 'on') %}
           {% set master_on = is_state('input_boolean.fancoil_logging_master_enabled', 'on') %}
@@ -241,7 +243,7 @@
         # Gestione STOP: se la differenza è sotto soglia_stop O la modalità è OFF, spegni il fancoil (velocità+valvola)
         - if:
             - condition: template
-              value_template: "{{ stop_condition or hvac_temp_mode == 'off' }}"
+              value_template: "{{ (stop_condition and hvac_temp_mode != 'dry') or hvac_temp_mode == 'off' }}"
           then:
             # Esegui STOP solo se il fancoil è realmente attivo; in caso contrario evita log ripetuti
             - if:
@@ -301,7 +303,7 @@
             # Riaccendi il main (RESUME) solo se disponibile e con isteresi (bypass ritardo al primo avvio)
             - if:
                 - condition: template
-                  value_template: "{{ hvac_temp_mode != 'off' and not main_on and main_available and not stop_condition and (first_run or resume_allowed) }}"
+                  value_template: "{{ hvac_temp_mode != 'off' and not main_on and main_available and (not stop_condition or hvac_temp_mode == 'dry') and (first_run or resume_allowed) }}"
               then:
                 - action: switch.turn_on
                   target:
@@ -768,7 +770,8 @@
         soglia_idle: "{{ states('input_number.fan_distance_idle') | float(0.3) }}"
 
         fan_target: >-
-          {% if hvac_mode == 'off' or stop_condition %} off
+          {% if hvac_mode == 'off' or (stop_condition and hvac_mode != 'dry') %} off
+          {% elif hvac_mode == 'dry' %} idle
           {% elif is_state('binary_sensor.pdc_acqua_calda', 'on') %} idle
           {% elif diff >= (soglia_high - 0.01) %} high
           {% elif diff >= (soglia_medium - 0.01) %} medium
