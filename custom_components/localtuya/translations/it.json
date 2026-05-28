@@ -8,10 +8,10 @@
             "progress_update": "Attendere prego...",
             "auto_configure_progress": "Scoperta automatica delle entità in corso...",
             "connecting": "Connessione al dispositivo e rilevamento DPS. Attendere prego...",
-            "authentication_failed": "Autenticazione fallita.",
+            "authentication_failed": "Autenticazione fallita.\n{msg}",
             "cannot_connect": "Impossibile connettersi al dispositivo. Conferma che l'indirizzo IP sia corretto e riprova.",
             "invalid_auth": "Autenticazione fallita con il dispositivo. Conferma che l'ID dispositivo e la chiave locale siano corretti.",
-            "unknown": "Si è verificato un errore sconosciuto."
+            "unknown": "Si è verificato un errore sconosciuto.\n{ex}."
         },
         "step": {
             "user": {

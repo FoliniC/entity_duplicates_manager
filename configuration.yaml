@@ -137,7 +137,8 @@ sensor:
     api_version: 2
     ssl: false
     host: 127.0.0.1
-    token: VwnOdiOeE5fGqtgj00OLReRCeRJfCklVZzcatPE0ncJkZ1m3tXEFwGGC659PK7bX2fPwUWCBJ-kKJM6C4gcSlw==
+    port: 8086
+    token: !secret influxdb_token
     organization: ViaGrande50
     bucket: HAData
     queries_flux:
