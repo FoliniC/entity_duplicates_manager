@@ -7,6 +7,8 @@
         - input_number.ev_charge_2025_byd_min_soc_stop
         - input_number.ev_charge_2025_target_soc
         - input_number.ev_charge_2025_vehicle_limit_soc
+        - input_number.ev_charge_2025_byd_max_discharge_power
+        - input_number.ev_charge_2025_grid_max_power
   action:
     - action: pyscript.halog2026_state_save
       data:

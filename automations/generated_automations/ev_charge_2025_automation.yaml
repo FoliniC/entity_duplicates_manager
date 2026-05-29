@@ -16,6 +16,8 @@
         - input_select.ev_charge_2025_mode
         - input_number.ev_charge_2025_manual_power_kw
         - input_number.ev_charge_2025_cronostar_power_target
+        - input_number.ev_charge_2025_byd_max_discharge_power
+        - input_number.ev_charge_2025_grid_max_power
   action:
     # Attendi che i sensori si stabilizzino al boot
     - if:
@@ -55,6 +57,7 @@
         byd_soc_float: "{{ states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(-1) }}"
         w_max_c: "{{ states('input_number.ev_charge_2025_byd_max_charge_power') | float(5) * 1000 }}"
         w_max_d: "{{ states('input_number.ev_charge_2025_byd_max_discharge_power') | float(5) * 1000 }}"
+        w_max_grid: "{{ states('input_number.ev_charge_2025_grid_max_power') | float(6) * 1000 }}"
         inertia_delta_a: "{{ states('input_number.ev_charge_2025_current_min_delta_a') | int(2) }}"
         inertia_interval_s: "{{ states('input_number.ev_charge_2025_current_min_interval_min') | int(3) * 60 }}"
 
@@ -84,34 +87,42 @@
               {% set solar_amp = (w_disponibile | float(0) / voltage) | int %}
               {{ [solar_amp, manual_amp] | min | clamp(6, 32) if solar_amp >= 6 else 0 }}
             {% elif byd_soc <= p_min_stop %}
-              {# Se batteria casa scarica, limita ricarica manuale al solo sole per non pesare sulla batteria #}
+              {# Se batteria casa scarica, limita ricarica manuale a solo sole + rete prelevabile #}
               {% set solar_p_no_batt = [0, (prism_p - grid_p_w) - 200] | max %}
-              {% set solar_amp_only = (solar_p_no_batt / voltage) | int %}
-              {{ [solar_amp_only, manual_amp] | min | clamp(6, 32) if solar_amp_only >= 6 else 0 }}
+              {% set total_power = solar_p_no_batt + w_max_grid %}
+              {% set total_amp = (total_power / voltage) | int %}
+              {{ [total_amp, manual_amp] | min | clamp(6, 32) if total_amp >= 6 else 0 }}
             {% else %}
-              {{ manual_amp | clamp(6, 32) }}
+              {# Limita la ricarica manuale a quanto disponibile da batteria/sole + rete prelevabile #}
+              {% set total_power = w_disponibile + w_max_grid %}
+              {% set total_amp = (total_power / voltage) | int %}
+              {{ [total_amp, manual_amp] | min | clamp(6, 32) if total_amp >= 6 else 0 }}
             {% endif %}
           {% else %}
             {% if crono >= 7.9 %}
-              {# Modalità SOLARE: usa surplus solare #}
+              {# Modalità SOLARE: usa surplus solare + eventuale rete prelevabile se forzato #}
               {% set calculated_amp = (w_disponibile | float(0) / voltage) | int %}
               {% set can_charge = (calculated_amp >= 6 or (cur_soc < tgt_soc and byd_soc >= p_inv and byd_soc > p_min_stop)) %}
               {{ [6, calculated_amp] | max if can_charge else 0 }}
             {% elif crono > 0.1 %}
-              {# Modalità PROGRAMMATA: usa valore CronoStar, ma limita se BYD è scarica #}
+              {# Modalità PROGRAMMATA: usa valore CronoStar, limitando a batteria/sole + rete se BYD è scarica o in generale per sicurezza #}
               {% set base_amp = (crono * 1000 / voltage) | int %}
               {% if byd_soc <= p_min_stop %}
-                {# Limita al surplus solare reale per non scaricare ulteriormente la BYD #}
+                {# Limita al surplus solare reale + rete prelevabile per non scaricare ulteriormente la BYD #}
                 {% set solar_p_no_batt = [0, (prism_p - grid_p_w) - 200] | max %}
-                {% set solar_amp_only = (solar_p_no_batt / voltage) | int %}
-                {{ [solar_amp_only, base_amp] | min | clamp(6, 32) if solar_amp_only >= 6 else 0 }}
+                {% set total_power = solar_p_no_batt + w_max_grid %}
+                {% set total_amp = (total_power / voltage) | int %}
+                {{ [total_amp, base_amp] | min | clamp(6, 32) if total_amp >= 6 else 0 }}
               {% else %}
-                {{ base_amp | clamp(6, 32) }}
+                {% set total_power = w_disponibile + w_max_grid %}
+                {% set total_amp = (total_power / voltage) | int %}
+                {{ [total_amp, base_amp] | min | clamp(6, 32) if total_amp >= 6 else 0 }}
               {% endif %}
             {% else %}
               0
             {% endif %}
           {% endif %}
+
 
         target_mode: >
           {% if not is_active or cur_soc >= limit_soc %}

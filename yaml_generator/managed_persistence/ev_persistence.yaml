@@ -6,6 +6,8 @@ trigger:
       - input_number.ev_charge_2025_target_soc
       - input_number.ev_charge_2025_vehicle_limit_soc
       - input_number.ev_charge_2025_manual_power_kw
+      - input_number.ev_charge_2025_byd_max_discharge_power
+      - input_number.ev_charge_2025_grid_max_power
   - platform: homeassistant
     event: start
 
@@ -35,4 +37,22 @@ sensor:
         {{ states('input_number.ev_charge_2025_manual_power_kw') }}
       {% else %}
         {{ this.state | default(states('input_number.ev_charge_2025_manual_power_kw')) }}
+      {% endif %}
+
+  - name: "EV Charge 2025 Saved BYD Max Discharge Power"
+    unique_id: ev_charge_2025_saved_byd_max_discharge_power
+    state: >-
+      {% if trigger.entity_id == 'input_number.ev_charge_2025_byd_max_discharge_power' %}
+        {{ states('input_number.ev_charge_2025_byd_max_discharge_power') }}
+      {% else %}
+        {{ this.state | default(states('input_number.ev_charge_2025_byd_max_discharge_power')) }}
+      {% endif %}
+
+  - name: "EV Charge 2025 Saved Grid Max Power"
+    unique_id: ev_charge_2025_saved_grid_max_power
+    state: >-
+      {% if trigger.entity_id == 'input_number.ev_charge_2025_grid_max_power' %}
+        {{ states('input_number.ev_charge_2025_grid_max_power') }}
+      {% else %}
+        {{ this.state | default(states('input_number.ev_charge_2025_grid_max_power')) }}
       {% endif %}

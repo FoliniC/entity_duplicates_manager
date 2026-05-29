@@ -91,6 +91,15 @@ ev_charge_2025_byd_max_discharge_power:
   initial: 5
   mode: slider
 
+ev_charge_2025_grid_max_power:
+  name: "Prelievo Massimo Rete (kW)"
+  min: 0
+  max: 10
+  step: 0.1
+  unit_of_measurement: "kW"
+  initial: 6
+  mode: slider
+
 ev_charge_2025_byd_min_soc_stop:
   name: "SOC Minimo BYD per ricarica EV"
   min: 5

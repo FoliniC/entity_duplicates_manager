@@ -83,6 +83,8 @@ views:
           {% if byd_soc < p_prot %}
             {% set w_to_battery = [surplus, w_max_c] | min %}
             {% set w_disponibile = surplus - w_to_battery %}
+            {% set bonus_ratio = 0.0 %}
+            {% set byd_support_w = 0.0 %}
             {% set byd_policy = 'Protezione batteria casa: tutto il surplus disponibile viene usato prima per ricaricare la BYD.' %}
           {% elif byd_soc < p_inv %}
             {% set byd_span = [1, p_inv - p_prot] | max %}
@@ -90,11 +92,14 @@ views:
             {% set w_auto_raw = surplus * ratio %}
             {% set w_to_battery = [surplus - w_auto_raw, w_max_c] | min %}
             {% set w_disponibile = surplus - w_to_battery %}
+            {% set bonus_ratio = 0.0 %}
+            {% set byd_support_w = 0.0 %}
             {% set byd_policy = 'Ripartizione graduale: una quota crescente del surplus va alla ricarica EV mentre la BYD sale di SOC.' %}
           {% else %}
             {% set span = [1, p_max_d - p_inv] | max %}
             {% set bonus_ratio = [(byd_soc - p_inv) / span, 1.0] | min %}
-            {% set w_disponibile = surplus + (bonus_ratio * w_max_d) %}
+            {% set byd_support_w = bonus_ratio * w_max_d %}
+            {% set w_disponibile = surplus + byd_support_w %}
             {% set byd_policy = 'Auto prioritaria con supporto BYD: usa tutto il surplus e puo aggiungere una quota controllata dalla batteria casa.' %}
           {% endif %}
           {% if mode == 'Manuale' %}
@@ -181,7 +186,9 @@ views:
           - Smart meter: **{{ grid_p_w | round(0) }} W** (negativo = immissione)
           - Potenza Prism: **{{ prism_p | round(0) }} W**
           - Batteria casa: carica **{{ b_charge | round(0) }} W**, scarica **{{ b_discharge | round(0) }} W**, SOC **{{ byd_soc | round(1) }}%**
+          - Contributo max BYD (calcolato): **{{ byd_support_w | round(0) }} W** (~**{{ (byd_support_w / voltage) | round(1) }} A**) [Slider: **{{ (w_max_d / 1000) | round(1) }} kW**, Erogazione: **{{ (bonus_ratio * 100) | round(0) }}%**]
           - Surplus puro: **{{ w_surplus_puro | round(0) }} W**
+
           - Margine: **200 W**
           - Policy BYD: **{{ byd_policy }}**
           - Potenza utile EV: **{{ w_disponibile | round(0) }} W**
@@ -268,6 +275,21 @@ views:
             icon_color: red
             display_mode: slider
             secondary_info: state
+          - type: custom:mushroom-number-card
+            entity: input_number.ev_charge_2025_byd_max_discharge_power
+            name: "Potenza Max da Batteria (kW)"
+            icon: mdi:battery-charging
+            icon_color: blue
+            display_mode: slider
+            secondary_info: state
+          - type: custom:mushroom-number-card
+            entity: input_number.ev_charge_2025_grid_max_power
+            name: "Potenza Max da Rete (kW)"
+            icon: mdi:transmission-tower
+            icon_color: purple
+            display_mode: slider
+            secondary_info: state
+
 
       # TASTO AVVIO (Sempre visibile)
       - type: custom:mushroom-template-card
