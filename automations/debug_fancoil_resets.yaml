@@ -1,0 +1,14 @@
+- id: debug_fancoil_system_state_changes
+  alias: "Debug: Log State Changes for Fancoil System"
+  trigger:
+    - platform: state
+      entity_id:
+        - input_boolean.fancoil_deumidificazione
+        - switch.attiva_pdc
+        - switch.attiva_pompa_circolazione
+  action:
+    - event: fancoil_log_event
+      event_data:
+        level: WARNING
+        message: >
+          [DEBUG_RESET] Entity: {{ trigger.entity_id }} changed from {{ trigger.from_state.state }} to {{ trigger.to_state.state }}. Context ID: {{ trigger.to_state.context.id }}. User ID: {{ trigger.to_state.context.user_id | default('None') }}. Parent ID: {{ trigger.to_state.context.parent_id | default('None') }}

@@ -1,0 +1,11 @@
+- id: debug_deumidificazione_state_changes
+  alias: "Debug: Log State Changes for Fancoil Deumidificazione"
+  trigger:
+    - platform: state
+      entity_id: input_boolean.fancoil_deumidificazione
+  action:
+    - event: fancoil_log_event
+      event_data:
+        level: info
+        message: >
+          [DEBUG] Deumidificazione State Changed: {{ trigger.from_state.state }} -> {{ trigger.to_state.state }}. Context: {{ trigger.to_state.context.id }}

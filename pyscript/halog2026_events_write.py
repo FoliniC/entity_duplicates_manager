@@ -173,12 +173,27 @@ def halog2026_states_restore(subsystem: str = "fancoil"):
     """
     Reads the persisted state JSON for *subsystem* and restores
     input_number / input_boolean entities to their saved values.
+    Respects a 5-minute grace period for manual changes.
     """
+    from datetime import datetime, timedelta
+    
     states = task.executor(halog2026_lib.sync_read_states, subsystem)
     if not states:
         return
+    
+    now = datetime.now()
+    
     for eid, val in states.items():
         domain = eid.split(".")[0]
+        
+        # Check if the state was recently changed manually (last 5 minutes)
+        last_changed = state.get(eid, attribute='last_changed')
+        if last_changed:
+            # last_changed is a datetime object in pyscript
+            if now - last_changed < timedelta(seconds=300):
+                _write_direct(subsystem, f"Skipping restore for {eid} (manual change < 5min)", "INFO")
+                continue
+        
         try:
             if domain == "input_number":
                 input_number.set_value(entity_id=eid, value=float(val))
