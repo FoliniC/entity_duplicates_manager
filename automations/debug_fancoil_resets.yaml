@@ -6,8 +6,15 @@
     - platform: state
       entity_id:
         - input_boolean.fancoil_deumidificazione
+        - switch.attiva_fancoil
         - switch.attiva_pdc
         - switch.attiva_pompa_circolazione
+        - switch.stox_fancoil_cucina_switch
+        - switch.fancoil_cucina_switch_1
+        - switch.fancoil_cucina_switch_2
+        - switch.fancoil_cucina_switch_3
+        - switch.fancoil_cucina_switch_4
+        - climate.controllo_temperatura_cucina
   action:
     - variables:
         debug_entity: "{{ trigger.entity_id }}"
@@ -36,7 +43,10 @@
           circuito_invalid={{ states('binary_sensor.fancoil_circuit_temp_invalid') }};
           distacco={{ states('binary_sensor.distacco_rete_allarme_attivo') }};
           schedule={{ states('schedule.riscaldamento') }};
-          t_circuito={{ states('sensor.temperatura_circuito_riscaldamento') }}
+          t_circuito={{ states('sensor.temperatura_circuito_riscaldamento') }};
+          cucina={{ states('climate.controllo_temperatura_cucina') }}/fan={{ state_attr('climate.controllo_temperatura_cucina','fan_mode') }};
+          cucina_sw=[{{ states('switch.fancoil_cucina_switch_1') }},{{ states('switch.fancoil_cucina_switch_2') }},{{ states('switch.fancoil_cucina_switch_3') }},{{ states('switch.fancoil_cucina_switch_4') }}];
+          cucina_main={{ states('switch.stox_fancoil_cucina_switch') }}
     - event: fancoil_log_event
       event_data:
         level: WARNING
@@ -55,7 +65,10 @@
           circuito_invalid={{ states('binary_sensor.fancoil_circuit_temp_invalid') }};
           distacco={{ states('binary_sensor.distacco_rete_allarme_attivo') }};
           schedule={{ states('schedule.riscaldamento') }};
-          t_circuito={{ states('sensor.temperatura_circuito_riscaldamento') }}
+          t_circuito={{ states('sensor.temperatura_circuito_riscaldamento') }};
+          cucina={{ states('climate.controllo_temperatura_cucina') }}/fan={{ state_attr('climate.controllo_temperatura_cucina','fan_mode') }};
+          cucina_sw=[{{ states('switch.fancoil_cucina_switch_1') }},{{ states('switch.fancoil_cucina_switch_2') }},{{ states('switch.fancoil_cucina_switch_3') }},{{ states('switch.fancoil_cucina_switch_4') }}];
+          cucina_main={{ states('switch.stox_fancoil_cucina_switch') }}
     - event: fancoil_log_event
       event_data:
         level: WARNING
@@ -63,3 +76,93 @@
           [DEBUG_RESET_AFTER_5S] Entity={{ debug_entity }} expected={{ to_state }}
           current={{ states(debug_entity) }} stable={{ states(debug_entity) == to_state }}.
           Snapshot={{ snapshot_after_5s }}
+
+- id: debug_fancoil_service_calls
+  alias: "Debug: Log Service Calls for Fancoil System"
+  mode: queued
+  max: 30
+  trigger:
+    - platform: event
+      event_type: call_service
+      event_data:
+        domain: switch
+    - platform: event
+      event_type: call_service
+      event_data:
+        domain: input_boolean
+    - platform: event
+      event_type: call_service
+      event_data:
+        domain: climate
+    - platform: event
+      event_type: call_service
+      event_data:
+        domain: homeassistant
+  variables:
+    service_domain: "{{ trigger.event.data.domain | default('unknown') }}"
+    service_name: "{{ trigger.event.data.service | default('unknown') }}"
+    event_data_text: "{{ trigger.event.data | string }}"
+    matched_entities: >-
+      {% set event_text = trigger.event.data | string %}
+      {% set watched = [
+        'input_boolean.fancoil_deumidificazione',
+        'switch.attiva_fancoil',
+        'switch.attiva_pdc',
+        'switch.attiva_pompa_circolazione',
+        'switch.stox_fancoil_cucina_switch',
+        'switch.fancoil_cucina_switch_1',
+        'switch.fancoil_cucina_switch_2',
+        'switch.fancoil_cucina_switch_3',
+        'switch.fancoil_cucina_switch_4',
+        'climate.controllo_temperatura_cucina'
+      ] %}
+      {% set ns = namespace(matches=[]) %}
+      {% for entity in watched %}
+        {% if entity in event_text %}
+          {% set ns.matches = ns.matches + [entity] %}
+        {% endif %}
+      {% endfor %}
+      {{ ns.matches | join(',') }}
+    service_context_id: "{{ trigger.event.context.id if trigger.event.context is not none else 'None' }}"
+    service_user_id: "{{ trigger.event.context.user_id if trigger.event.context is not none and trigger.event.context.user_id is not none else 'None' }}"
+    service_parent_id: "{{ trigger.event.context.parent_id if trigger.event.context is not none and trigger.event.context.parent_id is not none else 'None' }}"
+    snapshot: >-
+      deum={{ states('input_boolean.fancoil_deumidificazione') }};
+      pdc={{ states('switch.attiva_pdc') }};
+      pompa={{ states('switch.attiva_pompa_circolazione') }};
+      fancoil={{ states('switch.attiva_fancoil') }};
+      circuito_invalid={{ states('binary_sensor.fancoil_circuit_temp_invalid') }};
+      distacco={{ states('binary_sensor.distacco_rete_allarme_attivo') }};
+      schedule={{ states('schedule.riscaldamento') }};
+      t_circuito={{ states('sensor.temperatura_circuito_riscaldamento') }};
+      cucina={{ states('climate.controllo_temperatura_cucina') }}/fan={{ state_attr('climate.controllo_temperatura_cucina','fan_mode') }};
+      cucina_sw=[{{ states('switch.fancoil_cucina_switch_1') }},{{ states('switch.fancoil_cucina_switch_2') }},{{ states('switch.fancoil_cucina_switch_3') }},{{ states('switch.fancoil_cucina_switch_4') }}];
+      cucina_main={{ states('switch.stox_fancoil_cucina_switch') }}
+  condition:
+    - condition: template
+      value_template: "{{ matched_entities | trim | length > 0 }}"
+  action:
+    - event: fancoil_log_event
+      event_data:
+        level: WARNING
+        message: >-
+          [DEBUG_SERVICE_CALL] Service={{ service_domain }}.{{ service_name }}
+          matched={{ matched_entities | trim }} context={{ service_context_id }}
+          user={{ service_user_id }} parent={{ service_parent_id }}
+          data={{ event_data_text }} snapshot={{ snapshot }}
+    - delay: "00:00:05"
+    - variables:
+        snapshot_after_5s: >-
+          deum={{ states('input_boolean.fancoil_deumidificazione') }};
+          pdc={{ states('switch.attiva_pdc') }};
+          pompa={{ states('switch.attiva_pompa_circolazione') }};
+          fancoil={{ states('switch.attiva_fancoil') }};
+          cucina={{ states('climate.controllo_temperatura_cucina') }}/fan={{ state_attr('climate.controllo_temperatura_cucina','fan_mode') }};
+          cucina_sw=[{{ states('switch.fancoil_cucina_switch_1') }},{{ states('switch.fancoil_cucina_switch_2') }},{{ states('switch.fancoil_cucina_switch_3') }},{{ states('switch.fancoil_cucina_switch_4') }}];
+          cucina_main={{ states('switch.stox_fancoil_cucina_switch') }}
+    - event: fancoil_log_event
+      event_data:
+        level: WARNING
+        message: >-
+          [DEBUG_SERVICE_CALL_AFTER_5S] Service={{ service_domain }}.{{ service_name }}
+          matched={{ matched_entities | trim }} snapshot={{ snapshot_after_5s }}

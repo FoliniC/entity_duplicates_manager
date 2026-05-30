@@ -15,3 +15,4 @@ To rollback, simply restore the original file from the backup:
 ```bash
 cp /home/carlo/docker/homeassistant/config/backups/manual_fix_deumidificazione/halog2026_events_write.py.bak /home/carlo/docker/homeassistant/config/pyscript/halog2026_events_write.py
 ```
+- Operation: Added logging to localtuya config_flow.py
