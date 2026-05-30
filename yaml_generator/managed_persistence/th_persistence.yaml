@@ -14,311 +14,195 @@ trigger:
       - sensor.th4d_temperature_humidity_humidity
       - sensor.th4d_temperature_humidity_battery
     to: ~
+  - platform: homeassistant
+    event: start
+
 sensor:
   - name: "th1a Temperature"
     unique_id: "th1a_temperature"
     state_class: "measurement"
     device_class: "temperature"
     unit_of_measurement: "°C"
-    attributes:
-      area: "{{ area_name('sensor.th1a_temperature_humidity_temperature') }}"
-      last_update: >
-        {% set sensor_id = 'sensor.th1a_temperature_humidity_temperature' %}
-        {% set new_value = states(sensor_id) %}
-        {% if new_value | is_number and new_value | float > -100 %}
-          {{ now().isoformat() }}
-        {% else %}
-          {{ this.attributes.last_update | default('unknown') }}
-        {% endif %}
     state: >
       {% set sensor_id = 'sensor.th1a_temperature_humidity_temperature' %}
-      {% set new_value = states(sensor_id) %}
-      {% if new_value | is_number and new_value | float > -100 %}
-        {{ new_value | float }}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number and val | float > -100 %}
+        {{ val | float }}
       {% else %}
-        {{ this.state | float(0) }}
+        {{ this.state | float(default=21.0) }}
       {% endif %}
     availability: >
       {{ this.state is defined }}
-    
+
   - name: "th1a Humidity"
     unique_id: "th1a_humidity"
     state_class: "measurement"
     device_class: "humidity"
     unit_of_measurement: "%"
-    attributes:
-      area: "{{ area_name('sensor.th1a_temperature_humidity_humidity') }}"
-      last_update: >
-        {% set sensor_id = 'sensor.th1a_temperature_humidity_humidity' %}
-        {% set new_value = states(sensor_id) %}
-        {% if new_value | is_number and new_value | float > -100 %}
-          {{ now().isoformat() }}
-        {% else %}
-          {{ this.attributes.last_update | default('unknown') }}
-        {% endif %}
     state: >
       {% set sensor_id = 'sensor.th1a_temperature_humidity_humidity' %}
-      {% set new_value = states(sensor_id) %}
-      {% if new_value | is_number and new_value | float > -100 %}
-        {{ new_value | float }}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number and val | float > -100 %}
+        {{ val | float }}
       {% else %}
-        {{ this.state | float(0) }}
+        {{ this.state | float(default=50.0) }}
       {% endif %}
     availability: >
       {{ this.state is defined }}
-    
+
   - name: "th1a Battery"
     unique_id: "th1a_battery"
     device_class: "battery"
     unit_of_measurement: "%"
-    attributes:
-      area: "{{ area_name('sensor.th1a_temperature_humidity_battery') }}"
-      last_update: >
-        {% set sensor_id = 'sensor.th1a_temperature_humidity_battery' %}
-        {% set new_value = states(sensor_id) %}
-        {% if new_value | is_number %}
-          {{ now().isoformat() }}
-        {% else %}
-          {{ this.attributes.last_update | default('unknown') }}
-        {% endif %}
     state: >
       {% set sensor_id = 'sensor.th1a_temperature_humidity_battery' %}
-      {% set new_value = states(sensor_id) %}
-      {% if new_value | is_number %}
-        {{ new_value | float }}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number %}
+        {{ val | float }}
       {% else %}
-        {{ this.state | float(0) }}
+        {{ this.state | float(default=100.0) }}
       {% endif %}
     availability: >
       {{ this.state is defined }}
-    
+
   - name: "th2b Temperature"
     unique_id: "th2b_temperature"
     state_class: "measurement"
     device_class: "temperature"
     unit_of_measurement: "°C"
-    attributes:
-      area: "{{ area_name('sensor.th2b_temperature_humidity_temperature') }}"
-      last_update: >
-        {% set sensor_id = 'sensor.th2b_temperature_humidity_temperature' %}
-        {% set new_value = states(sensor_id) %}
-        {% if new_value | is_number and new_value | float > -100 %}
-          {{ now().isoformat() }}
-        {% else %}
-          {{ this.attributes.last_update | default('unknown') }}
-        {% endif %}
     state: >
       {% set sensor_id = 'sensor.th2b_temperature_humidity_temperature' %}
-      {% set new_value = states(sensor_id) %}
-      {% if new_value | is_number and new_value | float > -100 %}
-        {{ new_value | float }}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number and val | float > -100 %}
+        {{ val | float }}
       {% else %}
-        {{ this.state | float(0) }}
+        {{ this.state | float(default=21.0) }}
       {% endif %}
     availability: >
       {{ this.state is defined }}
-    
+
   - name: "th2b Humidity"
     unique_id: "th2b_humidity"
     state_class: "measurement"
     device_class: "humidity"
     unit_of_measurement: "%"
-    attributes:
-      area: "{{ area_name('sensor.th2b_temperature_humidity_humidity') }}"
-      last_update: >
-        {% set sensor_id = 'sensor.th2b_temperature_humidity_humidity' %}
-        {% set new_value = states(sensor_id) %}
-        {% if new_value | is_number and new_value | float > -100 %}
-          {{ now().isoformat() }}
-        {% else %}
-          {{ this.attributes.last_update | default('unknown') }}
-        {% endif %}
     state: >
       {% set sensor_id = 'sensor.th2b_temperature_humidity_humidity' %}
-      {% set new_value = states(sensor_id) %}
-      {% if new_value | is_number and new_value | float > -100 %}
-        {{ new_value | float }}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number and val | float > -100 %}
+        {{ val | float }}
       {% else %}
-        {{ this.state | float(0) }}
+        {{ this.state | float(default=50.0) }}
       {% endif %}
     availability: >
       {{ this.state is defined }}
-    
+
   - name: "th2b Battery"
     unique_id: "th2b_battery"
     device_class: "battery"
     unit_of_measurement: "%"
-    attributes:
-      area: "{{ area_name('sensor.th2b_temperature_humidity_battery') }}"
-      last_update: >
-        {% set sensor_id = 'sensor.th2b_temperature_humidity_battery' %}
-        {% set new_value = states(sensor_id) %}
-        {% if new_value | is_number %}
-          {{ now().isoformat() }}
-        {% else %}
-          {{ this.attributes.last_update | default('unknown') }}
-        {% endif %}
     state: >
       {% set sensor_id = 'sensor.th2b_temperature_humidity_battery' %}
-      {% set new_value = states(sensor_id) %}
-      {% if new_value | is_number %}
-        {{ new_value | float }}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number %}
+        {{ val | float }}
       {% else %}
-        {{ this.state | float(0) }}
+        {{ this.state | float(default=100.0) }}
       {% endif %}
     availability: >
       {{ this.state is defined }}
-    
+
   - name: "th3c Temperature"
     unique_id: "th3c_temperature"
     state_class: "measurement"
     device_class: "temperature"
     unit_of_measurement: "°C"
-    attributes:
-      area: "{{ area_name('sensor.th3c_temperature_humidity_temperature') }}"
-      last_update: >
-        {% set sensor_id = 'sensor.th3c_temperature_humidity_temperature' %}
-        {% set new_value = states(sensor_id) %}
-        {% if new_value | is_number and new_value | float > -100 %}
-          {{ now().isoformat() }}
-        {% else %}
-          {{ this.attributes.last_update | default('unknown') }}
-        {% endif %}
     state: >
       {% set sensor_id = 'sensor.th3c_temperature_humidity_temperature' %}
-      {% set new_value = states(sensor_id) %}
-      {% if new_value | is_number and new_value | float > -100 %}
-        {{ new_value | float }}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number and val | float > -100 %}
+        {{ val | float }}
       {% else %}
-        {{ this.state | float(0) }}
+        {{ this.state | float(default=21.0) }}
       {% endif %}
     availability: >
       {{ this.state is defined }}
-    
+
   - name: "th3c Humidity"
     unique_id: "th3c_humidity"
     state_class: "measurement"
     device_class: "humidity"
     unit_of_measurement: "%"
-    attributes:
-      area: "{{ area_name('sensor.th3c_temperature_humidity_humidity') }}"
-      last_update: >
-        {% set sensor_id = 'sensor.th3c_temperature_humidity_humidity' %}
-        {% set new_value = states(sensor_id) %}
-        {% if new_value | is_number and new_value | float > -100 %}
-          {{ now().isoformat() }}
-        {% else %}
-          {{ this.attributes.last_update | default('unknown') }}
-        {% endif %}
     state: >
       {% set sensor_id = 'sensor.th3c_temperature_humidity_humidity' %}
-      {% set new_value = states(sensor_id) %}
-      {% if new_value | is_number and new_value | float > -100 %}
-        {{ new_value | float }}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number and val | float > -100 %}
+        {{ val | float }}
       {% else %}
-        {{ this.state | float(0) }}
+        {{ this.state | float(default=50.0) }}
       {% endif %}
     availability: >
       {{ this.state is defined }}
-    
+
   - name: "th3c Battery"
     unique_id: "th3c_battery"
     device_class: "battery"
     unit_of_measurement: "%"
-    attributes:
-      area: "{{ area_name('sensor.th3c_temperature_humidity_battery') }}"
-      last_update: >
-        {% set sensor_id = 'sensor.th3c_temperature_humidity_battery' %}
-        {% set new_value = states(sensor_id) %}
-        {% if new_value | is_number %}
-          {{ now().isoformat() }}
-        {% else %}
-          {{ this.attributes.last_update | default('unknown') }}
-        {% endif %}
     state: >
       {% set sensor_id = 'sensor.th3c_temperature_humidity_battery' %}
-      {% set new_value = states(sensor_id) %}
-      {% if new_value | is_number %}
-        {{ new_value | float }}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number %}
+        {{ val | float }}
       {% else %}
-        {{ this.state | float(0) }}
+        {{ this.state | float(default=100.0) }}
       {% endif %}
     availability: >
       {{ this.state is defined }}
-    
+
   - name: "th4d Temperature"
     unique_id: "th4d_temperature"
     state_class: "measurement"
     device_class: "temperature"
     unit_of_measurement: "°C"
-    attributes:
-      area: "{{ area_name('sensor.th4d_temperature_humidity_temperature') }}"
-      last_update: >
-        {% set sensor_id = 'sensor.th4d_temperature_humidity_temperature' %}
-        {% set new_value = states(sensor_id) %}
-        {% if new_value | is_number and new_value | float > -100 %}
-          {{ now().isoformat() }}
-        {% else %}
-          {{ this.attributes.last_update | default('unknown') }}
-        {% endif %}
     state: >
       {% set sensor_id = 'sensor.th4d_temperature_humidity_temperature' %}
-      {% set new_value = states(sensor_id) %}
-      {% if new_value | is_number and new_value | float > -100 %}
-        {{ new_value | float }}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number and val | float > -100 %}
+        {{ val | float }}
       {% else %}
-        {{ this.state | float(0) }}
+        {{ this.state | float(default=21.0) }}
       {% endif %}
     availability: >
       {{ this.state is defined }}
-    
+
   - name: "th4d Humidity"
     unique_id: "th4d_humidity"
     state_class: "measurement"
     device_class: "humidity"
     unit_of_measurement: "%"
-    attributes:
-      area: "{{ area_name('sensor.th4d_temperature_humidity_humidity') }}"
-      last_update: >
-        {% set sensor_id = 'sensor.th4d_temperature_humidity_humidity' %}
-        {% set new_value = states(sensor_id) %}
-        {% if new_value | is_number and new_value | float > -100 %}
-          {{ now().isoformat() }}
-        {% else %}
-          {{ this.attributes.last_update | default('unknown') }}
-        {% endif %}
     state: >
       {% set sensor_id = 'sensor.th4d_temperature_humidity_humidity' %}
-      {% set new_value = states(sensor_id) %}
-      {% if new_value | is_number and new_value | float > -100 %}
-        {{ new_value | float }}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number and val | float > -100 %}
+        {{ val | float }}
       {% else %}
-        {{ this.state | float(0) }}
+        {{ this.state | float(default=50.0) }}
       {% endif %}
     availability: >
       {{ this.state is defined }}
-    
+
   - name: "th4d Battery"
     unique_id: "th4d_battery"
     device_class: "battery"
     unit_of_measurement: "%"
-    attributes:
-      area: "{{ area_name('sensor.th4d_temperature_humidity_battery') }}"
-      last_update: >
-        {% set sensor_id = 'sensor.th4d_temperature_humidity_battery' %}
-        {% set new_value = states(sensor_id) %}
-        {% if new_value | is_number %}
-          {{ now().isoformat() }}
-        {% else %}
-          {{ this.attributes.last_update | default('unknown') }}
-        {% endif %}
     state: >
       {% set sensor_id = 'sensor.th4d_temperature_humidity_battery' %}
-      {% set new_value = states(sensor_id) %}
-      {% if new_value | is_number %}
-        {{ new_value | float }}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number %}
+        {{ val | float }}
       {% else %}
-        {{ this.state | float(0) }}
+        {{ this.state | float(default=100.0) }}
       {% endif %}
     availability: >
       {{ this.state is defined }}
+
