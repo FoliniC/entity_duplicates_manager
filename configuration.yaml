@@ -302,7 +302,7 @@ intent_script:
 logger:
   default: warning
   logs:
-    custom_components.localtuya: error
+    custom_components.localtuya: info
     fancoil_system: error
     #homeassistant.components.shell_command: debug
     #homeassistant.components.python_script: debug

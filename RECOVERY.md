@@ -16,3 +16,5 @@ To rollback, simply restore the original file from the backup:
 cp /home/carlo/docker/homeassistant/config/backups/manual_fix_deumidificazione/halog2026_events_write.py.bak /home/carlo/docker/homeassistant/config/pyscript/halog2026_events_write.py
 ```
 - Operation: Added logging to localtuya config_flow.py
+- Operation: Patched sensor.py to normalize unit of measurement '℃' to '°C'
+- Operation: Patched cloud_api.py to sanitize '℃' to '°C' in cloud metadata

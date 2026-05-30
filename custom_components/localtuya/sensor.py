@@ -83,9 +83,10 @@ class LocalTuyaSensor(LocalTuyaEntity, SensorEntity):
 
         self._has_sub_entities = False
         self._attr_device_class = self._config.get(CONF_DEVICE_CLASS)
-        self._attr_native_unit_of_measurement = self._config.get(
-            CONF_UNIT_OF_MEASUREMENT
-        )
+        unit = self._config.get(CONF_UNIT_OF_MEASUREMENT)
+        if unit == "℃":
+            unit = "°C"
+        self._attr_native_unit_of_measurement = unit
 
     @property
     def native_value(self):
@@ -171,6 +172,8 @@ class LocalTuyaSensor(LocalTuyaEntity, SensorEntity):
             setattr(sub_entity, "_attr_device_class", SensorDeviceClass(sensor))
             setattr(sub_entity, "_attr_state_class", SensorStateClass.MEASUREMENT)
             setattr(sub_entity, "_attr_native_unit_of_measurement", MAP_UOM[sensor])
+            if sub_entity._attr_native_unit_of_measurement == "℃":
+                sub_entity._attr_native_unit_of_measurement = "°C"
             sub_entities.append(sub_entity)
 
         # Sub entities shouldn't have add entities attr.

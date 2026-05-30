@@ -327,13 +327,27 @@ class TuyaCloudApi:
             model_data = json.loads(query_model[0]["model"])
             services = model_data.get("services", [{}])[0]
             properties = services.get("properties")
+            
+            def sanitize_unit(s):
+                if isinstance(s, str):
+                    return s.replace("℃", "°C")
+                return s
+
             for dp_data in properties if properties else {}:
+                # Sanitize the typeSpec string that contains the unit
+                type_spec = str(dp_data.get("typeSpec")).replace("'", '"')
+                try:
+                    ts_json = json.loads(type_spec)
+                    if "unit" in ts_json:
+                        ts_json["unit"] = sanitize_unit(ts_json["unit"])
+                    type_spec = json.dumps(ts_json)
+                except:
+                    pass
+                
                 refactored = {
                     "id": dp_data.get("abilityId"),
-                    # "code": dp_data.get("code"),
                     "accessMode": dp_data.get("accessMode"),
-                    # values: json.loads later
-                    "values": str(dp_data.get("typeSpec")).replace("'", '"'),
+                    "values": type_spec,
                 }
                 if str(dp_data["abilityId"]) in device_data:
                     device_data[str(dp_data["abilityId"])].update(refactored)
