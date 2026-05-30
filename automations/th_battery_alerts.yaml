@@ -1,0 +1,18 @@
+- alias: "TH Sensors Battery Low Notification"
+  unique_id: th_sensors_battery_low_notification
+  trigger:
+    - platform: state
+      entity_id:
+        - binary_sensor.th1a_battery_low
+        - binary_sensor.th2b_battery_low
+        - binary_sensor.th3c_battery_low
+        - binary_sensor.th4d_battery_low
+      to: "on"
+  action:
+    - action: persistent_notification.create
+      data:
+        title: "Batteria Bassa!"
+        message: >
+          La batteria del sensore {{ state_attr(trigger.entity_id, 'friendly_name') | default(trigger.entity_id) }} è scarica.
+          Si prega di sostituirla al più presto.
+        notification_id: "battery_low_{{ trigger.to_state.object_id }}"
