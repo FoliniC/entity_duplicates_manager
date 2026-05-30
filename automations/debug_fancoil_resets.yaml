@@ -1,5 +1,7 @@
 - id: debug_fancoil_system_state_changes
   alias: "Debug: Log State Changes for Fancoil System"
+  mode: queued
+  max: 20
   trigger:
     - platform: state
       entity_id:
@@ -7,8 +9,57 @@
         - switch.attiva_pdc
         - switch.attiva_pompa_circolazione
   action:
+    - variables:
+        debug_entity: "{{ trigger.entity_id }}"
+        from_state: "{{ trigger.from_state.state if trigger.from_state is not none else 'None' }}"
+        to_state: "{{ trigger.to_state.state if trigger.to_state is not none else 'None' }}"
+        context_id: "{{ trigger.to_state.context.id if trigger.to_state is not none else 'None' }}"
+        context_user_id: "{{ trigger.to_state.context.user_id if trigger.to_state.context.user_id is not none else 'None' }}"
+        context_parent_id: "{{ trigger.to_state.context.parent_id if trigger.to_state.context.parent_id is not none else 'None' }}"
+        origin: >-
+          {% set uid = trigger.to_state.context.user_id if trigger.to_state is not none else none %}
+          {% set pid = trigger.to_state.context.parent_id if trigger.to_state is not none else none %}
+          {% if uid is not none %}
+            manuale/ui/api
+          {% elif pid is not none %}
+            automazione/script
+          {% else %}
+            integrazione/knx/restore
+          {% endif %}
+        from_last_changed: "{{ trigger.from_state.last_changed if trigger.from_state is not none else 'None' }}"
+        to_last_changed: "{{ trigger.to_state.last_changed if trigger.to_state is not none else 'None' }}"
+        snapshot: >-
+          deum={{ states('input_boolean.fancoil_deumidificazione') }};
+          pdc={{ states('switch.attiva_pdc') }};
+          pompa={{ states('switch.attiva_pompa_circolazione') }};
+          fancoil={{ states('switch.attiva_fancoil') }};
+          circuito_invalid={{ states('binary_sensor.fancoil_circuit_temp_invalid') }};
+          distacco={{ states('binary_sensor.distacco_rete_allarme_attivo') }};
+          schedule={{ states('schedule.riscaldamento') }};
+          t_circuito={{ states('sensor.temperatura_circuito_riscaldamento') }}
     - event: fancoil_log_event
       event_data:
         level: WARNING
-        message: >
-          [DEBUG_RESET] Entity: {{ trigger.entity_id }} changed from {{ trigger.from_state.state }} to {{ trigger.to_state.state }}. Context ID: {{ trigger.to_state.context.id }}. User ID: {{ trigger.to_state.context.user_id | default('None') }}. Parent ID: {{ trigger.to_state.context.parent_id | default('None') }}
+        message: >-
+          [DEBUG_RESET] Entity={{ debug_entity }} changed {{ from_state }} -> {{ to_state }}.
+          Origin={{ origin | trim }}. Context={{ context_id }}. User={{ context_user_id }}.
+          Parent={{ context_parent_id }}. FromChanged={{ from_last_changed }}.
+          ToChanged={{ to_last_changed }}. Snapshot={{ snapshot }}
+    - delay: "00:00:05"
+    - variables:
+        snapshot_after_5s: >-
+          deum={{ states('input_boolean.fancoil_deumidificazione') }};
+          pdc={{ states('switch.attiva_pdc') }};
+          pompa={{ states('switch.attiva_pompa_circolazione') }};
+          fancoil={{ states('switch.attiva_fancoil') }};
+          circuito_invalid={{ states('binary_sensor.fancoil_circuit_temp_invalid') }};
+          distacco={{ states('binary_sensor.distacco_rete_allarme_attivo') }};
+          schedule={{ states('schedule.riscaldamento') }};
+          t_circuito={{ states('sensor.temperatura_circuito_riscaldamento') }}
+    - event: fancoil_log_event
+      event_data:
+        level: WARNING
+        message: >-
+          [DEBUG_RESET_AFTER_5S] Entity={{ debug_entity }} expected={{ to_state }}
+          current={{ states(debug_entity) }} stable={{ states(debug_entity) == to_state }}.
+          Snapshot={{ snapshot_after_5s }}
