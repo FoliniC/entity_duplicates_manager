@@ -8,3 +8,5 @@
 - !include managed_persistence/corridoio_persistence.yaml
 - !include managed_persistence/bagno_persistence.yaml
 - !include managed_persistence/sala_persistence.yaml
+- !include managed_persistence/ev_persistence.yaml
+- !include managed_persistence/th_persistence.yaml
