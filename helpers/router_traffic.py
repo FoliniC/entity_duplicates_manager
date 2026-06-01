@@ -5,8 +5,8 @@ import os
 import socket
 
 ROUTER_IP = "192.168.0.11"
-SSH_KEY = "/config/.ssh/router_key"
-CACHE_FILE = "/config/temp/router_traffic_cache.json"
+SSH_KEY = "./.ssh/router_key"
+CACHE_FILE = "./temp/router_traffic_cache.json"
 
 def fetch_stats():
     cmd = [

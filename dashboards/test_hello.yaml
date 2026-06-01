@@ -4,7 +4,13 @@ views:
     icon: mdi:chat
     cards:
       - type: markdown
-        content: "# Traffico Rete\nDashboard per il monitoraggio della banda."
+        content: "# 📊 Monitoraggio Rete\nAnalisi del traffico in tempo reale."
+        card_mod:
+          style: |
+            ha-card { user-select: text !important; }
+
+      - type: markdown
+        content: "---"
         card_mod:
           style: |
             ha-card { user-select: text !important; }
@@ -13,28 +19,38 @@ views:
         cards:
           - type: sensor
             entity: sensor.router_total_download
-            name: Totale Download
+            name: Download Totale (MB)
             card_mod:
               style: |
                 ha-card { user-select: text !important; }
           - type: sensor
             entity: sensor.router_total_upload
-            name: Totale Upload
+            name: Upload Totale (MB)
             card_mod:
               style: |
                 ha-card { user-select: text !important; }
 
+      - type: markdown
+        content: "## ⚡ Top Consumer Attuale"
+        card_mod:
+          style: |
+            ha-card { user-select: text !important; }
+
       - type: entities
-        title: Traffico Real-Time
         entities:
           - entity: sensor.router_realtime_top_consumer
-            name: Top Consumer Attuale
+            name: Dispositivo
+        card_mod:
+          style: |
+            ha-card { user-select: text !important; }
+
+      - type: markdown
+        content: "## 📋 Tabella Dettaglio Dispositivi"
         card_mod:
           style: |
             ha-card { user-select: text !important; }
 
       - type: custom:flex-table-card
-        title: Dettaglio Dispositivi
         entities:
           - sensor.router_traffic_stats
         columns:
@@ -61,32 +77,33 @@ views:
           style: |
             ha-card { user-select: text !important; }
 
+      - type: markdown
+        content: "## 📈 Top 5 Consumi Accumulati (MB)"
+        card_mod:
+          style: |
+            ha-card { user-select: text !important; }
+
       - type: custom:apexcharts-card
+        chart_type: donut
         header:
-          show: true
-          title: "Top 10 Consumi (MB)"
-          show_states: false
-        chart_type: bar
-        apex_config:
-          chart:
-            height: 350
-          plotOptions:
-            bar:
-              horizontal: true
-              distributed: true
-          legend:
-            show: false
+          show: false
         series:
           - entity: sensor.router_traffic_stats
             data_generator: |
               const consumers = entity.attributes.top_consumers;
-              if (!consumers) return [];
-              return consumers.slice(0, 10).map((entry) => {
+              if (!consumers || consumers.length === 0) return [];
+              return consumers.slice(0, 5).map((entry) => {
                 return {
                   y: entry.total_rx_mb,
-                  x: entry.name || entry.ip
+                  name: entry.name || entry.ip
                 }
               });
+        card_mod:
+          style: |
+            ha-card { user-select: text !important; }
+
+      - type: markdown
+        content: "## 📉 Velocità di Rete Complessiva (Real-Time)"
         card_mod:
           style: |
             ha-card { user-select: text !important; }
@@ -95,7 +112,6 @@ views:
         graph_span: 1h
         header:
           show: true
-          title: "Velocità di Rete Complessiva"
           show_states: true
           colorize_states: true
         series:
@@ -115,8 +131,6 @@ views:
               duration: 1m
         yaxis:
           - min: 0
-            apex_config:
-              forceNiceScale: true
         card_mod:
           style: |
             ha-card { user-select: text !important; }

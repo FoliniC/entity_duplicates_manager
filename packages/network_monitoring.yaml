@@ -2,11 +2,11 @@ command_line:
   - sensor:
       name: Router Traffic Stats
       unique_id: router_traffic_stats
-      command: "python3 /config/helpers/router_traffic.py"
-      unit_of_measurement: "GB"
+      command: "python3 ./helpers/router_traffic.py"
+      unit_of_measurement: "MB"
       value_template: >
         {% if value_json is defined and value_json.total_rx_gb is defined %}
-          {{ value_json.total_rx_gb }}
+          {{ (value_json.total_rx_gb * 1024) | round(2) }}
         {% else %}
           {{ states('sensor.router_traffic_stats') }}
         {% endif %}
@@ -23,8 +23,8 @@ template:
         unique_id: router_total_download
         state: >
           {% set val = state_attr('sensor.router_traffic_stats', 'total_rx_gb') %}
-          {{ val if val is not none else 'unknown' }}
-        unit_of_measurement: "GB"
+          {{ (val * 1024) | round(2) if val is not none else 'unknown' }}
+        unit_of_measurement: "MB"
         device_class: data_size
         state_class: total_increasing
       
@@ -32,8 +32,8 @@ template:
         unique_id: router_total_upload
         state: >
           {% set val = state_attr('sensor.router_traffic_stats', 'total_tx_gb') %}
-          {{ val if val is not none else 'unknown' }}
-        unit_of_measurement: "GB"
+          {{ (val * 1024) | round(2) if val is not none else 'unknown' }}
+        unit_of_measurement: "MB"
         device_class: data_size
         state_class: total_increasing
 
