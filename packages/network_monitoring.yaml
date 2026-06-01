@@ -104,19 +104,21 @@ template:
         state: "{{ state_attr('sensor.router_traffic_stats', 'top_consumers')[4].total_rx_mb | int if state_attr('sensor.router_traffic_stats', 'top_consumers')|length > 4 else 0 }}"
         unit_of_measurement: "MB"
 
-      - name: "Router Top Consumers Chart Data"
-        unique_id: router_top_chart_data
-        state: "{{ state_attr('sensor.router_traffic_stats', 'total_rx_gb') | float(0) | round(2) }}"
+      - name: "Router Top 5 Chart Data"
+        unique_id: router_top_5_chart_data
+        state: "ready"
         attributes:
-          data: >
-            {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
-            {% if top and top is iterable %}
-              [
-              {% for entry in top[:5] %}
-                {% set name = entry.name if entry.name else entry.ip %}
-                {"x": "{{ name }}", "y": {{ entry.total_rx_mb | int }}}{% if not loop.last %},{% endif %}
-              {% endfor %}
-              ]
+          categories: >
+            {% set consumers = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
+            {% if consumers %}
+              {{ consumers[:5] | map(attribute='name') | list | tojson }}
+            {% else %}
+              []
+            {% endif %}
+          values: >
+            {% set consumers = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
+            {% if consumers %}
+              {{ consumers[:5] | map(attribute='total_rx_mb') | list | tojson }}
             {% else %}
               []
             {% endif %}

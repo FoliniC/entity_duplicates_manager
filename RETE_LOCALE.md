@@ -52,7 +52,9 @@ L'integrazione del sistema Tenda Mesh5 e la gestione dei canali su OpenWrt hanno
     *   **Stato:** Forzata sulla **5GHz** del router OpenWrt.
     *   **Configurazione:** Inserita in **Blacklist** sulla 2.4GHz del router e sul sistema Tenda Mesh.
     *   **Performance:** Bitrate rilevato ~**260 MBit/s** (VHT80), segnale **-65 dBm** (SNR 43). Questo garantisce una banda passante molto superiore alla 2.4GHz e una latenza ridotta.
-3.  **Ottimizzazione alexa-cucina:** Agganciata alla base Tenda Mesh (cablata), garantendo stabilità tramite il backhaul ethernet.
+3.  **Ottimizzazione alexa-cucina:**
+    *   **Stato:** Agganciata alla base Tenda Mesh (cablata).
+    *   **Configurazione:** Inserita in **Blacklist** su OpenWrt (sia 2.4GHz che 5GHz) per forzare il collegamento al sistema Mesh locale e prevenire instabilità dovute a "missing ACKs".
 4.  **Interferenza Canali:** Il router OpenWrt utilizza il **canale 149 (5GHz)** in modalità **VHT80** (fisso), mentre il Tenda Mesh opera sui canali bassi (es. 40), eliminando le sovrapposizioni.
 
 ## Note di Configurazione

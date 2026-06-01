@@ -38,12 +38,8 @@ views:
             name: "Velocità Istantanea"
         card_mod:
           style: |
-            ha-card { 
-              user-select: text !important; 
-            }
-            .card-content {
-              user-select: text !important;
-            }
+            ha-card { user-select: text !important; }
+            .card-content { user-select: text !important; }
 
       - type: markdown
         content: "## 📈 Top 5 Dispositivi (MB)"
@@ -52,39 +48,50 @@ views:
             ha-card { user-select: text !important; }
 
       - type: custom:apexcharts-card
-        experimental:
-          disable_config_validation: true
         header:
           show: true
-          title: "Router Top Consumers"
-          show_states: true
+          title: "Top 5 Dispositivi (MB)"
+          show_states: false
         apex_config:
           chart:
             type: bar
-            height: 400
+            height: 350
           plotOptions:
             bar:
+              horizontal: true
               distributed: true
-              borderRadius: 6
-          xaxis:
-            type: category
-          yaxis:
-            min: 0
-          tooltip:
+          dataLabels:
             enabled: true
-            shared: false
-            intersect: false
+            offsetX: 10
+          legend:
+            show: false
+          xaxis:
+            title:
+              text: "Dispositivi"
+          yaxis:
+            title:
+              text: "Traffico (MB)"
+            min: 0
         series:
-          - entity: sensor.router_top_consumers_chart_data
-            name: "Traffico"
-            type: column
+          - entity: sensor.router_top_5_chart_data
+            name: "Download (MB)"
+            type: bar
             data_generator: |
-              return function(entity) {
-                if (!entity || !entity.attributes || !entity.attributes.data) {
-                  return [];
-                }
-                return entity.attributes.data;
+              const categories = entity.attributes.categories;
+              const values = entity.attributes.values;
+              if (!categories || !values || categories.length === 0 || values.length === 0) {
+                console.error("Dati mancanti per la card ApexCharts");
+                return [];
               }
+              // Verifica che categories e values siano array prima di procedere
+              if (!Array.isArray(categories) || !Array.isArray(values)) {
+                console.error("Categories o Values non sono array validi", categories, values);
+                return [];
+              }
+              // Mappa i dati per il grafico
+              return categories.map((name, index) => {
+                return { x: name, y: values[index] };
+              });
 
       - type: markdown
         content: "## 📉 Velocità di Rete (kbps)"
@@ -117,14 +124,11 @@ views:
         card_mod:
           style: |
             ha-card { user-select: text !important; }
+            tbody tr td { user-select: text !important; }
 
       - type: custom:flex-table-card
         entities:
           - entity: sensor.router_traffic_stats
-        card_mod:
-          style: |
-            ha-card { user-select: text !important; }
-            tbody tr td { user-select: text !important; }
         columns:
           - name: Dispositivo
             data: top_consumers
