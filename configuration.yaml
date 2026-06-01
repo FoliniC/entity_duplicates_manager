@@ -397,6 +397,12 @@ lovelace:
       mode: yaml
       filename: ui-lovelace.yaml
       title: Overview
+    network-traffic:
+      mode: yaml
+      filename: dashboards/developer-tools.yaml
+      title: Traffico Rete
+      icon: mdi:router-wireless
+      show_in_sidebar: true
 #    cronostar-admin:
 #      mode: yaml
 #      filename: cronostar_dashboard_v600.yaml

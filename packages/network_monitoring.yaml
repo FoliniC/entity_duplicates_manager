@@ -1,0 +1,52 @@
+sensor:
+  - platform: command_line
+    name: Router Traffic Stats
+    unique_id: router_traffic_stats
+    command: "python3 /config/helpers/router_traffic.py"
+    unit_of_measurement: "GB"
+    value_template: >
+      {% if value_json is defined and value_json.total_rx_gb is defined %}
+        {{ value_json.total_rx_gb }}
+      {% else %}
+        {{ states('sensor.router_traffic_stats') }}
+      {% endif %}
+    json_attributes:
+      - top_consumers
+      - total_rx_gb
+      - total_tx_gb
+      - timestamp
+    scan_interval: 60
+
+template:
+  - sensor:
+      - name: "Router Total Download"
+        unique_id: router_total_download
+        state: >
+          {% set val = state_attr('sensor.router_traffic_stats', 'total_rx_gb') %}
+          {{ val if val is not none else 'unknown' }}
+        unit_of_measurement: "GB"
+        device_class: data_size
+        state_class: total_increasing
+      
+      - name: "Router Total Upload"
+        unique_id: router_total_upload
+        state: >
+          {% set val = state_attr('sensor.router_traffic_stats', 'total_tx_gb') %}
+          {{ val if val is not none else 'unknown' }}
+        unit_of_measurement: "GB"
+        device_class: data_size
+        state_class: total_increasing
+
+      - name: "Router Realtime Top Consumer"
+        unique_id: router_realtime_top_consumer
+        state: >
+          {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
+          {% if top and top|length > 0 %}
+            {% if top[0].rx_kbps > 0.1 or top[0].tx_kbps > 0.1 %}
+              {{ top[0].ip }} (↓{{ top[0].rx_kbps }} ↑{{ top[0].tx_kbps }} kbps)
+            {% else %}
+              Inattivo (Nessun traffico rilevante)
+            {% endif %}
+          {% else %}
+            In attesa di dati...
+          {% endif %}

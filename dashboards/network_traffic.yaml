@@ -1,0 +1,86 @@
+views:
+  - title: Monitoraggio Traffico Rete
+    path: network-traffic
+    icon: mdi:router-wireless
+    cards:
+      - type: conditional
+        conditions:
+          - entity: sensor.router_traffic_stats
+            state: "unknown"
+        card:
+          type: markdown
+          content: >
+            ### ⏳ In attesa di dati dal router...
+            Il sistema sta raccogliendo le prime statistiche. Potrebbero servire fino a 2 minuti dopo il riavvio per visualizzare i grafici.
+      
+      - type: vertical-stack
+        cards:
+          - type: horizontal-stack
+            cards:
+              - type: sensor
+                entity: sensor.router_total_download
+                name: Totale Download
+                graph: line
+              - type: sensor
+                entity: sensor.router_total_upload
+                name: Totale Upload
+                graph: line
+
+          - type: custom:apexcharts-card
+            header:
+              show: true
+              title: Consumo Top 5 Device (MB)
+              show_states: true
+              colorize_states: true
+            chart_type: donut
+            series:
+              - entity: sensor.router_traffic_stats
+                data_generator: |
+                  const consumers = entity.attributes.top_consumers;
+                  if (!consumers || consumers.length === 0) return [];
+                  return consumers.slice(0, 5).map((entry) => {
+                    return {
+                      value: entry.total_rx_mb,
+                      name: entry.ip
+                    }
+                  });
+
+          - type: entities
+            title: Traffico Real-Time (kbps)
+            entities:
+              - entity: sensor.router_realtime_top_consumer
+                name: Top Consumer Attuale
+            footer:
+              type: markdown
+              content: >
+                {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
+                {% if top %}
+                  | IP | Down (kbps) | Up (kbps) | Totale (MB) |
+                  | :--- | :---: | :---: | :---: |
+                  {% for d in top[:10] %}
+                  | {{ d.ip }} | {{ d.rx_kbps }} | {{ d.tx_kbps }} | {{ d.total_rx_mb }} |
+                  {% endfor %}
+                {% else %}
+                  *Nessun dato disponibile in questo momento.*
+                {% endif %}
+
+      - type: custom:apexcharts-card
+        graph_span: 24h
+        header:
+          show: true
+          title: Velocità di Rete Totale (Stima)
+        series:
+          - entity: sensor.router_total_download
+            type: area
+            color: blue
+            name: Download
+            group_by:
+              func: diff
+              duration: 1m
+          - entity: sensor.router_total_upload
+            type: area
+            color: red
+            name: Upload
+            group_by:
+              func: diff
+              duration: 1m
