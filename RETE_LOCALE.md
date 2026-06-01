@@ -59,5 +59,30 @@ L'integrazione del sistema Tenda Mesh5 e la gestione dei canali su OpenWrt hanno
 - Il server Debian (`192.168.0.3`) funge da centro di controllo sia per la domotica che per i servizi di rete critici (DNS/DHCP tramite AdGuard).
 - L'accesso al router OpenWrt è possibile via Web UI (LuCI) o terminale (SSH).
 
+## Monitoraggio del Traffico di Rete
+
+Per diagnosticare rallentamenti e identificare dispositivi che saturano la banda, è stato implementato un sistema di monitoraggio integrato.
+
+### Componenti del Sistema
+1.  **Router (Data Source):**
+    *   **Servizio:** `nlbwmon` installato sul TP-Link Archer C7.
+    *   **Funzione:** Tiene traccia del traffico (byte/pacchetti) per ogni MAC/IP della rete.
+    *   **Accesso:** SSH abilitato con chiave dedicata in `/config/.ssh/router_key`.
+
+2.  **Server HA (Integrazione):**
+    *   **Script:** `helpers/router_traffic.py`.
+    *   **Logica:** Interroga il router ogni 60 secondi, calcola la velocità differenziale (kbps) e risolve i nomi host tramite DNS locale (`socket`).
+    *   **Entità:** Gestite tramite il package `packages/network_monitoring.yaml`.
+        - `sensor.router_total_download`: Traffico totale in ingresso (GB).
+        - `sensor.router_total_upload`: Traffico totale in uscita (GB).
+        - `sensor.router_traffic_stats`: Attributo `top_consumers` con la lista dettagliata dei device.
+
+3.  **Dashboard di Controllo:**
+    *   **Visualizzazione:** Dashboard dedicata "Traffico Rete".
+    *   **Funzionalità:**
+        - Tabella interattiva ordinabile (`flex-table-card`) con nomi amichevoli dei dispositivi.
+        - Grafico a barre dei primi 10 consumatori per MB totali.
+        - Grafico real-time della velocità complessiva (KB/s) nell'ultima ora.
+
 ---
-*Ultimo aggiornamento: 28 Maggio 2026*
+*Ultimo aggiornamento: 1 Giugno 2026*

@@ -2,6 +2,7 @@ import json
 import subprocess
 import time
 import os
+import socket
 
 ROUTER_IP = "192.168.0.11"
 SSH_KEY = "/config/.ssh/router_key"
@@ -31,6 +32,23 @@ def fetch_stats():
     except Exception as e:
         return {"error": str(e)}
 
+def get_hostname(ip, name_cache):
+    if ip in name_cache:
+        return name_cache[ip]
+    
+    try:
+        hostname = socket.gethostbyaddr(ip)[0]
+        # Simplify names like pcnvme.lan -> pcnvme
+        if hostname.endswith(".lan"):
+            hostname = hostname[:-4]
+        name_cache[ip] = hostname
+        return hostname
+    except (socket.herror, socket.gaierror):
+        pass
+    
+    name_cache[ip] = ip # Fallback to IP
+    return ip
+
 def load_cache():
     if os.path.exists(CACHE_FILE):
         try:
@@ -55,6 +73,7 @@ def main():
     cache = load_cache()
     last_stats = cache.get("last_data", [])
     last_time = cache.get("last_time", current_time - 60)
+    name_cache = cache.get("name_cache", {})
     
     time_delta = current_time - last_time
     if time_delta <= 0: time_delta = 1
@@ -91,7 +110,7 @@ def main():
     for mac, data in current_map.items():
         last = last_map.get(mac, {"rx": data["rx"], "tx": data["tx"]})
         
-        # Calculate deltas (handle counter reset)
+        # Calculate deltas
         rx_delta = data["rx"] - last["rx"] if data["rx"] >= last["rx"] else data["rx"]
         tx_delta = data["tx"] - last["tx"] if data["tx"] >= last["tx"] else data["tx"]
         
@@ -101,6 +120,7 @@ def main():
         processed.append({
             "mac": mac,
             "ip": data["ip"],
+            "name": get_hostname(data["ip"], name_cache),
             "total_rx_mb": round(data["rx"] / (1024*1024), 2),
             "total_tx_mb": round(data["tx"] / (1024*1024), 2),
             "rx_kbps": round(rx_speed, 2),
@@ -111,7 +131,7 @@ def main():
     processed.sort(key=lambda x: x["rx_kbps"] + x["tx_kbps"], reverse=True)
 
     output = {
-        "top_consumers": processed[:15],
+        "top_consumers": processed[:20],
         "total_rx_gb": round(sum(d["rx"] for d in current_map.values()) / (1024*1024*1024), 3),
         "total_tx_gb": round(sum(d["tx"] for d in current_map.values()) / (1024*1024*1024), 3),
         "timestamp": current_time
@@ -123,6 +143,7 @@ def main():
     cache["last_data"] = stats.get("data", [])
     cache["last_cols"] = cols
     cache["last_time"] = current_time
+    cache["name_cache"] = name_cache
     save_cache(cache)
 
 if __name__ == "__main__":

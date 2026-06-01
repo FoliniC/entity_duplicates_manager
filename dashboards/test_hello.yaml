@@ -4,30 +4,119 @@ views:
     icon: mdi:chat
     cards:
       - type: markdown
-        content: "# Hello World\nDashboard di test ripristinata."
+        content: "# Traffico Rete\nDashboard per il monitoraggio della banda."
+        card_mod:
+          style: |
+            ha-card { user-select: text !important; }
+
       - type: horizontal-stack
         cards:
           - type: sensor
             entity: sensor.router_total_download
             name: Totale Download
+            card_mod:
+              style: |
+                ha-card { user-select: text !important; }
           - type: sensor
             entity: sensor.router_total_upload
             name: Totale Upload
+            card_mod:
+              style: |
+                ha-card { user-select: text !important; }
+
       - type: entities
         title: Traffico Real-Time
         entities:
           - entity: sensor.router_realtime_top_consumer
             name: Top Consumer Attuale
-        footer:
-          type: markdown
-          content: >
-            {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
-            {% if top %}
-              | IP | Down (kbps) | Up (kbps) | Totale (MB) |
-              | :--- | :---: | :---: | :---: |
-              {% for d in top[:10] %}
-              | {{ d.ip }} | {{ d.rx_kbps }} | {{ d.tx_kbps }} | {{ d.total_rx_mb }} |
-              {% endfor %}
-            {% else %}
-              *Nessun dato disponibile in questo momento.*
-            {% endif %}
+        card_mod:
+          style: |
+            ha-card { user-select: text !important; }
+
+      - type: custom:flex-table-card
+        title: Dettaglio Dispositivi
+        entities:
+          - sensor.router_traffic_stats
+        columns:
+          - name: Dispositivo
+            data: top_consumers
+            modify: x.name
+          - name: IP
+            data: top_consumers
+            modify: x.ip
+          - name: Down (kbps)
+            data: top_consumers
+            modify: x.rx_kbps
+            align: center
+          - name: Up (kbps)
+            data: top_consumers
+            modify: x.tx_kbps
+            align: center
+          - name: Totale (MB)
+            data: top_consumers
+            modify: x.total_rx_mb
+            align: center
+        sort_by: rx_kbps-
+        card_mod:
+          style: |
+            ha-card { user-select: text !important; }
+
+      - type: custom:apexcharts-card
+        header:
+          show: true
+          title: "Top 10 Consumi (MB)"
+          show_states: false
+        chart_type: bar
+        apex_config:
+          chart:
+            height: 350
+          plotOptions:
+            bar:
+              horizontal: true
+              distributed: true
+          legend:
+            show: false
+        series:
+          - entity: sensor.router_traffic_stats
+            data_generator: |
+              const consumers = entity.attributes.top_consumers;
+              if (!consumers) return [];
+              return consumers.slice(0, 10).map((entry) => {
+                return {
+                  y: entry.total_rx_mb,
+                  x: entry.name || entry.ip
+                }
+              });
+        card_mod:
+          style: |
+            ha-card { user-select: text !important; }
+
+      - type: custom:apexcharts-card
+        graph_span: 1h
+        header:
+          show: true
+          title: "Velocità di Rete Complessiva"
+          show_states: true
+          colorize_states: true
+        series:
+          - entity: sensor.router_total_download
+            name: Download
+            color: "#1e88e5"
+            type: area
+            group_by:
+              func: diff
+              duration: 1m
+          - entity: sensor.router_total_upload
+            name: Upload
+            color: "#e53935"
+            type: area
+            group_by:
+              func: diff
+              duration: 1m
+        yaxis:
+          - min: 0
+            apex_config:
+              forceNiceScale: true
+        card_mod:
+          style: |
+            ha-card { user-select: text !important; }

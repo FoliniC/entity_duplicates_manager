@@ -43,10 +43,34 @@ template:
           {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
           {% if top and top|length > 0 %}
             {% if top[0].rx_kbps > 0.1 or top[0].tx_kbps > 0.1 %}
-              {{ top[0].ip }} (↓{{ top[0].rx_kbps }} ↑{{ top[0].tx_kbps }} kbps)
+              {{ top[0].name if top[0].name != top[0].ip else top[0].ip }} (↓{{ top[0].rx_kbps }} ↑{{ top[0].tx_kbps }} kbps)
             {% else %}
               Inattivo (Nessun traffico rilevante)
             {% endif %}
           {% else %}
             In attesa di dati...
           {% endif %}
+
+      - name: "Router Download Speed"
+        unique_id: router_download_speed
+        state: >
+          {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
+          {% if top %}
+            {{ top | map(attribute='rx_kbps') | sum | round(2) }}
+          {% else %}
+            0
+          {% endif %}
+        unit_of_measurement: "kbps"
+        icon: mdi:download-network
+
+      - name: "Router Upload Speed"
+        unique_id: router_upload_speed
+        state: >
+          {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
+          {% if top %}
+            {{ top | map(attribute='tx_kbps') | sum | round(2) }}
+          {% else %}
+            0
+          {% endif %}
+        unit_of_measurement: "kbps"
+        icon: mdi:upload-network
