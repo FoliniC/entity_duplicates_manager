@@ -72,46 +72,51 @@ template:
         icon: mdi:upload-network
 
       - name: "Router Top 1 Consumer Name"
+        unique_id: router_top_1_name
         state: "{{ state_attr('sensor.router_traffic_stats', 'top_consumers')[0].name if state_attr('sensor.router_traffic_stats', 'top_consumers')|length > 0 else 'N/A' }}"
+
       - name: "Router Top 1 Consumer Value"
+        unique_id: router_top_1_val
         state: "{{ state_attr('sensor.router_traffic_stats', 'top_consumers')[0].total_rx_mb | int if state_attr('sensor.router_traffic_stats', 'top_consumers')|length > 0 else 0 }}"
         unit_of_measurement: "MB"
 
       - name: "Router Top 2 Consumer Name"
+        unique_id: router_top_2_name
         state: "{{ state_attr('sensor.router_traffic_stats', 'top_consumers')[1].name if state_attr('sensor.router_traffic_stats', 'top_consumers')|length > 1 else 'N/A' }}"
+
       - name: "Router Top 2 Consumer Value"
+        unique_id: router_top_2_val
         state: "{{ state_attr('sensor.router_traffic_stats', 'top_consumers')[1].total_rx_mb | int if state_attr('sensor.router_traffic_stats', 'top_consumers')|length > 1 else 0 }}"
         unit_of_measurement: "MB"
 
-      - name: "Router Top 3 Consumer Name"
-        state: "{{ state_attr('sensor.router_traffic_stats', 'top_consumers')[2].name if state_attr('sensor.router_traffic_stats', 'top_consumers')|length > 2 else 'N/A' }}"
       - name: "Router Top 3 Consumer Value"
+        unique_id: router_top_3_val
         state: "{{ state_attr('sensor.router_traffic_stats', 'top_consumers')[2].total_rx_mb | int if state_attr('sensor.router_traffic_stats', 'top_consumers')|length > 2 else 0 }}"
         unit_of_measurement: "MB"
 
-      - name: "Router Top 4 Consumer Name"
-        state: "{{ state_attr('sensor.router_traffic_stats', 'top_consumers')[3].name if state_attr('sensor.router_traffic_stats', 'top_consumers')|length > 3 else 'N/A' }}"
       - name: "Router Top 4 Consumer Value"
+        unique_id: router_top_4_val
         state: "{{ state_attr('sensor.router_traffic_stats', 'top_consumers')[3].total_rx_mb | int if state_attr('sensor.router_traffic_stats', 'top_consumers')|length > 3 else 0 }}"
         unit_of_measurement: "MB"
 
-      - name: "Router Top 5 Consumer Name"
-        state: "{{ state_attr('sensor.router_traffic_stats', 'top_consumers')[4].name if state_attr('sensor.router_traffic_stats', 'top_consumers')|length > 4 else 'N/A' }}"
       - name: "Router Top 5 Consumer Value"
+        unique_id: router_top_5_val
         state: "{{ state_attr('sensor.router_traffic_stats', 'top_consumers')[4].total_rx_mb | int if state_attr('sensor.router_traffic_stats', 'top_consumers')|length > 4 else 0 }}"
         unit_of_measurement: "MB"
 
       - name: "Router Top Consumers Chart Data"
-        state: "{{ now().strftime('%H:%M') }}"
+        unique_id: router_top_chart_data
+        state: "{{ state_attr('sensor.router_traffic_stats', 'total_rx_gb') | float(0) | round(2) }}"
         attributes:
           data: >
             {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
-            {% if top %}
-              {% set ns = namespace(res=[]) %}
+            {% if top and top is iterable %}
+              [
               {% for entry in top[:5] %}
-                {% set ns.res = ns.res + [{"x": entry.name if entry.name else entry.ip, "y": entry.total_rx_mb | int}] %}
+                {% set name = entry.name if entry.name else entry.ip %}
+                {"x": "{{ name }}", "y": {{ entry.total_rx_mb | int }}}{% if not loop.last %},{% endif %}
               {% endfor %}
-              {{ ns.res }}
+              ]
             {% else %}
               []
             {% endif %}

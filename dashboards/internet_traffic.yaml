@@ -44,9 +44,6 @@ views:
             .card-content {
               user-select: text !important;
             }
-            .state {
-              user-select: text !important;
-            }
 
       - type: markdown
         content: "## 📈 Top 5 Dispositivi (MB)"
@@ -55,27 +52,39 @@ views:
             ha-card { user-select: text !important; }
 
       - type: custom:apexcharts-card
-        chart_type: bar
+        experimental:
+          disable_config_validation: true
+        header:
+          show: true
+          title: "Router Top Consumers"
+          show_states: true
         apex_config:
           chart:
-            height: 300px
+            type: bar
+            height: 400
           plotOptions:
             bar:
-              horizontal: true
               distributed: true
-          legend:
-            show: false
+              borderRadius: 6
+          xaxis:
+            type: category
+          yaxis:
+            min: 0
+          tooltip:
+            enabled: true
+            shared: false
+            intersect: false
         series:
-          - entity: sensor.router_traffic_stats
+          - entity: sensor.router_top_consumers_chart_data
+            name: "Traffico"
+            type: column
             data_generator: |
-              const consumers = entity.attributes.top_consumers;
-              if (!consumers) return [];
-              return consumers.slice(0, 5).map((entry) => {
-                return {
-                  x: entry.name || entry.ip,
-                  y: entry.total_rx_mb
+              return function(entity) {
+                if (!entity || !entity.attributes || !entity.attributes.data) {
+                  return [];
                 }
-              });
+                return entity.attributes.data;
+              }
 
       - type: markdown
         content: "## 📉 Velocità di Rete (kbps)"
@@ -135,4 +144,4 @@ views:
             data: top_consumers
             modify: x.total_rx_mb
             align: center
-        sort_by: rx_kbps-
+        sort_by: Down (kbps)-
