@@ -9,50 +9,93 @@ views:
           style: |
             ha-card { user-select: text !important; }
 
-      - type: markdown
-        content: "---"
-        card_mod:
-          style: |
-            ha-card { user-select: text !important; }
-
       - type: horizontal-stack
         cards:
           - type: sensor
             entity: sensor.router_total_download
             name: Download Totale (MB)
-            card_mod:
-              style: |
-                ha-card { user-select: text !important; }
           - type: sensor
             entity: sensor.router_total_upload
             name: Upload Totale (MB)
-            card_mod:
-              style: |
-                ha-card { user-select: text !important; }
 
       - type: markdown
-        content: "## ⚡ Top Consumer Attuale"
+        content: "## 🛠️ Valori Entità (Debug)"
         card_mod:
           style: |
             ha-card { user-select: text !important; }
 
       - type: entities
         entities:
+          - entity: sensor.router_traffic_stats
+            name: "Stato Sensore (MB)"
           - entity: sensor.router_realtime_top_consumer
-            name: Dispositivo
+            name: "Top Consumer"
         card_mod:
           style: |
             ha-card { user-select: text !important; }
 
       - type: markdown
-        content: "## 📋 Tabella Dettaglio Dispositivi"
+        content: "## ⚡ Consumo Top 5 (MB)"
+        card_mod:
+          style: |
+            ha-card { user-select: text !important; }
+
+      - type: custom:apexcharts-card
+        chart_type: bar
+        apex_config:
+          chart:
+            height: 300px
+          plotOptions:
+            bar:
+              horizontal: true
+              distributed: true
+        series:
+          - entity: sensor.router_traffic_stats
+            data_generator: |
+              const consumers = entity.attributes.top_consumers;
+              if (!consumers || !Array.isArray(consumers)) return [];
+              return consumers.slice(0, 5).map((entry) => {
+                return {
+                  x: entry.name || entry.ip || "Unknown",
+                  y: entry.total_rx_mb || 0
+                }
+              });
+
+      - type: markdown
+        content: "## 📉 Velocità di Rete (kbps)"
+        card_mod:
+          style: |
+            ha-card { user-select: text !important; }
+
+      - type: custom:apexcharts-card
+        graph_span: 30m
+        header:
+          show: true
+          show_states: true
+          colorize_states: true
+        series:
+          - entity: sensor.router_download_speed
+            name: Download
+            color: "#1e88e5"
+            type: area
+          - entity: sensor.router_upload_speed
+            name: Upload
+            color: "#e53935"
+            type: area
+        yaxis:
+          - min: 0
+            apex_config:
+              forceNiceScale: true
+
+      - type: markdown
+        content: "## 📋 Tabella Dettaglio Completa"
         card_mod:
           style: |
             ha-card { user-select: text !important; }
 
       - type: custom:flex-table-card
         entities:
-          - sensor.router_traffic_stats
+          - entity: sensor.router_traffic_stats
         columns:
           - name: Dispositivo
             data: top_consumers
@@ -73,64 +116,45 @@ views:
             modify: x.total_rx_mb
             align: center
         sort_by: rx_kbps-
-        card_mod:
-          style: |
-            ha-card { user-select: text !important; }
 
       - type: markdown
-        content: "## 📈 Top 5 Consumi Accumulati (MB)"
+        content: "## 📊 Test Campione: Vendite Settimanali"
         card_mod:
           style: |
             ha-card { user-select: text !important; }
 
       - type: custom:apexcharts-card
-        chart_type: donut
-        header:
-          show: false
-        series:
-          - entity: sensor.router_traffic_stats
-            data_generator: |
-              const consumers = entity.attributes.top_consumers;
-              if (!consumers || consumers.length === 0) return [];
-              return consumers.slice(0, 5).map((entry) => {
-                return {
-                  y: entry.total_rx_mb,
-                  name: entry.name || entry.ip
-                }
-              });
-        card_mod:
-          style: |
-            ha-card { user-select: text !important; }
-
-      - type: markdown
-        content: "## 📉 Velocità di Rete Complessiva (Real-Time)"
-        card_mod:
-          style: |
-            ha-card { user-select: text !important; }
-
-      - type: custom:apexcharts-card
-        graph_span: 1h
         header:
           show: true
+          title: "📊 Vendite Settimanali"
           show_states: true
           colorize_states: true
+        graph_span: 7d
+        update_interval: 1min
+        stacked: false
+        apex_config:
+          chart:
+            height: 400px
+            type: bar
+          plotOptions:
+            bar:
+              borderRadius: 6
+              columnWidth: 70%
+          xaxis:
+            categories: ["Lun", "Mar", "Mer", "Gio", "Ven"]
         series:
-          - entity: sensor.router_total_download
-            name: Download
-            color: "#1e88e5"
-            type: area
-            group_by:
-              func: diff
-              duration: 1m
-          - entity: sensor.router_total_upload
-            name: Upload
-            color: "#e53935"
-            type: area
-            group_by:
-              func: diff
-              duration: 1m
-        yaxis:
-          - min: 0
-        card_mod:
-          style: |
-            ha-card { user-select: text !important; }
+          - entity: input_number.vendite_lunedi
+            name: "Vendite"
+            type: column
+          - entity: input_number.vendite_martedi
+            name: "Vendite"
+            type: column
+          - entity: input_number.vendite_mercoledi
+            name: "Vendite"
+            type: column
+          - entity: input_number.vendite_giovedi
+            name: "Vendite"
+            type: column
+          - entity: input_number.vendite_venerdi
+            name: "Vendite"
+            type: column

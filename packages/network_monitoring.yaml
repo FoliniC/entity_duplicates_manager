@@ -2,7 +2,7 @@ command_line:
   - sensor:
       name: Router Traffic Stats
       unique_id: router_traffic_stats
-      command: "python3 ./helpers/router_traffic.py"
+      command: "python3 /config/helpers/router_traffic.py"
       unit_of_measurement: "MB"
       value_template: >
         {% if value_json is defined and value_json.total_rx_gb is defined %}
@@ -25,7 +25,6 @@ template:
           {% set val = state_attr('sensor.router_traffic_stats', 'total_rx_gb') %}
           {{ (val * 1024) | round(2) if val is not none else 'unknown' }}
         unit_of_measurement: "MB"
-        device_class: data_size
         state_class: total_increasing
       
       - name: "Router Total Upload"
@@ -34,7 +33,6 @@ template:
           {% set val = state_attr('sensor.router_traffic_stats', 'total_tx_gb') %}
           {{ (val * 1024) | round(2) if val is not none else 'unknown' }}
         unit_of_measurement: "MB"
-        device_class: data_size
         state_class: total_increasing
 
       - name: "Router Realtime Top Consumer"
@@ -42,11 +40,9 @@ template:
         state: >
           {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
           {% if top and top|length > 0 %}
-            {% if top[0].rx_kbps > 0.1 or top[0].tx_kbps > 0.1 %}
-              {{ top[0].name if top[0].name != top[0].ip else top[0].ip }} (↓{{ top[0].rx_kbps }} ↑{{ top[0].tx_kbps }} kbps)
-            {% else %}
-              Inattivo (Nessun traffico rilevante)
-            {% endif %}
+            {% set first = top[0] %}
+            {{ first.name if first.name != first.ip else first.ip }} 
+            (↓{{ first.rx_kbps | round(1) }} ↑{{ first.tx_kbps | round(1) }} kbps | Tot: {{ first.total_rx_mb | round(0) }} MB)
           {% else %}
             In attesa di dati...
           {% endif %}

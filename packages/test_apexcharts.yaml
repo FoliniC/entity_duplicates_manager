@@ -1,0 +1,40 @@
+input_number:
+  vendite_lunedi:
+    name: "Vendite Lunedì"
+    min: 0
+    max: 1000
+    step: 1
+    initial: 450
+    mode: box
+  
+  vendite_martedi:
+    name: "Vendite Martedì"
+    min: 0
+    max: 1000
+    step: 1
+    initial: 620
+    mode: box
+  
+  vendite_mercoledi:
+    name: "Vendite Mercoledì"
+    min: 0
+    max: 1000
+    step: 1
+    initial: 580
+    mode: box
+  
+  vendite_giovedi:
+    name: "Vendite Giovedì"
+    min: 0
+    max: 1000
+    step: 1
+    initial: 710
+    mode: box
+  
+  vendite_venerdi:
+    name: "Vendite Venerdì"
+    min: 0
+    max: 1000
+    step: 1
+    initial: 890
+    mode: box
