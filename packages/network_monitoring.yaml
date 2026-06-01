@@ -106,7 +106,16 @@ template:
 
       - name: "Router Top 5 Chart Data"
         unique_id: router_top_5_chart_data
-        state: "ready"
+        state: "ok"
         attributes:
-          categories: "{{ state_attr('sensor.router_traffic_stats', 'top_consumers')[:5] | map(attribute='name') | list | tojson if state_attr('sensor.router_traffic_stats', 'top_consumers') else '[]' }}"
-          values: "{{ state_attr('sensor.router_traffic_stats', 'top_consumers')[:5] | map(attribute='total_rx_mb') | list | tojson if state_attr('sensor.router_traffic_stats', 'top_consumers') else '[]' }}"
+          chart_data: >-
+            {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
+            {% if top %}
+              {% set data = namespace(items=[]) %}
+              {% for d in top[:5] %}
+                {% set data.items = data.items + [{"x": d.name, "y": d.total_rx_mb}] %}
+              {% endfor %}
+              {{ data.items }}
+            {% else %}
+              []
+            {% endif %}
