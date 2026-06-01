@@ -457,6 +457,12 @@ lovelace:
       icon: mdi:tools
       show_in_sidebar: true
       filename: dashboards/developer-tools.yaml
+    test-hello:
+      mode: yaml
+      title: Test Hello
+      icon: mdi:chat
+      show_in_sidebar: true
+      filename: dashboards/test_hello.yaml
     guacamole-remote:
       mode: yaml
       title: Guacamole

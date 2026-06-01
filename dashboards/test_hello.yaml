@@ -1,0 +1,33 @@
+views:
+  - title: Test Hello
+    path: test-hello
+    icon: mdi:chat
+    cards:
+      - type: markdown
+        content: "# Hello World\nDashboard di test ripristinata."
+      - type: horizontal-stack
+        cards:
+          - type: sensor
+            entity: sensor.router_total_download
+            name: Totale Download
+          - type: sensor
+            entity: sensor.router_total_upload
+            name: Totale Upload
+      - type: entities
+        title: Traffico Real-Time
+        entities:
+          - entity: sensor.router_realtime_top_consumer
+            name: Top Consumer Attuale
+        footer:
+          type: markdown
+          content: >
+            {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
+            {% if top %}
+              | IP | Down (kbps) | Up (kbps) | Totale (MB) |
+              | :--- | :---: | :---: | :---: |
+              {% for d in top[:10] %}
+              | {{ d.ip }} | {{ d.rx_kbps }} | {{ d.tx_kbps }} | {{ d.total_rx_mb }} |
+              {% endfor %}
+            {% else %}
+              *Nessun dato disponibile in questo momento.*
+            {% endif %}

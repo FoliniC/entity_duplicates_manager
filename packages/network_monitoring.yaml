@@ -1,21 +1,21 @@
-sensor:
-  - platform: command_line
-    name: Router Traffic Stats
-    unique_id: router_traffic_stats
-    command: "python3 /config/helpers/router_traffic.py"
-    unit_of_measurement: "GB"
-    value_template: >
-      {% if value_json is defined and value_json.total_rx_gb is defined %}
-        {{ value_json.total_rx_gb }}
-      {% else %}
-        {{ states('sensor.router_traffic_stats') }}
-      {% endif %}
-    json_attributes:
-      - top_consumers
-      - total_rx_gb
-      - total_tx_gb
-      - timestamp
-    scan_interval: 60
+command_line:
+  - sensor:
+      name: Router Traffic Stats
+      unique_id: router_traffic_stats
+      command: "python3 /config/helpers/router_traffic.py"
+      unit_of_measurement: "GB"
+      value_template: >
+        {% if value_json is defined and value_json.total_rx_gb is defined %}
+          {{ value_json.total_rx_gb }}
+        {% else %}
+          {{ states('sensor.router_traffic_stats') }}
+        {% endif %}
+      json_attributes:
+        - top_consumers
+        - total_rx_gb
+        - total_tx_gb
+        - timestamp
+      scan_interval: 60
 
 template:
   - sensor:
