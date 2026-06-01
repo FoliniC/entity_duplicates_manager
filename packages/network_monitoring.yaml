@@ -104,18 +104,57 @@ template:
         state: "{{ state_attr('sensor.router_traffic_stats', 'top_consumers')[4].total_rx_mb | int if state_attr('sensor.router_traffic_stats', 'top_consumers')|length > 4 else 0 }}"
         unit_of_measurement: "MB"
 
-      - name: "Router Top 5 Chart Data"
-        unique_id: router_top_5_chart_data
-        state: "ok"
+      - name: "Top Device 1 MB"
+        unique_id: top_device_1_mb
+        state: >-
+          {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
+          {{ (top[0].total_rx_mb | float) if top and top|length > 0 else 0 }}
         attributes:
-          chart_data: >-
+          device_name: >-
             {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
-            {% if top %}
-              {% set data = namespace(items=[]) %}
-              {% for d in top[:5] %}
-                {% set data.items = data.items + [{"x": d.name, "y": d.total_rx_mb}] %}
-              {% endfor %}
-              {{ data.items }}
-            {% else %}
-              []
-            {% endif %}
+            {{ top[0].name if top and top|length > 0 else 'N/A' }}
+        unit_of_measurement: "MB"
+
+      - name: "Top Device 2 MB"
+        unique_id: top_device_2_mb
+        state: >-
+          {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
+          {{ (top[1].total_rx_mb | float) if top and top|length > 1 else 0 }}
+        attributes:
+          device_name: >-
+            {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
+            {{ top[1].name if top and top|length > 1 else 'N/A' }}
+        unit_of_measurement: "MB"
+
+      - name: "Top Device 3 MB"
+        unique_id: top_device_3_mb
+        state: >-
+          {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
+          {{ (top[2].total_rx_mb | float) if top and top|length > 2 else 0 }}
+        attributes:
+          device_name: >-
+            {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
+            {{ top[2].name if top and top|length > 2 else 'N/A' }}
+        unit_of_measurement: "MB"
+
+      - name: "Top Device 4 MB"
+        unique_id: top_device_4_mb
+        state: >-
+          {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
+          {{ (top[3].total_rx_mb | float) if top and top|length > 3 else 0 }}
+        attributes:
+          device_name: >-
+            {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
+            {{ top[3].name if top and top|length > 3 else 'N/A' }}
+        unit_of_measurement: "MB"
+
+      - name: "Top Device 5 MB"
+        unique_id: top_device_5_mb
+        state: >-
+          {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
+          {{ (top[4].total_rx_mb | float) if top and top|length > 4 else 0 }}
+        attributes:
+          device_name: >-
+            {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
+            {{ top[4].name if top and top|length > 4 else 'N/A' }}
+        unit_of_measurement: "MB"

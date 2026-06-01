@@ -90,45 +90,26 @@ Per diagnosticare rallentamenti e identificare dispositivi che saturano la banda
         - Grafico real-time della velocità complessiva (KB/s) nell'ultima ora.
 
 ### Configurazione Grafico Top 5 Dispositivi
-Il grafico "Top 5 Dispositivi (MB)" utilizza una struttura a tre livelli per garantire prestazioni e stabilità:
+Il grafico "Top 5 Dispositivi (MB)" utilizza una struttura a sensori multipli per garantire la massima stabilità:
 
-1.  **Sensore Helper** (`/config/packages/network_monitoring.yaml`): Prepara i dati come un unico oggetto JSON pronto per il grafico.
-    ```yaml
-    - name: "Router Top 5 Chart Data"
-      unique_id: router_top_5_chart_data
-      state: "ok"
-      attributes:
-        chart_data: >-
-          {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
-          {% if top %}
-            {% set data = namespace(items=[]) %}
-            {% for d in top[:5] %}
-              {% set data.items = data.items + [{"x": d.name, "y": d.total_rx_mb}] %}
-            {% endfor %}
-            {{ data.items }}
-          {% else %}
-            []
-          {% endif %}
-    ```
+1.  **Sensori Template** (`/config/packages/network_monitoring.yaml`): Sono definiti 5 sensori individuali (`top_device_1_mb` ... `top_device_5_mb`). 
+    - **Nome statico**: "Top Device X MB" per un'identificazione univoca nel database.
+    - **Stato**: Valore numerico del traffico (MB).
+    - **Attributo `device_name`**: Contiene il nome dinamico del dispositivo.
 
-2.  **ApexCharts Card** (`/config/dashboards/internet_traffic.yaml`): Visualizza i dati leggendo direttamente l'attributo pre-formattato.
+2.  **ApexCharts Card** (`/config/dashboards/internet_traffic.yaml`): Visualizza i 5 sensori come serie individuali in modalità minimale.
     ```yaml
     series:
-      - entity: sensor.router_top_5_chart_data
-        ignore_history: true # Obbligatorio per bypassare la history API su sensori non numerici
-        data_generator: |
-          const raw = entity.attributes.chart_data;
-          if (!raw) return [];
-          const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
-          return data.map(d => [d.x, d.y]); # Formato array piatto più robusto
+      - entity: sensor.top_device_1_mb
+      - entity: sensor.top_device_2_mb
+      - entity: sensor.top_device_3_mb
+      - entity: sensor.top_device_4_mb
+      - entity: sensor.top_device_5_mb
     ```
 
-3.  **Ottimizzazione per HA 2026.5 & ApexCharts 2.1.x:** 
-    - Lo `state: "ok"` nel sensore helper garantisce la validazione corretta.
-    - `ignore_history: true` previene l'errore di configurazione su sensori senza storico numerico.
-    - `update_interval: 60s` assicura l'aggiornamento dei dati indipendentemente dalla storia.
-    - `xaxis: type: category` è necessario per mappare correttamente le etichette testuali (nomi device).
-    - Il formato di ritorno `[x, y]` è preferibile per la compatibilità con l'asse categorico.
+3.  **Vantaggi:** 
+    - **Massima Compatibilità**: Non usa script JavaScript né template nella card, rendendola immune a problemi di timing o versioning del frontend.
+    - **Stabilità dei Dati**: I sensori hanno stati numerici standard, ideali per la gestione dello storico di HA.
 
 ---
 *Ultimo aggiornamento: 1 Giugno 2026*

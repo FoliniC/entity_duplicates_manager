@@ -46,36 +46,18 @@ views:
         card_mod:
           style: |
             ha-card { user-select: text !important; }
-
       - type: custom:apexcharts-card
         chart_type: bar
         update_interval: 60s
         header:
-          show: true
           title: "Top 5 Dispositivi (MB)"
-          show_states: false
-        apex_config:
-          chart:
-            height: 350
-          plotOptions:
-            bar:
-              horizontal: true
-              distributed: true
-          dataLabels:
-            enabled: true
-          legend:
-            show: false
-          xaxis:
-            type: category
+          show: true
         series:
-          - entity: sensor.router_top_5_chart_data
-            name: "Traffico"
-            ignore_history: true
-            data_generator: |
-              const raw = entity.attributes.chart_data;
-              if (!raw) return [];
-              const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
-              return data.map(d => [d.x, d.y]);
+          - entity: sensor.top_device_1_mb
+          - entity: sensor.top_device_2_mb
+          - entity: sensor.top_device_3_mb
+          - entity: sensor.top_device_4_mb
+          - entity: sensor.top_device_5_mb
 
       - type: markdown
         content: "## 📉 Velocità di Rete (kbps)"
