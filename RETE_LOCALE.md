@@ -68,6 +68,9 @@ Per diagnosticare rallentamenti e identificare dispositivi che saturano la banda
     *   **Servizio:** `nlbwmon` installato sul TP-Link Archer C7.
     *   **Funzione:** Tiene traccia del traffico (byte/pacchetti) per ogni MAC/IP della rete.
     *   **Accesso:** SSH abilitato con chiave dedicata in `/config/.ssh/router_key`.
+    *   **Configurazione Ottimizzata (Giugno 2026):**
+        - **Commit Interval:** Impostato a `1m` (in RAM) per avere dati quasi real-time.
+        - **Flow Offloading:** Disattivato (`flow_offloading='0'`, `flow_offloading_hw='0'`). Questa modifica è necessaria perché l'offloading accelera il traffico bypassando i contatori della CPU, rendendo invisibile il traffico dei dispositivi collegati tramite bridge/mesh (es. Alexa in cucina).
 
 2.  **Server HA (Integrazione):**
     *   **Script:** `helpers/router_traffic.py`.

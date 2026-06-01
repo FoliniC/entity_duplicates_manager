@@ -1,10 +1,10 @@
 views:
-  - title: Test Hello
-    path: test-hello
-    icon: mdi:chat
+  - title: Traffico internet
+    path: traffico-internet
+    icon: mdi:router-wireless
     cards:
       - type: markdown
-        content: "# 📊 Monitoraggio Rete\nAnalisi del traffico in tempo reale."
+        content: "# 📊 Monitoraggio Traffico Internet\nAnalisi della banda in tempo reale."
         card_mod:
           style: |
             ha-card { user-select: text !important; }
@@ -19,23 +19,37 @@ views:
             name: Upload Totale (MB)
 
       - type: markdown
-        content: "## 🛠️ Valori Entità (Debug)"
+        content: "## 📋 Dati testuali"
         card_mod:
           style: |
             ha-card { user-select: text !important; }
 
       - type: entities
         entities:
-          - entity: sensor.router_traffic_stats
-            name: "Stato Sensore (MB)"
+          - entity: sensor.router_top_1_consumer_name
+            name: "1° Nome"
+          - entity: sensor.router_top_1_consumer_value
+            name: "1° Valore"
+          - entity: sensor.router_top_2_consumer_name
+            name: "2° Nome"
+          - entity: sensor.router_top_2_consumer_value
+            name: "2° Valore"
           - entity: sensor.router_realtime_top_consumer
-            name: "Top Consumer"
+            name: "Velocità Istantanea"
         card_mod:
           style: |
-            ha-card { user-select: text !important; }
+            ha-card { 
+              user-select: text !important; 
+            }
+            .card-content {
+              user-select: text !important;
+            }
+            .state {
+              user-select: text !important;
+            }
 
       - type: markdown
-        content: "## ⚡ Consumo Top 5 (MB)"
+        content: "## 📈 Top 5 Dispositivi (MB)"
         card_mod:
           style: |
             ha-card { user-select: text !important; }
@@ -49,15 +63,17 @@ views:
             bar:
               horizontal: true
               distributed: true
+          legend:
+            show: false
         series:
           - entity: sensor.router_traffic_stats
             data_generator: |
               const consumers = entity.attributes.top_consumers;
-              if (!consumers || !Array.isArray(consumers)) return [];
+              if (!consumers) return [];
               return consumers.slice(0, 5).map((entry) => {
                 return {
-                  x: entry.name || entry.ip || "Unknown",
-                  y: entry.total_rx_mb || 0
+                  x: entry.name || entry.ip,
+                  y: entry.total_rx_mb
                 }
               });
 
@@ -96,6 +112,10 @@ views:
       - type: custom:flex-table-card
         entities:
           - entity: sensor.router_traffic_stats
+        card_mod:
+          style: |
+            ha-card { user-select: text !important; }
+            tbody tr td { user-select: text !important; }
         columns:
           - name: Dispositivo
             data: top_consumers
@@ -116,45 +136,3 @@ views:
             modify: x.total_rx_mb
             align: center
         sort_by: rx_kbps-
-
-      - type: markdown
-        content: "## 📊 Test Campione: Vendite Settimanali"
-        card_mod:
-          style: |
-            ha-card { user-select: text !important; }
-
-      - type: custom:apexcharts-card
-        header:
-          show: true
-          title: "📊 Vendite Settimanali"
-          show_states: true
-          colorize_states: true
-        graph_span: 7d
-        update_interval: 1min
-        stacked: false
-        apex_config:
-          chart:
-            height: 400px
-            type: bar
-          plotOptions:
-            bar:
-              borderRadius: 6
-              columnWidth: 70%
-          xaxis:
-            categories: ["Lun", "Mar", "Mer", "Gio", "Ven"]
-        series:
-          - entity: input_number.vendite_lunedi
-            name: "Vendite"
-            type: column
-          - entity: input_number.vendite_martedi
-            name: "Vendite"
-            type: column
-          - entity: input_number.vendite_mercoledi
-            name: "Vendite"
-            type: column
-          - entity: input_number.vendite_giovedi
-            name: "Vendite"
-            type: column
-          - entity: input_number.vendite_venerdi
-            name: "Vendite"
-            type: column

@@ -9,8 +9,7 @@ views:
     global_prefix: cronostar_thermostat_appartamento_
     preset: thermostat
     target_entity: climate.climatizzazione_appartamento
-    title: "CronoStar: Thermostat Appartamento \u2192 climate.climatizzazione_appartamento\
-      \ \u26A0\uFE0F [DUPLICATO]"
+    title: "CronoStar: Thermostat Appartamento \u2192 climate.climatizzazione_appartamento"
     card_id: admin-cronostar-thermostat-appartamento-
     initially_collapsed: true
   - type: custom:cronostar-card

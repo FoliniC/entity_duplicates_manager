@@ -399,30 +399,12 @@ lovelace:
       mode: yaml
       filename: ui-lovelace.yaml
       title: Overview
-    network-traffic:
+    internet-traffic:
       mode: yaml
-      filename: dashboards/developer-tools.yaml
-      title: Traffico Rete
+      title: Traffico internet
       icon: mdi:router-wireless
       show_in_sidebar: true
-#    cronostar-admin:
-#      mode: yaml
-#      filename: cronostar_dashboard_v600.yaml
-#      title: CronoStar Admin
-#      show_in_sidebar: true
-#      icon: mdi:clock-edit
-# ev-charging-1:
-    #   mode: yaml
-    #   title: EV Charging new
-    #   icon: mdi:ev-station
-    #   show_in_sidebar: true
-    #   filename: ui/charge_control_new.yaml
-    # ev-charging-2:
-    #   mode: yaml
-    #   title: EV Charging claude
-    #   icon: mdi:ev-station
-    #   show_in_sidebar: true
-    #   filename: ui/charge_control_claude.yaml
+      filename: dashboards/internet_traffic.yaml
     ev-charging-3:
       mode: yaml
       title: EV Charging 2025
@@ -459,12 +441,6 @@ lovelace:
       icon: mdi:tools
       show_in_sidebar: true
       filename: dashboards/developer-tools.yaml
-    test-hello:
-      mode: yaml
-      title: Test Hello
-      icon: mdi:chat
-      show_in_sidebar: true
-      filename: dashboards/test_hello.yaml
     guacamole-remote:
       mode: yaml
       title: Guacamole
