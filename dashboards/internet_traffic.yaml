@@ -52,9 +52,11 @@ views:
           show: true
           title: "Top 5 Dispositivi (MB)"
           show_states: false
+        chart_type: bar
+        experimental:
+          disable_config_validation: true
         apex_config:
           chart:
-            type: bar
             height: 350
           plotOptions:
             bar:
@@ -62,36 +64,19 @@ views:
               distributed: true
           dataLabels:
             enabled: true
-            offsetX: 10
           legend:
             show: false
-          xaxis:
-            title:
-              text: "Dispositivi"
-          yaxis:
-            title:
-              text: "Traffico (MB)"
-            min: 0
         series:
           - entity: sensor.router_top_5_chart_data
             name: "Download (MB)"
-            type: bar
+            data: []
             data_generator: |
-              const categories = entity.attributes.categories;
-              const values = entity.attributes.values;
-              if (!categories || !values || categories.length === 0 || values.length === 0) {
-                console.error("Dati mancanti per la card ApexCharts");
-                return [];
-              }
-              // Verifica che categories e values siano array prima di procedere
-              if (!Array.isArray(categories) || !Array.isArray(values)) {
-                console.error("Categories o Values non sono array validi", categories, values);
-                return [];
-              }
-              // Mappa i dati per il grafico
-              return categories.map((name, index) => {
-                return { x: name, y: values[index] };
-              });
+              let cats = entity.attributes.categories;
+              let vals = entity.attributes.values;
+              if (typeof cats === 'string') cats = JSON.parse(cats);
+              if (typeof vals === 'string') vals = JSON.parse(vals);
+              if (!Array.isArray(cats)) return [];
+              return cats.map((c, i) => ({ x: c, y: vals[i] }));
 
       - type: markdown
         content: "## 📉 Velocità di Rete (kbps)"

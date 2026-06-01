@@ -32,5 +32,6 @@ action:
 ## 🚀 Deployment Info
 - Backup script: `/usr/local/bin/ha_gh_backup` (managed by `ha-gh-backup.timer`).
 - Authentication: Root SSH key (`/root/.ssh/id_rsa`).
-- Documentation: `/config/GITHUB_BACKUP.md`.
+- documentation: `/config/GITHUB_BACKUP.md`.
 - Rete Locale: `/config/RETE_LOCALE.md`.
+

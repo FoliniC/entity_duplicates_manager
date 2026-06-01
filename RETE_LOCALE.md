@@ -89,5 +89,33 @@ Per diagnosticare rallentamenti e identificare dispositivi che saturano la banda
         - Grafico a barre dei primi 10 consumatori per MB totali.
         - Grafico real-time della velocità complessiva (KB/s) nell'ultima ora.
 
+### Configurazione Grafico Top 5 Dispositivi
+Il grafico "Top 5 Dispositivi (MB)" utilizza una struttura a tre livelli per garantire prestazioni e stabilità:
+
+1.  **Sensore Helper** (`/config/packages/network_monitoring.yaml`): Prepara i dati in formato JSON filtrando i primi 5 consumatori.
+    ```yaml
+    - name: "Router Top 5 Chart Data"
+      unique_id: router_top_5_chart_data
+      state: "ready"
+      attributes:
+        categories: "{{ state_attr('sensor.router_traffic_stats', 'top_consumers')[:5] | map(attribute='name') | list | tojson if state_attr('sensor.router_traffic_stats', 'top_consumers') else '[]' }}"
+        values: "{{ state_attr('sensor.router_traffic_stats', 'top_consumers')[:5] | map(attribute='total_rx_mb') | list | tojson if state_attr('sensor.router_traffic_stats', 'top_consumers') else '[]' }}"
+    ```
+
+2.  **ApexCharts Card** (`/config/dashboards/internet_traffic.yaml`): Visualizza i dati con un layout orizzontale.
+    ```yaml
+    series:
+      - entity: sensor.router_top_5_chart_data
+        data: [] # Obbligatorio per inizializzare la serie
+        data_generator: |
+          try {
+            const cats = JSON.parse(entity.attributes.categories || "[]");
+            const vals = JSON.parse(entity.attributes.values || "[]");
+            return cats.map((c, i) => ({ x: c, y: vals[i] }));
+          } catch(e) { return []; }
+    ```
+
+3.  **Ottimizzazione:** L'uso di `data: []` inizializza correttamente la serie, prevenendo errori di rendering. L'uso di `tojson` nel sensore e `JSON.parse` nella card previene errori di interpretazione dei tipi di dati da parte del frontend di Home Assistant.
+
 ---
 *Ultimo aggiornamento: 1 Giugno 2026*

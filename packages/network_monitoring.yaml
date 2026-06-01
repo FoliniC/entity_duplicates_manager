@@ -108,17 +108,5 @@ template:
         unique_id: router_top_5_chart_data
         state: "ready"
         attributes:
-          categories: >
-            {% set consumers = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
-            {% if consumers %}
-              {{ consumers[:5] | map(attribute='name') | list | tojson }}
-            {% else %}
-              []
-            {% endif %}
-          values: >
-            {% set consumers = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
-            {% if consumers %}
-              {{ consumers[:5] | map(attribute='total_rx_mb') | list | tojson }}
-            {% else %}
-              []
-            {% endif %}
+          categories: "{{ state_attr('sensor.router_traffic_stats', 'top_consumers')[:5] | map(attribute='name') | list | tojson if state_attr('sensor.router_traffic_stats', 'top_consumers') else '[]' }}"
+          values: "{{ state_attr('sensor.router_traffic_stats', 'top_consumers')[:5] | map(attribute='total_rx_mb') | list | tojson if state_attr('sensor.router_traffic_stats', 'top_consumers') else '[]' }}"
