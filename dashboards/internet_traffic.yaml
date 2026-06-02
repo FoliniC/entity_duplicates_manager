@@ -47,18 +47,46 @@ views:
           style: |
             ha-card { user-select: text !important; }
       - type: custom:apexcharts-card
-        chart_type: bar
+        experimental:
+          disable_config_validation: true
         update_interval: 60s
         header:
           title: "Top 5 Dispositivi (MB)"
           show: true
+        apex_config:
+          chart:
+            type: bar
+            height: 300
+          plotOptions:
+            bar:
+              horizontal: true
+          xaxis:
+            type: category
+          dataLabels:
+            enabled: true
+          legend:
+            show: false
         series:
           - entity: sensor.top_device_1_mb
+            name: >-
+              {{ state_attr('sensor.top_device_1_mb', 'device_name') or 'Device 1' }}
+            ignore_history: true
           - entity: sensor.top_device_2_mb
+            name: >-
+              {{ state_attr('sensor.top_device_2_mb', 'device_name') or 'Device 2' }}
+            ignore_history: true
           - entity: sensor.top_device_3_mb
+            name: >-
+              {{ state_attr('sensor.top_device_3_mb', 'device_name') or 'Device 3' }}
+            ignore_history: true
           - entity: sensor.top_device_4_mb
+            name: >-
+              {{ state_attr('sensor.top_device_4_mb', 'device_name') or 'Device 4' }}
+            ignore_history: true
           - entity: sensor.top_device_5_mb
-
+            name: >-
+              {{ state_attr('sensor.top_device_5_mb', 'device_name') or 'Device 5' }}
+            ignore_history: true
       - type: markdown
         content: "## 📉 Velocità di Rete (kbps)"
         card_mod:
