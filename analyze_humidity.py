@@ -3,8 +3,8 @@ import datetime
 import sys
 
 log_file = 'logs/fancoil_events/fancoil_events.log'
-start_time = datetime.datetime(2026, 5, 31, 8, 20)
-end_time = datetime.datetime(2026, 5, 31, 18, 0)
+start_time = datetime.datetime(2026, 6, 3, 13, 0)
+end_time = datetime.datetime(2026, 6, 3, 16, 0)
 
 data = []
 
