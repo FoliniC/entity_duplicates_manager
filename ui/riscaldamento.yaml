@@ -1635,8 +1635,8 @@ views:
                             font-weight: bold;
                           }
                     - type: custom:mushroom-template-card
-                      primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_cucina_reale_calcolata') }}°C**"
-                      entity: sensor.temperatura_cucina_reale_calcolata
+                      primary: "🌡️ Temp (Fancoil): **{{ states('sensor.fancoil_cucina_temperature') }}°C**"
+                      entity: sensor.fancoil_cucina_temperature
                       tap_action:
                         action: more-info
                       card_mod: &row_style
@@ -1651,8 +1651,20 @@ views:
                             border: none;
                           }
                     - type: custom:mushroom-template-card
-                      primary: "💧 Umidità: **{{ states('sensor.th1a_humidity') }}%**"
-                      entity: sensor.th1a_humidity
+                      primary: "🌡️ Temp (Tuya TH): **{{ states('sensor.th1a_temperature_humidity_temperature') }}°C**"
+                      entity: sensor.th1a_temperature_humidity_temperature
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "💧 Hum (Fancoil): **{{ states('sensor.fancoil_cucina_humidity') }}%**"
+                      entity: sensor.fancoil_cucina_humidity
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "💧 Hum (Tuya TH): **{{ states('sensor.th1a_temperature_humidity_humidity') }}%**"
+                      entity: sensor.th1a_temperature_humidity_humidity
                       tap_action:
                         action: more-info
                       card_mod: *row_style
@@ -1719,14 +1731,32 @@ views:
                             font-weight: bold;
                           }
                     - type: custom:mushroom-template-card
-                      primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_camera_grande_reale_calcolata') }}°C**"
-                      entity: sensor.temperatura_camera_grande_reale_calcolata
+                      primary: "🌡️ Temp (Fancoil): **{{ states('sensor.fancoil_camera_grande_temperature') }}°C**"
+                      entity: sensor.fancoil_camera_grande_temperature
                       tap_action:
                         action: more-info
                       card_mod: *row_style
                     - type: custom:mushroom-template-card
-                      primary: "💧 Umidità: **{{ states('sensor.th2b_humidity') }}%**"
-                      entity: sensor.th2b_humidity
+                      primary: "🌡️ Temp (Tuya TH): **{{ states('sensor.th2b_temperature_humidity_temperature') }}°C**"
+                      entity: sensor.th2b_temperature_humidity_temperature
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "🌡️ Temp (KNX): **{{ states('sensor.temperatura_camera_grande') }}°C**"
+                      entity: sensor.temperatura_camera_grande
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "💧 Hum (Fancoil): **{{ states('sensor.fancoil_camera_grande_humidity') }}%**"
+                      entity: sensor.fancoil_camera_grande_humidity
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "💧 Hum (Tuya TH): **{{ states('sensor.th2b_temperature_humidity_humidity') }}%**"
+                      entity: sensor.th2b_temperature_humidity_humidity
                       tap_action:
                         action: more-info
                       card_mod: *row_style
@@ -1793,14 +1823,32 @@ views:
                             font-weight: bold;
                           }
                     - type: custom:mushroom-template-card
-                      primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_camera_reale_calcolata') }}°C**"
-                      entity: sensor.temperatura_camera_reale_calcolata
+                      primary: "🌡️ Temp (Fancoil): **{{ states('sensor.fancoil_camera_temperature') }}°C**"
+                      entity: sensor.fancoil_camera_temperature
                       tap_action:
                         action: more-info
                       card_mod: *row_style
                     - type: custom:mushroom-template-card
-                      primary: "💧 Umidità: **{{ states('sensor.th3c_humidity') }}%**"
-                      entity: sensor.th3c_humidity
+                      primary: "🌡️ Temp (Tuya TH): **{{ states('sensor.th3c_temperature_humidity_temperature') }}°C**"
+                      entity: sensor.th3c_temperature_humidity_temperature
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "🌡️ Temp (KNX): **{{ states('sensor.temperatura_camera') }}°C**"
+                      entity: sensor.temperatura_camera
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "💧 Hum (Fancoil): **{{ states('sensor.fancoil_camera_humidity') }}%**"
+                      entity: sensor.fancoil_camera_humidity
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "💧 Hum (Tuya TH): **{{ states('sensor.th3c_temperature_humidity_humidity') }}%**"
+                      entity: sensor.th3c_temperature_humidity_humidity
                       tap_action:
                         action: more-info
                       card_mod: *row_style
@@ -1867,13 +1915,25 @@ views:
                             font-weight: bold;
                           }
                     - type: custom:mushroom-template-card
-                      primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_corridoio_reale_calcolata') }}°C**"
-                      entity: sensor.temperatura_corridoio_reale_calcolata
+                      primary: "🌡️ Temp (Fancoil): **{{ states('sensor.fancoil_corridoio_temperature') }}°C**"
+                      entity: sensor.fancoil_corridoio_temperature
                       tap_action:
                         action: more-info
                       card_mod: *row_style
                     - type: custom:mushroom-template-card
-                      primary: "💧 Umidità: **{{ states('sensor.th4d_humidity') }}%**"
+                      primary: "🌡️ Temp (Tuya TH): **{{ states('sensor.th4d_temperature') }}°C**"
+                      entity: sensor.th4d_temperature
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "💧 Hum (Fancoil): **{{ states('sensor.fancoil_corridoio_humidity') }}%**"
+                      entity: sensor.fancoil_corridoio_humidity
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "💧 Hum (Tuya TH): **{{ states('sensor.th4d_humidity') }}%**"
                       entity: sensor.th4d_humidity
                       tap_action:
                         action: more-info
@@ -1941,13 +2001,19 @@ views:
                             font-weight: bold;
                           }
                     - type: custom:mushroom-template-card
-                      primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_bagno_reale_calcolata') }}°C**"
-                      entity: sensor.temperatura_bagno_reale_calcolata
+                      primary: "🌡️ Temp (Fancoil): **{{ states('sensor.fancoil_bagno_temperature') }}°C**"
+                      entity: sensor.fancoil_bagno_temperature
                       tap_action:
                         action: more-info
                       card_mod: *row_style
                     - type: custom:mushroom-template-card
-                      primary: "💧 Umidità: **{{ states('sensor.fancoil_bagno_humidity') }}%**"
+                      primary: "🌡️ Temp (KNX): **{{ states('sensor.temperatura_bagno') }}°C**"
+                      entity: sensor.temperatura_bagno
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "💧 Hum (Fancoil): **{{ states('sensor.fancoil_bagno_humidity') }}%**"
                       entity: sensor.fancoil_bagno_humidity
                       tap_action:
                         action: more-info
@@ -1973,12 +2039,6 @@ views:
                     - type: custom:mushroom-template-card
                       primary: "🎯 Rugiada: **{{ states('sensor.punto_di_rugiada_bagno') }}°C**"
                       entity: sensor.punto_di_rugiada_bagno
-                      tap_action:
-                        action: more-info
-                      card_mod: *row_style
-                    - type: custom:mushroom-template-card
-                      primary: "🏠 Temp KNX: **{{ states('sensor.temperatura_bagno') }}°C**"
-                      entity: sensor.temperatura_bagno
                       tap_action:
                         action: more-info
                       card_mod: *row_style
@@ -2015,13 +2075,25 @@ views:
                             font-weight: bold;
                           }
                     - type: custom:mushroom-template-card
-                      primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_sala_reale_calcolata') }}°C**"
-                      entity: sensor.temperatura_sala_reale_calcolata
+                      primary: "🌡️ Temp (Fancoil): **{{ states('sensor.fancoil_sala_temperature') }}°C**"
+                      entity: sensor.fancoil_sala_temperature
                       tap_action:
                         action: more-info
                       card_mod: *row_style
                     - type: custom:mushroom-template-card
-                      primary: "💧 Umidità: **{{ states('sensor.th4d_humidity') }}%**"
+                      primary: "🌡️ Temp (KNX): **{{ states('sensor.temperatura_sala') }}°C**"
+                      entity: sensor.temperatura_sala
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "💧 Hum (Fancoil): **{{ states('sensor.fancoil_sala_humidity') }}%**"
+                      entity: sensor.fancoil_sala_humidity
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "💧 Hum (Tuya TH): **{{ states('sensor.th4d_humidity') }}%**"
                       entity: sensor.th4d_humidity
                       tap_action:
                         action: more-info
@@ -2047,12 +2119,6 @@ views:
                     - type: custom:mushroom-template-card
                       primary: "🎯 Rugiada: **{{ states('sensor.punto_di_rugiada_sala') }}°C**"
                       entity: sensor.punto_di_rugiada_sala
-                      tap_action:
-                        action: more-info
-                      card_mod: *row_style
-                    - type: custom:mushroom-template-card
-                      primary: "🏠 Temp KNX: **{{ states('sensor.temperatura_sala') }}°C**"
-                      entity: sensor.temperatura_sala
                       tap_action:
                         action: more-info
                       card_mod: *row_style
