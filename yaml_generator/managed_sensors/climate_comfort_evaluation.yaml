@@ -5,8 +5,8 @@
   unique_id: omega_esterno
   unit_of_measurement: "g/kg"
   state: >
-    {% set T = states('sensor.temperatura_strenscia') | float(0) %}
-    {% set RH = states('sensor.th4d_humidity') | float(0) %}
+    {% set T = states('sensor.meteo_castionetto_temperatura') | float(0) %}
+    {% set RH = states('sensor.meteo_castionetto_umidita') | float(0) %}
     {% set psat = 610.78 * (2.718281828459 ** (17.27 * T / (T + 237.3))) %}
     {% set pvap = (RH / 100) * psat %}
     {{ (622 * pvap / (101325 - pvap)) | round(2) }}
@@ -15,9 +15,7 @@
   unique_id: punto_di_rugiada_esterno
   unit_of_measurement: "°C"
   state: >
-    {% set T = states('sensor.temperatura_strenscia') | float(0) %}
-    {% set RH = states('sensor.th4d_humidity') | float(0) %}
-    {{ (T - (100 - RH) / 5) | round(1) }}
+    {{ states('sensor.meteo_castionetto_punto_di_rugiada') | float(0) }}
 
 # CUCINA
 - name: "Omega Cucina"

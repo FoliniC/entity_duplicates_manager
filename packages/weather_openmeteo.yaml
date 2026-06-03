@@ -1,0 +1,30 @@
+sensor:
+  - platform: rest
+    name: "Meteo Castionetto - Temperatura"
+    unique_id: meteo_castionetto_temperatura
+    resource: >-
+      https://api.open-meteo.com/v1/forecast?latitude=46.178&longitude=9.982&current=temperature_2m,relative_humidity_2m,dew_point_2m&timezone=Europe%2FRome
+    value_template: "{{ value_json.current.temperature_2m }}"
+    unit_of_measurement: "°C"
+    device_class: temperature
+    scan_interval: 300
+
+  - platform: rest
+    name: "Meteo Castionetto - Umidità"
+    unique_id: meteo_castionetto_umidita
+    resource: >-
+      https://api.open-meteo.com/v1/forecast?latitude=46.178&longitude=9.982&current=temperature_2m,relative_humidity_2m,dew_point_2m&timezone=Europe%2FRome
+    value_template: "{{ value_json.current.relative_humidity_2m }}"
+    unit_of_measurement: "%"
+    device_class: humidity
+    scan_interval: 300
+
+  - platform: rest
+    name: "Meteo Castionetto - Punto di Rugiada"
+    unique_id: meteo_castionetto_punto_di_rugiada
+    resource: >-
+      https://api.open-meteo.com/v1/forecast?latitude=46.178&longitude=9.982&current=temperature_2m,relative_humidity_2m,dew_point_2m&timezone=Europe%2FRome
+    value_template: "{{ value_json.current.dew_point_2m }}"
+    unit_of_measurement: "°C"
+    device_class: temperature
+    scan_interval: 300

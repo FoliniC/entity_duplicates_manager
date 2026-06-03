@@ -1567,19 +1567,37 @@ views:
               ## 🍃 Benessere Indoor
               Analisi del comfort basata su Umidità Specifica (ω) e Punto di Rugiada.
           
-          - type: entities
+          - type: markdown
+            card_mod:
+              style: |
+                ha-card {
+                  --ha-card-header-font-size: 26px;
+                }
+                .card-content {
+                  font-size: 1.4em;
+                  line-height: 1.7;
+                }
+                b {
+                  color: var(--primary-color);
+                  font-size: 1.1em;
+                }
             title: "🌍 Condizioni Esterne"
-            show_header_toggle: false
-            state_color: true
-            entities:
-              - entity: sensor.temperatura_strenscia
-                name: "Temperatura Esterna (KNX)"
-              - entity: sensor.th4d_temperature
-                name: "Temperatura Esterna (TH4D)"
-              - entity: sensor.th4d_humidity
-                name: "Umidità Esterna"
-              - entity: sensor.omega_esterno
-                name: "Umidità Specifica (ω)"
+            content: >
+              📡 Temp (Internet): **{{ states('sensor.meteo_castionetto_temperatura') }}°C**  
+
+              📡 Umidità (Internet): **{{ states('sensor.meteo_castionetto_umidita') }}%**  
+
+              📡 Rugiada (Internet): **{{ states('sensor.meteo_castionetto_punto_di_rugiada') }}°C**  
+              
+              🏠 Temp (KNX Locale): **{{ states('sensor.temperatura_strenscia') }}°C**  
+
+              🏠 Umidità (TH4D Esterna): **{{ states('sensor.th4d_humidity') }}%**  
+
+              🏠 Temp (TH4D Esterna): **{{ states('sensor.th4d_temperature') }}°C**  
+              
+              📊 Umidità Specifica (ω): **{{ states('sensor.omega_esterno') }} g/kg**  
+
+              📊 Punto Rugiada Esterno: **{{ states('sensor.punto_di_rugiada_esterno') }}°C**
 
           - type: grid
             columns: 2
@@ -1587,193 +1605,448 @@ views:
             cards:
               # CUCINA
               - type: vertical-stack
+                card_mod:
+                  style: |
+                    ha-card {
+                      border: 4px solid #ff9800 !important;
+                      border-radius: 12px !important;
+                      padding-bottom: 8px;
+                      background: var(--card-background-color);
+                    }
                 cards:
                   - type: custom:mushroom-template-card
-                    primary: "Cucina"
-                    secondary: >
-                      {{ states('sensor.temperatura_cucina_reale_calcolata') }}°C | {{ states('sensor.th1a_humidity') }}% | {{ states('sensor.comfort_evaluation_cucina') }}
-                      Consiglio: {{ states('sensor.climate_advice_cucina') }}
-                    icon: mdi:chef-hat
-                    icon_color: >
-                      {% set c = states('sensor.comfort_evaluation_cucina') %}
-                      {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
+                    primary: "🍳 Cucina"
+                    entity: climate.controllo_temperatura_cucina
                     tap_action:
-                      action: navigate
-                      navigation_path: "/riscaldamento-1/fancoil-dettagli-cucina"
-                    multiline_secondary: true
-                  - type: entities
-                    title: "Controllo Fancoil (TH1A)"
-                    entities:
-                      - entity: sensor.th1a_temperature
-                        name: "Temperatura Pilota"
-                      - entity: sensor.th1a_humidity
-                        name: "Umidità Pilota"
-                      - entity: sensor.omega_cucina
-                        name: "Umidità Specifica (ω)"
-                      - entity: sensor.punto_di_rugiada_cucina
-                        name: "Punto di Rugiada"
-                      - entity: sensor.fancoil_cucina_humidity
-                        name: "Umidità Bordo Fancoil"
-                      - entity: sensor.th1a_battery
-                        name: "Batteria Pilota"
+                      action: more-info
+                    card_mod:
+                      style: |
+                        ha-card {
+                          --ha-card-header-font-size: 22px;
+                          margin-bottom: 5px;
+                          box-shadow: none;
+                          background: none;
+                          border: none;
+                        }
+                        :host {
+                          --primary-text-color: var(--primary-color);
+                          font-weight: bold;
+                        }
+                  - type: custom:mushroom-template-card
+                    primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_cucina_reale_calcolata') }}°C**"
+                    entity: sensor.temperatura_cucina_reale_calcolata
+                    tap_action:
+                      action: more-info
+                    card_mod: &row_style
+                      style: |
+                        ha-card {
+                          font-size: 1.4em !important;
+                          user-select: text !important;
+                          padding: 0px 16px !important;
+                          margin-top: -12px;
+                          box-shadow: none;
+                          background: none;
+                          border: none;
+                        }
+                  - type: custom:mushroom-template-card
+                    primary: "💧 Umidità: **{{ states('sensor.th1a_humidity') }}%**"
+                    entity: sensor.th1a_humidity
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "⚖️ Stato: **{{ states('sensor.comfort_evaluation_cucina') }}**"
+                    entity: sensor.comfort_evaluation_cucina
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "💡 Consiglio: **{{ states('sensor.climate_advice_cucina') }}**"
+                    entity: sensor.climate_advice_cucina
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "📊 Umidità Specifica (ω): **{{ states('sensor.omega_cucina') }} g/kg**"
+                    entity: sensor.omega_cucina
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "🎯 Rugiada: **{{ states('sensor.punto_di_rugiada_cucina') }}°C**"
+                    entity: sensor.punto_di_rugiada_cucina
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "🔋 Batteria Pilota: **{{ states('sensor.th1a_battery') }}%**"
+                    entity: sensor.th1a_battery
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
 
               # CAMERA GRANDE
               - type: vertical-stack
+                card_mod:
+                  style: |
+                    ha-card {
+                      border: 4px solid #ff9800 !important;
+                      border-radius: 12px !important;
+                      padding-bottom: 8px;
+                      background: var(--card-background-color);
+                    }
                 cards:
                   - type: custom:mushroom-template-card
-                    primary: "Camera Grande"
-                    secondary: >
-                      {{ states('sensor.temperatura_camera_grande_reale_calcolata') }}°C | {{ states('sensor.th2b_humidity') }}% | {{ states('sensor.comfort_evaluation_camera_grande') }}
-                      Consiglio: {{ states('sensor.climate_advice_camera_grande') }}
-                    icon: mdi:bed-king
-                    icon_color: >
-                      {% set c = states('sensor.comfort_evaluation_camera_grande') %}
-                      {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
+                    primary: "🛏️ Camera Grande"
+                    entity: climate.controllo_temperatura_camera_grande
                     tap_action:
-                      action: navigate
-                      navigation_path: "/riscaldamento-1/fancoil-dettagli-camera_grande"
-                    multiline_secondary: true
-                  - type: entities
-                    title: "Controllo Fancoil (TH2B)"
-                    entities:
-                      - entity: sensor.th2b_temperature
-                        name: "Temperatura Pilota"
-                      - entity: sensor.th2b_humidity
-                        name: "Umidità Pilota"
-                      - entity: sensor.omega_camera_grande
-                        name: "Umidità Specifica (ω)"
-                      - entity: sensor.punto_di_rugiada_camera_grande
-                        name: "Punto di Rugiada"
-                      - entity: sensor.fancoil_camera_grande_humidity
-                        name: "Umidità Bordo Fancoil"
-                      - entity: sensor.th2b_battery
-                        name: "Batteria Pilota"
+                      action: more-info
+                    card_mod:
+                      style: |
+                        ha-card {
+                          --ha-card-header-font-size: 22px;
+                          margin-bottom: 5px;
+                          box-shadow: none;
+                          background: none;
+                          border: none;
+                        }
+                        :host {
+                          --primary-text-color: var(--primary-color);
+                          font-weight: bold;
+                        }
+                  - type: custom:mushroom-template-card
+                    primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_camera_grande_reale_calcolata') }}°C**"
+                    entity: sensor.temperatura_camera_grande_reale_calcolata
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "💧 Umidità: **{{ states('sensor.th2b_humidity') }}%**"
+                    entity: sensor.th2b_humidity
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "⚖️ Stato: **{{ states('sensor.comfort_evaluation_camera_grande') }}**"
+                    entity: sensor.comfort_evaluation_camera_grande
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "💡 Consiglio: **{{ states('sensor.climate_advice_camera_grande') }}**"
+                    entity: sensor.climate_advice_camera_grande
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "📊 Umidità Specifica (ω): **{{ states('sensor.omega_camera_grande') }} g/kg**"
+                    entity: sensor.omega_camera_grande
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "🎯 Rugiada: **{{ states('sensor.punto_di_rugiada_camera_grande') }}°C**"
+                    entity: sensor.punto_di_rugiada_camera_grande
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "🔋 Batteria Pilota: **{{ states('sensor.th2b_battery') }}%**"
+                    entity: sensor.th2b_battery
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
 
               # CAMERA
               - type: vertical-stack
+                card_mod:
+                  style: |
+                    ha-card {
+                      border: 4px solid #ff9800 !important;
+                      border-radius: 12px !important;
+                      padding-bottom: 8px;
+                      background: var(--card-background-color);
+                    }
                 cards:
                   - type: custom:mushroom-template-card
-                    primary: "Camera"
-                    secondary: >
-                      {{ states('sensor.temperatura_camera_reale_calcolata') }}°C | {{ states('sensor.th3c_humidity') }}% | {{ states('sensor.comfort_evaluation_camera') }}
-                      Consiglio: {{ states('sensor.climate_advice_camera') }}
-                    icon: mdi:bed
-                    icon_color: >
-                      {% set c = states('sensor.comfort_evaluation_camera') %}
-                      {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
+                    primary: "💤 Camera"
+                    entity: climate.controllo_temperatura_camera
                     tap_action:
-                      action: navigate
-                      navigation_path: "/riscaldamento-1/fancoil-dettagli-camera"
-                    multiline_secondary: true
-                  - type: entities
-                    title: "Controllo Fancoil (TH3C)"
-                    entities:
-                      - entity: sensor.th3c_temperature
-                        name: "Temperatura Pilota"
-                      - entity: sensor.th3c_humidity
-                        name: "Umidità Pilota"
-                      - entity: sensor.omega_camera
-                        name: "Umidità Specifica (ω)"
-                      - entity: sensor.punto_di_rugiada_camera
-                        name: "Punto di Rugiada"
-                      - entity: sensor.fancoil_camera_humidity
-                        name: "Umidità Bordo Fancoil"
-                      - entity: sensor.th3c_battery
-                        name: "Batteria Pilota"
+                      action: more-info
+                    card_mod:
+                      style: |
+                        ha-card {
+                          --ha-card-header-font-size: 22px;
+                          margin-bottom: 5px;
+                          box-shadow: none;
+                          background: none;
+                          border: none;
+                        }
+                        :host {
+                          --primary-text-color: var(--primary-color);
+                          font-weight: bold;
+                        }
+                  - type: custom:mushroom-template-card
+                    primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_camera_reale_calcolata') }}°C**"
+                    entity: sensor.temperatura_camera_reale_calcolata
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "💧 Umidità: **{{ states('sensor.th3c_humidity') }}%**"
+                    entity: sensor.th3c_humidity
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "⚖️ Stato: **{{ states('sensor.comfort_evaluation_camera') }}**"
+                    entity: sensor.comfort_evaluation_camera
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "💡 Consiglio: **{{ states('sensor.climate_advice_camera') }}**"
+                    entity: sensor.climate_advice_camera
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "📊 Umidità Specifica (ω): **{{ states('sensor.omega_camera') }} g/kg**"
+                    entity: sensor.omega_camera
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "🎯 Rugiada: **{{ states('sensor.punto_di_rugiada_camera') }}°C**"
+                    entity: sensor.punto_di_rugiada_camera
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "🔋 Batteria Pilota: **{{ states('sensor.th3c_battery') }}%**"
+                    entity: sensor.th3c_battery
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
 
               # CORRIDOIO
               - type: vertical-stack
+                card_mod:
+                  style: |
+                    ha-card {
+                      border: 4px solid #ff9800 !important;
+                      border-radius: 12px !important;
+                      padding-bottom: 8px;
+                      background: var(--card-background-color);
+                    }
                 cards:
                   - type: custom:mushroom-template-card
-                    primary: "Corridoio"
-                    secondary: >
-                      {{ states('sensor.temperatura_corridoio_reale_calcolata') }}°C | {{ states('sensor.th4d_humidity') }}% | {{ states('sensor.comfort_evaluation_corridoio') }}
-                      Consiglio: {{ states('sensor.climate_advice_corridoio') }}
-                    icon: mdi:Countertop
-                    icon_color: >
-                      {% set c = states('sensor.comfort_evaluation_corridoio') %}
-                      {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
+                    primary: "🚶 Corridoio"
+                    entity: climate.controllo_temperatura_corridoio
                     tap_action:
-                      action: navigate
-                      navigation_path: "/riscaldamento-1/fancoil-dettagli-corridoio"
-                    multiline_secondary: true
-                  - type: entities
-                    title: "Controllo Fancoil (TH4D)"
-                    entities:
-                      - entity: sensor.th4d_temperature
-                        name: "Temperatura Pilota"
-                      - entity: sensor.th4d_humidity
-                        name: "Umidità Pilota"
-                      - entity: sensor.omega_corridoio
-                        name: "Umidità Specifica (ω)"
-                      - entity: sensor.punto_di_rugiada_corridoio
-                        name: "Punto di Rugiada"
-                      - entity: sensor.fancoil_corridoio_humidity
-                        name: "Umidità Bordo Fancoil"
-                      - entity: sensor.th4d_battery
-                        name: "Batteria Pilota"
+                      action: more-info
+                    card_mod:
+                      style: |
+                        ha-card {
+                          --ha-card-header-font-size: 22px;
+                          margin-bottom: 5px;
+                          box-shadow: none;
+                          background: none;
+                          border: none;
+                        }
+                        :host {
+                          --primary-text-color: var(--primary-color);
+                          font-weight: bold;
+                        }
+                  - type: custom:mushroom-template-card
+                    primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_corridoio_reale_calcolata') }}°C**"
+                    entity: sensor.temperatura_corridoio_reale_calcolata
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "💧 Umidità: **{{ states('sensor.th4d_humidity') }}%**"
+                    entity: sensor.th4d_humidity
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "⚖️ Stato: **{{ states('sensor.comfort_evaluation_corridoio') }}**"
+                    entity: sensor.comfort_evaluation_corridoio
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "💡 Consiglio: **{{ states('sensor.climate_advice_corridoio') }}**"
+                    entity: sensor.climate_advice_corridoio
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "📊 Umidità Specifica (ω): **{{ states('sensor.omega_corridoio') }} g/kg**"
+                    entity: sensor.omega_corridoio
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "🎯 Rugiada: **{{ states('sensor.punto_di_rugiada_corridoio') }}°C**"
+                    entity: sensor.punto_di_rugiada_corridoio
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "🔋 Batteria Pilota: **{{ states('sensor.th4d_battery') }}%**"
+                    entity: sensor.th4d_battery
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
 
               # BAGNO
               - type: vertical-stack
+                card_mod:
+                  style: |
+                    ha-card {
+                      border: 4px solid #ff9800 !important;
+                      border-radius: 12px !important;
+                      padding-bottom: 8px;
+                      background: var(--card-background-color);
+                    }
                 cards:
                   - type: custom:mushroom-template-card
-                    primary: "Bagno"
-                    secondary: >
-                      {{ states('sensor.temperatura_bagno_reale_calcolata') }}°C | {{ states('sensor.fancoil_bagno_humidity') }}% | {{ states('sensor.comfort_evaluation_bagno') }}
-                      Consiglio: {{ states('sensor.climate_advice_bagno') }}
-                    icon: mdi:shower
-                    icon_color: >
-                      {% set c = states('sensor.comfort_evaluation_bagno') %}
-                      {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
+                    primary: "🚿 Bagno"
+                    entity: climate.controllo_temperatura_bagno
                     tap_action:
-                      action: navigate
-                      navigation_path: "/riscaldamento-1/fancoil-dettagli-bagno"
-                    multiline_secondary: true
-                  - type: entities
-                    title: "Controllo Fancoil"
-                    entities:
-                      - entity: sensor.th3c_temperature
-                        name: "Temperatura Pilota (Ref)"
-                      - entity: sensor.fancoil_bagno_humidity
-                        name: "Umidità Pilota"
-                      - entity: sensor.omega_bagno
-                        name: "Umidità Specifica (ω)"
-                      - entity: sensor.punto_di_rugiada_bagno
-                        name: "Punto di Rugiada"
-                      - entity: sensor.temperatura_bagno
-                        name: "Temp KNX"
+                      action: more-info
+                    card_mod:
+                      style: |
+                        ha-card {
+                          --ha-card-header-font-size: 22px;
+                          margin-bottom: 5px;
+                          box-shadow: none;
+                          background: none;
+                          border: none;
+                        }
+                        :host {
+                          --primary-text-color: var(--primary-color);
+                          font-weight: bold;
+                        }
+                  - type: custom:mushroom-template-card
+                    primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_bagno_reale_calcolata') }}°C**"
+                    entity: sensor.temperatura_bagno_reale_calcolata
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "💧 Umidità: **{{ states('sensor.fancoil_bagno_humidity') }}%**"
+                    entity: sensor.fancoil_bagno_humidity
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "⚖️ Stato: **{{ states('sensor.comfort_evaluation_bagno') }}**"
+                    entity: sensor.comfort_evaluation_bagno
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "💡 Consiglio: **{{ states('sensor.climate_advice_bagno') }}**"
+                    entity: sensor.climate_advice_bagno
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "📊 Umidità Specifica (ω): **{{ states('sensor.omega_bagno') }} g/kg**"
+                    entity: sensor.omega_bagno
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "🎯 Rugiada: **{{ states('sensor.punto_di_rugiada_bagno') }}°C**"
+                    entity: sensor.punto_di_rugiada_bagno
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "🏠 Temp KNX: **{{ states('sensor.temperatura_bagno') }}°C**"
+                    entity: sensor.temperatura_bagno
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
 
               # SALA
               - type: vertical-stack
+                card_mod:
+                  style: |
+                    ha-card {
+                      border: 4px solid #ff9800 !important;
+                      border-radius: 12px !important;
+                      padding-bottom: 8px;
+                      background: var(--card-background-color);
+                    }
                 cards:
                   - type: custom:mushroom-template-card
-                    primary: "Sala"
-                    secondary: >
-                      {{ states('sensor.temperatura_sala_reale_calcolata') }}°C | {{ states('sensor.th4d_humidity') }}% | {{ states('sensor.comfort_evaluation_sala') }}
-                      Consiglio: {{ states('sensor.climate_advice_sala') }}
-                    icon: mdi:sofa
-                    icon_color: >
-                      {% set c = states('sensor.comfort_evaluation_sala') %}
-                      {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
+                    primary: "🛋️ Sala"
+                    entity: climate.controllo_temperatura_sala
+                    tap_action:
+                      action: more-info
+                    card_mod:
+                      style: |
+                        ha-card {
+                          --ha-card-header-font-size: 22px;
+                          margin-bottom: 5px;
+                          box-shadow: none;
+                          background: none;
+                          border: none;
+                        }
+                        :host {
+                          --primary-text-color: var(--primary-color);
+                          font-weight: bold;
+                        }
+                  - type: custom:mushroom-template-card
+                    primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_sala_reale_calcolata') }}°C**"
+                    entity: sensor.temperatura_sala_reale_calcolata
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "💧 Umidità: **{{ states('sensor.th4d_humidity') }}%**"
+                    entity: sensor.th4d_humidity
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "⚖️ Stato: **{{ states('sensor.comfort_evaluation_sala') }}**"
+                    entity: sensor.comfort_evaluation_sala
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "💡 Consiglio: **{{ states('sensor.climate_advice_sala') }}**"
+                    entity: sensor.climate_advice_sala
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "📊 Umidità Specifica (ω): **{{ states('sensor.omega_sala') }} g/kg**"
+                    entity: sensor.omega_sala
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "🎯 Rugiada: **{{ states('sensor.punto_di_rugiada_sala') }}°C**"
+                    entity: sensor.punto_di_rugiada_sala
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
+                  - type: custom:mushroom-template-card
+                    primary: "🏠 Temp KNX: **{{ states('sensor.temperatura_sala') }}°C**"
+                    entity: sensor.temperatura_sala
+                    tap_action:
+                      action: more-info
+                    card_mod: *row_style
                     tap_action:
                       action: navigate
                       navigation_path: "/riscaldamento-1/fancoil-dettagli-sala"
-                    multiline_secondary: true
-                  - type: entities
-                    title: "Controllo Fancoil (TH4D/Ref)"
-                    entities:
-                      - entity: sensor.th4d_temperature
-                        name: "Temperatura Pilota"
-                      - entity: sensor.th4d_humidity
-                        name: "Umidità Pilota"
-                      - entity: sensor.omega_sala
-                        name: "Umidità Specifica (ω)"
-                      - entity: sensor.punto_di_rugiada_sala
-                        name: "Punto di Rugiada"
-                      - entity: sensor.fancoil_sala_humidity
-                        name: "Umidità Bordo Fancoil"
-                      - entity: sensor.temperatura_sala
-                        name: "Temp KNX"
 
   - title: Informazioni
     path: riscaldamento-info
