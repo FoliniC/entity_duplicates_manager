@@ -11,6 +11,14 @@
     {% set pvap = (RH / 100) * psat %}
     {{ (622 * pvap / (101325 - pvap)) | round(2) }}
 
+- name: "Punto di Rugiada Esterno"
+  unique_id: punto_di_rugiada_esterno
+  unit_of_measurement: "°C"
+  state: >
+    {% set T = states('sensor.temperatura_strenscia') | float(0) %}
+    {% set RH = states('sensor.th4d_humidity') | float(0) %}
+    {{ (T - (100 - RH) / 5) | round(1) }}
+
 # CUCINA
 - name: "Omega Cucina"
   unique_id: omega_cucina
@@ -21,6 +29,14 @@
     {% set psat = 610.78 * (2.718281828459 ** (17.27 * T / (T + 237.3))) %}
     {% set pvap = (RH / 100) * psat %}
     {{ (622 * pvap / (101325 - pvap)) | round(2) }}
+
+- name: "Punto di Rugiada Cucina"
+  unique_id: punto_di_rugiada_cucina
+  unit_of_measurement: "°C"
+  state: >
+    {% set T = states('sensor.temperatura_cucina_reale_calcolata') | float(0) %}
+    {% set RH = states('sensor.th1a_humidity') | float(0) %}
+    {{ (T - (100 - RH) / 5) | round(1) }}
 
 - name: "Comfort Evaluation Cucina"
   unique_id: comfort_evaluation_cucina
@@ -67,6 +83,14 @@
     {% set pvap = (RH / 100) * psat %}
     {{ (622 * pvap / (101325 - pvap)) | round(2) }}
 
+- name: "Punto di Rugiada Camera Grande"
+  unique_id: punto_di_rugiada_camera_grande
+  unit_of_measurement: "°C"
+  state: >
+    {% set T = states('sensor.temperatura_camera_grande_reale_calcolata') | float(0) %}
+    {% set RH = states('sensor.th2b_humidity') | float(0) %}
+    {{ (T - (100 - RH) / 5) | round(1) }}
+
 - name: "Comfort Evaluation Camera Grande"
   unique_id: comfort_evaluation_camera_grande
   state: >
@@ -111,6 +135,14 @@
     {% set psat = 610.78 * (2.718281828459 ** (17.27 * T / (T + 237.3))) %}
     {% set pvap = (RH / 100) * psat %}
     {{ (622 * pvap / (101325 - pvap)) | round(2) }}
+
+- name: "Punto di Rugiada Camera"
+  unique_id: punto_di_rugiada_camera
+  unit_of_measurement: "°C"
+  state: >
+    {% set T = states('sensor.temperatura_camera_reale_calcolata') | float(0) %}
+    {% set RH = states('sensor.th3c_humidity') | float(0) %}
+    {{ (T - (100 - RH) / 5) | round(1) }}
 
 - name: "Comfort Evaluation Camera"
   unique_id: comfort_evaluation_camera
@@ -157,6 +189,14 @@
     {% set pvap = (RH / 100) * psat %}
     {{ (622 * pvap / (101325 - pvap)) | round(2) }}
 
+- name: "Punto di Rugiada Corridoio"
+  unique_id: punto_di_rugiada_corridoio
+  unit_of_measurement: "°C"
+  state: >
+    {% set T = states('sensor.temperatura_corridoio_reale_calcolata') | float(0) %}
+    {% set RH = states('sensor.th4d_humidity') | float(0) %}
+    {{ (T - (100 - RH) / 5) | round(1) }}
+
 - name: "Comfort Evaluation Corridoio"
   unique_id: comfort_evaluation_corridoio
   state: >
@@ -202,6 +242,14 @@
     {% set pvap = (RH / 100) * psat %}
     {{ (622 * pvap / (101325 - pvap)) | round(2) }}
 
+- name: "Punto di Rugiada Bagno"
+  unique_id: punto_di_rugiada_bagno
+  unit_of_measurement: "°C"
+  state: >
+    {% set T = states('sensor.temperatura_bagno_reale_calcolata') | float(0) %}
+    {% set RH = states('sensor.fancoil_bagno_humidity') | float(0) %}
+    {{ (T - (100 - RH) / 5) | round(1) }}
+
 - name: "Comfort Evaluation Bagno"
   unique_id: comfort_evaluation_bagno
   state: >
@@ -246,6 +294,14 @@
     {% set psat = 610.78 * (2.718281828459 ** (17.27 * T / (T + 237.3))) %}
     {% set pvap = (RH / 100) * psat %}
     {{ (622 * pvap / (101325 - pvap)) | round(2) }}
+
+- name: "Punto di Rugiada Sala"
+  unique_id: punto_di_rugiada_sala
+  unit_of_measurement: "°C"
+  state: >
+    {% set T = states('sensor.temperatura_sala_reale_calcolata') | float(0) %}
+    {% set RH = states('sensor.th4d_humidity') | float(0) %}
+    {{ (T - (100 - RH) / 5) | round(1) }}
 
 - name: "Comfort Evaluation Sala"
   unique_id: comfort_evaluation_sala
