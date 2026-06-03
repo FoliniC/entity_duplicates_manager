@@ -1,0 +1,23 @@
+- name: "Castionetto Illuminamento"
+  unique_id: castionetto_illuminamento
+  unit_of_measurement: "lux"
+  state: >-
+    {{ (states('sensor.castionetto_radiazione_globale')
+        | float(0) * 120) | round(0) }}
+
+- name: "Castionetto Ore di Luce Rimanenti"
+  unique_id: castionetto_ore_di_luce_rimanenti
+  unit_of_measurement: "h"
+  state: >-
+    {% set sunset_str = states('sensor.castionetto_tramonto') %}
+    {% if sunset_str not in ['unavailable', 'unknown', 'none'] %}
+      {% set sunset = as_datetime(sunset_str) %}
+      {% set now = now() %}
+      {% if sunset > now %}
+        {{ ((sunset - now).total_seconds() / 3600) | round(1) }}
+      {% else %}
+        0
+      {% endif %}
+    {% else %}
+      unknown
+    {% endif %}

@@ -1,0 +1,14 @@
+- alias: "Finestra - blocca apertura se piove o pioverà"
+  id: "finestra_blocca_apertura_pioggia"
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.sta_piovendo_a_castionetto
+      to: "on"
+    - platform: state
+      entity_id: binary_sensor.pioggia_imminente_1h
+      to: "on"
+  action:
+    - action: notify.mobile_app_redmi_note_13_pro_5g
+      data:
+        message: >
+          🌧️ Finestra chiusa — {% if is_state('binary_sensor.sta_piovendo_a_castionetto','on') %} pioggia in corso ({{ states('sensor.castionetto_precipitazione') }} mm/h) {% else %} pioggia prevista entro 1h ({{ states('sensor.castionetto_prob_pioggia_1h') }}%) {% endif %}

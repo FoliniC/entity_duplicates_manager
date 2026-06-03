@@ -1,0 +1,11 @@
+- name: "Sta piovendo a Castionetto"
+  unique_id: castionetto_is_raining
+  device_class: moisture
+  state: >-
+    {{ states('sensor.castionetto_precipitazione') | float(0) > 0.1 }}
+
+- name: "Pioggia imminente (1h)"
+  unique_id: castionetto_imminent_rain_1h
+  device_class: moisture
+  state: >-
+    {{ states('sensor.castionetto_prob_pioggia_1h') | int(0) > 60 }}

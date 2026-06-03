@@ -1,30 +1,89 @@
-sensor:
-  - platform: rest
-    name: "Meteo Castionetto - Temperatura"
-    unique_id: meteo_castionetto_temperatura
-    resource: >-
-      https://api.open-meteo.com/v1/forecast?latitude=46.178&longitude=9.982&current=temperature_2m,relative_humidity_2m,dew_point_2m&timezone=Europe%2FRome
-    value_template: "{{ value_json.current.temperature_2m }}"
-    unit_of_measurement: "°C"
-    device_class: temperature
+rest:
+  - resource: "https://api.open-meteo.com/v1/forecast?latitude=46.178&longitude=9.982&current=temperature_2m,relative_humidity_2m,dew_point_2m,precipitation,rain,weather_code,is_day,shortwave_radiation,direct_radiation,diffuse_radiation,direct_normal_irradiance,sunshine_duration&hourly=precipitation_probability&daily=sunrise,sunset&timezone=Europe%2FRome&forecast_days=1&forecast_hours=24"
     scan_interval: 300
+    sensor:
+      - name: "Meteo Castionetto - Temperatura"
+        unique_id: meteo_castionetto_temperatura
+        value_template: "{{ value_json.current.temperature_2m }}"
+        unit_of_measurement: "°C"
+        device_class: temperature
 
-  - platform: rest
-    name: "Meteo Castionetto - Umidità"
-    unique_id: meteo_castionetto_umidita
-    resource: >-
-      https://api.open-meteo.com/v1/forecast?latitude=46.178&longitude=9.982&current=temperature_2m,relative_humidity_2m,dew_point_2m&timezone=Europe%2FRome
-    value_template: "{{ value_json.current.relative_humidity_2m }}"
-    unit_of_measurement: "%"
-    device_class: humidity
-    scan_interval: 300
+      - name: "Meteo Castionetto - Umidità"
+        unique_id: meteo_castionetto_umidita
+        value_template: "{{ value_json.current.relative_humidity_2m }}"
+        unit_of_measurement: "%"
+        device_class: humidity
 
-  - platform: rest
-    name: "Meteo Castionetto - Punto di Rugiada"
-    unique_id: meteo_castionetto_punto_di_rugiada
-    resource: >-
-      https://api.open-meteo.com/v1/forecast?latitude=46.178&longitude=9.982&current=temperature_2m,relative_humidity_2m,dew_point_2m&timezone=Europe%2FRome
-    value_template: "{{ value_json.current.dew_point_2m }}"
-    unit_of_measurement: "°C"
-    device_class: temperature
-    scan_interval: 300
+      - name: "Meteo Castionetto - Punto di Rugiada"
+        unique_id: meteo_castionetto_punto_di_rugiada
+        value_template: "{{ value_json.current.dew_point_2m }}"
+        unit_of_measurement: "°C"
+        device_class: temperature
+
+      - name: "Castionetto Precipitazione"
+        unique_id: castionetto_precipitazione
+        value_template: "{{ value_json.current.precipitation }}"
+        unit_of_measurement: "mm"
+        device_class: precipitation_intensity
+
+      - name: "Castionetto Pioggia"
+        unique_id: castionetto_pioggia
+        value_template: "{{ value_json.current.rain }}"
+        unit_of_measurement: "mm"
+
+      - name: "Castionetto Weather Code"
+        unique_id: castionetto_weather_code
+        value_template: "{{ value_json.current.weather_code }}"
+
+      - name: "Castionetto Radiazione Globale"
+        unique_id: castionetto_radiazione_globale
+        value_template: "{{ value_json.current.shortwave_radiation }}"
+        unit_of_measurement: "W/m²"
+        device_class: irradiance
+
+      - name: "Castionetto Radiazione Diretta"
+        unique_id: castionetto_radiazione_diretta
+        value_template: "{{ value_json.current.direct_radiation }}"
+        unit_of_measurement: "W/m²"
+        device_class: irradiance
+
+      - name: "Castionetto DNI"
+        unique_id: castionetto_dni
+        value_template: "{{ value_json.current.direct_normal_irradiance }}"
+        unit_of_measurement: "W/m²"
+        device_class: irradiance
+
+      - name: "Castionetto Sunshine Duration"
+        unique_id: castionetto_sunshine_duration
+        value_template: "{{ value_json.current.sunshine_duration }}"
+        unit_of_measurement: "s"
+
+      - name: "Castionetto Prob. Pioggia Ora"
+        unique_id: castionetto_prob_pioggia_ora
+        value_template: "{{ value_json.hourly.precipitation_probability[0] }}"
+        unit_of_measurement: "%"
+
+      - name: "Castionetto Prob. Pioggia +1h"
+        unique_id: castionetto_prob_pioggia_1h
+        value_template: "{{ value_json.hourly.precipitation_probability[1] }}"
+        unit_of_measurement: "%"
+
+      - name: "Castionetto Prob. Pioggia +3h"
+        unique_id: castionetto_prob_pioggia_3h
+        value_template: "{{ value_json.hourly.precipitation_probability[3] }}"
+        unit_of_measurement: "%"
+
+      - name: "Castionetto Prob. Pioggia +6h"
+        unique_id: castionetto_prob_pioggia_6h
+        value_template: "{{ value_json.hourly.precipitation_probability[6] }}"
+        unit_of_measurement: "%"
+
+      - name: "Castionetto Alba"
+        unique_id: castionetto_alba
+        value_template: "{{ value_json.daily.sunrise[0] }}"
+        device_class: timestamp
+
+      - name: "Castionetto Tramonto"
+        unique_id: castionetto_tramonto
+        value_template: "{{ value_json.daily.sunset[0] }}"
+        device_class: timestamp

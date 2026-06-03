@@ -1596,64 +1596,110 @@ views:
                         --primary-text-color: var(--primary-color);
                         font-weight: bold;
                       }
-                - type: custom:mushroom-template-card
-                  primary: "📡 Temp (Internet): {{ states('sensor.meteo_castionetto_temperatura') }}°C"
-                  entity: sensor.meteo_castionetto_temperatura
-                  tap_action:
-                    action: more-info
-                  card_mod: &row_style
-                    style: |
-                      ha-card {
-                        font-size: 1.4em !important;
-                        font-weight: bold !important;
-                        user-select: text !important;
-                        padding: 0px 16px !important;
-                        margin-top: -12px;
-                        box-shadow: none;
-                        background: none;
-                        border: none;
-                      }
-                - type: custom:mushroom-template-card
-                  primary: "📡 Umidità (Internet): {{ states('sensor.meteo_castionetto_umidita') }}%"
-                  entity: sensor.meteo_castionetto_umidita
-                  tap_action:
-                    action: more-info
+                - type: grid
+                  columns: 2
+                  square: false
+                  cards:
+                    # COLONNA 1: TEMPERATURE E UMIDITÀ
+                    - type: vertical-stack
+                      cards:
+                        - type: custom:mushroom-template-card
+                          primary: "📡 Temp (Meteo): {{ states('sensor.meteo_castionetto_temperatura') }}°C"
+                          entity: sensor.meteo_castionetto_temperatura
+                          tap_action: { action: more-info }
+                          card_mod: &row_style
+                            style: |
+                              ha-card {
+                                font-size: 1.1em !important;
+                                font-weight: bold !important;
+                                user-select: text !important;
+                                padding: 0px 8px !important;
+                                box-shadow: none;
+                                background: none;
+                                border: none;
+                              }
+                        - type: custom:mushroom-template-card
+                          primary: "🏠 Temp (KNX): {{ states('sensor.temperatura_strenscia') }}°C"
+                          entity: sensor.temperatura_strenscia
+                          tap_action: { action: more-info }
+                          card_mod: *row_style
+                        - type: custom:mushroom-template-card
+                          primary: "🏠 Temp (Locale): {{ states('sensor.th4d_temperature') }}°C"
+                          entity: sensor.th4d_temperature
+                          tap_action: { action: more-info }
+                          card_mod: *row_style
+                        - type: custom:mushroom-template-card
+                          primary: "📡 Hum (Meteo): {{ states('sensor.meteo_castionetto_umidita') }}%"
+                          entity: sensor.meteo_castionetto_umidita
+                          tap_action: { action: more-info }
+                          card_mod: *row_style
+                        - type: custom:mushroom-template-card
+                          primary: "🏠 Hum (Locale): {{ states('sensor.th4d_humidity') }}%"
+                          entity: sensor.th4d_humidity
+                          tap_action: { action: more-info }
+                          card_mod: *row_style
+                        - type: custom:mushroom-template-card
+                          primary: "📡 Rugiada (Met): {{ states('sensor.meteo_castionetto_punto_di_rugiada') }}°C"
+                          entity: sensor.meteo_castionetto_punto_di_rugiada
+                          tap_action: { action: more-info }
+                          card_mod: *row_style
+                        - type: custom:mushroom-template-card
+                          primary: "📊 Rugiada (Loc): {{ states('sensor.punto_di_rugiada_esterno') }}°C"
+                          entity: sensor.punto_di_rugiada_esterno
+                          tap_action: { action: more-info }
+                          card_mod: *row_style
+                        - type: custom:mushroom-template-card
+                          primary: "📊 ω (Locale): {{ states('sensor.omega_esterno') }} g/kg"
+                          entity: sensor.omega_esterno
+                          tap_action: { action: more-info }
+                          card_mod: *row_style
+
+                    # COLONNA 2: SOLE E PIOGGIA
+                    - type: vertical-stack
+                      cards:
+                        - type: custom:mushroom-template-card
+                          primary: "☀️ Illuminamento: {{ states('sensor.castionetto_illuminamento') }} lux"
+                          entity: sensor.castionetto_illuminamento
+                          tap_action: { action: more-info }
+                          card_mod: *row_style
+                        - type: custom:mushroom-template-card
+                          primary: "☀️ Radiazione: {{ states('sensor.castionetto_radiazione_globale') }} W/m²"
+                          entity: sensor.castionetto_radiazione_globale
+                          tap_action: { action: more-info }
+                          card_mod: *row_style
+                        - type: custom:mushroom-template-card
+                          primary: "⏳ Luce rimante: {{ states('sensor.castionetto_ore_di_luce_rimanenti') }} h"
+                          entity: sensor.castionetto_ore_di_luce_rimanenti
+                          tap_action: { action: more-info }
+                          card_mod: *row_style
+                        - type: custom:mushroom-template-card
+                          primary: "🏢 Stato Giorno: {{ 'Giorno' if is_state('binary_sensor.e_giorno', 'on') else 'Notte' }}"
+                          secondary: "Sole: {{ 'Intenso' if is_state('binary_sensor.sole_diretto_intenso', 'on') else 'Debole' }}"
+                          entity: binary_sensor.e_giorno
+                          tap_action: { action: more-info }
+                          card_mod: *row_style
+                        - type: custom:mushroom-template-card
+                          primary: "📡 Precipitazione: {{ states('sensor.castionetto_precipitazione') }} mm"
+                          entity: sensor.castionetto_precipitazione
+                          tap_action: { action: more-info }
+                          card_mod: *row_style
+                        - type: custom:mushroom-template-card
+                          primary: "📡 Pioggia: {{ states('sensor.castionetto_pioggia') }} mm"
+                          entity: sensor.castionetto_pioggia
+                          tap_action: { action: more-info }
+                          card_mod: *row_style
+                        - type: custom:mushroom-template-card
+                          primary: "📡 Prob. Pioggia: Ora {{ states('sensor.castionetto_prob_pioggia_ora') }}% | +1h {{ states('sensor.castionetto_prob_pioggia_1h') }}%"
+                          secondary: "+3h {{ states('sensor.castionetto_prob_pioggia_3h') }}% | +6h {{ states('sensor.castionetto_prob_pioggia_6h') }}%"
+                          entity: sensor.castionetto_prob_pioggia_ora
+                          tap_action: { action: more-info }
+                          card_mod: *row_style
+                        - type: custom:mushroom-template-card
+                          primary: "📡 Codice Meteo: {{ states('sensor.castionetto_weather_code') }}"
+                          entity: sensor.castionetto_weather_code
+                          tap_action: { action: more-info }
+                          card_mod: *row_style
                   card_mod: *row_style
-                - type: custom:mushroom-template-card
-                  primary: "📡 Rugiada (Internet): {{ states('sensor.meteo_castionetto_punto_di_rugiada') }}°C"
-                  entity: sensor.meteo_castionetto_punto_di_rugiada
-                  tap_action:
-                    action: more-info
-                  card_mod: *row_style
-                - type: custom:mushroom-template-card
-                  primary: "🏠 Temperatura strenscia (KNX): {{ states('sensor.temperatura_strenscia') }}°C"
-                  entity: sensor.temperatura_strenscia
-                  tap_action:
-                    action: more-info
-                  card_mod: *row_style
-                - type: custom:mushroom-template-card
-                  primary: "🏠 Umidità (TH4D Esterna): {{ states('sensor.th4d_humidity') }}%"
-                  entity: sensor.th4d_humidity
-                  tap_action:
-                    action: more-info
-                  card_mod: *row_style
-                - type: custom:mushroom-template-card
-                  primary: "🏠 Temp (TH4D Esterna): {{ states('sensor.th4d_temperature') }}°C"
-                  entity: sensor.th4d_temperature
-                  tap_action:
-                    action: more-info
-                  card_mod: *row_style
-                - type: custom:mushroom-template-card
-                  primary: "📊 Umidità Specifica (ω): {{ states('sensor.omega_esterno') }} g/kg"
-                  entity: sensor.omega_esterno
-                  tap_action:
-                    action: more-info
-                  card_mod: *row_style
-                - type: custom:mushroom-template-card
-                  primary: "📊 Punto Rugiada Esterno: {{ states('sensor.punto_di_rugiada_esterno') }}°C"
-                  entity: sensor.punto_di_rugiada_esterno
-                  tap_action:
-                    action: more-info
                   card_mod: *row_style
 
           - type: grid
