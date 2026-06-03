@@ -87,8 +87,8 @@
           {% elif hvac_temp_mode == 'off' %}
             off
           {% else %}
-            {# FORZATURA LABORATORIO: Velocità 1 (low) sempre attiva per test umidità #}
-            low
+            {# FORZATURA LABORATORIO: Velocità 2 (medium) sempre attiva per test umidità #}
+            medium
           {% endif %}
         # Stati attuali climate e main
         hvac_attuale: "{{ states('climate.controllo_temperatura_camera') | default('off') }}"
@@ -838,8 +838,8 @@
           {% elif hvac_mode == 'off' %}
             off
           {% else %}
-            {# FORZATURA LABORATORIO: Velocità 1 (low) sempre attiva per test umidità #}
-            low
+            {# FORZATURA LABORATORIO: Velocità 2 (medium) sempre attiva per test umidità #}
+            medium
           {% endif %}
 
         fan_attuale_hw: >-

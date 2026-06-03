@@ -1555,6 +1555,112 @@ views:
               action: navigate
               navigation_path: /riscaldamento-1/riscaldamento
 
+  - title: Climatizzazione
+    path: climatizzazione
+    icon: mdi:air-filter
+    cards:
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: >
+              ## 🍃 Benessere Indoor
+              Analisi basata su Umidità Specifica (ω) e Punto di Rugiada.
+              **Esterno:** {{ states('sensor.temperatura_strenscia') }}°C | {{ states('sensor.th4d_humidity') }}% | ω: {{ states('sensor.omega_esterno') }} g/kg
+          
+          - type: grid
+            columns: 2
+            square: false
+            cards:
+              # CUCINA
+              - type: custom:mushroom-template-card
+                primary: "Cucina"
+                secondary: >
+                  {{ states('sensor.temperatura_cucina_reale_calcolata') }}°C | {{ states('sensor.th1a_humidity') }}% | {{ states('sensor.comfort_evaluation_cucina') }}
+                  Consiglio: {{ states('sensor.climate_advice_cucina') }}
+                icon: mdi:chef-hat
+                icon_color: >
+                  {% set c = states('sensor.comfort_evaluation_cucina') %}
+                  {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
+                tap_action:
+                  action: navigate
+                  navigation_path: "/riscaldamento-1/fancoil-dettagli-cucina"
+                multiline_secondary: true
+
+              # CAMERA GRANDE
+              - type: custom:mushroom-template-card
+                primary: "Camera Grande"
+                secondary: >
+                  {{ states('sensor.temperatura_camera_grande_reale_calcolata') }}°C | {{ states('sensor.th2b_humidity') }}% | {{ states('sensor.comfort_evaluation_camera_grande') }}
+                  Consiglio: {{ states('sensor.climate_advice_camera_grande') }}
+                icon: mdi:bed-king
+                icon_color: >
+                  {% set c = states('sensor.comfort_evaluation_camera_grande') %}
+                  {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
+                tap_action:
+                  action: navigate
+                  navigation_path: "/riscaldamento-1/fancoil-dettagli-camera_grande"
+                multiline_secondary: true
+
+              # CAMERA
+              - type: custom:mushroom-template-card
+                primary: "Camera"
+                secondary: >
+                  {{ states('sensor.temperatura_camera_reale_calcolata') }}°C | {{ states('sensor.th3c_humidity') }}% | {{ states('sensor.comfort_evaluation_camera') }}
+                  Consiglio: {{ states('sensor.climate_advice_camera') }}
+                icon: mdi:bed
+                icon_color: >
+                  {% set c = states('sensor.comfort_evaluation_camera') %}
+                  {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
+                tap_action:
+                  action: navigate
+                  navigation_path: "/riscaldamento-1/fancoil-dettagli-camera"
+                multiline_secondary: true
+
+              # CORRIDOIO
+              - type: custom:mushroom-template-card
+                primary: "Corridoio"
+                secondary: >
+                  {{ states('sensor.temperatura_corridoio_reale_calcolata') }}°C | {{ states('sensor.th4d_humidity') }}% | {{ states('sensor.comfort_evaluation_corridoio') }}
+                  Consiglio: {{ states('sensor.climate_advice_corridoio') }}
+                icon: mdi:Countertop
+                icon_color: >
+                  {% set c = states('sensor.comfort_evaluation_corridoio') %}
+                  {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
+                tap_action:
+                  action: navigate
+                  navigation_path: "/riscaldamento-1/fancoil-dettagli-corridoio"
+                multiline_secondary: true
+
+              # BAGNO
+              - type: custom:mushroom-template-card
+                primary: "Bagno"
+                secondary: >
+                  {{ states('sensor.temperatura_bagno_reale_calcolata') }}°C | {{ states('sensor.fancoil_bagno_humidity') }}% | {{ states('sensor.comfort_evaluation_bagno') }}
+                  Consiglio: {{ states('sensor.climate_advice_bagno') }}
+                icon: mdi:shower
+                icon_color: >
+                  {% set c = states('sensor.comfort_evaluation_bagno') %}
+                  {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
+                tap_action:
+                  action: navigate
+                  navigation_path: "/riscaldamento-1/fancoil-dettagli-bagno"
+                multiline_secondary: true
+
+              # SALA
+              - type: custom:mushroom-template-card
+                primary: "Sala"
+                secondary: >
+                  {{ states('sensor.temperatura_sala_reale_calcolata') }}°C | {{ states('sensor.th4d_humidity') }}% | {{ states('sensor.comfort_evaluation_sala') }}
+                  Consiglio: {{ states('sensor.climate_advice_sala') }}
+                icon: mdi:sofa
+                icon_color: >
+                  {% set c = states('sensor.comfort_evaluation_sala') %}
+                  {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
+                tap_action:
+                  action: navigate
+                  navigation_path: "/riscaldamento-1/fancoil-dettagli-sala"
+                multiline_secondary: true
+
   - title: Informazioni
     path: riscaldamento-info
     badges: []

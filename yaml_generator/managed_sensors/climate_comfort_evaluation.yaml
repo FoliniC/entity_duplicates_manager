@@ -1,0 +1,282 @@
+# Sensors for Climate Comfort Evaluation and Advice
+# Based on @yaml_generator/benessere_domotica_fancoil_ok.md
+
+- name: "Omega Esterno"
+  unique_id: omega_esterno
+  unit_of_measurement: "g/kg"
+  state: >
+    {% set T = states('sensor.temperatura_strenscia') | float(0) %}
+    {% set RH = states('sensor.th4d_humidity') | float(0) %}
+    {% set psat = 610.78 * (2.718281828459 ** (17.27 * T / (T + 237.3))) %}
+    {% set pvap = (RH / 100) * psat %}
+    {{ (622 * pvap / (101325 - pvap)) | round(2) }}
+
+# CUCINA
+- name: "Omega Cucina"
+  unique_id: omega_cucina
+  unit_of_measurement: "g/kg"
+  state: >
+    {% set T = states('sensor.temperatura_cucina_reale_calcolata') | float(0) %}
+    {% set RH = states('sensor.th1a_humidity') | float(0) %}
+    {% set psat = 610.78 * (2.718281828459 ** (17.27 * T / (T + 237.3))) %}
+    {% set pvap = (RH / 100) * psat %}
+    {{ (622 * pvap / (101325 - pvap)) | round(2) }}
+
+- name: "Comfort Evaluation Cucina"
+  unique_id: comfort_evaluation_cucina
+  state: >
+    {% set t = states('sensor.temperatura_cucina_reale_calcolata') | float(0) %}
+    {% set rh = states('sensor.th1a_humidity') | float(0) %}
+    {% set mode = states('input_select.fancoil_system_hvac_mode') %}
+    {% if mode == 'cool' %}
+      {% if t >= 24 and t <= 26 and rh >= 50 and rh <= 60 %} Ottimale
+      {% elif t > 26 or rh > 60 %} Caldo/Umido
+      {% elif t < 24 or rh < 50 %} Fresco/Secco
+      {% else %} Accettabile
+      {% endif %}
+    {% elif mode == 'heat' %}
+      {% if t >= 20 and t <= 22 and rh >= 40 and rh <= 60 %} Ottimale
+      {% elif t < 20 or rh < 40 %} Freddo/Secco
+      {% elif t > 22 or rh > 60 %} Caldo/Umido
+      {% else %} Accettabile
+      {% endif %}
+    {% else %} Inattivo {% endif %}
+
+- name: "Climate Advice Cucina"
+  unique_id: climate_advice_cucina
+  state: >
+    {% set t = states('sensor.temperatura_cucina_reale_calcolata') | float(0) %}
+    {% set rh = states('sensor.th1a_humidity') | float(0) %}
+    {% set omega_int = states('sensor.omega_cucina') | float(0) %}
+    {% set omega_ext = states('sensor.omega_esterno') | float(0) %}
+    {% set delta_omega = omega_int - omega_ext %}
+    {% set ns = namespace(advices=[]) %}
+    {% if rh > 65 %}{% set ns.advices = ns.advices + ['Accendi Fancoil (Deumidifica)'] %}{% endif %}
+    {% if delta_omega > 1.5 and t > 21 %}{% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
+    {% elif delta_omega < 0.5 and rh > 60 %}{% set ns.advices = ns.advices + ['Tieni chiuso (Esterno più umido)'] %}{% endif %}
+    {{ ns.advices | join(' | ') if ns.advices | length > 0 else 'Nessuna azione necessaria' }}
+
+# CAMERA GRANDE
+- name: "Omega Camera Grande"
+  unique_id: omega_camera_grande
+  unit_of_measurement: "g/kg"
+  state: >
+    {% set T = states('sensor.temperatura_camera_grande_reale_calcolata') | float(0) %}
+    {% set RH = states('sensor.th2b_humidity') | float(0) %}
+    {% set psat = 610.78 * (2.718281828459 ** (17.27 * T / (T + 237.3))) %}
+    {% set pvap = (RH / 100) * psat %}
+    {{ (622 * pvap / (101325 - pvap)) | round(2) }}
+
+- name: "Comfort Evaluation Camera Grande"
+  unique_id: comfort_evaluation_camera_grande
+  state: >
+    {% set t = states('sensor.temperatura_camera_grande_reale_calcolata') | float(0) %}
+    {% set rh = states('sensor.th2b_humidity') | float(0) %}
+    {% set mode = states('input_select.fancoil_system_hvac_mode') %}
+    {% if mode == 'cool' %}
+      {% if t >= 24 and t <= 26 and rh >= 50 and rh <= 60 %} Ottimale
+      {% elif t > 26 or rh > 60 %} Caldo/Umido
+      {% elif t < 24 or rh < 50 %} Fresco/Secco
+      {% else %} Accettabile
+      {% endif %}
+    {% elif mode == 'heat' %}
+      {% if t >= 20 and t <= 22 and rh >= 40 and rh <= 60 %} Ottimale
+      {% elif t < 20 or rh < 40 %} Freddo/Secco
+      {% elif t > 22 or rh > 60 %} Caldo/Umido
+      {% else %} Accettabile
+      {% endif %}
+    {% else %} Inattivo {% endif %}
+
+- name: "Climate Advice Camera Grande"
+  unique_id: climate_advice_camera_grande
+  state: >
+    {% set t = states('sensor.temperatura_camera_grande_reale_calcolata') | float(0) %}
+    {% set rh = states('sensor.th2b_humidity') | float(0) %}
+    {% set omega_int = states('sensor.omega_camera_grande') | float(0) %}
+    {% set omega_ext = states('sensor.omega_esterno') | float(0) %}
+    {% set delta_omega = omega_int - omega_ext %}
+    {% set ns = namespace(advices=[]) %}
+    {% if rh > 65 %}{% set ns.advices = ns.advices + ['Accendi Fancoil (Deumidifica)'] %}{% endif %}
+    {% if delta_omega > 1.5 and t > 21 %}{% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
+    {% elif delta_omega < 0.5 and rh > 60 %}{% set ns.advices = ns.advices + ['Tieni chiuso (Esterno più umido)'] %}{% endif %}
+    {{ ns.advices | join(' | ') if ns.advices | length > 0 else 'Nessuna azione necessaria' }}
+
+# CAMERA
+- name: "Omega Camera"
+  unique_id: omega_camera
+  unit_of_measurement: "g/kg"
+  state: >
+    {% set T = states('sensor.temperatura_camera_reale_calcolata') | float(0) %}
+    {% set RH = states('sensor.th3c_humidity') | float(0) %}
+    {% set psat = 610.78 * (2.718281828459 ** (17.27 * T / (T + 237.3))) %}
+    {% set pvap = (RH / 100) * psat %}
+    {{ (622 * pvap / (101325 - pvap)) | round(2) }}
+
+- name: "Comfort Evaluation Camera"
+  unique_id: comfort_evaluation_camera
+  state: >
+    {% set t = states('sensor.temperatura_camera_reale_calcolata') | float(0) %}
+    {% set rh = states('sensor.th3c_humidity') | float(0) %}
+    {% set mode = states('input_select.fancoil_system_hvac_mode') %}
+    {% if mode == 'cool' %}
+      {% if t >= 24 and t <= 26 and rh >= 50 and rh <= 60 %} Ottimale
+      {% elif t > 26 or rh > 60 %} Caldo/Umido
+      {% elif t < 24 or rh < 50 %} Fresco/Secco
+      {% else %} Accettabile
+      {% endif %}
+    {% elif mode == 'heat' %}
+      {% if t >= 20 and t <= 22 and rh >= 40 and rh <= 60 %} Ottimale
+      {% elif t < 20 or rh < 40 %} Freddo/Secco
+      {% elif t > 22 or rh > 60 %} Caldo/Umido
+      {% else %} Accettabile
+      {% endif %}
+    {% else %} Inattivo {% endif %}
+
+- name: "Climate Advice Camera"
+  unique_id: climate_advice_camera
+  state: >
+    {% set t = states('sensor.temperatura_camera_reale_calcolata') | float(0) %}
+    {% set rh = states('sensor.th3c_humidity') | float(0) %}
+    {% set omega_int = states('sensor.omega_camera') | float(0) %}
+    {% set omega_ext = states('sensor.omega_esterno') | float(0) %}
+    {% set delta_omega = omega_int - omega_ext %}
+    {% set ns = namespace(advices=[]) %}
+    {% if rh > 65 %}{% set ns.advices = ns.advices + ['Accendi Fancoil (Deumidifica)'] %}{% endif %}
+    {% if delta_omega > 1.5 and t > 21 %}{% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
+    {% elif delta_omega < 0.5 and rh > 60 %}{% set ns.advices = ns.advices + ['Tieni chiuso (Esterno più umido)'] %}{% endif %}
+    {{ ns.advices | join(' | ') if ns.advices | length > 0 else 'Nessuna azione necessaria' }}
+
+# CORRIDOIO
+- name: "Omega Corridoio"
+  unique_id: omega_corridoio
+  unit_of_measurement: "g/kg"
+  state: >
+    {% set T = states('sensor.temperatura_corridoio_reale_calcolata') | float(0) %}
+    {% set RH = states('sensor.th4d_humidity') | float(0) %}
+    {% set psat = 610.78 * (2.718281828459 ** (17.27 * T / (T + 237.3))) %}
+    {% set pvap = (RH / 100) * psat %}
+    {{ (622 * pvap / (101325 - pvap)) | round(2) }}
+
+- name: "Comfort Evaluation Corridoio"
+  unique_id: comfort_evaluation_corridoio
+  state: >
+    {% set t = states('sensor.temperatura_corridoio_reale_calcolata') | float(0) %}
+    {% set rh = states('sensor.th4d_humidity') | float(0) %}
+    {% set mode = states('input_select.fancoil_system_hvac_mode') %}
+    {% if mode == 'cool' %}
+      {% if t >= 24 and t <= 26 and rh >= 50 and rh <= 60 %} Ottimale
+      {% elif t > 26 or rh > 60 %} Caldo/Umido
+      {% elif t < 24 or rh < 50 %} Fresco/Secco
+      {% else %} Accettabile
+      {% endif %}
+    {% elif mode == 'heat' %}
+      {% if t >= 20 and t <= 22 and rh >= 40 and rh <= 60 %} Ottimale
+      {% elif t < 20 or rh < 40 %} Freddo/Secco
+      {% elif t > 22 or rh > 60 %} Caldo/Umido
+      {% else %} Accettabile
+      {% endif %}
+    {% else %} Inattivo {% endif %}
+
+- name: "Climate Advice Corridoio"
+  unique_id: climate_advice_corridoio
+  state: >
+    {% set t = states('sensor.temperatura_corridoio_reale_calcolata') | float(0) %}
+    {% set rh = states('sensor.th4d_humidity') | float(0) %}
+    {% set omega_int = states('sensor.omega_corridoio') | float(0) %}
+    {% set omega_ext = states('sensor.omega_esterno') | float(0) %}
+    {% set delta_omega = omega_int - omega_ext %}
+    {% set ns = namespace(advices=[]) %}
+    {% if rh > 65 %}{% set ns.advices = ns.advices + ['Accendi Fancoil (Deumidifica)'] %}{% endif %}
+    {% if delta_omega > 1.5 and t > 21 %}{% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
+    {% elif delta_omega < 0.5 and rh > 60 %}{% set ns.advices = ns.advices + ['Tieni chiuso (Esterno più umido)'] %}{% endif %}
+    {{ ns.advices | join(' | ') if ns.advices | length > 0 else 'Nessuna azione necessaria' }}
+
+# BAGNO
+- name: "Omega Bagno"
+  unique_id: omega_bagno
+  unit_of_measurement: "g/kg"
+  state: >
+    {% set T = states('sensor.temperatura_bagno_reale_calcolata') | float(0) %}
+    {% set RH = states('sensor.fancoil_bagno_humidity') | float(0) %}
+    {% set psat = 610.78 * (2.718281828459 ** (17.27 * T / (T + 237.3))) %}
+    {% set pvap = (RH / 100) * psat %}
+    {{ (622 * pvap / (101325 - pvap)) | round(2) }}
+
+- name: "Comfort Evaluation Bagno"
+  unique_id: comfort_evaluation_bagno
+  state: >
+    {% set t = states('sensor.temperatura_bagno_reale_calcolata') | float(0) %}
+    {% set rh = states('sensor.fancoil_bagno_humidity') | float(0) %}
+    {% set mode = states('input_select.fancoil_system_hvac_mode') %}
+    {% if mode == 'cool' %}
+      {% if t >= 24 and t <= 26 and rh >= 50 and rh <= 60 %} Ottimale
+      {% elif t > 26 or rh > 60 %} Caldo/Umido
+      {% elif t < 24 or rh < 50 %} Fresco/Secco
+      {% else %} Accettabile
+      {% endif %}
+    {% elif mode == 'heat' %}
+      {% if t >= 20 and t <= 22 and rh >= 40 and rh <= 60 %} Ottimale
+      {% elif t < 20 or rh < 40 %} Freddo/Secco
+      {% elif t > 22 or rh > 60 %} Caldo/Umido
+      {% else %} Accettabile
+      {% endif %}
+    {% else %} Inattivo {% endif %}
+
+- name: "Climate Advice Bagno"
+  unique_id: climate_advice_bagno
+  state: >
+    {% set t = states('sensor.temperatura_bagno_reale_calcolata') | float(0) %}
+    {% set rh = states('sensor.fancoil_bagno_humidity') | float(0) %}
+    {% set omega_int = states('sensor.omega_bagno') | float(0) %}
+    {% set omega_ext = states('sensor.omega_esterno') | float(0) %}
+    {% set delta_omega = omega_int - omega_ext %}
+    {% set ns = namespace(advices=[]) %}
+    {% if rh > 65 %}{% set ns.advices = ns.advices + ['Accendi Fancoil (Deumidifica)'] %}{% endif %}
+    {% if delta_omega > 1.5 and t > 21 %}{% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
+    {% elif delta_omega < 0.5 and rh > 60 %}{% set ns.advices = ns.advices + ['Tieni chiuso (Esterno più umido)'] %}{% endif %}
+    {{ ns.advices | join(' | ') if ns.advices | length > 0 else 'Nessuna azione necessaria' }}
+
+# SALA
+- name: "Omega Sala"
+  unique_id: omega_sala
+  unit_of_measurement: "g/kg"
+  state: >
+    {% set T = states('sensor.temperatura_sala_reale_calcolata') | float(0) %}
+    {% set RH = states('sensor.th4d_humidity') | float(0) %}
+    {% set psat = 610.78 * (2.718281828459 ** (17.27 * T / (T + 237.3))) %}
+    {% set pvap = (RH / 100) * psat %}
+    {{ (622 * pvap / (101325 - pvap)) | round(2) }}
+
+- name: "Comfort Evaluation Sala"
+  unique_id: comfort_evaluation_sala
+  state: >
+    {% set t = states('sensor.temperatura_sala_reale_calcolata') | float(0) %}
+    {% set rh = states('sensor.th4d_humidity') | float(0) %}
+    {% set mode = states('input_select.fancoil_system_hvac_mode') %}
+    {% if mode == 'cool' %}
+      {% if t >= 24 and t <= 26 and rh >= 50 and rh <= 60 %} Ottimale
+      {% elif t > 26 or rh > 60 %} Caldo/Umido
+      {% elif t < 24 or rh < 50 %} Fresco/Secco
+      {% else %} Accettabile
+      {% endif %}
+    {% elif mode == 'heat' %}
+      {% if t >= 20 and t <= 22 and rh >= 40 and rh <= 60 %} Ottimale
+      {% elif t < 20 or rh < 40 %} Freddo/Secco
+      {% elif t > 22 or rh > 60 %} Caldo/Umido
+      {% else %} Accettabile
+      {% endif %}
+    {% else %} Inattivo {% endif %}
+
+- name: "Climate Advice Sala"
+  unique_id: climate_advice_sala
+  state: >
+    {% set t = states('sensor.temperatura_sala_reale_calcolata') | float(0) %}
+    {% set rh = states('sensor.th4d_humidity') | float(0) %}
+    {% set omega_int = states('sensor.omega_sala') | float(0) %}
+    {% set omega_ext = states('sensor.omega_esterno') | float(0) %}
+    {% set delta_omega = omega_int - omega_ext %}
+    {% set ns = namespace(advices=[]) %}
+    {% if rh > 65 %}{% set ns.advices = ns.advices + ['Accendi Fancoil (Deumidifica)'] %}{% endif %}
+    {% if delta_omega > 1.5 and t > 21 %}{% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
+    {% elif delta_omega < 0.5 and rh > 60 %}{% set ns.advices = ns.advices + ['Tieni chiuso (Esterno più umido)'] %}{% endif %}
+    {{ ns.advices | join(' | ') if ns.advices | length > 0 else 'Nessuna azione necessaria' }}

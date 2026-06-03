@@ -17,7 +17,8 @@ Per massimizzare la rimozione di acqua dall'aria (carico latente), è preferibil
 La stanza **Camera** è stata isolata come ambiente di test controllato per 24 ore.
 
 ### Configurazioni Applicate:
-- **Forzatura Hardware:** L'automazione `camera_automation.yaml` è stata modificata per ignorare le soglie dinamiche e mantenere il `fan_target` fisso su `low` (Velocità 1).
+- **Forzatura Hardware (Fase 1 - 1 Giugno):** L'automazione `camera_automation.yaml` è stata impostata su `low` (Velocità 1). Risultato: Vantaggi minimi.
+- **Forzatura Hardware (Fase 2 - 3 Giugno):** L'automazione `camera_automation.yaml` è stata modificata per mantenere il `fan_target` fisso su `medium` (Velocità 2).
 - **Monitoraggio Differenziato:**
     - **Sensore A (Fancoil):** Lettura a 15-20 cm da terra (zona fredda/umida).
     - **Sensore B (TH3C):** Posizionato a 95 cm di altezza, lontano dal fancoil, per misurare il comfort reale nella "living zone".
@@ -33,7 +34,7 @@ Il log `fancoil_events.log` è stato configurato per registrare ad ogni ciclo:
 Valuteremo i grafici e i log cercando i seguenti indicatori di successo:
 1. **Trend Discendente:** L'umidità a 95 cm (TH3C) deve mostrare una curva in calo costante, senza i "denti di sega" visti oggi.
 2. **Delta Stratificazione:** Analisi della differenza tra l'umidità a terra e a 95 cm.
-3. **Stabilità Termica:** Verificare che la velocità 1 costante sia sufficiente a mantenere il setpoint senza causare eccessivo freddo o ristagni di calore.
+3. **Stabilità Termica:** Verificare che la velocità 2 costante sia sufficiente a mantenere il setpoint senza causare eccessivo freddo o ristagni di calore, e se la maggiore portata d'aria aiuti a superare i limiti visti con la velocità 1.
 
 ---
 *Creato il: 31 Maggio 2026*
