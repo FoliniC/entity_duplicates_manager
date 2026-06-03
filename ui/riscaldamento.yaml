@@ -1572,94 +1572,152 @@ views:
             square: false
             cards:
               # CUCINA
-              - type: custom:mushroom-template-card
-                primary: "Cucina"
-                secondary: >
-                  {{ states('sensor.temperatura_cucina_reale_calcolata') }}°C | {{ states('sensor.th1a_humidity') }}% | {{ states('sensor.comfort_evaluation_cucina') }}
-                  Consiglio: {{ states('sensor.climate_advice_cucina') }}
-                icon: mdi:chef-hat
-                icon_color: >
-                  {% set c = states('sensor.comfort_evaluation_cucina') %}
-                  {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
-                tap_action:
-                  action: navigate
-                  navigation_path: "/riscaldamento-1/fancoil-dettagli-cucina"
-                multiline_secondary: true
+              - type: vertical-stack
+                cards:
+                  - type: custom:mushroom-template-card
+                    primary: "Cucina"
+                    secondary: >
+                      {{ states('sensor.temperatura_cucina_reale_calcolata') }}°C | {{ states('sensor.th1a_humidity') }}% | {{ states('sensor.comfort_evaluation_cucina') }}
+                      Consiglio: {{ states('sensor.climate_advice_cucina') }}
+                    icon: mdi:chef-hat
+                    icon_color: >
+                      {% set c = states('sensor.comfort_evaluation_cucina') %}
+                      {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
+                    tap_action:
+                      action: navigate
+                      navigation_path: "/riscaldamento-1/fancoil-dettagli-cucina"
+                    multiline_secondary: true
+                  - type: entities
+                    entities:
+                      - entity: sensor.th1a_temperature
+                        name: "Sorgente Temp (Ref)"
+                      - entity: sensor.th1a_humidity
+                        name: "Sorgente Umidità"
+                      - entity: sensor.fancoil_cucina_temperature
+                        name: "Temp Fancoil"
 
               # CAMERA GRANDE
-              - type: custom:mushroom-template-card
-                primary: "Camera Grande"
-                secondary: >
-                  {{ states('sensor.temperatura_camera_grande_reale_calcolata') }}°C | {{ states('sensor.th2b_humidity') }}% | {{ states('sensor.comfort_evaluation_camera_grande') }}
-                  Consiglio: {{ states('sensor.climate_advice_camera_grande') }}
-                icon: mdi:bed-king
-                icon_color: >
-                  {% set c = states('sensor.comfort_evaluation_camera_grande') %}
-                  {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
-                tap_action:
-                  action: navigate
-                  navigation_path: "/riscaldamento-1/fancoil-dettagli-camera_grande"
-                multiline_secondary: true
+              - type: vertical-stack
+                cards:
+                  - type: custom:mushroom-template-card
+                    primary: "Camera Grande"
+                    secondary: >
+                      {{ states('sensor.temperatura_camera_grande_reale_calcolata') }}°C | {{ states('sensor.th2b_humidity') }}% | {{ states('sensor.comfort_evaluation_camera_grande') }}
+                      Consiglio: {{ states('sensor.climate_advice_camera_grande') }}
+                    icon: mdi:bed-king
+                    icon_color: >
+                      {% set c = states('sensor.comfort_evaluation_camera_grande') %}
+                      {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
+                    tap_action:
+                      action: navigate
+                      navigation_path: "/riscaldamento-1/fancoil-dettagli-camera_grande"
+                    multiline_secondary: true
+                  - type: entities
+                    entities:
+                      - entity: sensor.th2b_temperature
+                        name: "Sorgente Temp (Ref)"
+                      - entity: sensor.th2b_humidity
+                        name: "Sorgente Umidità"
+                      - entity: sensor.temperatura_camera_grande
+                        name: "Temp KNX"
 
               # CAMERA
-              - type: custom:mushroom-template-card
-                primary: "Camera"
-                secondary: >
-                  {{ states('sensor.temperatura_camera_reale_calcolata') }}°C | {{ states('sensor.th3c_humidity') }}% | {{ states('sensor.comfort_evaluation_camera') }}
-                  Consiglio: {{ states('sensor.climate_advice_camera') }}
-                icon: mdi:bed
-                icon_color: >
-                  {% set c = states('sensor.comfort_evaluation_camera') %}
-                  {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
-                tap_action:
-                  action: navigate
-                  navigation_path: "/riscaldamento-1/fancoil-dettagli-camera"
-                multiline_secondary: true
+              - type: vertical-stack
+                cards:
+                  - type: custom:mushroom-template-card
+                    primary: "Camera"
+                    secondary: >
+                      {{ states('sensor.temperatura_camera_reale_calcolata') }}°C | {{ states('sensor.th3c_humidity') }}% | {{ states('sensor.comfort_evaluation_camera') }}
+                      Consiglio: {{ states('sensor.climate_advice_camera') }}
+                    icon: mdi:bed
+                    icon_color: >
+                      {% set c = states('sensor.comfort_evaluation_camera') %}
+                      {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
+                    tap_action:
+                      action: navigate
+                      navigation_path: "/riscaldamento-1/fancoil-dettagli-camera"
+                    multiline_secondary: true
+                  - type: entities
+                    entities:
+                      - entity: sensor.th3c_temperature
+                        name: "Sorgente Temp (Ref)"
+                      - entity: sensor.th3c_humidity
+                        name: "Sorgente Umidità"
+                      - entity: sensor.temperatura_camera
+                        name: "Temp KNX"
 
               # CORRIDOIO
-              - type: custom:mushroom-template-card
-                primary: "Corridoio"
-                secondary: >
-                  {{ states('sensor.temperatura_corridoio_reale_calcolata') }}°C | {{ states('sensor.th4d_humidity') }}% | {{ states('sensor.comfort_evaluation_corridoio') }}
-                  Consiglio: {{ states('sensor.climate_advice_corridoio') }}
-                icon: mdi:Countertop
-                icon_color: >
-                  {% set c = states('sensor.comfort_evaluation_corridoio') %}
-                  {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
-                tap_action:
-                  action: navigate
-                  navigation_path: "/riscaldamento-1/fancoil-dettagli-corridoio"
-                multiline_secondary: true
+              - type: vertical-stack
+                cards:
+                  - type: custom:mushroom-template-card
+                    primary: "Corridoio"
+                    secondary: >
+                      {{ states('sensor.temperatura_corridoio_reale_calcolata') }}°C | {{ states('sensor.th4d_humidity') }}% | {{ states('sensor.comfort_evaluation_corridoio') }}
+                      Consiglio: {{ states('sensor.climate_advice_corridoio') }}
+                    icon: mdi:Countertop
+                    icon_color: >
+                      {% set c = states('sensor.comfort_evaluation_corridoio') %}
+                      {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
+                    tap_action:
+                      action: navigate
+                      navigation_path: "/riscaldamento-1/fancoil-dettagli-corridoio"
+                    multiline_secondary: true
+                  - type: entities
+                    entities:
+                      - entity: sensor.th4d_temperature
+                        name: "Sorgente Temp (Ref)"
+                      - entity: sensor.th4d_humidity
+                        name: "Sorgente Umidità"
 
               # BAGNO
-              - type: custom:mushroom-template-card
-                primary: "Bagno"
-                secondary: >
-                  {{ states('sensor.temperatura_bagno_reale_calcolata') }}°C | {{ states('sensor.fancoil_bagno_humidity') }}% | {{ states('sensor.comfort_evaluation_bagno') }}
-                  Consiglio: {{ states('sensor.climate_advice_bagno') }}
-                icon: mdi:shower
-                icon_color: >
-                  {% set c = states('sensor.comfort_evaluation_bagno') %}
-                  {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
-                tap_action:
-                  action: navigate
-                  navigation_path: "/riscaldamento-1/fancoil-dettagli-bagno"
-                multiline_secondary: true
+              - type: vertical-stack
+                cards:
+                  - type: custom:mushroom-template-card
+                    primary: "Bagno"
+                    secondary: >
+                      {{ states('sensor.temperatura_bagno_reale_calcolata') }}°C | {{ states('sensor.fancoil_bagno_humidity') }}% | {{ states('sensor.comfort_evaluation_bagno') }}
+                      Consiglio: {{ states('sensor.climate_advice_bagno') }}
+                    icon: mdi:shower
+                    icon_color: >
+                      {% set c = states('sensor.comfort_evaluation_bagno') %}
+                      {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
+                    tap_action:
+                      action: navigate
+                      navigation_path: "/riscaldamento-1/fancoil-dettagli-bagno"
+                    multiline_secondary: true
+                  - type: entities
+                    entities:
+                      - entity: sensor.th3c_temperature
+                        name: "Sorgente Temp (Ref)"
+                      - entity: sensor.fancoil_bagno_humidity
+                        name: "Sorgente Umidità"
+                      - entity: sensor.temperatura_bagno
+                        name: "Temp KNX"
 
               # SALA
-              - type: custom:mushroom-template-card
-                primary: "Sala"
-                secondary: >
-                  {{ states('sensor.temperatura_sala_reale_calcolata') }}°C | {{ states('sensor.th4d_humidity') }}% | {{ states('sensor.comfort_evaluation_sala') }}
-                  Consiglio: {{ states('sensor.climate_advice_sala') }}
-                icon: mdi:sofa
-                icon_color: >
-                  {% set c = states('sensor.comfort_evaluation_sala') %}
-                  {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
-                tap_action:
-                  action: navigate
-                  navigation_path: "/riscaldamento-1/fancoil-dettagli-sala"
-                multiline_secondary: true
+              - type: vertical-stack
+                cards:
+                  - type: custom:mushroom-template-card
+                    primary: "Sala"
+                    secondary: >
+                      {{ states('sensor.temperatura_sala_reale_calcolata') }}°C | {{ states('sensor.th4d_humidity') }}% | {{ states('sensor.comfort_evaluation_sala') }}
+                      Consiglio: {{ states('sensor.climate_advice_sala') }}
+                    icon: mdi:sofa
+                    icon_color: >
+                      {% set c = states('sensor.comfort_evaluation_sala') %}
+                      {% if c == 'Ottimale' %} green {% elif '⚠️' in c or 'Caldo' in c or 'Freddo' in c %} red {% else %} orange {% endif %}
+                    tap_action:
+                      action: navigate
+                      navigation_path: "/riscaldamento-1/fancoil-dettagli-sala"
+                    multiline_secondary: true
+                  - type: entities
+                    entities:
+                      - entity: sensor.th6a_temperature
+                        name: "Sorgente Temp (Ref)"
+                      - entity: sensor.th4d_humidity
+                        name: "Sorgente Umidità"
+                      - entity: sensor.temperatura_sala
+                        name: "Temp KNX"
 
   - title: Informazioni
     path: riscaldamento-info
