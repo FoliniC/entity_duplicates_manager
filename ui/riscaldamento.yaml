@@ -1619,7 +1619,7 @@ views:
                                 border: none;
                               }
                         - type: custom:mushroom-template-card
-                          primary: "🏠 Temp (KNX): {{ states('sensor.temperatura_strenscia') }}°C"
+                          primary: "🏠 Temperatura strenscia (KNX): {{ states('sensor.temperatura_strenscia') }}°C"
                           entity: sensor.temperatura_strenscia
                           tap_action: { action: more-info }
                           card_mod: *row_style
