@@ -1604,7 +1604,7 @@ views:
             square: false
             cards:
               # CUCINA
-              - type: vertical-stack
+              - type: custom:mod-card
                 card_mod:
                   style: |
                     ha-card {
@@ -1613,80 +1613,82 @@ views:
                       padding-bottom: 8px;
                       background: var(--card-background-color);
                     }
-                cards:
-                  - type: custom:mushroom-template-card
-                    primary: "🍳 Cucina"
-                    entity: climate.controllo_temperatura_cucina
-                    tap_action:
-                      action: more-info
-                    card_mod:
-                      style: |
-                        ha-card {
-                          --ha-card-header-font-size: 22px;
-                          margin-bottom: 5px;
-                          box-shadow: none;
-                          background: none;
-                          border: none;
-                        }
-                        :host {
-                          --primary-text-color: var(--primary-color);
-                          font-weight: bold;
-                        }
-                  - type: custom:mushroom-template-card
-                    primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_cucina_reale_calcolata') }}°C**"
-                    entity: sensor.temperatura_cucina_reale_calcolata
-                    tap_action:
-                      action: more-info
-                    card_mod: &row_style
-                      style: |
-                        ha-card {
-                          font-size: 1.4em !important;
-                          user-select: text !important;
-                          padding: 0px 16px !important;
-                          margin-top: -12px;
-                          box-shadow: none;
-                          background: none;
-                          border: none;
-                        }
-                  - type: custom:mushroom-template-card
-                    primary: "💧 Umidità: **{{ states('sensor.th1a_humidity') }}%**"
-                    entity: sensor.th1a_humidity
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "⚖️ Stato: **{{ states('sensor.comfort_evaluation_cucina') }}**"
-                    entity: sensor.comfort_evaluation_cucina
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "💡 Consiglio: **{{ states('sensor.climate_advice_cucina') }}**"
-                    entity: sensor.climate_advice_cucina
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "📊 Umidità Specifica (ω): **{{ states('sensor.omega_cucina') }} g/kg**"
-                    entity: sensor.omega_cucina
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "🎯 Rugiada: **{{ states('sensor.punto_di_rugiada_cucina') }}°C**"
-                    entity: sensor.punto_di_rugiada_cucina
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "🔋 Batteria Pilota: **{{ states('sensor.th1a_battery') }}%**"
-                    entity: sensor.th1a_battery
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
+                card:
+                  type: vertical-stack
+                  cards:
+                    - type: custom:mushroom-template-card
+                      primary: "🍳 Cucina"
+                      entity: climate.controllo_temperatura_cucina
+                      tap_action:
+                        action: more-info
+                      card_mod:
+                        style: |
+                          ha-card {
+                            --ha-card-header-font-size: 22px;
+                            margin-bottom: 5px;
+                            box-shadow: none;
+                            background: none;
+                            border: none;
+                          }
+                          :host {
+                            --primary-text-color: var(--primary-color);
+                            font-weight: bold;
+                          }
+                    - type: custom:mushroom-template-card
+                      primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_cucina_reale_calcolata') }}°C**"
+                      entity: sensor.temperatura_cucina_reale_calcolata
+                      tap_action:
+                        action: more-info
+                      card_mod: &row_style
+                        style: |
+                          ha-card {
+                            font-size: 1.4em !important;
+                            user-select: text !important;
+                            padding: 0px 16px !important;
+                            margin-top: -12px;
+                            box-shadow: none;
+                            background: none;
+                            border: none;
+                          }
+                    - type: custom:mushroom-template-card
+                      primary: "💧 Umidità: **{{ states('sensor.th1a_humidity') }}%**"
+                      entity: sensor.th1a_humidity
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "⚖️ Stato: **{{ states('sensor.comfort_evaluation_cucina') }}**"
+                      entity: sensor.comfort_evaluation_cucina
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "💡 Consiglio: **{{ states('sensor.climate_advice_cucina') }}**"
+                      entity: sensor.climate_advice_cucina
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "📊 Umidità Specifica (ω): **{{ states('sensor.omega_cucina') }} g/kg**"
+                      entity: sensor.omega_cucina
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "🎯 Rugiada: **{{ states('sensor.punto_di_rugiada_cucina') }}°C**"
+                      entity: sensor.punto_di_rugiada_cucina
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "🔋 Batteria Pilota: **{{ states('sensor.th1a_battery') }}%**"
+                      entity: sensor.th1a_battery
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
 
               # CAMERA GRANDE
-              - type: vertical-stack
+              - type: custom:mod-card
                 card_mod:
                   style: |
                     ha-card {
@@ -1695,70 +1697,72 @@ views:
                       padding-bottom: 8px;
                       background: var(--card-background-color);
                     }
-                cards:
-                  - type: custom:mushroom-template-card
-                    primary: "🛏️ Camera Grande"
-                    entity: climate.controllo_temperatura_camera_grande
-                    tap_action:
-                      action: more-info
-                    card_mod:
-                      style: |
-                        ha-card {
-                          --ha-card-header-font-size: 22px;
-                          margin-bottom: 5px;
-                          box-shadow: none;
-                          background: none;
-                          border: none;
-                        }
-                        :host {
-                          --primary-text-color: var(--primary-color);
-                          font-weight: bold;
-                        }
-                  - type: custom:mushroom-template-card
-                    primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_camera_grande_reale_calcolata') }}°C**"
-                    entity: sensor.temperatura_camera_grande_reale_calcolata
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "💧 Umidità: **{{ states('sensor.th2b_humidity') }}%**"
-                    entity: sensor.th2b_humidity
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "⚖️ Stato: **{{ states('sensor.comfort_evaluation_camera_grande') }}**"
-                    entity: sensor.comfort_evaluation_camera_grande
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "💡 Consiglio: **{{ states('sensor.climate_advice_camera_grande') }}**"
-                    entity: sensor.climate_advice_camera_grande
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "📊 Umidità Specifica (ω): **{{ states('sensor.omega_camera_grande') }} g/kg**"
-                    entity: sensor.omega_camera_grande
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "🎯 Rugiada: **{{ states('sensor.punto_di_rugiada_camera_grande') }}°C**"
-                    entity: sensor.punto_di_rugiada_camera_grande
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "🔋 Batteria Pilota: **{{ states('sensor.th2b_battery') }}%**"
-                    entity: sensor.th2b_battery
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
+                card:
+                  type: vertical-stack
+                  cards:
+                    - type: custom:mushroom-template-card
+                      primary: "🛏️ Camera Grande"
+                      entity: climate.controllo_temperatura_camera_grande
+                      tap_action:
+                        action: more-info
+                      card_mod:
+                        style: |
+                          ha-card {
+                            --ha-card-header-font-size: 22px;
+                            margin-bottom: 5px;
+                            box-shadow: none;
+                            background: none;
+                            border: none;
+                          }
+                          :host {
+                            --primary-text-color: var(--primary-color);
+                            font-weight: bold;
+                          }
+                    - type: custom:mushroom-template-card
+                      primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_camera_grande_reale_calcolata') }}°C**"
+                      entity: sensor.temperatura_camera_grande_reale_calcolata
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "💧 Umidità: **{{ states('sensor.th2b_humidity') }}%**"
+                      entity: sensor.th2b_humidity
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "⚖️ Stato: **{{ states('sensor.comfort_evaluation_camera_grande') }}**"
+                      entity: sensor.comfort_evaluation_camera_grande
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "💡 Consiglio: **{{ states('sensor.climate_advice_camera_grande') }}**"
+                      entity: sensor.climate_advice_camera_grande
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "📊 Umidità Specifica (ω): **{{ states('sensor.omega_camera_grande') }} g/kg**"
+                      entity: sensor.omega_camera_grande
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "🎯 Rugiada: **{{ states('sensor.punto_di_rugiada_camera_grande') }}°C**"
+                      entity: sensor.punto_di_rugiada_camera_grande
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "🔋 Batteria Pilota: **{{ states('sensor.th2b_battery') }}%**"
+                      entity: sensor.th2b_battery
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
 
               # CAMERA
-              - type: vertical-stack
+              - type: custom:mod-card
                 card_mod:
                   style: |
                     ha-card {
@@ -1767,70 +1771,72 @@ views:
                       padding-bottom: 8px;
                       background: var(--card-background-color);
                     }
-                cards:
-                  - type: custom:mushroom-template-card
-                    primary: "💤 Camera"
-                    entity: climate.controllo_temperatura_camera
-                    tap_action:
-                      action: more-info
-                    card_mod:
-                      style: |
-                        ha-card {
-                          --ha-card-header-font-size: 22px;
-                          margin-bottom: 5px;
-                          box-shadow: none;
-                          background: none;
-                          border: none;
-                        }
-                        :host {
-                          --primary-text-color: var(--primary-color);
-                          font-weight: bold;
-                        }
-                  - type: custom:mushroom-template-card
-                    primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_camera_reale_calcolata') }}°C**"
-                    entity: sensor.temperatura_camera_reale_calcolata
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "💧 Umidità: **{{ states('sensor.th3c_humidity') }}%**"
-                    entity: sensor.th3c_humidity
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "⚖️ Stato: **{{ states('sensor.comfort_evaluation_camera') }}**"
-                    entity: sensor.comfort_evaluation_camera
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "💡 Consiglio: **{{ states('sensor.climate_advice_camera') }}**"
-                    entity: sensor.climate_advice_camera
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "📊 Umidità Specifica (ω): **{{ states('sensor.omega_camera') }} g/kg**"
-                    entity: sensor.omega_camera
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "🎯 Rugiada: **{{ states('sensor.punto_di_rugiada_camera') }}°C**"
-                    entity: sensor.punto_di_rugiada_camera
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "🔋 Batteria Pilota: **{{ states('sensor.th3c_battery') }}%**"
-                    entity: sensor.th3c_battery
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
+                card:
+                  type: vertical-stack
+                  cards:
+                    - type: custom:mushroom-template-card
+                      primary: "💤 Camera"
+                      entity: climate.controllo_temperatura_camera
+                      tap_action:
+                        action: more-info
+                      card_mod:
+                        style: |
+                          ha-card {
+                            --ha-card-header-font-size: 22px;
+                            margin-bottom: 5px;
+                            box-shadow: none;
+                            background: none;
+                            border: none;
+                          }
+                          :host {
+                            --primary-text-color: var(--primary-color);
+                            font-weight: bold;
+                          }
+                    - type: custom:mushroom-template-card
+                      primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_camera_reale_calcolata') }}°C**"
+                      entity: sensor.temperatura_camera_reale_calcolata
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "💧 Umidità: **{{ states('sensor.th3c_humidity') }}%**"
+                      entity: sensor.th3c_humidity
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "⚖️ Stato: **{{ states('sensor.comfort_evaluation_camera') }}**"
+                      entity: sensor.comfort_evaluation_camera
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "💡 Consiglio: **{{ states('sensor.climate_advice_camera') }}**"
+                      entity: sensor.climate_advice_camera
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "📊 Umidità Specifica (ω): **{{ states('sensor.omega_camera') }} g/kg**"
+                      entity: sensor.omega_camera
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "🎯 Rugiada: **{{ states('sensor.punto_di_rugiada_camera') }}°C**"
+                      entity: sensor.punto_di_rugiada_camera
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "🔋 Batteria Pilota: **{{ states('sensor.th3c_battery') }}%**"
+                      entity: sensor.th3c_battery
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
 
               # CORRIDOIO
-              - type: vertical-stack
+              - type: custom:mod-card
                 card_mod:
                   style: |
                     ha-card {
@@ -1839,70 +1845,72 @@ views:
                       padding-bottom: 8px;
                       background: var(--card-background-color);
                     }
-                cards:
-                  - type: custom:mushroom-template-card
-                    primary: "🚶 Corridoio"
-                    entity: climate.controllo_temperatura_corridoio
-                    tap_action:
-                      action: more-info
-                    card_mod:
-                      style: |
-                        ha-card {
-                          --ha-card-header-font-size: 22px;
-                          margin-bottom: 5px;
-                          box-shadow: none;
-                          background: none;
-                          border: none;
-                        }
-                        :host {
-                          --primary-text-color: var(--primary-color);
-                          font-weight: bold;
-                        }
-                  - type: custom:mushroom-template-card
-                    primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_corridoio_reale_calcolata') }}°C**"
-                    entity: sensor.temperatura_corridoio_reale_calcolata
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "💧 Umidità: **{{ states('sensor.th4d_humidity') }}%**"
-                    entity: sensor.th4d_humidity
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "⚖️ Stato: **{{ states('sensor.comfort_evaluation_corridoio') }}**"
-                    entity: sensor.comfort_evaluation_corridoio
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "💡 Consiglio: **{{ states('sensor.climate_advice_corridoio') }}**"
-                    entity: sensor.climate_advice_corridoio
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "📊 Umidità Specifica (ω): **{{ states('sensor.omega_corridoio') }} g/kg**"
-                    entity: sensor.omega_corridoio
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "🎯 Rugiada: **{{ states('sensor.punto_di_rugiada_corridoio') }}°C**"
-                    entity: sensor.punto_di_rugiada_corridoio
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "🔋 Batteria Pilota: **{{ states('sensor.th4d_battery') }}%**"
-                    entity: sensor.th4d_battery
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
+                card:
+                  type: vertical-stack
+                  cards:
+                    - type: custom:mushroom-template-card
+                      primary: "🚶 Corridoio"
+                      entity: climate.controllo_temperatura_corridoio
+                      tap_action:
+                        action: more-info
+                      card_mod:
+                        style: |
+                          ha-card {
+                            --ha-card-header-font-size: 22px;
+                            margin-bottom: 5px;
+                            box-shadow: none;
+                            background: none;
+                            border: none;
+                          }
+                          :host {
+                            --primary-text-color: var(--primary-color);
+                            font-weight: bold;
+                          }
+                    - type: custom:mushroom-template-card
+                      primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_corridoio_reale_calcolata') }}°C**"
+                      entity: sensor.temperatura_corridoio_reale_calcolata
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "💧 Umidità: **{{ states('sensor.th4d_humidity') }}%**"
+                      entity: sensor.th4d_humidity
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "⚖️ Stato: **{{ states('sensor.comfort_evaluation_corridoio') }}**"
+                      entity: sensor.comfort_evaluation_corridoio
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "💡 Consiglio: **{{ states('sensor.climate_advice_corridoio') }}**"
+                      entity: sensor.climate_advice_corridoio
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "📊 Umidità Specifica (ω): **{{ states('sensor.omega_corridoio') }} g/kg**"
+                      entity: sensor.omega_corridoio
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "🎯 Rugiada: **{{ states('sensor.punto_di_rugiada_corridoio') }}°C**"
+                      entity: sensor.punto_di_rugiada_corridoio
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "🔋 Batteria Pilota: **{{ states('sensor.th4d_battery') }}%**"
+                      entity: sensor.th4d_battery
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
 
               # BAGNO
-              - type: vertical-stack
+              - type: custom:mod-card
                 card_mod:
                   style: |
                     ha-card {
@@ -1911,70 +1919,72 @@ views:
                       padding-bottom: 8px;
                       background: var(--card-background-color);
                     }
-                cards:
-                  - type: custom:mushroom-template-card
-                    primary: "🚿 Bagno"
-                    entity: climate.controllo_temperatura_bagno
-                    tap_action:
-                      action: more-info
-                    card_mod:
-                      style: |
-                        ha-card {
-                          --ha-card-header-font-size: 22px;
-                          margin-bottom: 5px;
-                          box-shadow: none;
-                          background: none;
-                          border: none;
-                        }
-                        :host {
-                          --primary-text-color: var(--primary-color);
-                          font-weight: bold;
-                        }
-                  - type: custom:mushroom-template-card
-                    primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_bagno_reale_calcolata') }}°C**"
-                    entity: sensor.temperatura_bagno_reale_calcolata
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "💧 Umidità: **{{ states('sensor.fancoil_bagno_humidity') }}%**"
-                    entity: sensor.fancoil_bagno_humidity
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "⚖️ Stato: **{{ states('sensor.comfort_evaluation_bagno') }}**"
-                    entity: sensor.comfort_evaluation_bagno
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "💡 Consiglio: **{{ states('sensor.climate_advice_bagno') }}**"
-                    entity: sensor.climate_advice_bagno
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "📊 Umidità Specifica (ω): **{{ states('sensor.omega_bagno') }} g/kg**"
-                    entity: sensor.omega_bagno
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "🎯 Rugiada: **{{ states('sensor.punto_di_rugiada_bagno') }}°C**"
-                    entity: sensor.punto_di_rugiada_bagno
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "🏠 Temp KNX: **{{ states('sensor.temperatura_bagno') }}°C**"
-                    entity: sensor.temperatura_bagno
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
+                card:
+                  type: vertical-stack
+                  cards:
+                    - type: custom:mushroom-template-card
+                      primary: "🚿 Bagno"
+                      entity: climate.controllo_temperatura_bagno
+                      tap_action:
+                        action: more-info
+                      card_mod:
+                        style: |
+                          ha-card {
+                            --ha-card-header-font-size: 22px;
+                            margin-bottom: 5px;
+                            box-shadow: none;
+                            background: none;
+                            border: none;
+                          }
+                          :host {
+                            --primary-text-color: var(--primary-color);
+                            font-weight: bold;
+                          }
+                    - type: custom:mushroom-template-card
+                      primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_bagno_reale_calcolata') }}°C**"
+                      entity: sensor.temperatura_bagno_reale_calcolata
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "💧 Umidità: **{{ states('sensor.fancoil_bagno_humidity') }}%**"
+                      entity: sensor.fancoil_bagno_humidity
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "⚖️ Stato: **{{ states('sensor.comfort_evaluation_bagno') }}**"
+                      entity: sensor.comfort_evaluation_bagno
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "💡 Consiglio: **{{ states('sensor.climate_advice_bagno') }}**"
+                      entity: sensor.climate_advice_bagno
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "📊 Umidità Specifica (ω): **{{ states('sensor.omega_bagno') }} g/kg**"
+                      entity: sensor.omega_bagno
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "🎯 Rugiada: **{{ states('sensor.punto_di_rugiada_bagno') }}°C**"
+                      entity: sensor.punto_di_rugiada_bagno
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "🏠 Temp KNX: **{{ states('sensor.temperatura_bagno') }}°C**"
+                      entity: sensor.temperatura_bagno
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
 
               # SALA
-              - type: vertical-stack
+              - type: custom:mod-card
                 card_mod:
                   style: |
                     ha-card {
@@ -1983,70 +1993,69 @@ views:
                       padding-bottom: 8px;
                       background: var(--card-background-color);
                     }
-                cards:
-                  - type: custom:mushroom-template-card
-                    primary: "🛋️ Sala"
-                    entity: climate.controllo_temperatura_sala
-                    tap_action:
-                      action: more-info
-                    card_mod:
-                      style: |
-                        ha-card {
-                          --ha-card-header-font-size: 22px;
-                          margin-bottom: 5px;
-                          box-shadow: none;
-                          background: none;
-                          border: none;
-                        }
-                        :host {
-                          --primary-text-color: var(--primary-color);
-                          font-weight: bold;
-                        }
-                  - type: custom:mushroom-template-card
-                    primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_sala_reale_calcolata') }}°C**"
-                    entity: sensor.temperatura_sala_reale_calcolata
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "💧 Umidità: **{{ states('sensor.th4d_humidity') }}%**"
-                    entity: sensor.th4d_humidity
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "⚖️ Stato: **{{ states('sensor.comfort_evaluation_sala') }}**"
-                    entity: sensor.comfort_evaluation_sala
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "💡 Consiglio: **{{ states('sensor.climate_advice_sala') }}**"
-                    entity: sensor.climate_advice_sala
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "📊 Umidità Specifica (ω): **{{ states('sensor.omega_sala') }} g/kg**"
-                    entity: sensor.omega_sala
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "🎯 Rugiada: **{{ states('sensor.punto_di_rugiada_sala') }}°C**"
-                    entity: sensor.punto_di_rugiada_sala
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                  - type: custom:mushroom-template-card
-                    primary: "🏠 Temp KNX: **{{ states('sensor.temperatura_sala') }}°C**"
-                    entity: sensor.temperatura_sala
-                    tap_action:
-                      action: more-info
-                    card_mod: *row_style
-                    tap_action:
-                      action: navigate
-                      navigation_path: "/riscaldamento-1/fancoil-dettagli-sala"
+                card:
+                  type: vertical-stack
+                  cards:
+                    - type: custom:mushroom-template-card
+                      primary: "🛋️ Sala"
+                      entity: climate.controllo_temperatura_sala
+                      tap_action:
+                        action: more-info
+                      card_mod:
+                        style: |
+                          ha-card {
+                            --ha-card-header-font-size: 22px;
+                            margin-bottom: 5px;
+                            box-shadow: none;
+                            background: none;
+                            border: none;
+                          }
+                          :host {
+                            --primary-text-color: var(--primary-color);
+                            font-weight: bold;
+                          }
+                    - type: custom:mushroom-template-card
+                      primary: "🌡️ Temperatura: **{{ states('sensor.temperatura_sala_reale_calcolata') }}°C**"
+                      entity: sensor.temperatura_sala_reale_calcolata
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "💧 Umidità: **{{ states('sensor.th4d_humidity') }}%**"
+                      entity: sensor.th4d_humidity
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "⚖️ Stato: **{{ states('sensor.comfort_evaluation_sala') }}**"
+                      entity: sensor.comfort_evaluation_sala
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "💡 Consiglio: **{{ states('sensor.climate_advice_sala') }}**"
+                      entity: sensor.climate_advice_sala
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "📊 Umidità Specifica (ω): **{{ states('sensor.omega_sala') }} g/kg**"
+                      entity: sensor.omega_sala
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "🎯 Rugiada: **{{ states('sensor.punto_di_rugiada_sala') }}°C**"
+                      entity: sensor.punto_di_rugiada_sala
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "🏠 Temp KNX: **{{ states('sensor.temperatura_sala') }}°C**"
+                      entity: sensor.temperatura_sala
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
 
   - title: Informazioni
     path: riscaldamento-info
