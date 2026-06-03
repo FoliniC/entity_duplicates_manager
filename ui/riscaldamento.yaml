@@ -1558,6 +1558,7 @@ views:
   - title: Climatizzazione
     path: climatizzazione
     icon: mdi:air-filter
+    panel: true
     cards:
       - type: vertical-stack
         cards:
@@ -1565,7 +1566,7 @@ views:
             content: >
               ## 🍃 Benessere Indoor
               Analisi basata su Umidità Specifica (ω) e Punto di Rugiada.
-              **Esterno:** {{ states('sensor.temperatura_strenscia') }}°C | {{ states('sensor.th4d_humidity') }}% | ω: {{ states('sensor.omega_esterno') }} g/kg
+              **Esterno (KNX):** {{ states('sensor.temperatura_strenscia') }}°C | **Esterno (TH4D):** {{ states('sensor.th4d_temperature') }}°C | {{ states('sensor.th4d_humidity') }}% | ω: {{ states('sensor.omega_esterno') }} g/kg
           
           - type: grid
             columns: 2
@@ -1588,13 +1589,18 @@ views:
                       navigation_path: "/riscaldamento-1/fancoil-dettagli-cucina"
                     multiline_secondary: true
                   - type: entities
+                    title: "Controllo Fancoil (TH1A)"
                     entities:
                       - entity: sensor.th1a_temperature
-                        name: "Sorgente Temp (Ref)"
+                        name: "Temperatura Pilota"
                       - entity: sensor.th1a_humidity
-                        name: "Sorgente Umidità"
+                        name: "Umidità Pilota"
+                      - entity: sensor.th1a_battery
+                        name: "Batteria Pilota"
                       - entity: sensor.fancoil_cucina_temperature
-                        name: "Temp Fancoil"
+                        name: "Temp Bordo Fancoil"
+                      - entity: sensor.fancoil_cucina_humidity
+                        name: "Umidità Bordo Fancoil"
 
               # CAMERA GRANDE
               - type: vertical-stack
@@ -1613,13 +1619,18 @@ views:
                       navigation_path: "/riscaldamento-1/fancoil-dettagli-camera_grande"
                     multiline_secondary: true
                   - type: entities
+                    title: "Controllo Fancoil (TH2B)"
                     entities:
                       - entity: sensor.th2b_temperature
-                        name: "Sorgente Temp (Ref)"
+                        name: "Temperatura Pilota"
                       - entity: sensor.th2b_humidity
-                        name: "Sorgente Umidità"
+                        name: "Umidità Pilota"
+                      - entity: sensor.th2b_battery
+                        name: "Batteria Pilota"
                       - entity: sensor.temperatura_camera_grande
                         name: "Temp KNX"
+                      - entity: sensor.fancoil_camera_grande_humidity
+                        name: "Umidità Bordo Fancoil"
 
               # CAMERA
               - type: vertical-stack
@@ -1638,13 +1649,18 @@ views:
                       navigation_path: "/riscaldamento-1/fancoil-dettagli-camera"
                     multiline_secondary: true
                   - type: entities
+                    title: "Controllo Fancoil (TH3C)"
                     entities:
                       - entity: sensor.th3c_temperature
-                        name: "Sorgente Temp (Ref)"
+                        name: "Temperatura Pilota"
                       - entity: sensor.th3c_humidity
-                        name: "Sorgente Umidità"
+                        name: "Umidità Pilota"
+                      - entity: sensor.th3c_battery
+                        name: "Batteria Pilota"
                       - entity: sensor.temperatura_camera
                         name: "Temp KNX"
+                      - entity: sensor.fancoil_camera_humidity
+                        name: "Umidità Bordo Fancoil"
 
               # CORRIDOIO
               - type: vertical-stack
@@ -1663,11 +1679,16 @@ views:
                       navigation_path: "/riscaldamento-1/fancoil-dettagli-corridoio"
                     multiline_secondary: true
                   - type: entities
+                    title: "Controllo Fancoil (TH4D)"
                     entities:
                       - entity: sensor.th4d_temperature
-                        name: "Sorgente Temp (Ref)"
+                        name: "Temperatura Pilota"
                       - entity: sensor.th4d_humidity
-                        name: "Sorgente Umidità"
+                        name: "Umidità Pilota"
+                      - entity: sensor.th4d_battery
+                        name: "Batteria Pilota"
+                      - entity: sensor.fancoil_corridoio_humidity
+                        name: "Umidità Bordo Fancoil"
 
               # BAGNO
               - type: vertical-stack
@@ -1686,11 +1707,12 @@ views:
                       navigation_path: "/riscaldamento-1/fancoil-dettagli-bagno"
                     multiline_secondary: true
                   - type: entities
+                    title: "Controllo Fancoil"
                     entities:
                       - entity: sensor.th3c_temperature
-                        name: "Sorgente Temp (Ref)"
+                        name: "Temperatura Pilota (Ref)"
                       - entity: sensor.fancoil_bagno_humidity
-                        name: "Sorgente Umidità"
+                        name: "Umidità Bordo Fancoil"
                       - entity: sensor.temperatura_bagno
                         name: "Temp KNX"
 
@@ -1711,13 +1733,18 @@ views:
                       navigation_path: "/riscaldamento-1/fancoil-dettagli-sala"
                     multiline_secondary: true
                   - type: entities
+                    title: "Controllo Fancoil (TH4D/Ref)"
                     entities:
-                      - entity: sensor.th6a_temperature
-                        name: "Sorgente Temp (Ref)"
+                      - entity: sensor.th4d_temperature
+                        name: "Temperatura Pilota"
                       - entity: sensor.th4d_humidity
-                        name: "Sorgente Umidità"
+                        name: "Umidità Pilota"
+                      - entity: sensor.th4d_battery
+                        name: "Batteria Pilota"
                       - entity: sensor.temperatura_sala
                         name: "Temp KNX"
+                      - entity: sensor.fancoil_sala_humidity
+                        name: "Umidità Bordo Fancoil"
 
   - title: Informazioni
     path: riscaldamento-info
