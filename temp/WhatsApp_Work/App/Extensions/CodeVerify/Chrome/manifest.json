@@ -1,0 +1,31 @@
+{
+    "manifest_version": 3,
+    "name": "Code Verify",
+    "version": "4.0.0",
+    "description": "An extension to verify the code running in your browser matches what was published.",
+    "action": {
+        "default_title": "Code Verify"
+    },
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": ["*://*.whatsapp.com/*"],
+            "all_frames": true,
+            "match_about_blank": true,
+            "js": ["contentWA.js"],
+            "run_at": "document_start"
+        }
+    ],
+    "permissions": [
+        "webRequest"
+    ],
+    "host_permissions": [
+        "https://*.privacy-auditability.cloudflare.com/",
+        "https://static.xx.fbcdn.net/",
+        "https://static.cdninstagram.com/",
+        "https://static.whatsapp.net/",
+        "*://*.whatsapp.com/*"
+    ]
+}

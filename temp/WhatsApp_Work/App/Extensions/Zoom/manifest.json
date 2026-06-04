@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Zoom",
+  "version": "1.0.0",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "externally_connectable": {
+    "matches": [ "*://*.whatsapp.com/*" ]
+  },
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "permissions": [
+    "tabs",
+    "storage"
+  ],
+  "key": "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCUkqbMmd2B3GYaXSfPBl+2poR6zJ7O1lPcAJcR3DD6WP7NGJdTksSFbjSfVXCm+SCSqda4dPbkLNQtEkGvddVSP3NVFdDfFZXsptW4HQFcK/7dJA2tqskurRyS27rdogkQ7FxjCd8D691z3VlIuDXJwtOJJQpAA7y+6iE6+RYpb9zN4KO22tUru3/2QF9TwyOf1madPwYtRvwhOffkFFmjsiaRDF4K+7/5R3HhvnqvFtETt1kDo8PftiAtKzTpgcNBFmNHmRfLiZXLDQqJ4J7aSPvBJX3EuaQgmMIcbYagmsJ4Vegh1S7W1obaLGaXFVqtr3W40L5ZDv0PHcttweIfAgMBAAECggEAD8MzURet6X4hkwB5Hby2YOFvwrt8ycLxaLDjVjC/PYA9oDLQszwp/2H+0Ty2U/CwZP8B2dYG75RV+mYqc9wTgsNakBddbp2Sp2XX3M2u/EFqq7mMffVVnM8e7fHD9ImhXptE/fjpIThf6U/9jfqFMl+qI627ValP2A1s8x3EHScooQ/CqpO11xdkY9D3eNFLHrqwYJyE0leMxFBnOB4M1tcHeKZvjC0JvuFmY5M30WH/KCXAL7m7D78K1EFPXMBq2CMS2iqRGkfQSnRYrVwOnLSIWXl9ZLpjhCveT3EszNIp6n9q84rut14Mb9VJEZghpP1zbFIVK1Z1e7U93KO32QKBgQDLtRVw5qRr5MbFXEdlaYSkN0J1XbGy6XNma/g0XVcFKyndC/YSsBl3W4nWdvjC5rT9HejOebwkSY6Qau/e86JtvtOh9RFGKanY1MSQ/GUnoIsyHAuJ0KlhpcnhKwWlEL7MwMNbnaqnVm+82JHjRzS2wdo9pfQ9+2GcAV52BdlC3QKBgQC6tlOMRSvnDpP9Fpcs4UTenuR19+gkEY4ter7tcY8WXKDxuB8DWiBAl7vd4ColCdDQ+PoC/eL0i+DZPN6ajSGoxa3AIqagTQwCihYjjh40hNiW8gV8lE5mipbSrshyjcx4B9yTG7dHBWYrneiuucKyrledjeP+kJMGCCk9Z45TKwKBgQCFFL14L8XVEvXks9+U2jWkjtFlGZvg1XDlxb22gBA8uTE1Tv4owVExz+Sh7sGfmtc80ZBpa9BFKKTxplslHafM6LEcCp2JZ+ilVoNAcROoqtKlHvtOwroVqBjWeKPMbb8oxvoZ3UxC3E5NYnMUt00x5D0urz98SsE/CQnsMu/4JQKBgATsScepCz9MYxqJPfMw/V/hUKTLpJNO4zDPy7j3BY7RYmz9LdQozDDnz0xKXNIdMCRSbEUn7JQGHCeeM0Bf+EM68xnd0AbqAScP/QVy+djop81TFFH0lxydCt0DPsXGd12y114JnQuCWO9NepUg0MFlV2oQE7LinP3LuUqlMFuBAoGBALtoI123e7I/BabmVbdgFeUDrdCqSaVND7PYTcW2Mpe+F2JoRSe8ZFp7VS+Qi1BrZlNOMibQfOtTotnGpN6QGEuOJIQ6bpfMQcXf4TBlfcNDhvRSOd7920pcfItmMSN8vm6U2zzEBQbccdPz5XFTaxGaGc07L4aJgNs8CZPgFf0t"
+}
