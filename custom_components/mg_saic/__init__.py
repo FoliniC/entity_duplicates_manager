@@ -2,6 +2,7 @@
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
 from .api import SAICMGAPIClient
 from .coordinator import SAICMGDataUpdateCoordinator
 from .const import DOMAIN, LOGGER, PLATFORMS
@@ -44,7 +45,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         hass.data[DOMAIN][entry.entry_id] = client
 
         coordinator = SAICMGDataUpdateCoordinator(hass, client, entry)
-        await coordinator.async_setup()
+        try:
+            await coordinator.async_setup()
+        except Exception as e:
+            LOGGER.warning("Coordinator setup failed, retrying later: %s", e)
+            raise ConfigEntryNotReady(f"Timeout or connection error during coordinator setup: {e}") from e
 
         hass.data[DOMAIN][f"{entry.entry_id}_coordinator"] = coordinator
 
@@ -62,9 +67,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
         LOGGER.info("MG SAIC integration setup completed successfully.")
         return True
+    except ConfigEntryNotReady:
+        raise
     except Exception as e:
         LOGGER.error("Failed to set up MG SAIC integration: %s", e)
-        return False
+        # Se è un errore di connessione/login durante il boot, usiamo ConfigEntryNotReady
+        # per evitare di bloccare HA e permettere il retry automatico.
+        raise ConfigEntryNotReady(f"Error connecting to SAIC services: {e}") from e
 
 
 async def update_listener(hass: HomeAssistant, entry: ConfigEntry):

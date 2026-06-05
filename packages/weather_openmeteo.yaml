@@ -23,7 +23,7 @@ rest:
       - name: "Castionetto Precipitazione"
         unique_id: castionetto_precipitazione
         value_template: "{{ value_json.current.precipitation }}"
-        unit_of_measurement: "mm"
+        unit_of_measurement: "mm/h"
         device_class: precipitation_intensity
 
       - name: "Castionetto Pioggia"
@@ -80,10 +80,10 @@ rest:
 
       - name: "Castionetto Alba"
         unique_id: castionetto_alba
-        value_template: "{{ value_json.daily.sunrise[0] }}"
+        value_template: "{{ as_timestamp(value_json.daily.sunrise[0]) | timestamp_isoformat }}"
         device_class: timestamp
 
       - name: "Castionetto Tramonto"
         unique_id: castionetto_tramonto
-        value_template: "{{ value_json.daily.sunset[0] }}"
+        value_template: "{{ as_timestamp(value_json.daily.sunset[0]) | timestamp_isoformat }}"
         device_class: timestamp
