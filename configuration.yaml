@@ -40,7 +40,7 @@ template: !include yaml_generator/fancoil_templates_master.yaml
 # ============================================================================
 # CLIMATE
 # ============================================================================
-climate: !include_dir_merge_list yaml_generator/generated_climates/
+# climate: !include_dir_merge_list yaml_generator/generated_climates/
 
 # ============================================================================
 # SENSORS (PLATFORM)
@@ -502,11 +502,6 @@ http:
     - 172.16.0.0/12
     - 192.168.0.0/16
   server_port: 8124
-
-duckdns:
-  domain: !secret duckdns_domain
-  access_token: !secret duckdns_token
-
 
 # ============================================================================
 # KNX INTEGRATION

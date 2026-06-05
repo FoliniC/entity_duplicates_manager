@@ -7,6 +7,7 @@
 # ==============================================================================
 
 # CONFIGURAZIONE
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 DOCKER_DIR="/home/carlo/docker"
 HA_URL="http://localhost:8124"
 # TOKEN PRESERVATO
@@ -41,7 +42,7 @@ echo "Versione attuale: $OLD_VERSION (Image ID: ${CURRENT_IMAGE_ID:0:12})"
 
 # 2. Pull dell'immagine 'stable'
 echo "Controllo nuove immagini (docker compose pull)..."
-$DOCKER_DIR/../usr/bin/docker compose pull homeassistant > /dev/null 2>&1
+docker compose pull homeassistant > /dev/null 2>&1
 
 # 3. Recupera ID della nuova immagine scaricata
 LATEST_IMAGE_ID=$(docker inspect ghcr.io/home-assistant/home-assistant:stable --format='{{.Id}}' 2>/dev/null)

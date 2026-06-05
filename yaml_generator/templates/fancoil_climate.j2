@@ -3,16 +3,16 @@
 # Generated at: %%generation_time%%
 
 # File: yaml_generator/templates/fancoil_climate.j2
-# MODIFIED for HA 2025.10 syntax, template sensors, and prioritized temperature sources
+# MODIFIED for HA 2025.10 syntax, template sensors, and prioritized temperature reading
 
 - platform: climate_template
   name: "controllo temperatura %%friendly_name%%"
-  unique_id: controllo_temperatura_%%unique_id%%_template
+  unique_id: controllo_temperatura_%%id%%_template
   temp_step: 0.1
-  # Sempre disponibile per evitare sparizioni in UI durante i timeout Tuya
+  precision: 0.1
   availability_template: "{{ True }}"
 
-  modes:
+  hvac_modes:
     - "off"
     - "cool"
     - "heat"
@@ -29,7 +29,7 @@
 
   # Temperatura attuale basata sulla sorgente selezionata
   current_temperature_template: >-
-    {{ states('sensor.temperatura_%%id%%_reale_calcolata') | float(21.0) }}
+    {{ states('sensor.fancoil_%%id%%_real_calculated') | float(21.0) }}
 
   # Temperatura target con gestione follow master
   target_temperature_template: >-
@@ -66,8 +66,6 @@
     {% endif %}
 
   # Modalità ventola basata sugli switch hardware
-  # Nota: per la VISUALIZZAZIONE mappiamo 'idle' -> 'off' (ventola disabilitata)
-  #       Le automazioni possono comunque impostare 'idle' via set_fan_mode.
   fan_mode_template: >-
     {% set s1 = is_state('switch.fancoil_%%id%%_switch_1', 'on') %}
     {% set s2 = is_state('switch.fancoil_%%id%%_switch_2', 'on') %}

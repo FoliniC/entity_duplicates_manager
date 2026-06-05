@@ -1,5 +1,6 @@
 - sensor: !include_dir_merge_list managed_sensors/
 - binary_sensor: !include_dir_merge_list managed_binary_sensors/
+- climate: !include_dir_merge_list generated_climates/
 - !include ev_charge_2025_triggers.yaml
 - !include luce_scale_template.yaml
 - !include managed_persistence/cucina_persistence.yaml
@@ -8,5 +9,3 @@
 - !include managed_persistence/corridoio_persistence.yaml
 - !include managed_persistence/bagno_persistence.yaml
 - !include managed_persistence/sala_persistence.yaml
-- !include managed_persistence/ev_persistence.yaml
-- !include managed_persistence/th_persistence.yaml
