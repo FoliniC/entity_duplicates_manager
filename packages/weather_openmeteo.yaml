@@ -80,10 +80,10 @@ rest:
 
       - name: "Castionetto Alba"
         unique_id: castionetto_alba
-        value_template: "{{ as_timestamp(value_json.daily.sunrise[0]) | timestamp_isoformat }}"
+        value_template: "{{ value_json.daily.sunrise[0] ~ now().isoformat()[-6:] }}"
         device_class: timestamp
 
       - name: "Castionetto Tramonto"
         unique_id: castionetto_tramonto
-        value_template: "{{ as_timestamp(value_json.daily.sunset[0]) | timestamp_isoformat }}"
+        value_template: "{{ value_json.daily.sunset[0] ~ now().isoformat()[-6:] }}"
         device_class: timestamp
