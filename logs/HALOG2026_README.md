@@ -100,5 +100,12 @@ Puoi modificare il comportamento di ogni log agendo su `halog2026_config.json`:
 - **Destinazione**: `/config/logs/scale/scale_events.log`
 - **Caratteristiche**: Archiviazione settimanale (`when: Weeks`, `interval: 1`), tiene 4 file. Arricchisce il log con lo stato delle luci e la potenza assorbita.
 
+### 4. Sistema (Cron / Script)
+- **Evento**: `system_log_event`
+- **Destinazione**: `/config/logs/system/system.log`
+- **Provenienza**: Script shell esterni (es: `ha_update.sh`) o automazioni di manutenzione.
+- **Caratteristiche**: Rotazione quotidiana, tiene 100 file. Registra esiti aggiornamenti container e task di sistema.
+- **Aggiornato**: 2026-06-03 - Aggiunto supporto per `ha_update.sh`.
+
 ---
 **Note for maintenance / Nota per la manutenzione**: JSON changes are loaded automatically at the next rotation event or restart. Le modifiche al file JSON vengono caricate automaticamente al prossimo evento di rotazione o al riavvio.

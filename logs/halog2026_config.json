@@ -33,6 +33,17 @@
             "interval": 1,
             "backup_count": 100,
             "state_persistence": false
+        },
+        "system": {
+            "log_dir": "/config/logs/system",
+            "log_file": "system.log",
+            "archive": true,
+            "rotation_type": "both",
+            "max_bytes": 2097152,
+            "when": "midnight",
+            "interval": 1,
+            "backup_count": 100,
+            "state_persistence": false
         }
     }
 }

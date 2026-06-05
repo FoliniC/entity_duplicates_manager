@@ -1,0 +1,16 @@
+# HALog2026 — System Log Listener
+# USES EVENTS TO AVOID SERVICE VALIDATION ISSUES AT BOOT
+
+- id: system_listener_eventi_log
+  alias: "System: Listener Eventi Log"
+  description: "Invia eventi log di sistema a HALog2026 tramite event bus"
+  initial_state: true
+  trigger:
+    - trigger: event
+      event_type: system_log_event
+  actions:
+    - action: pyscript.halog2026_write
+      data:
+        subsystem: system
+        level: "{{ trigger.event.data.level }}"
+        message: "{{ trigger.event.data.message }}"

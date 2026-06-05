@@ -65,6 +65,7 @@ _LISTENERS: list[str] = [
     "automation.fancoil_listener_eventi_log",
     "automation.scale_listener_eventi_log",
     "automation.ev_listener_eventi_log",
+    "automation.system_listener_eventi_log",
 ]
 
 # ── Private helper (sync, for internal calls within this file) ────────────────
