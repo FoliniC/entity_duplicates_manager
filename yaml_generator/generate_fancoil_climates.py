@@ -291,8 +291,8 @@ def generate_from_template(template_path, output_dir, vars_map, suffix):
         rendered = substitute_tags(template_text, final_ctx)
         
         # Post-process blocks
-        rendered = rendered.replace("%%TH_COHERENCE_BLOCK%%", local_ctx.get("TH_COHERENCE_BLOCK", ""))
-        rendered = rendered.replace("%%KNX_COHERENCE_BLOCK%%", local_ctx.get("KNX_COHERENCE_BLOCK", ""))
+        rendered = rendered.replace("%%TH_COHERENCE_BLOCK_SENSOR%%", local_ctx.get("TH_COHERENCE_BLOCK_SENSOR", ""))
+        rendered = rendered.replace("%%KNX_COHERENCE_BLOCK_SENSOR%%", local_ctx.get("KNX_COHERENCE_BLOCK_SENSOR", ""))
         rendered = rendered.strip() + "\n"
 
         out_name = resolve_output_name(context, key, suffix)
@@ -588,10 +588,16 @@ def main():
 
     # Coherence sensors
     generate_from_template(
-        "yaml_generator/templates/fancoil_coherence.j2",
+        "yaml_generator/templates/fancoil_coherence_sensors.j2",
         SENSORS_OUTPUT_DIR,
         vars_map,
         "_coherence",
+    )
+    generate_from_template(
+        "yaml_generator/templates/fancoil_coherence_binary_sensors.j2",
+        BINARY_SENSORS_OUTPUT_DIR,
+        vars_map,
+        "_coherence_error",
     )
 
     # Generate master include file for Home Assistant

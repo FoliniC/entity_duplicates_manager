@@ -3,7 +3,6 @@
 # Generated at: %%generation_time%%
 
 # Sensors for cross-checking consistency between different sensors in the same room
-# NOTE: This file only contains sensor definitions.
 
 %%TH_COHERENCE_BLOCK_SENSOR%%
 
@@ -21,7 +20,7 @@
     
     {% set ns = namespace(problems=[]) %}
     {% if t_delta is not none and t_delta > t_limit %}
-      {% set ns.problems = ns.problems + ['Temp Diverge (' ~ t_delta ~ '°C)'] %}
+      {% set ns.problems = ns.problems + ['Temp Diverge (' ~ t_delta ~ 'degC)'] %}
     {% endif %}
     {% if h_delta is not none and h_delta > h_limit %}
       {% set ns.problems = ns.problems + ['Hum Diverge (' ~ h_delta ~ '%)'] %}
