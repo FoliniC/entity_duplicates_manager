@@ -1,0 +1,53 @@
+        availability
+              [Bagno] State Dump
+              [Camera grande] State Dump
+              [Camera] State Dump
+              [Corridoio] State Dump
+              [Cucina] State Dump
+        diff
+                      entity
+      entity_id
+    entity_id
+                message
+                      primary
+              [Sala] State Dump
+            sensor.fancoil_bagno_temperature
+        - sensor.fancoil_bagno_temperature_difference
+            sensor.fancoil_camera_grande_temperature
+        - sensor.fancoil_camera_grande_temperature_difference
+            sensor.fancoil_camera_temperature
+        - sensor.fancoil_camera_temperature_difference
+            sensor.fancoil_corridoio_temperature
+        - sensor.fancoil_corridoio_temperature_difference
+            sensor.fancoil_cucina_temperature
+        - sensor.fancoil_cucina_temperature_difference
+            sensor.fancoil_sala_temperature
+        - sensor.fancoil_sala_temperature_difference
+          {% set defaults = ['sensor.fancoil_bagno_temperature'] %}
+          {% set defaults = ['sensor.fancoil_camera_grande_temperature'] %}
+          {% set defaults = ['sensor.fancoil_camera_temperature'] %}
+          {% set defaults = ['sensor.fancoil_corridoio_temperature'] %}
+          {% set defaults = ['sensor.fancoil_cucina_temperature'] %}
+          {% set defaults = ['sensor.fancoil_sala_temperature'] %}
+              {% set diff_raw = states('sensor.fancoil_bagno_temperature_difference') | float(0) %}
+              {% set diff_raw = states('sensor.fancoil_camera_grande_temperature_difference') | float(0) %}
+              {% set diff_raw = states('sensor.fancoil_camera_temperature_difference') | float(0) %}
+              {% set diff_raw = states('sensor.fancoil_corridoio_temperature_difference') | float(0) %}
+              {% set diff_raw = states('sensor.fancoil_cucina_temperature_difference') | float(0) %}
+              {% set diff_raw = states('sensor.fancoil_sala_temperature_difference') | float(0) %}
+          {% set raw = states('sensor.fancoil_bagno_last_temperature') | float(0) %}
+          {% set raw = states('sensor.fancoil_camera_grande_last_temperature') | float(0) %}
+          {% set raw = states('sensor.fancoil_corridoio_last_temperature') | float(0) %}
+          {% set raw = states('sensor.fancoil_cucina_last_temperature') | float(0) %}
+              {% set t_raw = states('sensor.fancoil_bagno_last_temperature') | float(0) %}
+              {% set t_raw = states('sensor.fancoil_camera_grande_last_temperature') | float(0) %}
+              {% set t_raw = states('sensor.fancoil_camera_last_temperature') | float(0) %}
+              {% set t_raw = states('sensor.fancoil_corridoio_last_temperature') | float(0) %}
+              {% set t_raw = states('sensor.fancoil_cucina_last_temperature') | float(0) %}
+              {% set t_raw = states('sensor.fancoil_sala_last_temperature') | float(0) %}
+              Temp={{ states('sensor.fancoil_bagno_last_temperature') }}°C, Target={{ fan_target }}, Attuale={{ fan_attuale_hw }}.
+              Temp={{ states('sensor.fancoil_camera_grande_last_temperature') }}°C, Target={{ fan_target }}, Attuale={{ fan_attuale_hw }}.
+              Temp={{ states('sensor.fancoil_camera_last_temperature') }}°C, Target={{ fan_target }}, Attuale={{ fan_attuale_hw }}.
+              Temp={{ states('sensor.fancoil_corridoio_last_temperature') }}°C, Target={{ fan_target }}, Attuale={{ fan_attuale_hw }}.
+              Temp={{ states('sensor.fancoil_cucina_last_temperature') }}°C, Target={{ fan_target }}, Attuale={{ fan_attuale_hw }}.
+              Temp={{ states('sensor.fancoil_sala_last_temperature') }}°C, Target={{ fan_target }}, Attuale={{ fan_attuale_hw }}.

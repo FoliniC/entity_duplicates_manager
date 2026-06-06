@@ -1,0 +1,5 @@
+auth
+auth_provider.homeassistant
+auth.session
+bluetooth.passive_update_processor
+http.auth

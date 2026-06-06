@@ -1,0 +1,320 @@
+./automations/fancoil_generated_automations/bagno_restore.yaml:          {% if "sensor.th3c_temperature" != "%%" ~ "ref_sensor" ~ "%%" and "sensor.th3c_temperature" != "" %}
+./automations/fancoil_generated_automations/bagno_restore.yaml:            {% set defaults = defaults + ["sensor.th3c_temperature"] %}
+./automations/fancoil_generated_automations/camera_grande_restore.yaml:          {% if "sensor.th2b_temperature" != "%%" ~ "ref_sensor" ~ "%%" and "sensor.th2b_temperature" != "" %}
+./automations/fancoil_generated_automations/camera_grande_restore.yaml:            {% set defaults = defaults + ["sensor.th2b_temperature"] %}
+./automations/fancoil_generated_automations/camera_restore.yaml:          {% if "sensor.th3a_temperature" != "%%" ~ "ref_sensor" ~ "%%" and "sensor.th3a_temperature" != "" %}
+./automations/fancoil_generated_automations/camera_restore.yaml:            {% set defaults = defaults + ["sensor.th3a_temperature"] %}
+./automations/fancoil_generated_automations/corridoio_restore.yaml:          {% if "sensor.th4d_temperature" != "%%" ~ "ref_sensor" ~ "%%" and "sensor.th4d_temperature" != "" %}
+./automations/fancoil_generated_automations/corridoio_restore.yaml:            {% set defaults = defaults + ["sensor.th4d_temperature"] %}
+./automations/fancoil_generated_automations/cucina_restore.yaml:          {% if "sensor.th1a_temperature" != "%%" ~ "ref_sensor" ~ "%%" and "sensor.th1a_temperature" != "" %}
+./automations/fancoil_generated_automations/cucina_restore.yaml:            {% set defaults = defaults + ["sensor.th1a_temperature"] %}
+./automations/fancoil_generated_automations/sala_restore.yaml:          {% if "sensor.th6a_temperature" != "%%" ~ "ref_sensor" ~ "%%" and "sensor.th6a_temperature" != "" %}
+./automations/fancoil_generated_automations/sala_restore.yaml:            {% set defaults = defaults + ["sensor.th6a_temperature"] %}
+./automations/generated_automations/automations_not_generated_keep_it.yaml:          'cucina': 'sensor.th1a_temperature',
+./automations/generated_automations/automations_not_generated_keep_it.yaml:    - entity_id: sensor.th1a_temperature
+./automations/generated_automations/automations_not_generated_keep_it.yaml:        message: th1a_temperature is now {{ states('sensor.th1a_temperature') }} - {{states('sensor.th1a_temperature_humidity_temperature_last')}}
+./configuration.yaml:    entity_id: sensor.th1a_humidity
+./configuration.yaml:    entity_id: sensor.th1a_temperature
+./configuration.yaml:    entity_id: sensor.th2b_humidity
+./configuration.yaml:    entity_id: sensor.th3c_humidity
+./configuration.yaml:    entity_id: sensor.th4d_humidity
+./junk/configuration_prev.yaml:    entity_id: sensor.th1a_temperature
+./sql_sensors/sql_sensors_static.yaml:#             entity_id = 'sensor.th4d_temperature_humidity_humidity'
+./sql_sensors/sql_sensors_static.yaml:#             entity_id = 'sensor.th4d_temperature_humidity_temperature'
+./sql_sensors.yaml:#           SELECT metadata_id FROM states_meta WHERE entity_id = 'sensor.th1a_temperature_humidity_humidity'
+./sql_sensors.yaml:#           SELECT metadata_id FROM states_meta WHERE entity_id = 'sensor.th1a_temperature_humidity_temperature'
+./sql_sensors.yaml:#           SELECT metadata_id FROM states_meta WHERE entity_id = 'sensor.th2b_temperature_humidity_humidity'
+./sql_sensors.yaml:#           SELECT metadata_id FROM states_meta WHERE entity_id = 'sensor.th2b_temperature_humidity_temperature'
+./sql_sensors.yaml:#           SELECT metadata_id FROM states_meta WHERE entity_id = 'sensor.th3c_temperature_humidity_humidity'
+./sql_sensors.yaml:#           SELECT metadata_id FROM states_meta WHERE entity_id = 'sensor.th3c_temperature_humidity_temperature'
+./sql_sensors.yaml:#           SELECT metadata_id FROM states_meta WHERE entity_id = 'sensor.th4d_temperature_humidity_humidity'
+./sql_sensors.yaml:#           SELECT metadata_id FROM states_meta WHERE entity_id = 'sensor.th4d_temperature_humidity_temperature'
+./ui/riscaldamento.yaml:                      entity: sensor.th1a_temperature_humidity_humidity
+./ui/riscaldamento.yaml:                      entity: sensor.th1a_temperature_humidity_temperature
+./ui/riscaldamento.yaml:                      entity: sensor.th2b_temperature_humidity_humidity
+./ui/riscaldamento.yaml:                      entity: sensor.th2b_temperature_humidity_temperature
+./ui/riscaldamento.yaml:                      entity: sensor.th3c_temperature_humidity_humidity
+./ui/riscaldamento.yaml:                      entity: sensor.th3c_temperature_humidity_temperature
+./ui/riscaldamento.yaml:                          entity: sensor.th4d_humidity
+./ui/riscaldamento.yaml:                      entity: sensor.th4d_humidity
+./ui/riscaldamento.yaml:                          entity: sensor.th4d_temperature
+./ui/riscaldamento.yaml:                      entity: sensor.th4d_temperature
+./ui/riscaldamento.yaml:                          primary: "🏠 Hum (Locale): {{ states('sensor.th4d_humidity') }}%"
+./ui/riscaldamento.yaml:                      primary: "💧 Hum (Tuya TH): {{ states('sensor.th1a_temperature_humidity_humidity') }}%"
+./ui/riscaldamento.yaml:                      primary: "💧 Hum (Tuya TH): {{ states('sensor.th2b_temperature_humidity_humidity') }}%"
+./ui/riscaldamento.yaml:                      primary: "💧 Hum (Tuya TH): {{ states('sensor.th3c_temperature_humidity_humidity') }}%"
+./ui/riscaldamento.yaml:                      primary: "💧 Hum (Tuya TH): {{ states('sensor.th4d_humidity') }}%"
+./ui/riscaldamento.yaml:                          primary: "🏠 Temp (Locale): {{ states('sensor.th4d_temperature') }}°C"
+./ui/riscaldamento.yaml:                      primary: "🌡️ Temp (Tuya TH): {{ states('sensor.th1a_temperature_humidity_temperature') }}°C"
+./ui/riscaldamento.yaml:                      primary: "🌡️ Temp (Tuya TH): {{ states('sensor.th2b_temperature_humidity_temperature') }}°C"
+./ui/riscaldamento.yaml:                      primary: "🌡️ Temp (Tuya TH): {{ states('sensor.th3c_temperature_humidity_temperature') }}°C"
+./ui/riscaldamento.yaml:                      primary: "🌡️ Temp (Tuya TH): {{ states('sensor.th4d_temperature') }}°C"
+./yaml_generator/fancoil_vars.yaml:    ref_sensor: sensor.th1a_temperature
+./yaml_generator/fancoil_vars.yaml:    ref_sensor: sensor.th2b_temperature
+./yaml_generator/fancoil_vars.yaml:    ref_sensor: sensor.th3a_temperature
+./yaml_generator/fancoil_vars.yaml:    ref_sensor: sensor.th3c_temperature
+./yaml_generator/fancoil_vars.yaml:    ref_sensor: sensor.th4d_temperature
+./yaml_generator/fancoil_vars.yaml:    ref_sensor: sensor.th6a_temperature
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      entity: sensor.th1a_temperature_humidity_humidity
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      entity: sensor.th1a_temperature_humidity_temperature
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      entity: sensor.th2b_temperature_humidity_humidity
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      entity: sensor.th2b_temperature_humidity_temperature
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      entity: sensor.th3c_temperature_humidity_humidity
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      entity: sensor.th3c_temperature_humidity_temperature
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                          entity: sensor.th4d_humidity
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      entity: sensor.th4d_humidity
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                          entity: sensor.th4d_temperature
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      entity: sensor.th4d_temperature
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                          primary: "🏠 Hum (Locale): {{ states('sensor.th4d_humidity') }}%"
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      primary: "💧 Hum (Tuya TH): {{ states('sensor.th1a_temperature_humidity_humidity') }}%"
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      primary: "💧 Hum (Tuya TH): {{ states('sensor.th2b_temperature_humidity_humidity') }}%"
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      primary: "💧 Hum (Tuya TH): {{ states('sensor.th3c_temperature_humidity_humidity') }}%"
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      primary: "💧 Hum (Tuya TH): {{ states('sensor.th4d_humidity') }}%"
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                          primary: "🏠 Temp (Locale): {{ states('sensor.th4d_temperature') }}°C"
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      primary: "🌡️ Temp (Tuya TH): {{ states('sensor.th1a_temperature_humidity_temperature') }}°C"
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      primary: "🌡️ Temp (Tuya TH): {{ states('sensor.th2b_temperature_humidity_temperature') }}°C"
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      primary: "🌡️ Temp (Tuya TH): {{ states('sensor.th3c_temperature_humidity_temperature') }}°C"
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      primary: "🌡️ Temp (Tuya TH): {{ states('sensor.th4d_temperature') }}°C"
+./yaml_generator/input_select/fancoil_temp_sources.yaml:    - "sensor.th1a_temperature"
+./yaml_generator/input_select/generated_input_selects.yaml:    - "sensor.th1a_temperature"
+./yaml_generator/input_select/generated_input_selects.yaml:    - "sensor.th2b_temperature"
+./yaml_generator/input_select/generated_input_selects.yaml:    - "sensor.th3a_temperature"
+./yaml_generator/input_select/generated_input_selects.yaml:    - "sensor.th3c_temperature"
+./yaml_generator/input_select/generated_input_selects.yaml:    - "sensor.th4d_temperature"
+./yaml_generator/input_select/generated_input_selects.yaml:    - "sensor.th6a_temperature"
+./yaml_generator/managed_binary_sensors/th_battery_alerts.yaml:    {% set battery = states('sensor.th1a_temperature_humidity_battery') %}
+./yaml_generator/managed_binary_sensors/th_battery_alerts.yaml:    {% set battery = states('sensor.th2b_temperature_humidity_battery') %}
+./yaml_generator/managed_binary_sensors/th_battery_alerts.yaml:    {% set battery = states('sensor.th3c_temperature_humidity_battery') %}
+./yaml_generator/managed_binary_sensors/th_battery_alerts.yaml:    {% set battery = states('sensor.th4d_temperature_humidity_battery') %}
+./yaml_generator/managed_persistence/bagno_persistence.yaml:        {% if "sensor.th3c_temperature" != "%%" ~ "ref_sensor" ~ "%%" and "sensor.th3c_temperature" != "" %}
+./yaml_generator/managed_persistence/bagno_persistence.yaml:          {% set defaults = defaults + ["sensor.th3c_temperature"] %}
+./yaml_generator/managed_persistence/camera_grande_persistence.yaml:        {% if "sensor.th2b_temperature" != "%%" ~ "ref_sensor" ~ "%%" and "sensor.th2b_temperature" != "" %}
+./yaml_generator/managed_persistence/camera_grande_persistence.yaml:          {% set defaults = defaults + ["sensor.th2b_temperature"] %}
+./yaml_generator/managed_persistence/camera_persistence.yaml:        {% if "sensor.th3a_temperature" != "%%" ~ "ref_sensor" ~ "%%" and "sensor.th3a_temperature" != "" %}
+./yaml_generator/managed_persistence/camera_persistence.yaml:          {% set defaults = defaults + ["sensor.th3a_temperature"] %}
+./yaml_generator/managed_persistence/corridoio_persistence.yaml:        {% if "sensor.th4d_temperature" != "%%" ~ "ref_sensor" ~ "%%" and "sensor.th4d_temperature" != "" %}
+./yaml_generator/managed_persistence/corridoio_persistence.yaml:          {% set defaults = defaults + ["sensor.th4d_temperature"] %}
+./yaml_generator/managed_persistence/cucina_persistence.yaml:        {% if "sensor.th1a_temperature" != "%%" ~ "ref_sensor" ~ "%%" and "sensor.th1a_temperature" != "" %}
+./yaml_generator/managed_persistence/cucina_persistence.yaml:          {% set defaults = defaults + ["sensor.th1a_temperature"] %}
+./yaml_generator/managed_persistence/sala_persistence.yaml:        {% if "sensor.th6a_temperature" != "%%" ~ "ref_sensor" ~ "%%" and "sensor.th6a_temperature" != "" %}
+./yaml_generator/managed_persistence/sala_persistence.yaml:          {% set defaults = defaults + ["sensor.th6a_temperature"] %}
+./yaml_generator/managed_persistence/th_persistence.yaml:      - sensor.th1a_temperature_humidity_battery
+./yaml_generator/managed_persistence/th_persistence.yaml:      - sensor.th1a_temperature_humidity_humidity
+./yaml_generator/managed_persistence/th_persistence.yaml:      - sensor.th1a_temperature_humidity_temperature
+./yaml_generator/managed_persistence/th_persistence.yaml:      - sensor.th2b_temperature_humidity_battery
+./yaml_generator/managed_persistence/th_persistence.yaml:      - sensor.th2b_temperature_humidity_humidity
+./yaml_generator/managed_persistence/th_persistence.yaml:      - sensor.th2b_temperature_humidity_temperature
+./yaml_generator/managed_persistence/th_persistence.yaml:      - sensor.th3c_temperature_humidity_battery
+./yaml_generator/managed_persistence/th_persistence.yaml:      - sensor.th3c_temperature_humidity_humidity
+./yaml_generator/managed_persistence/th_persistence.yaml:      - sensor.th3c_temperature_humidity_temperature
+./yaml_generator/managed_persistence/th_persistence.yaml:      - sensor.th4d_temperature_humidity_battery
+./yaml_generator/managed_persistence/th_persistence.yaml:      - sensor.th4d_temperature_humidity_humidity
+./yaml_generator/managed_persistence/th_persistence.yaml:      - sensor.th4d_temperature_humidity_temperature
+./yaml_generator/managed_persistence/th_persistence.yaml:      {% set sensor_id = 'sensor.th1a_temperature_humidity_battery' %}
+./yaml_generator/managed_persistence/th_persistence.yaml:      {% set sensor_id = 'sensor.th1a_temperature_humidity_humidity' %}
+./yaml_generator/managed_persistence/th_persistence.yaml:      {% set sensor_id = 'sensor.th1a_temperature_humidity_temperature' %}
+./yaml_generator/managed_persistence/th_persistence.yaml:      {% set sensor_id = 'sensor.th2b_temperature_humidity_battery' %}
+./yaml_generator/managed_persistence/th_persistence.yaml:      {% set sensor_id = 'sensor.th2b_temperature_humidity_humidity' %}
+./yaml_generator/managed_persistence/th_persistence.yaml:      {% set sensor_id = 'sensor.th2b_temperature_humidity_temperature' %}
+./yaml_generator/managed_persistence/th_persistence.yaml:      {% set sensor_id = 'sensor.th3c_temperature_humidity_battery' %}
+./yaml_generator/managed_persistence/th_persistence.yaml:      {% set sensor_id = 'sensor.th3c_temperature_humidity_humidity' %}
+./yaml_generator/managed_persistence/th_persistence.yaml:      {% set sensor_id = 'sensor.th3c_temperature_humidity_temperature' %}
+./yaml_generator/managed_persistence/th_persistence.yaml:      {% set sensor_id = 'sensor.th4d_temperature_humidity_battery' %}
+./yaml_generator/managed_persistence/th_persistence.yaml:      {% set sensor_id = 'sensor.th4d_temperature_humidity_humidity' %}
+./yaml_generator/managed_persistence/th_persistence.yaml:      {% set sensor_id = 'sensor.th4d_temperature_humidity_temperature' %}
+./yaml_generator/managed_sensors/climate_comfort_evaluation.yaml:    {% set rh = states('sensor.th1a_humidity') | float(0) %}
+./yaml_generator/managed_sensors/climate_comfort_evaluation.yaml:    {% set RH = states('sensor.th1a_humidity') | float(0) %}
+./yaml_generator/managed_sensors/climate_comfort_evaluation.yaml:    {% set rh = states('sensor.th2b_humidity') | float(0) %}
+./yaml_generator/managed_sensors/climate_comfort_evaluation.yaml:    {% set RH = states('sensor.th2b_humidity') | float(0) %}
+./yaml_generator/managed_sensors/climate_comfort_evaluation.yaml:    {% set rh = states('sensor.th3c_humidity') | float(0) %}
+./yaml_generator/managed_sensors/climate_comfort_evaluation.yaml:    {% set RH = states('sensor.th3c_humidity') | float(0) %}
+./automations/fancoil_generated_automations/bagno_automation.yaml:              [Bagno] State Dump: Trigger={{ trig }} ({{ f_st }}->{{ t_st }}), Temp={{ t_raw | round(2) }}°C, KNX={{ knx_val }}°C, Hum={{ states('sensor.fancoil_bagno_humidity') | default('N/A') }}% (Var: {{ states('sensor.statistics_umidita_bagno_variance') | default('N/A') }}), Setpoint={{ sp_raw | round(1) }}°C (Raw: {{ sp_raw }}), MasterSP={{ states('input_number.master_setpoint_heat') if hvac_temp_mode == 'heat' else states('input_number.master_setpoint_cool') }}°C, Delta={{ diff | round(2) }}°C (RawDiff: {{ diff_raw }}), Offset={{ states('input_number.fancoil_bagno_sp_offset') | float(0) }}°C, Target={{ fan_target }}, HvacMode={{ hvac_temp_mode }}, StopCond={{ stop_condition }}, System={{ system_enabled }}, PDC_H2O={{ states('binary_sensor.pdc_acqua_calda') }}, Comm={{ states('sensor.fancoil_bagno_status_comunicazione') }}, T_Circ={{ states('sensor.temperatura_circuito_riscaldamento') | default('N/A') }}°C, Main={{ states('switch.stox_fancoil_bagno_switch') }}, Soglie=[S:{{ soglia_stop }}, I:{{ soglia_idle }}, L:{{ soglia_low }}, M:{{ soglia_medium }}, H:{{ soglia_high }}], SW=[{% for i in range(1,5) %}{% set s = states('switch.fancoil_bagno_switch_' ~ i) %}{{ '1' if s == 'on' else ('0' if s == 'off' else ('U' if s == 'unavailable' else ('?' if s == 'unknown' else 'N'))) }}{{ ',' if not loop.last }}{% endfor %}]
+./automations/fancoil_generated_automations/bagno_automation.yaml:        diff: "{{ states('sensor.fancoil_bagno_temperature_difference') | float(0) }}"
+./automations/fancoil_generated_automations/bagno_automation.yaml:      entity_id: sensor.fancoil_bagno_last_temperature
+./automations/fancoil_generated_automations/bagno_automation.yaml:                message: "[Bagno] FORCE MAIN ON (always-on logic): Stox alimentato per lettura temperatura/umidità. System={{ system_enabled }}, Delta={{ states('sensor.fancoil_bagno_temperature_difference') | float(0) | round(2) }}°C"
+./automations/fancoil_generated_automations/bagno_automation.yaml:                message: "[Bagno] MAIN ON (sync): speed_on={{ any_speed_on }}, stop_condition={{ stop_condition }}, diff={{ states('sensor.fancoil_bagno_temperature_difference') | float(0) | round(2) }}°C"
+./automations/fancoil_generated_automations/bagno_automation.yaml:                message: "[Bagno] (sync): tutte le velocità OFF, main resta ON. diff={{ states('sensor.fancoil_bagno_temperature_difference') | float(0) | round(2) }}°C, stop_condition={{ stop_condition }}"
+./automations/fancoil_generated_automations/bagno_automation.yaml:        - sensor.fancoil_bagno_temperature_difference
+./automations/fancoil_generated_automations/bagno_automation.yaml:              {% set diff_raw = states('sensor.fancoil_bagno_temperature_difference') | float(0) %}
+./automations/fancoil_generated_automations/bagno_automation.yaml:              {% set t_raw = states('sensor.fancoil_bagno_last_temperature') | float(0) %}
+./automations/fancoil_generated_automations/bagno_automation.yaml:              Temp={{ states('sensor.fancoil_bagno_last_temperature') }}°C, Target={{ fan_target }}, Attuale={{ fan_attuale_hw }}.
+./automations/fancoil_generated_automations/bagno_restore.yaml:            sensor.fancoil_bagno_temperature
+./automations/fancoil_generated_automations/bagno_restore.yaml:          {% set defaults = ['sensor.fancoil_bagno_temperature'] %}
+./automations/fancoil_generated_automations/camera_automation.yaml:              [Camera] State Dump: Trigger={{ trig }} ({{ f_st }}->{{ t_st }}), Temp={{ t_raw | round(2) }}°C, KNX={{ knx_val }}°C, Hum={{ states('sensor.fancoil_camera_humidity') | default('N/A') }}% (Var: {{ states('sensor.statistics_umidita_camera_variance') | default('N/A') }}), Setpoint={{ sp_raw | round(1) }}°C (Raw: {{ sp_raw }}), MasterSP={{ states('input_number.master_setpoint_heat') if hvac_temp_mode == 'heat' else states('input_number.master_setpoint_cool') }}°C, Delta={{ diff | round(2) }}°C (RawDiff: {{ diff_raw }}), Offset={{ states('input_number.fancoil_camera_sp_offset') | float(0) }}°C, Target={{ fan_target }}, HvacMode={{ hvac_temp_mode }}, StopCond={{ stop_condition }}, System={{ system_enabled }}, PDC_H2O={{ states('binary_sensor.pdc_acqua_calda') }}, Comm={{ states('sensor.fancoil_camera_status_comunicazione') }}, T_Circ={{ states('sensor.temperatura_circuito_riscaldamento') | default('N/A') }}°C, Main={{ states('switch.stox_fancoil_camera_switch') }}, Soglie=[S:{{ soglia_stop }}, I:{{ soglia_idle }}, L:{{ soglia_low }}, M:{{ soglia_medium }}, H:{{ soglia_high }}], SW=[{% for i in range(1,5) %}{% set s = states('switch.fancoil_camera_switch_' ~ i) %}{{ '1' if s == 'on' else ('0' if s == 'off' else ('U' if s == 'unavailable' else ('?' if s == 'unknown' else 'N'))) }}{{ ',' if not loop.last }}{% endfor %}]
+./automations/fancoil_generated_automations/camera_automation.yaml:        diff: "{{ states('sensor.fancoil_camera_temperature_difference') | float(0) }}"
+./automations/fancoil_generated_automations/camera_automation.yaml:      entity_id: sensor.fancoil_camera_last_temperature
+./automations/fancoil_generated_automations/camera_automation.yaml:                message: "[Camera] FORCE MAIN ON (always-on logic): Stox alimentato per lettura temperatura/umidità. System={{ system_enabled }}, Delta={{ states('sensor.fancoil_camera_temperature_difference') | float(0) | round(2) }}°C"
+./automations/fancoil_generated_automations/camera_automation.yaml:                message: "[Camera] MAIN ON (sync): speed_on={{ any_speed_on }}, stop_condition={{ stop_condition }}, diff={{ states('sensor.fancoil_camera_temperature_difference') | float(0) | round(2) }}°C"
+./automations/fancoil_generated_automations/camera_automation.yaml:                message: "[Camera] (sync): tutte le velocità OFF, main resta ON. diff={{ states('sensor.fancoil_camera_temperature_difference') | float(0) | round(2) }}°C, stop_condition={{ stop_condition }}"
+./automations/fancoil_generated_automations/camera_automation.yaml:        - sensor.fancoil_camera_temperature_difference
+./automations/fancoil_generated_automations/camera_automation.yaml:              {% set diff_raw = states('sensor.fancoil_camera_temperature_difference') | float(0) %}
+./automations/fancoil_generated_automations/camera_automation.yaml:              {% set t_raw = states('sensor.fancoil_camera_last_temperature') | float(0) %}
+./automations/fancoil_generated_automations/camera_automation.yaml:              Temp={{ states('sensor.fancoil_camera_last_temperature') }}°C, Target={{ fan_target }}, Attuale={{ fan_attuale_hw }}.
+./automations/fancoil_generated_automations/camera_grande_automation.yaml:              [Camera grande] State Dump: Trigger={{ trig }} ({{ f_st }}->{{ t_st }}), Temp={{ t_raw | round(2) }}°C, KNX={{ knx_val }}°C, Hum={{ states('sensor.fancoil_camera_grande_humidity') | default('N/A') }}% (Var: {{ states('sensor.statistics_umidita_camera_grande_variance') | default('N/A') }}), Setpoint={{ sp_raw | round(1) }}°C (Raw: {{ sp_raw }}), MasterSP={{ states('input_number.master_setpoint_heat') if hvac_temp_mode == 'heat' else states('input_number.master_setpoint_cool') }}°C, Delta={{ diff | round(2) }}°C (RawDiff: {{ diff_raw }}), Offset={{ states('input_number.fancoil_camera_grande_sp_offset') | float(0) }}°C, Target={{ fan_target }}, HvacMode={{ hvac_temp_mode }}, StopCond={{ stop_condition }}, System={{ system_enabled }}, PDC_H2O={{ states('binary_sensor.pdc_acqua_calda') }}, Comm={{ states('sensor.fancoil_camera_grande_status_comunicazione') }}, T_Circ={{ states('sensor.temperatura_circuito_riscaldamento') | default('N/A') }}°C, Main={{ states('switch.stox_fancoil_camera_grande_switch') }}, Soglie=[S:{{ soglia_stop }}, I:{{ soglia_idle }}, L:{{ soglia_low }}, M:{{ soglia_medium }}, H:{{ soglia_high }}], SW=[{% for i in range(1,5) %}{% set s = states('switch.fancoil_camera_grande_switch_' ~ i) %}{{ '1' if s == 'on' else ('0' if s == 'off' else ('U' if s == 'unavailable' else ('?' if s == 'unknown' else 'N'))) }}{{ ',' if not loop.last }}{% endfor %}]
+./automations/fancoil_generated_automations/camera_grande_automation.yaml:        diff: "{{ states('sensor.fancoil_camera_grande_temperature_difference') | float(0) }}"
+./automations/fancoil_generated_automations/camera_grande_automation.yaml:      entity_id: sensor.fancoil_camera_grande_last_temperature
+./automations/fancoil_generated_automations/camera_grande_automation.yaml:                message: "[Camera grande] FORCE MAIN ON (always-on logic): Stox alimentato per lettura temperatura/umidità. System={{ system_enabled }}, Delta={{ states('sensor.fancoil_camera_grande_temperature_difference') | float(0) | round(2) }}°C"
+./automations/fancoil_generated_automations/camera_grande_automation.yaml:                message: "[Camera grande] MAIN ON (sync): speed_on={{ any_speed_on }}, stop_condition={{ stop_condition }}, diff={{ states('sensor.fancoil_camera_grande_temperature_difference') | float(0) | round(2) }}°C"
+./automations/fancoil_generated_automations/camera_grande_automation.yaml:                message: "[Camera grande] (sync): tutte le velocità OFF, main resta ON. diff={{ states('sensor.fancoil_camera_grande_temperature_difference') | float(0) | round(2) }}°C, stop_condition={{ stop_condition }}"
+./automations/fancoil_generated_automations/camera_grande_automation.yaml:        - sensor.fancoil_camera_grande_temperature_difference
+./automations/fancoil_generated_automations/camera_grande_automation.yaml:              {% set diff_raw = states('sensor.fancoil_camera_grande_temperature_difference') | float(0) %}
+./automations/fancoil_generated_automations/camera_grande_automation.yaml:              {% set t_raw = states('sensor.fancoil_camera_grande_last_temperature') | float(0) %}
+./automations/fancoil_generated_automations/camera_grande_automation.yaml:              Temp={{ states('sensor.fancoil_camera_grande_last_temperature') }}°C, Target={{ fan_target }}, Attuale={{ fan_attuale_hw }}.
+./automations/fancoil_generated_automations/camera_grande_restore.yaml:            sensor.fancoil_camera_grande_temperature
+./automations/fancoil_generated_automations/camera_grande_restore.yaml:          {% set defaults = ['sensor.fancoil_camera_grande_temperature'] %}
+./automations/fancoil_generated_automations/camera_restore.yaml:            sensor.fancoil_camera_temperature
+./automations/fancoil_generated_automations/camera_restore.yaml:          {% set defaults = ['sensor.fancoil_camera_temperature'] %}
+./automations/fancoil_generated_automations/corridoio_automation.yaml:              [Corridoio] State Dump: Trigger={{ trig }} ({{ f_st }}->{{ t_st }}), Temp={{ t_raw | round(2) }}°C, KNX={{ knx_val }}°C, Hum={{ states('sensor.fancoil_corridoio_humidity') | default('N/A') }}% (Var: {{ states('sensor.statistics_umidita_corridoio_variance') | default('N/A') }}), Setpoint={{ sp_raw | round(1) }}°C (Raw: {{ sp_raw }}), MasterSP={{ states('input_number.master_setpoint_heat') if hvac_temp_mode == 'heat' else states('input_number.master_setpoint_cool') }}°C, Delta={{ diff | round(2) }}°C (RawDiff: {{ diff_raw }}), Offset={{ states('input_number.fancoil_corridoio_sp_offset') | float(0) }}°C, Target={{ fan_target }}, HvacMode={{ hvac_temp_mode }}, StopCond={{ stop_condition }}, System={{ system_enabled }}, PDC_H2O={{ states('binary_sensor.pdc_acqua_calda') }}, Comm={{ states('sensor.fancoil_corridoio_status_comunicazione') }}, T_Circ={{ states('sensor.temperatura_circuito_riscaldamento') | default('N/A') }}°C, Main={{ states('switch.stox_fancoil_corridoio_switch') }}, Soglie=[S:{{ soglia_stop }}, I:{{ soglia_idle }}, L:{{ soglia_low }}, M:{{ soglia_medium }}, H:{{ soglia_high }}], SW=[{% for i in range(1,5) %}{% set s = states('switch.fancoil_corridoio_switch_' ~ i) %}{{ '1' if s == 'on' else ('0' if s == 'off' else ('U' if s == 'unavailable' else ('?' if s == 'unknown' else 'N'))) }}{{ ',' if not loop.last }}{% endfor %}]
+./automations/fancoil_generated_automations/corridoio_automation.yaml:        diff: "{{ states('sensor.fancoil_corridoio_temperature_difference') | float(0) }}"
+./automations/fancoil_generated_automations/corridoio_automation.yaml:      entity_id: sensor.fancoil_corridoio_last_temperature
+./automations/fancoil_generated_automations/corridoio_automation.yaml:                message: "[Corridoio] FORCE MAIN ON (always-on logic): Stox alimentato per lettura temperatura/umidità. System={{ system_enabled }}, Delta={{ states('sensor.fancoil_corridoio_temperature_difference') | float(0) | round(2) }}°C"
+./automations/fancoil_generated_automations/corridoio_automation.yaml:                message: "[Corridoio] MAIN ON (sync): speed_on={{ any_speed_on }}, stop_condition={{ stop_condition }}, diff={{ states('sensor.fancoil_corridoio_temperature_difference') | float(0) | round(2) }}°C"
+./automations/fancoil_generated_automations/corridoio_automation.yaml:                message: "[Corridoio] (sync): tutte le velocità OFF, main resta ON. diff={{ states('sensor.fancoil_corridoio_temperature_difference') | float(0) | round(2) }}°C, stop_condition={{ stop_condition }}"
+./automations/fancoil_generated_automations/corridoio_automation.yaml:        - sensor.fancoil_corridoio_temperature_difference
+./automations/fancoil_generated_automations/corridoio_automation.yaml:              {% set diff_raw = states('sensor.fancoil_corridoio_temperature_difference') | float(0) %}
+./automations/fancoil_generated_automations/corridoio_automation.yaml:              {% set t_raw = states('sensor.fancoil_corridoio_last_temperature') | float(0) %}
+./automations/fancoil_generated_automations/corridoio_automation.yaml:              Temp={{ states('sensor.fancoil_corridoio_last_temperature') }}°C, Target={{ fan_target }}, Attuale={{ fan_attuale_hw }}.
+./automations/fancoil_generated_automations/corridoio_restore.yaml:            sensor.fancoil_corridoio_temperature
+./automations/fancoil_generated_automations/corridoio_restore.yaml:          {% set defaults = ['sensor.fancoil_corridoio_temperature'] %}
+./automations/fancoil_generated_automations/cucina_automation.yaml:              [Cucina] State Dump: Trigger={{ trig }} ({{ f_st }}->{{ t_st }}), Temp={{ t_raw | round(2) }}°C, KNX={{ knx_val }}°C, Hum={{ states('sensor.fancoil_cucina_humidity') | default('N/A') }}% (Var: {{ states('sensor.statistics_umidita_cucina_variance') | default('N/A') }}), Setpoint={{ sp_raw | round(1) }}°C (Raw: {{ sp_raw }}), MasterSP={{ states('input_number.master_setpoint_heat') if hvac_temp_mode == 'heat' else states('input_number.master_setpoint_cool') }}°C, Delta={{ diff | round(2) }}°C (RawDiff: {{ diff_raw }}), Offset={{ states('input_number.fancoil_cucina_sp_offset') | float(0) }}°C, Target={{ fan_target }}, HvacMode={{ hvac_temp_mode }}, StopCond={{ stop_condition }}, System={{ system_enabled }}, PDC_H2O={{ states('binary_sensor.pdc_acqua_calda') }}, Comm={{ states('sensor.fancoil_cucina_status_comunicazione') }}, T_Circ={{ states('sensor.temperatura_circuito_riscaldamento') | default('N/A') }}°C, Main={{ states('switch.stox_fancoil_cucina_switch') }}, Soglie=[S:{{ soglia_stop }}, I:{{ soglia_idle }}, L:{{ soglia_low }}, M:{{ soglia_medium }}, H:{{ soglia_high }}], SW=[{% for i in range(1,5) %}{% set s = states('switch.fancoil_cucina_switch_' ~ i) %}{{ '1' if s == 'on' else ('0' if s == 'off' else ('U' if s == 'unavailable' else ('?' if s == 'unknown' else 'N'))) }}{{ ',' if not loop.last }}{% endfor %}]
+./automations/fancoil_generated_automations/cucina_automation.yaml:        diff: "{{ states('sensor.fancoil_cucina_temperature_difference') | float(0) }}"
+./automations/fancoil_generated_automations/cucina_automation.yaml:      entity_id: sensor.fancoil_cucina_last_temperature
+./automations/fancoil_generated_automations/cucina_automation.yaml:                message: "[Cucina] FORCE MAIN ON (always-on logic): Stox alimentato per lettura temperatura/umidità. System={{ system_enabled }}, Delta={{ states('sensor.fancoil_cucina_temperature_difference') | float(0) | round(2) }}°C"
+./automations/fancoil_generated_automations/cucina_automation.yaml:                message: "[Cucina] MAIN ON (sync): speed_on={{ any_speed_on }}, stop_condition={{ stop_condition }}, diff={{ states('sensor.fancoil_cucina_temperature_difference') | float(0) | round(2) }}°C"
+./automations/fancoil_generated_automations/cucina_automation.yaml:                message: "[Cucina] (sync): tutte le velocità OFF, main resta ON. diff={{ states('sensor.fancoil_cucina_temperature_difference') | float(0) | round(2) }}°C, stop_condition={{ stop_condition }}"
+./automations/fancoil_generated_automations/cucina_automation.yaml:        - sensor.fancoil_cucina_temperature_difference
+./automations/fancoil_generated_automations/cucina_automation.yaml:              {% set diff_raw = states('sensor.fancoil_cucina_temperature_difference') | float(0) %}
+./automations/fancoil_generated_automations/cucina_automation.yaml:              {% set t_raw = states('sensor.fancoil_cucina_last_temperature') | float(0) %}
+./automations/fancoil_generated_automations/cucina_automation.yaml:              Temp={{ states('sensor.fancoil_cucina_last_temperature') }}°C, Target={{ fan_target }}, Attuale={{ fan_attuale_hw }}.
+./automations/fancoil_generated_automations/cucina_restore.yaml:            sensor.fancoil_cucina_temperature
+./automations/fancoil_generated_automations/cucina_restore.yaml:          {% set defaults = ['sensor.fancoil_cucina_temperature'] %}
+./automations/fancoil_generated_automations/sala_automation.yaml:        diff: "{{ states('sensor.fancoil_sala_temperature_difference') | float(0) }}"
+./automations/fancoil_generated_automations/sala_automation.yaml:      entity_id: sensor.fancoil_sala_last_temperature
+./automations/fancoil_generated_automations/sala_automation.yaml:                message: "[Sala] FORCE MAIN ON (always-on logic): Stox alimentato per lettura temperatura/umidità. System={{ system_enabled }}, Delta={{ states('sensor.fancoil_sala_temperature_difference') | float(0) | round(2) }}°C"
+./automations/fancoil_generated_automations/sala_automation.yaml:                message: "[Sala] MAIN ON (sync): speed_on={{ any_speed_on }}, stop_condition={{ stop_condition }}, diff={{ states('sensor.fancoil_sala_temperature_difference') | float(0) | round(2) }}°C"
+./automations/fancoil_generated_automations/sala_automation.yaml:                message: "[Sala] (sync): tutte le velocità OFF, main resta ON. diff={{ states('sensor.fancoil_sala_temperature_difference') | float(0) | round(2) }}°C, stop_condition={{ stop_condition }}"
+./automations/fancoil_generated_automations/sala_automation.yaml:              [Sala] State Dump: Trigger={{ trig }} ({{ f_st }}->{{ t_st }}), Temp={{ t_raw | round(2) }}°C, KNX={{ knx_val }}°C, Hum={{ states('sensor.fancoil_sala_humidity') | default('N/A') }}% (Var: {{ states('sensor.statistics_umidita_sala_variance') | default('N/A') }}), Setpoint={{ sp_raw | round(1) }}°C (Raw: {{ sp_raw }}), MasterSP={{ states('input_number.master_setpoint_heat') if hvac_temp_mode == 'heat' else states('input_number.master_setpoint_cool') }}°C, Delta={{ diff | round(2) }}°C (RawDiff: {{ diff_raw }}), Offset={{ states('input_number.fancoil_sala_sp_offset') | float(0) }}°C, Target={{ fan_target }}, HvacMode={{ hvac_temp_mode }}, StopCond={{ stop_condition }}, System={{ system_enabled }}, PDC_H2O={{ states('binary_sensor.pdc_acqua_calda') }}, Comm={{ states('sensor.fancoil_sala_status_comunicazione') }}, T_Circ={{ states('sensor.temperatura_circuito_riscaldamento') | default('N/A') }}°C, Main={{ states('switch.stox_fancoil_sala_switch') }}, Soglie=[S:{{ soglia_stop }}, I:{{ soglia_idle }}, L:{{ soglia_low }}, M:{{ soglia_medium }}, H:{{ soglia_high }}], SW=[{% for i in range(1,5) %}{% set s = states('switch.fancoil_sala_switch_' ~ i) %}{{ '1' if s == 'on' else ('0' if s == 'off' else ('U' if s == 'unavailable' else ('?' if s == 'unknown' else 'N'))) }}{{ ',' if not loop.last }}{% endfor %}]
+./automations/fancoil_generated_automations/sala_automation.yaml:        - sensor.fancoil_sala_temperature_difference
+./automations/fancoil_generated_automations/sala_automation.yaml:              {% set diff_raw = states('sensor.fancoil_sala_temperature_difference') | float(0) %}
+./automations/fancoil_generated_automations/sala_automation.yaml:              {% set t_raw = states('sensor.fancoil_sala_last_temperature') | float(0) %}
+./automations/fancoil_generated_automations/sala_automation.yaml:              Temp={{ states('sensor.fancoil_sala_last_temperature') }}°C, Target={{ fan_target }}, Attuale={{ fan_attuale_hw }}.
+./automations/fancoil_generated_automations/sala_restore.yaml:            sensor.fancoil_sala_temperature
+./automations/fancoil_generated_automations/sala_restore.yaml:          {% set defaults = ['sensor.fancoil_sala_temperature'] %}
+./configuration.yaml:    entity_id: sensor.fancoil_bagno_humidity
+./packages/fancoil_virtual_sensors.yaml:        availability: "{{ states('sensor.fancoil_bagno_last_temperature') not in ['unknown', 'unavailable', 'none'] }}"
+./packages/fancoil_virtual_sensors.yaml:        availability: "{{ states('sensor.fancoil_camera_grande_last_temperature') not in ['unknown', 'unavailable', 'none'] }}"
+./packages/fancoil_virtual_sensors.yaml:        availability: "{{ states('sensor.fancoil_corridoio_last_temperature') not in ['unknown', 'unavailable', 'none'] }}"
+./packages/fancoil_virtual_sensors.yaml:        availability: "{{ states('sensor.fancoil_cucina_last_temperature') not in ['unknown', 'unavailable', 'none'] }}"
+./packages/fancoil_virtual_sensors.yaml:          {% set raw = states('sensor.fancoil_bagno_last_temperature') | float(0) %}
+./packages/fancoil_virtual_sensors.yaml:          {% set raw = states('sensor.fancoil_camera_grande_last_temperature') | float(0) %}
+./packages/fancoil_virtual_sensors.yaml:          {% set raw = states('sensor.fancoil_corridoio_last_temperature') | float(0) %}
+./packages/fancoil_virtual_sensors.yaml:          {% set raw = states('sensor.fancoil_cucina_last_temperature') | float(0) %}
+./ui/riscaldamento.yaml:                      entity: sensor.fancoil_bagno_humidity
+./ui/riscaldamento.yaml:                      entity: sensor.fancoil_bagno_temperature
+./ui/riscaldamento.yaml:                      entity: sensor.fancoil_camera_grande_humidity
+./ui/riscaldamento.yaml:                      entity: sensor.fancoil_camera_grande_temperature
+./ui/riscaldamento.yaml:                      entity: sensor.fancoil_camera_humidity
+./ui/riscaldamento.yaml:                      entity: sensor.fancoil_camera_temperature
+./ui/riscaldamento.yaml:                      entity: sensor.fancoil_corridoio_humidity
+./ui/riscaldamento.yaml:                      entity: sensor.fancoil_corridoio_temperature
+./ui/riscaldamento.yaml:                      entity: sensor.fancoil_cucina_humidity
+./ui/riscaldamento.yaml:                      entity: sensor.fancoil_cucina_temperature
+./ui/riscaldamento.yaml:                      entity: sensor.fancoil_sala_humidity
+./ui/riscaldamento.yaml:                      entity: sensor.fancoil_sala_temperature
+./ui/riscaldamento.yaml:                      primary: "💧 Hum (Fancoil): {{ states('sensor.fancoil_bagno_humidity') }}%"
+./ui/riscaldamento.yaml:                      primary: "💧 Hum (Fancoil): {{ states('sensor.fancoil_camera_grande_humidity') }}%"
+./ui/riscaldamento.yaml:                      primary: "💧 Hum (Fancoil): {{ states('sensor.fancoil_camera_humidity') }}%"
+./ui/riscaldamento.yaml:                      primary: "💧 Hum (Fancoil): {{ states('sensor.fancoil_corridoio_humidity') }}%"
+./ui/riscaldamento.yaml:                      primary: "💧 Hum (Fancoil): {{ states('sensor.fancoil_cucina_humidity') }}%"
+./ui/riscaldamento.yaml:                      primary: "💧 Hum (Fancoil): {{ states('sensor.fancoil_sala_humidity') }}%"
+./ui/riscaldamento.yaml:                      primary: "🌡️ Temp (Fancoil): {{ states('sensor.fancoil_bagno_temperature') }}°C"
+./ui/riscaldamento.yaml:                      primary: "🌡️ Temp (Fancoil): {{ states('sensor.fancoil_camera_grande_temperature') }}°C"
+./ui/riscaldamento.yaml:                      primary: "🌡️ Temp (Fancoil): {{ states('sensor.fancoil_camera_temperature') }}°C"
+./ui/riscaldamento.yaml:                      primary: "🌡️ Temp (Fancoil): {{ states('sensor.fancoil_corridoio_temperature') }}°C"
+./ui/riscaldamento.yaml:                      primary: "🌡️ Temp (Fancoil): {{ states('sensor.fancoil_cucina_temperature') }}°C"
+./ui/riscaldamento.yaml:                      primary: "🌡️ Temp (Fancoil): {{ states('sensor.fancoil_sala_temperature') }}°C"
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      entity: sensor.fancoil_bagno_humidity
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      entity: sensor.fancoil_bagno_temperature
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      entity: sensor.fancoil_camera_grande_humidity
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      entity: sensor.fancoil_camera_grande_temperature
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      entity: sensor.fancoil_camera_humidity
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      entity: sensor.fancoil_camera_temperature
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      entity: sensor.fancoil_corridoio_humidity
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      entity: sensor.fancoil_corridoio_temperature
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      entity: sensor.fancoil_cucina_humidity
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      entity: sensor.fancoil_cucina_temperature
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      entity: sensor.fancoil_sala_humidity
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      entity: sensor.fancoil_sala_temperature
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      primary: "💧 Hum (Fancoil): {{ states('sensor.fancoil_bagno_humidity') }}%"
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      primary: "💧 Hum (Fancoil): {{ states('sensor.fancoil_camera_grande_humidity') }}%"
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      primary: "💧 Hum (Fancoil): {{ states('sensor.fancoil_camera_humidity') }}%"
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      primary: "💧 Hum (Fancoil): {{ states('sensor.fancoil_corridoio_humidity') }}%"
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      primary: "💧 Hum (Fancoil): {{ states('sensor.fancoil_cucina_humidity') }}%"
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      primary: "💧 Hum (Fancoil): {{ states('sensor.fancoil_sala_humidity') }}%"
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      primary: "🌡️ Temp (Fancoil): {{ states('sensor.fancoil_bagno_temperature') }}°C"
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      primary: "🌡️ Temp (Fancoil): {{ states('sensor.fancoil_camera_grande_temperature') }}°C"
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      primary: "🌡️ Temp (Fancoil): {{ states('sensor.fancoil_camera_temperature') }}°C"
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      primary: "🌡️ Temp (Fancoil): {{ states('sensor.fancoil_corridoio_temperature') }}°C"
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      primary: "🌡️ Temp (Fancoil): {{ states('sensor.fancoil_cucina_temperature') }}°C"
+./yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml:                      primary: "🌡️ Temp (Fancoil): {{ states('sensor.fancoil_sala_temperature') }}°C"
+./yaml_generator/input_select/fancoil_temp_sources.yaml:    - "sensor.fancoil_cucina_temperature"
+./yaml_generator/input_select/generated_input_selects.yaml:    - "sensor.fancoil_bagno_temperature"
+./yaml_generator/input_select/generated_input_selects.yaml:    - "sensor.fancoil_camera_grande_temperature"
+./yaml_generator/input_select/generated_input_selects.yaml:    - "sensor.fancoil_camera_temperature"
+./yaml_generator/input_select/generated_input_selects.yaml:    - "sensor.fancoil_corridoio_temperature"
+./yaml_generator/input_select/generated_input_selects.yaml:    - "sensor.fancoil_cucina_temperature"
+./yaml_generator/input_select/generated_input_selects.yaml:    - "sensor.fancoil_sala_temperature"
+./yaml_generator/managed_binary_sensors/bagno_binary_sensors.yaml:    {% set diff = states('sensor.fancoil_bagno_temperature_difference') | float(0) %}
+./yaml_generator/managed_binary_sensors/camera_binary_sensors.yaml:    {% set diff = states('sensor.fancoil_camera_temperature_difference') | float(0) %}
+./yaml_generator/managed_binary_sensors/camera_grande_binary_sensors.yaml:    {% set diff = states('sensor.fancoil_camera_grande_temperature_difference') | float(0) %}
+./yaml_generator/managed_binary_sensors/corridoio_binary_sensors.yaml:    {% set diff = states('sensor.fancoil_corridoio_temperature_difference') | float(0) %}
+./yaml_generator/managed_binary_sensors/cucina_binary_sensors.yaml:    {% set diff = states('sensor.fancoil_cucina_temperature_difference') | float(0) %}
+./yaml_generator/managed_binary_sensors/sala_binary_sensors.yaml:    {% set diff = states('sensor.fancoil_sala_temperature_difference') | float(0) %}
+./yaml_generator/managed_persistence/bagno_persistence.yaml:        {% set defaults = ['sensor.fancoil_bagno_temperature'] %}
+./yaml_generator/managed_persistence/bagno_persistence.yaml:          {{ this.state | default('sensor.fancoil_bagno_temperature') }}
+./yaml_generator/managed_persistence/camera_grande_persistence.yaml:        {% set defaults = ['sensor.fancoil_camera_grande_temperature'] %}
+./yaml_generator/managed_persistence/camera_grande_persistence.yaml:          {{ this.state | default('sensor.fancoil_camera_grande_temperature') }}
+./yaml_generator/managed_persistence/camera_persistence.yaml:        {% set defaults = ['sensor.fancoil_camera_temperature'] %}
+./yaml_generator/managed_persistence/camera_persistence.yaml:          {{ this.state | default('sensor.fancoil_camera_temperature') }}
+./yaml_generator/managed_persistence/corridoio_persistence.yaml:        {% set defaults = ['sensor.fancoil_corridoio_temperature'] %}
+./yaml_generator/managed_persistence/corridoio_persistence.yaml:          {{ this.state | default('sensor.fancoil_corridoio_temperature') }}
+./yaml_generator/managed_persistence/cucina_persistence.yaml:        {% set defaults = ['sensor.fancoil_cucina_temperature'] %}
+./yaml_generator/managed_persistence/cucina_persistence.yaml:          {{ this.state | default('sensor.fancoil_cucina_temperature') }}
+./yaml_generator/managed_persistence/sala_persistence.yaml:        {% set defaults = ['sensor.fancoil_sala_temperature'] %}
+./yaml_generator/managed_persistence/sala_persistence.yaml:          {{ this.state | default('sensor.fancoil_sala_temperature') }}
+./yaml_generator/managed_sensors/bagno_sensors.yaml:    {% if source == 'sensor.fancoil_bagno_temperature' or source == 'sensor.stox_fancoil_bagno_temperature' or source == 'Fancoil Internal' %}
+./yaml_generator/managed_sensors/bagno_sensors.yaml:    {% set active_temp_entity = 'sensor.fancoil_bagno_temperature' if (source == 'sensor.fancoil_bagno_temperature' or source == 'sensor.stox_fancoil_bagno_temperature' or source == 'Fancoil Internal') else source %}
+./yaml_generator/managed_sensors/bagno_sensors.yaml:    {% set diff = states('sensor.fancoil_bagno_temperature_difference') | float(0) %}
+./yaml_generator/managed_sensors/bagno_sensors.yaml:    {% set entity = 'sensor.fancoil_bagno_temperature' if (source == 'sensor.fancoil_bagno_temperature' or source == 'sensor.stox_fancoil_bagno_temperature' or source == 'Fancoil Internal') else source %}
+./yaml_generator/managed_sensors/bagno_sensors.yaml:      {% set val = states('sensor.fancoil_bagno_temperature') | float(-99) %}
+./yaml_generator/managed_sensors/camera_grande_sensors.yaml:    {% if source == 'sensor.fancoil_camera_grande_temperature' or source == 'sensor.stox_fancoil_camera_grande_temperature' or source == 'Fancoil Internal' %}
+./yaml_generator/managed_sensors/camera_grande_sensors.yaml:    {% set active_temp_entity = 'sensor.fancoil_camera_grande_temperature' if (source == 'sensor.fancoil_camera_grande_temperature' or source == 'sensor.stox_fancoil_camera_grande_temperature' or source == 'Fancoil Internal') else source %}
+./yaml_generator/managed_sensors/camera_grande_sensors.yaml:    {% set diff = states('sensor.fancoil_camera_grande_temperature_difference') | float(0) %}
+./yaml_generator/managed_sensors/camera_grande_sensors.yaml:    {% set entity = 'sensor.fancoil_camera_grande_temperature' if (source == 'sensor.fancoil_camera_grande_temperature' or source == 'sensor.stox_fancoil_camera_grande_temperature' or source == 'Fancoil Internal') else source %}
+./yaml_generator/managed_sensors/camera_grande_sensors.yaml:      {% set val = states('sensor.fancoil_camera_grande_temperature') | float(-99) %}
+./yaml_generator/managed_sensors/camera_sensors.yaml:    {% if source == 'sensor.fancoil_camera_temperature' or source == 'sensor.stox_fancoil_camera_temperature' or source == 'Fancoil Internal' %}
+./yaml_generator/managed_sensors/camera_sensors.yaml:    {% set active_temp_entity = 'sensor.fancoil_camera_temperature' if (source == 'sensor.fancoil_camera_temperature' or source == 'sensor.stox_fancoil_camera_temperature' or source == 'Fancoil Internal') else source %}
+./yaml_generator/managed_sensors/camera_sensors.yaml:    {% set diff = states('sensor.fancoil_camera_temperature_difference') | float(0) %}
+./yaml_generator/managed_sensors/camera_sensors.yaml:    {% set entity = 'sensor.fancoil_camera_temperature' if (source == 'sensor.fancoil_camera_temperature' or source == 'sensor.stox_fancoil_camera_temperature' or source == 'Fancoil Internal') else source %}
+./yaml_generator/managed_sensors/camera_sensors.yaml:      {% set val = states('sensor.fancoil_camera_temperature') | float(-99) %}
+./yaml_generator/managed_sensors/climate_comfort_evaluation.yaml:    {% set rh = states('sensor.fancoil_bagno_humidity') | float(0) %}
+./yaml_generator/managed_sensors/climate_comfort_evaluation.yaml:    {% set RH = states('sensor.fancoil_bagno_humidity') | float(0) %}
+./yaml_generator/managed_sensors/climate_comfort_evaluation.yaml:    {% set rh = states('sensor.fancoil_corridoio_humidity') | float(0) %}
+./yaml_generator/managed_sensors/climate_comfort_evaluation.yaml:    {% set rh = states('sensor.fancoil_sala_humidity') | float(0) %}
+./yaml_generator/managed_sensors/climate_comfort_evaluation.yaml:    {% set RH = states('sensor.fancoil_sala_humidity') | float(0) %}
+./yaml_generator/managed_sensors/corridoio_sensors.yaml:    {% if source == 'sensor.fancoil_corridoio_temperature' or source == 'sensor.stox_fancoil_corridoio_temperature' or source == 'Fancoil Internal' %}
+./yaml_generator/managed_sensors/corridoio_sensors.yaml:    {% set active_temp_entity = 'sensor.fancoil_corridoio_temperature' if (source == 'sensor.fancoil_corridoio_temperature' or source == 'sensor.stox_fancoil_corridoio_temperature' or source == 'Fancoil Internal') else source %}
+./yaml_generator/managed_sensors/corridoio_sensors.yaml:    {% set diff = states('sensor.fancoil_corridoio_temperature_difference') | float(0) %}
+./yaml_generator/managed_sensors/corridoio_sensors.yaml:    {% set entity = 'sensor.fancoil_corridoio_temperature' if (source == 'sensor.fancoil_corridoio_temperature' or source == 'sensor.stox_fancoil_corridoio_temperature' or source == 'Fancoil Internal') else source %}
+./yaml_generator/managed_sensors/corridoio_sensors.yaml:      {% set val = states('sensor.fancoil_corridoio_temperature') | float(-99) %}
+./yaml_generator/managed_sensors/cucina_sensors.yaml:    {% if source == 'sensor.fancoil_cucina_temperature' or source == 'sensor.stox_fancoil_cucina_temperature' or source == 'Fancoil Internal' %}
+./yaml_generator/managed_sensors/cucina_sensors.yaml:    {% set active_temp_entity = 'sensor.fancoil_cucina_temperature' if (source == 'sensor.fancoil_cucina_temperature' or source == 'sensor.stox_fancoil_cucina_temperature' or source == 'Fancoil Internal') else source %}
+./yaml_generator/managed_sensors/cucina_sensors.yaml:    {% set diff = states('sensor.fancoil_cucina_temperature_difference') | float(0) %}
+./yaml_generator/managed_sensors/cucina_sensors.yaml:    {% set entity = 'sensor.fancoil_cucina_temperature' if (source == 'sensor.fancoil_cucina_temperature' or source == 'sensor.stox_fancoil_cucina_temperature' or source == 'Fancoil Internal') else source %}
+./yaml_generator/managed_sensors/cucina_sensors.yaml:      {% set val = states('sensor.fancoil_cucina_temperature') | float(-99) %}
+./yaml_generator/managed_sensors/sala_sensors.yaml:    {% if source == 'sensor.fancoil_sala_temperature' or source == 'sensor.stox_fancoil_sala_temperature' or source == 'Fancoil Internal' %}
+./yaml_generator/managed_sensors/sala_sensors.yaml:    {% set active_temp_entity = 'sensor.fancoil_sala_temperature' if (source == 'sensor.fancoil_sala_temperature' or source == 'sensor.stox_fancoil_sala_temperature' or source == 'Fancoil Internal') else source %}
+./yaml_generator/managed_sensors/sala_sensors.yaml:    {% set diff = states('sensor.fancoil_sala_temperature_difference') | float(0) %}
+./yaml_generator/managed_sensors/sala_sensors.yaml:    {% set entity = 'sensor.fancoil_sala_temperature' if (source == 'sensor.fancoil_sala_temperature' or source == 'sensor.stox_fancoil_sala_temperature' or source == 'Fancoil Internal') else source %}
+./yaml_generator/managed_sensors/sala_sensors.yaml:      {% set val = states('sensor.fancoil_sala_temperature') | float(-99) %}
+    entity_id: sensor.fancoil_bagno_humidity

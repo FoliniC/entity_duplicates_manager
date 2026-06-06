@@ -182,7 +182,7 @@
   unit_of_measurement: "g/kg"
   state: >
     {% set T = states('sensor.temperatura_corridoio_reale_calcolata') | float(0) %}
-    {% set RH = states('sensor.th4d_humidity') | float(0) %}
+    {% set RH = states('sensor.fancoil_sala_humidity') | float(0) %}
     {% set psat = 610.78 * (2.718281828459 ** (17.27 * T / (T + 237.3))) %}
     {% set pvap = (RH / 100) * psat %}
     {{ (622 * pvap / (101325 - pvap)) | round(2) }}
@@ -192,14 +192,14 @@
   unit_of_measurement: "°C"
   state: >
     {% set T = states('sensor.temperatura_corridoio_reale_calcolata') | float(0) %}
-    {% set RH = states('sensor.th4d_humidity') | float(0) %}
+    {% set RH = states('sensor.fancoil_sala_humidity') | float(0) %}
     {{ (T - (100 - RH) / 5) | round(1) }}
 
 - name: "Comfort Evaluation Corridoio"
   unique_id: comfort_evaluation_corridoio
   state: >
     {% set t = states('sensor.temperatura_corridoio_reale_calcolata') | float(0) %}
-    {% set rh = states('sensor.th4d_humidity') | float(0) %}
+    {% set rh = states('sensor.fancoil_corridoio_humidity') | float(0) %}
     {% set mode = states('input_select.fancoil_system_hvac_mode') %}
     {% if mode == 'cool' %}
       {% if t >= 24 and t <= 26 and rh >= 50 and rh <= 60 %} Ottimale
@@ -219,7 +219,7 @@
   unique_id: climate_advice_corridoio
   state: >
     {% set t = states('sensor.temperatura_corridoio_reale_calcolata') | float(0) %}
-    {% set rh = states('sensor.th4d_humidity') | float(0) %}
+    {% set rh = states('sensor.fancoil_corridoio_humidity') | float(0) %}
     {% set omega_int = states('sensor.omega_corridoio') | float(0) %}
     {% set omega_ext = states('sensor.omega_esterno') | float(0) %}
     {% set delta_omega = omega_int - omega_ext %}
@@ -288,7 +288,7 @@
   unit_of_measurement: "g/kg"
   state: >
     {% set T = states('sensor.temperatura_sala_reale_calcolata') | float(0) %}
-    {% set RH = states('sensor.th4d_humidity') | float(0) %}
+    {% set RH = states('sensor.fancoil_sala_humidity') | float(0) %}
     {% set psat = 610.78 * (2.718281828459 ** (17.27 * T / (T + 237.3))) %}
     {% set pvap = (RH / 100) * psat %}
     {{ (622 * pvap / (101325 - pvap)) | round(2) }}
@@ -298,14 +298,14 @@
   unit_of_measurement: "°C"
   state: >
     {% set T = states('sensor.temperatura_sala_reale_calcolata') | float(0) %}
-    {% set RH = states('sensor.th4d_humidity') | float(0) %}
+    {% set RH = states('sensor.fancoil_sala_humidity') | float(0) %}
     {{ (T - (100 - RH) / 5) | round(1) }}
 
 - name: "Comfort Evaluation Sala"
   unique_id: comfort_evaluation_sala
   state: >
     {% set t = states('sensor.temperatura_sala_reale_calcolata') | float(0) %}
-    {% set rh = states('sensor.th4d_humidity') | float(0) %}
+    {% set rh = states('sensor.fancoil_sala_humidity') | float(0) %}
     {% set mode = states('input_select.fancoil_system_hvac_mode') %}
     {% if mode == 'cool' %}
       {% if t >= 24 and t <= 26 and rh >= 50 and rh <= 60 %} Ottimale
@@ -325,7 +325,7 @@
   unique_id: climate_advice_sala
   state: >
     {% set t = states('sensor.temperatura_sala_reale_calcolata') | float(0) %}
-    {% set rh = states('sensor.th4d_humidity') | float(0) %}
+    {% set rh = states('sensor.fancoil_sala_humidity') | float(0) %}
     {% set omega_int = states('sensor.omega_sala') | float(0) %}
     {% set omega_ext = states('sensor.omega_esterno') | float(0) %}
     {% set delta_omega = omega_int - omega_ext %}
