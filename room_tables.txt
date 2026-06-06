@@ -1,0 +1,111 @@
+                      primary: "🍳 Cucina"
+                      entity: climate.controllo_temperatura_cucina
+                      primary: "🌡️ Temp (Fancoil): {{ states('sensor.fancoil_cucina_temperature') }}°C"
+                      entity: sensor.fancoil_cucina_temperature
+                      primary: "🌡️ Temp (Tuya TH): {{ states('sensor.th1a_temperature_humidity_temperature') }}°C"
+                      entity: sensor.th1a_temperature_humidity_temperature
+                      primary: "💧 Hum (Fancoil): {{ states('sensor.fancoil_cucina_humidity') }}%"
+                      entity: sensor.fancoil_cucina_humidity
+                      primary: "💧 Hum (Tuya TH): {{ states('sensor.th1a_temperature_humidity_humidity') }}%"
+                      entity: sensor.th1a_temperature_humidity_humidity
+                      primary: "⚖️ Stato: {{ states('sensor.comfort_evaluation_cucina') }}"
+                      entity: sensor.comfort_evaluation_cucina
+                      primary: "💡 Consiglio: {{ states('sensor.climate_advice_cucina') }}"
+                      entity: sensor.climate_advice_cucina
+                      primary: "📊 Umidità Specifica (ω): {{ states('sensor.omega_cucina') }} g/kg"
+                      entity: sensor.omega_cucina
+                      primary: "🎯 Rugiada: {{ states('sensor.punto_di_rugiada_cucina') }}°C"
+                      entity: sensor.punto_di_rugiada_cucina
+                      primary: "🔋 Batteria Pilota: {{ states('sensor.th1a_battery') }}%"
+                      entity: sensor.th1a_battery
+                      primary: "🛏️ Camera Grande"
+                      entity: climate.controllo_temperatura_camera_grande
+                      primary: "🌡️ Temp (Fancoil): {{ states('sensor.fancoil_camera_grande_temperature') }}°C"
+                      entity: sensor.fancoil_camera_grande_temperature
+                      primary: "🌡️ Temp (Tuya TH): {{ states('sensor.th2b_temperature_humidity_temperature') }}°C"
+                      entity: sensor.th2b_temperature_humidity_temperature
+                      primary: "🌡️ Temp (KNX): {{ states('sensor.temperatura_camera_grande') }}°C"
+                      entity: sensor.temperatura_camera_grande
+                      primary: "💧 Hum (Fancoil): {{ states('sensor.fancoil_camera_grande_humidity') }}%"
+                      entity: sensor.fancoil_camera_grande_humidity
+                      primary: "💧 Hum (Tuya TH): {{ states('sensor.th2b_temperature_humidity_humidity') }}%"
+                      entity: sensor.th2b_temperature_humidity_humidity
+                      primary: "⚖️ Stato: {{ states('sensor.comfort_evaluation_camera_grande') }}"
+                      entity: sensor.comfort_evaluation_camera_grande
+                      primary: "💡 Consiglio: {{ states('sensor.climate_advice_camera_grande') }}"
+                      entity: sensor.climate_advice_camera_grande
+                      primary: "📊 Umidità Specifica (ω): {{ states('sensor.omega_camera_grande') }} g/kg"
+                      entity: sensor.omega_camera_grande
+                      primary: "🎯 Rugiada: {{ states('sensor.punto_di_rugiada_camera_grande') }}°C"
+                      entity: sensor.punto_di_rugiada_camera_grande
+                      primary: "🔋 Batteria Pilota: {{ states('sensor.th2b_battery') }}%"
+                      entity: sensor.th2b_battery
+                      primary: "💤 Camera"
+                      entity: climate.controllo_temperatura_camera
+                      primary: "🌡️ Temp (Fancoil): {{ states('sensor.fancoil_camera_temperature') }}°C"
+                      entity: sensor.fancoil_camera_temperature
+                      primary: "🌡️ Temp (Tuya TH): {{ states('sensor.th3c_temperature_humidity_temperature') }}°C"
+                      entity: sensor.th3c_temperature_humidity_temperature
+                      primary: "🌡️ Temp (KNX): {{ states('sensor.temperatura_camera') }}°C"
+                      entity: sensor.temperatura_camera
+                      primary: "💧 Hum (Fancoil): {{ states('sensor.fancoil_camera_humidity') }}%"
+                      entity: sensor.fancoil_camera_humidity
+                      primary: "💧 Hum (Tuya TH): {{ states('sensor.th3c_temperature_humidity_humidity') }}%"
+                      entity: sensor.th3c_temperature_humidity_humidity
+                      primary: "⚖️ Stato: {{ states('sensor.comfort_evaluation_camera') }}"
+                      entity: sensor.comfort_evaluation_camera
+                      primary: "💡 Consiglio: {{ states('sensor.climate_advice_camera') }}"
+                      entity: sensor.climate_advice_camera
+                      primary: "📊 Umidità Specifica (ω): {{ states('sensor.omega_camera') }} g/kg"
+                      entity: sensor.omega_camera
+                      primary: "🎯 Rugiada: {{ states('sensor.punto_di_rugiada_camera') }}°C"
+                      entity: sensor.punto_di_rugiada_camera
+                      primary: "🔋 Batteria Pilota: {{ states('sensor.th3c_battery') }}%"
+                      entity: sensor.th3c_battery
+                      primary: "🚶 Corridoio"
+                      entity: climate.controllo_temperatura_corridoio
+                      primary: "🌡️ Temp (Fancoil): {{ states('sensor.fancoil_corridoio_temperature') }}°C"
+                      entity: sensor.fancoil_corridoio_temperature
+                      primary: "🌡️ Temp (Tuya TH): {{ states('sensor.th4d_temperature') }}°C"
+                      entity: sensor.th4d_temperature
+                      primary: "💧 Hum (Fancoil): {{ states('sensor.fancoil_corridoio_humidity') }}%"
+                      entity: sensor.fancoil_corridoio_humidity
+                      primary: "⚖️ Stato: {{ states('sensor.comfort_evaluation_corridoio') }}"
+                      entity: sensor.comfort_evaluation_corridoio
+                      primary: "💡 Consiglio: {{ states('sensor.climate_advice_corridoio') }}"
+                      entity: sensor.climate_advice_corridoio
+                      primary: "📊 Umidità Specifica (ω): {{ states('sensor.omega_corridoio') }} g/kg"
+                      entity: sensor.omega_corridoio
+                      primary: "🎯 Rugiada: {{ states('sensor.punto_di_rugiada_corridoio') }}°C"
+                      entity: sensor.punto_di_rugiada_corridoio
+                      primary: "🔋 Batteria Pilota: {{ states('sensor.th4d_battery') }}%"
+                      entity: sensor.th4d_battery
+                      primary: "🚿 Bagno"
+                      entity: climate.controllo_temperatura_bagno
+                      primary: "🌡️ Temp (Fancoil): {{ states('sensor.fancoil_bagno_temperature') }}°C"
+                      entity: sensor.fancoil_bagno_temperature
+                      primary: "🌡️ Temp (KNX): {{ states('sensor.temperatura_bagno') }}°C"
+                      entity: sensor.temperatura_bagno
+                      primary: "💧 Hum (Fancoil): {{ states('sensor.fancoil_bagno_humidity') }}%"
+                      entity: sensor.fancoil_bagno_humidity
+                      primary: "⚖️ Stato: {{ states('sensor.comfort_evaluation_bagno') }}"
+                      entity: sensor.comfort_evaluation_bagno
+                      primary: "💡 Consiglio: {{ states('sensor.climate_advice_bagno') }}"
+                      entity: sensor.climate_advice_bagno
+                      primary: "📊 Umidità Specifica (ω): {{ states('sensor.omega_bagno') }} g/kg"
+                      entity: sensor.omega_bagno
+                      primary: "🎯 Rugiada: {{ states('sensor.punto_di_rugiada_bagno') }}°C"
+                      entity: sensor.punto_di_rugiada_bagno
+                      primary: "🛋️ Sala"
+                      entity: climate.controllo_temperatura_sala
+                      primary: "🌡️ Temp (Fancoil): {{ states('sensor.fancoil_sala_temperature') }}°C"
+                      entity: sensor.fancoil_sala_temperature
+                      primary: "🌡️ Temp (KNX): {{ states('sensor.temperatura_sala') }}°C"
+                      entity: sensor.temperatura_sala
+                      primary: "💧 Hum (Fancoil): {{ states('sensor.fancoil_sala_humidity') }}%"
+                      entity: sensor.fancoil_sala_humidity
+                      primary: "⚖️ Stato: {{ states('sensor.comfort_evaluation_sala') }}"
+                      entity: sensor.comfort_evaluation_sala
+                      primary: "💡 Consiglio: {{ states('sensor.climate_advice_sala') }}"
+                      entity: sensor.climate_advice_sala
+                      primary: "📊 Umidità Specifica (ω): {{ states('sensor.omega_sala') }} g/kg"
