@@ -1,0 +1,13 @@
+          - type: custom:mushroom-template-card
+            primary: "%%friendly_name%%: {{ states('sensor.fancoil_%%id%%_sensors_coherence_status') }}"
+            secondary: >
+              {% set dt = states('sensor.fancoil_%%id%%_temp_delta_th_internal') %}
+              {% set dh = states('sensor.fancoil_%%id%%_hum_delta_th_internal') %}
+              Delta T: {{ dt }}°C {{ '| Delta H: ' ~ dh ~ '%' if dh != 'unavailable' else '' }}
+            entity: binary_sensor.fancoil_%%id%%_sensors_coherence_error
+            icon: >
+              {{ 'mdi:alert-circle' if is_state('binary_sensor.fancoil_%%id%%_sensors_coherence_error', 'on') else 'mdi:check-circle' }}
+            icon_color: >
+              {{ 'red' if is_state('binary_sensor.fancoil_%%id%%_sensors_coherence_error', 'on') else 'green' }}
+            tap_action:
+              action: more-info

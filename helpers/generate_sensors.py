@@ -1,5 +1,6 @@
 # gen_ha_sensors.py
 import os
+import re
 
 # Determina se siamo in ambiente locale o container HA
 if os.path.exists("/config"):
@@ -8,11 +9,12 @@ else:
     # Fallback per esecuzione locale/sviluppo
     BASE_PATH = os.getcwd()
 
+# Definizione dei dispositivi TH con le loro aree corrette
 devices = [
     {"id": "th1a", "area": "cucina"},
     {"id": "th2b", "area": "camera_grande"},
-    {"id": "th3c", "area": "bagno"},
-    {"id": "th4d", "area": "strenscia"},
+    {"id": "th3c", "area": "camera"},
+    {"id": "th4d", "area": "balcone"},
     # aggiungi altri dispositivi qui
 ]
 
@@ -44,6 +46,10 @@ with open(persistence_file, "w") as f:
         f.write(f'    state_class: "measurement"\n')
         f.write(f'    device_class: "temperature"\n')
         f.write(f'    unit_of_measurement: "°C"\n')
+        f.write(f"    attributes:\n")
+        f.write(f"      persistence: trigger_based\n")
+        f.write(f"      managed_by: generate_sensors.py\n")
+        f.write(f"      area: {dev['area']}\n")
         f.write("    state: >\n")
         f.write(f"      {{% set sensor_id = 'sensor.{dev['id']}_temperature_humidity_temperature' %}}\n")
         f.write(f"      {{% set val = states(sensor_id) %}}\n")
@@ -51,9 +57,7 @@ with open(persistence_file, "w") as f:
         f.write(f"        {{{{ val | float }}}}\n")
         f.write(f"      {{% else %}}\n")
         f.write(f"        {{{{ this.state | float(default=21.0) }}}}\n")
-        f.write(f"      {{% endif %}}\n")
-        f.write("    availability: >\n")
-        f.write("      {{ this.state is defined }}\n\n")
+        f.write(f"      {{% endif %}}\n\n")
 
         # Humidity
         f.write(f'  - name: "{dev["id"]} Humidity"\n')
@@ -61,6 +65,10 @@ with open(persistence_file, "w") as f:
         f.write(f'    state_class: "measurement"\n')
         f.write(f'    device_class: "humidity"\n')
         f.write(f'    unit_of_measurement: "%"\n')
+        f.write(f"    attributes:\n")
+        f.write(f"      persistence: trigger_based\n")
+        f.write(f"      managed_by: generate_sensors.py\n")
+        f.write(f"      area: {dev['area']}\n")
         f.write("    state: >\n")
         f.write(f"      {{% set sensor_id = 'sensor.{dev['id']}_temperature_humidity_humidity' %}}\n")
         f.write(f"      {{% set val = states(sensor_id) %}}\n")
@@ -68,15 +76,17 @@ with open(persistence_file, "w") as f:
         f.write(f"        {{{{ val | float }}}}\n")
         f.write(f"      {{% else %}}\n")
         f.write(f"        {{{{ this.state | float(default=50.0) }}}}\n")
-        f.write(f"      {{% endif %}}\n")
-        f.write("    availability: >\n")
-        f.write("      {{ this.state is defined }}\n\n")
+        f.write(f"      {{% endif %}}\n\n")
 
         # Battery
         f.write(f'  - name: "{dev["id"]} Battery"\n')
         f.write(f'    unique_id: "{dev["id"]}_battery"\n')
         f.write(f'    device_class: "battery"\n')
         f.write(f'    unit_of_measurement: "%"\n')
+        f.write(f"    attributes:\n")
+        f.write(f"      persistence: trigger_based\n")
+        f.write(f"      managed_by: generate_sensors.py\n")
+        f.write(f"      area: {dev['area']}\n")
         f.write("    state: >\n")
         f.write(f"      {{% set sensor_id = 'sensor.{dev['id']}_temperature_humidity_battery' %}}\n")
         f.write(f"      {{% set val = states(sensor_id) %}}\n")
@@ -84,9 +94,7 @@ with open(persistence_file, "w") as f:
         f.write(f"        {{{{ val | float }}}}\n")
         f.write(f"      {{% else %}}\n")
         f.write(f"        {{{{ this.state | float(default=100.0) }}}}\n")
-        f.write(f"      {{% endif %}}\n")
-        f.write("    availability: >\n")
-        f.write("      {{ this.state is defined }}\n\n")
+        f.write(f"      {{% endif %}}\n\n")
 
 # Genera battery binary sensors
 with open(binary_template_file, "w") as f:
@@ -97,16 +105,20 @@ with open(binary_template_file, "w") as f:
         sensor_name = f"{dev['id']} Battery Low"
         source_sensor = f"sensor.{dev['id']}_temperature_humidity_battery"
         
-        f.write(f'- name: "{sensor_name}"\n')
-        f.write(f'  unique_id: {unique_id}\n')
-        f.write(f'  device_class: battery\n')
-        f.write(f'  state: >\n')
-        f.write(f"    {{% set battery = states('{source_sensor}') %}}\n")
-        f.write(f"    {{% if battery | is_number %}}\n")
-        f.write(f"      {{{{ battery | float < 20 }}}}\n")
-        f.write(f"    {{% else %}}\n")
-        f.write(f"      {{{{ battery | lower in ['low', 'empty'] }}}}\n")
-        f.write(f"    {{% endif %}}\n\n")
+        f.write(f'  - name: "{sensor_name}"\n')
+        f.write(f'    unique_id: {unique_id}\n')
+        f.write(f'    device_class: battery\n')
+        f.write(f'    attributes:\n')
+        f.write(f'      persistence: battery_alert\n')
+        f.write(f'      managed_by: generate_sensors.py\n')
+        f.write(f"      area: {dev['area']}\n")
+        f.write(f'    state: >\n')
+        f.write(f"      {{% set battery = states('{source_sensor}') %}}\n")
+        f.write(f"      {{% if battery | is_number %}}\n")
+        f.write(f"        {{{{ battery | float < 20 }}}}\n")
+        f.write(f"      {{% else %}}\n")
+        f.write(f"        {{{{ battery | lower in ['low', 'empty'] }}}}\n")
+        f.write(f"      {{% endif %}}\n\n")
 
 print(f"File '{persistence_file}' e '{binary_template_file}' generati con successo.")
 print("NOTA: La persistenza SQL è stata sostituita da trigger-based template sensors.")

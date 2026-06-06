@@ -11,8 +11,8 @@
         options: >-
           {% set history = states('sensor.fancoil_bagno_temp_sources_history') %}
           {% set defaults = ['sensor.fancoil_bagno_temperature'] %}
-          {% if "sensor.th3c_temperature" != "%%" ~ "ref_sensor" ~ "%%" and "sensor.th3c_temperature" != "" %}
-            {% set defaults = defaults + ["sensor.th3c_temperature"] %}
+          {% if "sensor.fancoil_bagno_temperature" != "%%" ~ "ref_sensor" ~ "%%" and "sensor.fancoil_bagno_temperature" != "" %}
+            {% set defaults = defaults + ["sensor.fancoil_bagno_temperature"] %}
           {% endif %}
           {% if "sensor.temperatura_bagno" != "%%" ~ "knx_temp_sensor" ~ "%%" and "sensor.temperatura_bagno" != "" %}
             {% set defaults = defaults + ["sensor.temperatura_bagno"] %}

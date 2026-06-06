@@ -16,6 +16,7 @@ trigger:
         - input_number.fancoil_%%id%%_sp_offset
         - input_boolean.fancoil_%%id%%_sp_follow_master
         - input_number.fancoil_%%id%%_setpoint
+        - sensor.fancoil_%%id%%_humidity
     - platform: state
       entity_id:
         - input_text.fancoil_%%id%%_add_temp_entity
@@ -142,10 +143,27 @@ sensor:
     - name: "Fancoil %%friendly_name%% Last Temperature"
       unique_id: fancoil_%%id%%_last_temperature
       unit_of_measurement: "°C"
+      attributes:
+        persistence: trigger_based
+        managed_by: yaml_generator
       state: >-
         {% set current = states('sensor.temperatura_%%id%%_reale_calcolata') %}
         {% if current not in ['unavailable', 'unknown', None, ''] %}
           {{ current | float }}
         {% else %}
           {{ this.state | float(21.0) }}
+        {% endif %}
+
+    - name: "Fancoil %%friendly_name%% Last Humidity"
+      unique_id: fancoil_%%id%%_last_humidity
+      unit_of_measurement: "%"
+      attributes:
+        persistence: trigger_based
+        managed_by: yaml_generator
+      state: >-
+        {% set current = states('sensor.fancoil_%%id%%_humidity') %}
+        {% if current not in ['unavailable', 'unknown', None, ''] %}
+          {{ current | float }}
+        {% else %}
+          {{ this.state | float(50.0) }}
         {% endif %}

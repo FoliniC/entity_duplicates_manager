@@ -17,25 +17,25 @@ fancoil_vars:
     friendly_name: Camera
     filename: camera
     unique_id: camera
-    ref_sensor: sensor.th3a_temperature
+    ref_sensor: sensor.th3c_temperature
     knx_temp_sensor: sensor.temperatura_camera
   corridoio:
     id: corridoio
     friendly_name: Corridoio
     filename: corridoio
     unique_id: corridoio
-    ref_sensor: sensor.th4d_temperature
+    ref_sensor: sensor.fancoil_corridoio_temperature
   bagno:
     id: bagno
     friendly_name: Bagno
     filename: bagno
     unique_id: bagno
-    ref_sensor: sensor.th3c_temperature
+    ref_sensor: sensor.fancoil_bagno_temperature
     knx_temp_sensor: sensor.temperatura_bagno
   sala:
     id: sala
     friendly_name: Sala
     filename: sala
     unique_id: sala
-    ref_sensor: sensor.th6a_temperature
+    ref_sensor: sensor.fancoil_sala_temperature
     knx_temp_sensor: sensor.temperatura_sala

@@ -59,6 +59,9 @@ MASTER_INPUT_TEXT_TEMPLATE_PATH = (
 RESTORE_TEMPLATE_PATH = (
     "yaml_generator/templates/fancoil_restore.j2"
 )
+COHERENCE_TEMPLATE_PATH = (
+    "yaml_generator/templates/fancoil_coherence.j2"
+)
 
 # Outputs (generated)
 CLIMATE_OUTPUT_DIR = "yaml_generator/generated_climates"
@@ -220,8 +223,78 @@ def generate_from_template(template_path, output_dir, vars_map, suffix):
     common_ctx = get_common_context(template_path)
     ensure_dir(output_dir)
     for key, context in vars_map.items():
-        local_ctx = {**context, **common_ctx}
-        rendered = substitute_tags(template_text, local_ctx).strip() + "\n"
+        # Setup local context
+        local_ctx = dict(context)
+        room_id = local_ctx.get("id", key)
+        friendly_name = local_ctx.get("friendly_name", room_id.replace("_", " ").title())
+        local_ctx["friendly_name"] = friendly_name
+        local_ctx["id"] = room_id
+        
+        # Prepare blocks if coherence template
+        if "_coherence" in suffix:
+            th_id = local_ctx.get("th_id", "")
+            if th_id:
+                local_ctx["TH_COHERENCE_BLOCK"] = f"""- name: "Fancoil {friendly_name} Temp Delta (TH vs Internal)"
+  unique_id: fancoil_{room_id}_temp_delta_th_internal
+  unit_of_measurement: "°C"
+  state_class: measurement
+  device_class: temperature
+  state: >
+    {{% set s1 = states('sensor.{th_id}_temperature') | float(None) %}}
+    {{% set s2 = states('sensor.fancoil_{room_id}_temperature') | float(None) %}}
+    {{% if s1 is not none and s2 is not none %}}
+      {{{{ (s1 - s2) | abs | round(2) }}}}
+    {{% else %}}
+      unavailable
+    {{% endif %}}
+
+- name: "Fancoil {friendly_name} Hum Delta (TH vs Internal)"
+  unique_id: fancoil_{room_id}_hum_delta_th_internal
+  unit_of_measurement: "%"
+  state_class: measurement
+  device_class: humidity
+  state: >
+    {{% set s1 = states('sensor.{th_id}_humidity') | float(None) %}}
+    {{% set s2 = states('sensor.fancoil_{room_id}_humidity') | float(None) %}}
+    {{% if s1 is not none and s2 is not none %}}
+      {{{{ (s1 - s2) | abs | round(2) }}}}
+    {{% else %}}
+      unavailable
+    {{% endif %}}"""
+            else:
+                local_ctx["TH_COHERENCE_BLOCK"] = ""
+
+            knx_sensor = local_ctx.get("knx_temp_sensor", "")
+            if knx_sensor:
+                ref_for_knx = f"sensor.{th_id}_temperature" if th_id else f"sensor.fancoil_{room_id}_temperature"
+                local_ctx["KNX_COHERENCE_BLOCK"] = f"""- name: "Fancoil {friendly_name} Temp Delta (KNX vs Ref)"
+  unique_id: fancoil_{room_id}_temp_delta_knx_th
+  unit_of_measurement: "°C"
+  state_class: measurement
+  device_class: temperature
+  state: >
+    {{% set s1 = states('{knx_sensor}') | float(None) %}}
+    {{% set s2 = states('{ref_for_knx}') | float(None) %}}
+    {{% if s1 is not none and s2 is not none %}}
+      {{{{ (s1 - s2) | abs | round(2) }}}}
+    {{% else %}}
+      unavailable
+    {{% endif %}}"""
+            else:
+                local_ctx["KNX_COHERENCE_BLOCK"] = ""
+        else:
+            local_ctx["TH_COHERENCE_BLOCK"] = ""
+            local_ctx["KNX_COHERENCE_BLOCK"] = ""
+
+        # Render
+        final_ctx = {**local_ctx, **common_ctx}
+        rendered = substitute_tags(template_text, final_ctx)
+        
+        # Post-process blocks
+        rendered = rendered.replace("%%TH_COHERENCE_BLOCK%%", local_ctx.get("TH_COHERENCE_BLOCK", ""))
+        rendered = rendered.replace("%%KNX_COHERENCE_BLOCK%%", local_ctx.get("KNX_COHERENCE_BLOCK", ""))
+        rendered = rendered.strip() + "\n"
+
         out_name = resolve_output_name(context, key, suffix)
         out_path = os.path.join(output_dir, out_name)
         write_text_file(out_path, rendered)
@@ -305,26 +378,32 @@ def generate_dashboard(vars_map):
     termostati_tpl_path = "yaml_generator/templates/dashboard_termostati_card.j2"
     impostazioni_tpl_path = "yaml_generator/templates/dashboard_impostazioni_card.j2"
     room_details_tpl_path = "yaml_generator/templates/dashboard_room_details.j2"
+    coherence_tpl_path = "yaml_generator/templates/dashboard_coherence_card.j2"
 
     main_tpl = read_template(main_tpl_path)
     termostati_tpl = read_template(termostati_tpl_path)
     impostazioni_tpl = read_template(impostazioni_tpl_path)
     room_details_tpl = read_template(room_details_tpl_path)
+    coherence_tpl = read_template(coherence_tpl_path)
 
     common_main_ctx = get_common_context(main_tpl_path)
     common_termostati_ctx = get_common_context(termostati_tpl_path)
     common_impostazioni_ctx = get_common_context(impostazioni_tpl_path)
     common_room_details_ctx = get_common_context(room_details_tpl_path)
+    common_coherence_ctx = get_common_context(coherence_tpl_path)
 
     termostati_cards = []
     impostazioni_cards = []
     room_subviews = []
+    coherence_cards = []
 
-    for _, context in vars_map.items():
+    for key, context in vars_map.items():
         # Ensure friendly_name is available
         local_ctx = dict(context)
-        if "friendly_name" not in local_ctx:
-            local_ctx["friendly_name"] = local_ctx.get("id", "").replace("_", " ").title()
+        room_id = local_ctx.get("id", key)
+        friendly_name = local_ctx.get("friendly_name", room_id.replace("_", " ").title())
+        local_ctx["friendly_name"] = friendly_name
+        local_ctx["id"] = room_id
 
         # Add KNX sensor row if available
         if local_ctx.get("knx_temp_sensor"):
@@ -332,20 +411,75 @@ def generate_dashboard(vars_map):
         else:
             local_ctx["knx_row"] = ""
 
+        # Prepare Coherence Blocks
+        th_id = local_ctx.get("th_id", "")
+        if th_id:
+            local_ctx["TH_COHERENCE_BLOCK"] = f"""- name: "Fancoil {friendly_name} Temp Delta (TH vs Internal)"
+  unique_id: fancoil_{room_id}_temp_delta_th_internal
+  unit_of_measurement: "°C"
+  state_class: measurement
+  device_class: temperature
+  state: >
+    {{% set s1 = states('sensor.{th_id}_temperature') | float(None) %}}
+    {{% set s2 = states('sensor.fancoil_{room_id}_temperature') | float(None) %}}
+    {{% if s1 is not none and s2 is not none %}}
+      {{{{ (s1 - s2) | abs | round(2) }}}}
+    {{% else %}}
+      unavailable
+    {{% endif %}}
+
+- name: "Fancoil {friendly_name} Hum Delta (TH vs Internal)"
+  unique_id: fancoil_{room_id}_hum_delta_th_internal
+  unit_of_measurement: "%"
+  state_class: measurement
+  device_class: humidity
+  state: >
+    {{% set s1 = states('sensor.{th_id}_humidity') | float(None) %}}
+    {{% set s2 = states('sensor.fancoil_{room_id}_humidity') | float(None) %}}
+    {{% if s1 is not none and s2 is not none %}}
+      {{{{ (s1 - s2) | abs | round(2) }}}}
+    {{% else %}}
+      unavailable
+    {{% endif %}}"""
+        else:
+            local_ctx["TH_COHERENCE_BLOCK"] = ""
+
+        knx_sensor = local_ctx.get("knx_temp_sensor", "")
+        if knx_sensor:
+            ref_for_knx = f"sensor.{th_id}_temperature" if th_id else f"sensor.fancoil_{room_id}_temperature"
+            local_ctx["KNX_COHERENCE_BLOCK"] = f"""- name: "Fancoil {friendly_name} Temp Delta (KNX vs Ref)"
+  unique_id: fancoil_{room_id}_temp_delta_knx_th
+  unit_of_measurement: "°C"
+  state_class: measurement
+  device_class: temperature
+  state: >
+    {{% set s1 = states('{knx_sensor}') | float(None) %}}
+    {{% set s2 = states('{ref_for_knx}') | float(None) %}}
+    {{% if s1 is not none and s2 is not none %}}
+      {{{{ (s1 - s2) | abs | round(2) }}}}
+    {{% else %}}
+      unavailable
+    {{% endif %}}"""
+        else:
+            local_ctx["KNX_COHERENCE_BLOCK"] = ""
+
         termostati_cards.append(substitute_tags(termostati_tpl, {**local_ctx, **common_termostati_ctx}))
         impostazioni_cards.append(substitute_tags(impostazioni_tpl, {**local_ctx, **common_impostazioni_ctx}))
         room_subviews.append(substitute_tags(room_details_tpl, {**local_ctx, **common_room_details_ctx}))
+        coherence_cards.append(substitute_tags(coherence_tpl, {**local_ctx, **common_coherence_ctx}))
 
     # Join the cards with the correct indentation
     termostati_section = "\n".join(termostati_cards)
     impostazioni_section = "\n".join(impostazioni_cards)
     room_subviews_section = "\n".join(room_subviews)
+    coherence_section = "\n".join(coherence_cards)
     
     # Substitute the placeholders in the main template
     final_dashboard = substitute_tags(main_tpl, common_main_ctx)
     final_dashboard = final_dashboard.replace("%%TERMOSTATI_CARDS%%", termostati_section)
     final_dashboard = final_dashboard.replace("%%IMPOSTAZIONI_CARDS%%", impostazioni_section)
     final_dashboard = final_dashboard.replace("%%ROOM_SUBVIEWS%%", room_subviews_section)
+    final_dashboard = final_dashboard.replace("%%COHERENCE_CARDS%%", coherence_section)
 
     write_text_file(DASHBOARD_OUTPUT_FILE, final_dashboard)
     write_text_file(DASHBOARD_BACKUP_FILE, final_dashboard)
@@ -355,6 +489,16 @@ def generate_dashboard(vars_map):
 def main():
     logger.info("Generate fancoil files started")
     vars_map = load_fancoil_vars(CONFIG_PATH)
+
+    # Enrich vars_map with derived fields
+    for room_id, room_data in vars_map.items():
+        ref_sensor = room_data.get("ref_sensor", "")
+        th_id = ""
+        if ref_sensor and "sensor.th" in ref_sensor:
+            match = re.search(r"sensor\.(th[0-9][a-z])", ref_sensor)
+            if match:
+                th_id = match.group(1)
+        room_data["th_id"] = th_id
 
     # Per-room climate
     generate_from_template(CLIMATE_TEMPLATE_PATH, CLIMATE_OUTPUT_DIR, vars_map, "")
@@ -439,6 +583,14 @@ def main():
         "_persistence",
     )
 
+    # Coherence sensors
+    generate_from_template(
+        "yaml_generator/templates/fancoil_coherence.j2",
+        SENSORS_OUTPUT_DIR,
+        vars_map,
+        "_coherence",
+    )
+
     # Generate master include file for Home Assistant
     master_lines = [
         "- sensor: !include_dir_merge_list managed_sensors/",
@@ -448,6 +600,9 @@ def main():
     ]
     for key in vars_map.keys():
         master_lines.append(f"- !include managed_persistence/{key}_persistence.yaml")
+    
+    # TH Persistence (Tuya sensors)
+    master_lines.append("- !include managed_persistence/th_persistence.yaml")
     
     write_text_file("yaml_generator/fancoil_templates_master.yaml", "\n".join(master_lines))
 
