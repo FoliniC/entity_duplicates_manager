@@ -1,17 +1,9 @@
               - type: custom:mushroom-template-card
                 primary: "%%friendly_name%%: {{ states('sensor.fancoil_%%id%%_sensors_coherence_status') }}"
                 secondary: >
-                  {% set t_th_vs = states('sensor.fancoil_%%id%%_temp_delta_th_vs_internal') %}
-                  {% set t_th_cl = states('sensor.fancoil_%%id%%_temp_delta_th_internal') %}
-                  {% set t_th = t_th_vs if t_th_vs != 'unknown' else t_th_cl %}
-
-                  {% set h_th_vs = states('sensor.fancoil_%%id%%_hum_delta_th_vs_internal') %}
-                  {% set h_th_cl = states('sensor.fancoil_%%id%%_hum_delta_th_internal') %}
-                  {% set h_th = h_th_vs if h_th_vs != 'unknown' else h_th_cl %}
-
-                  {% set t_knx_vs = states('sensor.fancoil_%%id%%_temp_delta_knx_vs_ref') %}
-                  {% set t_knx_cl = states('sensor.fancoil_%%id%%_temp_delta_knx_th') %}
-                  {% set t_knx = t_knx_vs if t_knx_vs != 'unknown' else t_knx_cl %}
+                  {% set t_th = states('sensor.fancoil_%%id%%_temp_delta_th_internal') %}
+                  {% set h_th = states('sensor.fancoil_%%id%%_hum_delta_th_internal') %}
+                  {% set t_knx = states('sensor.fancoil_%%id%%_temp_delta_knx_th') %}
 
                   {% set dt = t_th if t_th != 'unknown' and t_th != 'unavailable' else t_knx %}
 

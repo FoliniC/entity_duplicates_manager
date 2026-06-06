@@ -247,9 +247,16 @@ def generate_from_template(template_path, output_dir, vars_map, suffix):
         # Prepare blocks if coherence template
         if "_coherence" in suffix:
             th_id = local_ctx.get("th_id", "")
+        # Prepare blocks if coherence template
+        if "_coherence" in suffix:
+            th_id = local_ctx.get("th_id", "")
+            hum_sensor = f"sensor.{th_id}_humidity" if th_id else ""
+            
+            # Check if humidity sensor exists in Home Assistant (by checking its entity name structure)
+            # Actually we just assume it exists if th_id is present, but let's be safe
             if th_id:
                 th_block = f"""- name: "Fancoil {friendly_name} Temp Delta TH Internal"
-  unique_id: fancoil_{room_id}_temp_delta_th_vs_internal
+  unique_id: fancoil_{room_id}_temp_delta_th_internal
   unit_of_measurement: "°C"
   state_class: measurement
   device_class: temperature
@@ -261,7 +268,7 @@ def generate_from_template(template_path, output_dir, vars_map, suffix):
     {{{{ is_number(states('sensor.{th_id}_temperature')) and is_number(states('sensor.fancoil_{room_id}_temperature')) }}}}
 
 - name: "Fancoil {friendly_name} Hum Delta TH Internal"
-  unique_id: fancoil_{room_id}_hum_delta_th_vs_internal
+  unique_id: fancoil_{room_id}_hum_delta_th_internal
   unit_of_measurement: "%"
   state_class: measurement
   device_class: humidity
@@ -271,17 +278,16 @@ def generate_from_template(template_path, output_dir, vars_map, suffix):
     {{{{ (s1 - s2) | abs | round(2) }}}}
   availability: >
     {{{{ is_number(states('sensor.{th_id}_humidity')) and is_number(states('sensor.fancoil_{room_id}_humidity')) }}}}"""
-                local_ctx["TH_COHERENCE_BLOCK"] = th_block
                 local_ctx["TH_COHERENCE_BLOCK_SENSOR"] = th_block
             else:
-                local_ctx["TH_COHERENCE_BLOCK"] = ""
                 local_ctx["TH_COHERENCE_BLOCK_SENSOR"] = ""
+
 
             knx_sensor = local_ctx.get("knx_temp_sensor", "")
             if knx_sensor:
                 ref_for_knx = f"sensor.{th_id}_temperature" if th_id else f"sensor.fancoil_{room_id}_temperature"
                 knx_block = f"""- name: "Fancoil {friendly_name} Temp Delta KNX TH"
-  unique_id: fancoil_{room_id}_temp_delta_knx_vs_ref
+  unique_id: fancoil_{room_id}_temp_delta_knx_th
   unit_of_measurement: "°C"
   state_class: measurement
   device_class: temperature
@@ -503,19 +509,33 @@ def generate_dashboard(vars_map):
         # We need two separate passes for coherence because they belong to different domains
         # We'll use coherence_cards for dashboard, and generate two separate files for HA
         coherence_cards.append(substitute_tags(coherence_tpl, {**local_ctx, **common_coherence_ctx}))
+        
+    coherence_cards_temp = []
+    coherence_cards_hum = []
+    with open("yaml_generator/templates/dashboard_coherence_temp_card.j2", "r") as f:
+        coherence_temp_tpl = f.read()
+    with open("yaml_generator/templates/dashboard_coherence_hum_card.j2", "r") as f:
+        coherence_hum_tpl = f.read()
+
+    for room_id, room_data in vars_map.items():
+        local_ctx = {**room_data}
+        coherence_cards_temp.append(substitute_tags(coherence_temp_tpl, {**local_ctx, **common_coherence_ctx}))
+        coherence_cards_hum.append(substitute_tags(coherence_hum_tpl, {**local_ctx, **common_coherence_ctx}))
 
     # Join the cards with the correct indentation
     termostati_section = "\n".join(termostati_cards)
     impostazioni_section = "\n".join(impostazioni_cards)
     room_subviews_section = "\n".join(room_subviews)
-    coherence_section = "\n".join(coherence_cards)
+    coherence_temp_section = "\n".join(coherence_cards_temp)
+    coherence_hum_section = "\n".join(coherence_cards_hum)
     
     # Substitute the placeholders in the main template
     final_dashboard = substitute_tags(main_tpl, common_main_ctx)
     final_dashboard = final_dashboard.replace("%%TERMOSTATI_CARDS%%", termostati_section)
     final_dashboard = final_dashboard.replace("%%IMPOSTAZIONI_CARDS%%", impostazioni_section)
     final_dashboard = final_dashboard.replace("%%ROOM_SUBVIEWS%%", room_subviews_section)
-    final_dashboard = final_dashboard.replace("%%COHERENCE_CARDS%%", coherence_section)
+    final_dashboard = final_dashboard.replace("%%COHERENCE_CARDS_TEMP%%", coherence_temp_section)
+    final_dashboard = final_dashboard.replace("%%COHERENCE_CARDS_HUM%%", coherence_hum_section)
 
     write_text_file(DASHBOARD_OUTPUT_FILE, final_dashboard)
     write_text_file(DASHBOARD_BACKUP_FILE, final_dashboard)

@@ -1,0 +1,12 @@
+              - type: custom:mushroom-template-card
+                primary: "%%friendly_name%%: {{ states('sensor.fancoil_%%id%%_sensors_coherence_status') }}"
+                secondary: >
+                  {% set h_th_id = 'sensor.fancoil_%%id%%_hum_delta_th_internal' %}
+                  {{ h_th_id }}: {{ states(h_th_id) }}
+                entity: binary_sensor.fancoil_%%id%%_sensors_coherence_error
+                icon: mdi:water-percent-alert
+                icon_color: >
+                  {% set dh = states('sensor.fancoil_%%id%%_hum_delta_th_internal') | float(-1) %}
+                  {{ 'red' if dh > 20.0 else 'green' if dh != -1 else 'grey' }}
+                tap_action:
+                  action: more-info

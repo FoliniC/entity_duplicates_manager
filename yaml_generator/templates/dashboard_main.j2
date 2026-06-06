@@ -523,25 +523,54 @@ views:
       - type: vertical-stack
         cards:
           - type: markdown
-            content: "### Monitoraggio Coerenza Sensori"
+            content: "### Monitoraggio Delta Temperatura"
           - type: grid
             columns: 2
             square: false
             cards:
-%%COHERENCE_CARDS%%
+%%COHERENCE_CARDS_TEMP%%
+
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "### Monitoraggio Delta Umidità (Tuya TH vs Internal)"
+          - type: grid
+            columns: 2
+            square: false
+            cards:
+%%COHERENCE_CARDS_HUM%%
+
       - type: vertical-stack
         cards:
           - type: markdown
             content: "### Analisi Scostamenti (Deltas)"
           - type: history-graph
             hours_to_show: 24
+            title: "Trend Delta Temperatura"
             entities:
-              - entity: sensor.fancoil_cucina_temp_delta_th_vs_internal
+              - entity: sensor.fancoil_cucina_temp_delta_th_internal
+                name: Delta Cucina (TH)
+              - entity: sensor.fancoil_camera_grande_temp_delta_th_internal
+                name: Delta C.Grande (TH)
+              - entity: sensor.fancoil_camera_temp_delta_th_internal
+                name: Delta Camera (TH)
+              - entity: sensor.fancoil_bagno_temp_delta_knx_th
+                name: Delta Bagno (KNX)
+              - entity: sensor.fancoil_sala_temp_delta_knx_th
+                name: Delta Sala (KNX)
+
+          - type: history-graph
+            hours_to_show: 24
+            title: "Trend Delta Umidità"
+            entities:
+              - entity: sensor.fancoil_cucina_hum_delta_th_internal
                 name: Delta Cucina
-              - entity: sensor.fancoil_camera_grande_temp_delta_th_vs_internal
-                name: Delta Camera Grande
-              - entity: sensor.fancoil_camera_temp_delta_th_vs_internal
+              - entity: sensor.fancoil_camera_grande_hum_delta_th_internal
+                name: Delta C.Grande
+              - entity: sensor.fancoil_camera_hum_delta_th_internal
                 name: Delta Camera
+              - entity: sensor.fancoil_corridoio_hum_delta_th_internal
+                name: Delta Corridoio
   - title: Climatizzazione
     path: climatizzazione
     icon: mdi:air-filter
