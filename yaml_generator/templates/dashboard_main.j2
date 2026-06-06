@@ -659,11 +659,10 @@ views:
                           tap_action: { action: more-info }
                           card_mod: *row_style
                         - type: custom:mushroom-template-card
-                          primary: "📡 Codice Meteo: {{ states('sensor.castionetto_weather_code') }}"
-                          entity: sensor.castionetto_weather_code
+                          primary: "📡 Meteo: {{ states('sensor.castionetto_weather_description') }}"
+                          entity: sensor.castionetto_weather_description
                           tap_action: { action: more-info }
                           card_mod: *row_style
-                  card_mod: *row_style
                   card_mod: *row_style
 
           - type: grid
