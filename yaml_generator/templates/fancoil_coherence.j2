@@ -11,19 +11,27 @@
 - name: "Fancoil %%friendly_name%% Sensors Coherence Status"
   unique_id: fancoil_%%id%%_sensors_coherence_status
   state: >
-    {% set t_delta = states('sensor.fancoil_%%id%%_temp_delta_th_internal') | float(None) %}
-    {% set h_delta = states('sensor.fancoil_%%id%%_hum_delta_th_internal') | float(None) %}
+    {% set t_th = states('sensor.fancoil_%%id%%_temp_delta_th_internal') | float(None) %}
+    {% set h_th = states('sensor.fancoil_%%id%%_hum_delta_th_internal') | float(None) %}
+    {% set t_knx = states('sensor.fancoil_%%id%%_temp_delta_knx_th') | float(None) %}
     
     {# Soglie di tolleranza ampie per via dei posizionamenti diversi #}
     {% set t_limit = 3.5 %}
     {% set h_limit = 20.0 %}
     
     {% set ns = namespace(problems=[]) %}
-    {% if t_delta is not none and t_delta > t_limit %}
-      {% set ns.problems = ns.problems + ['Temp Diverge (' ~ t_delta ~ '°C)'] %}
+    
+    {# TH vs Internal #}
+    {% if t_th is not none and t_th > t_limit %}
+      {% set ns.problems = ns.problems + ['Divergenza TH (' ~ t_th ~ '°C)'] %}
     {% endif %}
-    {% if h_delta is not none and h_delta > h_limit %}
-      {% set ns.problems = ns.problems + ['Hum Diverge (' ~ h_delta ~ '%)'] %}
+    {% if h_th is not none and h_th > h_limit %}
+      {% set ns.problems = ns.problems + ['Umidità TH (' ~ h_th ~ '%)'] %}
+    {% endif %}
+
+    {# KNX vs Ref #}
+    {% if t_knx is not none and t_knx > t_limit %}
+      {% set ns.problems = ns.problems + ['Divergenza KNX (' ~ t_knx ~ '°C)'] %}
     {% endif %}
     
     {% if ns.problems | length > 0 %}
