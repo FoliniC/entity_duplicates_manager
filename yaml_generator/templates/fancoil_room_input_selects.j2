@@ -9,17 +9,5 @@ fancoil_%%id%%_hvac_mode_local:
 
 fancoil_%%id%%_temp_source:
   name: "%%friendly_name%%: Sorgente Temperatura"
-  options: >
-    {% set options = [
-      "sensor.fancoil_%%id%%_temperature",
-      "%%ref_sensor%%",
-      "sensor.stox_fancoil_%%id%%_temperature"
-    ] %}
-    {% set ns = namespace(unique=[]) %}
-    {% for opt in options %}
-      {% if opt not in ns.unique and opt != '' %}
-        {% set ns.unique = ns.unique + [opt] %}
-      {% endif %}
-    {% endfor %}
-    {{ ns.unique }}
+  options: %%TEMP_SOURCE_OPTIONS%%
   icon: mdi:thermometer-lines

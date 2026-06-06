@@ -229,7 +229,21 @@ def generate_from_template(template_path, output_dir, vars_map, suffix):
         friendly_name = local_ctx.get("friendly_name", room_id.replace("_", " ").title())
         local_ctx["friendly_name"] = friendly_name
         local_ctx["id"] = room_id
-        
+
+        # Unique options for temp_source
+        opts = [
+            f"sensor.fancoil_{room_id}_temperature",
+            local_ctx.get("ref_sensor", ""),
+            f"sensor.stox_fancoil_{room_id}_temperature"
+        ]
+        unique_opts = []
+        for o in opts:
+            if o and o not in unique_opts:
+                unique_opts.append(o)
+
+        # Format as YAML list string
+        local_ctx["TEMP_SOURCE_OPTIONS"] = "[" + ", ".join([f'"{o}"' for o in unique_opts]) + "]"
+
         # Prepare blocks if coherence template
         if "_coherence" in suffix:
             th_id = local_ctx.get("th_id", "")

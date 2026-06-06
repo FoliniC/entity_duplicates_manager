@@ -182,7 +182,7 @@
   unit_of_measurement: "g/kg"
   state: >
     {% set T = states('sensor.temperatura_corridoio_reale_calcolata') | float(0) %}
-    {% set RH = states('sensor.fancoil_sala_humidity') | float(0) %}
+    {% set RH = states('sensor.fancoil_corridoio_humidity') | float(0) %}
     {% set psat = 610.78 * (2.718281828459 ** (17.27 * T / (T + 237.3))) %}
     {% set pvap = (RH / 100) * psat %}
     {{ (622 * pvap / (101325 - pvap)) | round(2) }}
@@ -192,7 +192,7 @@
   unit_of_measurement: "°C"
   state: >
     {% set T = states('sensor.temperatura_corridoio_reale_calcolata') | float(0) %}
-    {% set RH = states('sensor.fancoil_sala_humidity') | float(0) %}
+    {% set RH = states('sensor.fancoil_corridoio_humidity') | float(0) %}
     {{ (T - (100 - RH) / 5) | round(1) }}
 
 - name: "Comfort Evaluation Corridoio"
