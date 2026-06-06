@@ -529,7 +529,6 @@ views:
             square: false
             cards:
 %%COHERENCE_CARDS%%
-
       - type: vertical-stack
         cards:
           - type: markdown
@@ -537,11 +536,11 @@ views:
           - type: history-graph
             hours_to_show: 24
             entities:
-              - entity: sensor.fancoil_cucina_temp_delta_th_internal
+              - entity: sensor.fancoil_cucina_temp_delta_th_vs_internal
                 name: Delta Cucina
-              - entity: sensor.fancoil_camera_grande_temp_delta_th_internal
+              - entity: sensor.fancoil_camera_grande_temp_delta_th_vs_internal
                 name: Delta Camera Grande
-              - entity: sensor.fancoil_camera_temp_delta_th_internal
+              - entity: sensor.fancoil_camera_temp_delta_th_vs_internal
                 name: Delta Camera
   - title: Climatizzazione
     path: climatizzazione

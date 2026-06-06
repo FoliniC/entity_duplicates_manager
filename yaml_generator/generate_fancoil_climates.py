@@ -248,33 +248,29 @@ def generate_from_template(template_path, output_dir, vars_map, suffix):
         if "_coherence" in suffix:
             th_id = local_ctx.get("th_id", "")
             if th_id:
-                th_block = f"""- name: "Fancoil {friendly_name} Temp Delta (TH vs Internal)"
-  unique_id: fancoil_{room_id}_temp_delta_th_internal
+                th_block = f"""- name: "Fancoil {friendly_name} Temp Delta TH Internal"
+  unique_id: fancoil_{room_id}_temp_delta_th_vs_internal
   unit_of_measurement: "°C"
   state_class: measurement
   device_class: temperature
   state: >
-    {{% set s1 = states('sensor.{th_id}_temperature') | float(None) %}}
-    {{% set s2 = states('sensor.fancoil_{room_id}_temperature') | float(None) %}}
-    {{% if s1 is not none and s2 is not none %}}
-      {{{{ (s1 - s2) | abs | round(2) }}}}
-    {{% else %}}
-      unavailable
-    {{% endif %}}
+    {{% set s1 = states('sensor.{th_id}_temperature') | float(0) %}}
+    {{% set s2 = states('sensor.fancoil_{room_id}_temperature') | float(0) %}}
+    {{{{ (s1 - s2) | abs | round(2) }}}}
+  availability: >
+    {{{{ is_number(states('sensor.{th_id}_temperature')) and is_number(states('sensor.fancoil_{room_id}_temperature')) }}}}
 
-- name: "Fancoil {friendly_name} Hum Delta (TH vs Internal)"
-  unique_id: fancoil_{room_id}_hum_delta_th_internal
+- name: "Fancoil {friendly_name} Hum Delta TH Internal"
+  unique_id: fancoil_{room_id}_hum_delta_th_vs_internal
   unit_of_measurement: "%"
   state_class: measurement
   device_class: humidity
   state: >
-    {{% set s1 = states('sensor.{th_id}_humidity') | float(None) %}}
-    {{% set s2 = states('sensor.fancoil_{room_id}_humidity') | float(None) %}}
-    {{% if s1 is not none and s2 is not none %}}
-      {{{{ (s1 - s2) | abs | round(2) }}}}
-    {{% else %}}
-      unavailable
-    {{% endif %}}"""
+    {{% set s1 = states('sensor.{th_id}_humidity') | float(0) %}}
+    {{% set s2 = states('sensor.fancoil_{room_id}_humidity') | float(0) %}}
+    {{{{ (s1 - s2) | abs | round(2) }}}}
+  availability: >
+    {{{{ is_number(states('sensor.{th_id}_humidity')) and is_number(states('sensor.fancoil_{room_id}_humidity')) }}}}"""
                 local_ctx["TH_COHERENCE_BLOCK"] = th_block
                 local_ctx["TH_COHERENCE_BLOCK_SENSOR"] = th_block
             else:
@@ -284,19 +280,17 @@ def generate_from_template(template_path, output_dir, vars_map, suffix):
             knx_sensor = local_ctx.get("knx_temp_sensor", "")
             if knx_sensor:
                 ref_for_knx = f"sensor.{th_id}_temperature" if th_id else f"sensor.fancoil_{room_id}_temperature"
-                knx_block = f"""- name: "Fancoil {friendly_name} Temp Delta (KNX vs Ref)"
-  unique_id: fancoil_{room_id}_temp_delta_knx_th
+                knx_block = f"""- name: "Fancoil {friendly_name} Temp Delta KNX TH"
+  unique_id: fancoil_{room_id}_temp_delta_knx_vs_ref
   unit_of_measurement: "°C"
   state_class: measurement
   device_class: temperature
   state: >
-    {{% set s1 = states('{knx_sensor}') | float(None) %}}
-    {{% set s2 = states('{ref_for_knx}') | float(None) %}}
-    {{% if s1 is not none and s2 is not none %}}
-      {{{{ (s1 - s2) | abs | round(2) }}}}
-    {{% else %}}
-      unavailable
-    {{% endif %}}"""
+    {{% set s1 = states('{knx_sensor}') | float(0) %}}
+    {{% set s2 = states('{ref_for_knx}') | float(0) %}}
+    {{{{ (s1 - s2) | abs | round(2) }}}}
+  availability: >
+    {{{{ is_number(states('{knx_sensor}')) and is_number(states('{ref_for_knx}')) }}}}"""
                 local_ctx["KNX_COHERENCE_BLOCK"] = knx_block
                 local_ctx["KNX_COHERENCE_BLOCK_SENSOR"] = knx_block
             else:
