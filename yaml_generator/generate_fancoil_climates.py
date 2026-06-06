@@ -411,10 +411,10 @@ def generate_dashboard(vars_map):
         else:
             local_ctx["knx_row"] = ""
 
-        # Prepare Coherence Blocks
+    # Prepare Coherence Blocks (Sensor definitions only)
         th_id = local_ctx.get("th_id", "")
         if th_id:
-            local_ctx["TH_COHERENCE_BLOCK"] = f"""- name: "Fancoil {friendly_name} Temp Delta (TH vs Internal)"
+            local_ctx["TH_COHERENCE_BLOCK_SENSOR"] = f"""- name: "Fancoil {friendly_name} Temp Delta (TH vs Internal)"
   unique_id: fancoil_{room_id}_temp_delta_th_internal
   unit_of_measurement: "°C"
   state_class: measurement
@@ -442,12 +442,12 @@ def generate_dashboard(vars_map):
       unavailable
     {{% endif %}}"""
         else:
-            local_ctx["TH_COHERENCE_BLOCK"] = ""
+            local_ctx["TH_COHERENCE_BLOCK_SENSOR"] = ""
 
         knx_sensor = local_ctx.get("knx_temp_sensor", "")
         if knx_sensor:
             ref_for_knx = f"sensor.{th_id}_temperature" if th_id else f"sensor.fancoil_{room_id}_temperature"
-            local_ctx["KNX_COHERENCE_BLOCK"] = f"""- name: "Fancoil {friendly_name} Temp Delta (KNX vs Ref)"
+            local_ctx["KNX_COHERENCE_BLOCK_SENSOR"] = f"""- name: "Fancoil {friendly_name} Temp Delta (KNX vs Ref)"
   unique_id: fancoil_{room_id}_temp_delta_knx_th
   unit_of_measurement: "°C"
   state_class: measurement
@@ -461,11 +461,14 @@ def generate_dashboard(vars_map):
       unavailable
     {{% endif %}}"""
         else:
-            local_ctx["KNX_COHERENCE_BLOCK"] = ""
+            local_ctx["KNX_COHERENCE_BLOCK_SENSOR"] = ""
 
         termostati_cards.append(substitute_tags(termostati_tpl, {**local_ctx, **common_termostati_ctx}))
         impostazioni_cards.append(substitute_tags(impostazioni_tpl, {**local_ctx, **common_impostazioni_ctx}))
         room_subviews.append(substitute_tags(room_details_tpl, {**local_ctx, **common_room_details_ctx}))
+        
+        # We need two separate passes for coherence because they belong to different domains
+        # We'll use coherence_cards for dashboard, and generate two separate files for HA
         coherence_cards.append(substitute_tags(coherence_tpl, {**local_ctx, **common_coherence_ctx}))
 
     # Join the cards with the correct indentation

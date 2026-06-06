@@ -35,11 +35,12 @@
     managed_by: yaml_generator
     room: "%%friendly_name%%"
 
-- name: "Fancoil %%friendly_name%% Sensors Coherence Error"
-  unique_id: fancoil_%%id%%_sensors_coherence_error
-  device_class: problem
-  state: >
-    {{ not is_state('sensor.fancoil_%%id%%_sensors_coherence_status', 'Coerente') }}
-  attributes:
-    managed_by: yaml_generator
-    room: "%%friendly_name%%"
+binary_sensor:
+  - name: "Fancoil %%friendly_name%% Sensors Coherence Error"
+    unique_id: fancoil_%%id%%_sensors_coherence_error
+    device_class: problem
+    state: >
+      {{ not is_state('sensor.fancoil_%%id%%_sensors_coherence_status', 'Coerente') }}
+    attributes:
+      managed_by: yaml_generator
+      room: "%%friendly_name%%"
