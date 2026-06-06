@@ -1,8 +1,7 @@
-# File: __init__.py
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
+import asyncio
 from .api import SAICMGAPIClient
 from .coordinator import SAICMGDataUpdateCoordinator
 from .const import DOMAIN, LOGGER, PLATFORMS
@@ -10,7 +9,14 @@ from .services import async_setup_services, async_unload_services
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
-    """Set up MG SAIC from a config entry."""
+    """Set up MG SAIC from a config entry with a startup delay."""
+    LOGGER.info("MG SAIC: Waiting 30 seconds before starting setup to avoid boot delay.")
+    await asyncio.sleep(30)
+    return await _async_setup_entry(hass, entry)
+
+
+async def _async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
+    """Actual setup implementation."""
     hass.data.setdefault(DOMAIN, {})
 
     username = entry.data["username"]
@@ -31,12 +37,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     try:
         await client.login()
 
-        # Fetch vehicle info to get the VIN
         if not vin:
             LOGGER.error("No VIN specified in Config Entry")
             return False
 
-        # Verify the VIN belongs to the account
         vehicles = await client.get_vehicle_info()
         if not any(v.vin == vin for v in vehicles):
             LOGGER.error("VIN %s not found in account vehicles", vin)
@@ -52,17 +56,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             raise ConfigEntryNotReady(f"Timeout or connection error during coordinator setup: {e}") from e
 
         hass.data[DOMAIN][f"{entry.entry_id}_coordinator"] = coordinator
-
-        # Store coordinator by VIN for data refresh after service calls
         hass.data[DOMAIN].setdefault("coordinators_by_vin", {})
         hass.data[DOMAIN]["coordinators_by_vin"][vin] = coordinator
 
-        # Register an update listener to handle options updates
         entry.async_on_unload(entry.add_update_listener(update_listener))
 
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
-        # Register Services
         await async_setup_services(hass, client, coordinator)
 
         LOGGER.info("MG SAIC integration setup completed successfully.")
@@ -71,8 +70,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         raise
     except Exception as e:
         LOGGER.error("Failed to set up MG SAIC integration: %s", e)
-        # Se è un errore di connessione/login durante il boot, usiamo ConfigEntryNotReady
-        # per evitare di bloccare HA e permettere il retry automatico.
         raise ConfigEntryNotReady(f"Error connecting to SAIC services: {e}") from e
 
 
@@ -87,8 +84,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id)
-
-        # If there are no more entries, unload services
         if not hass.data[DOMAIN]:
             await async_unload_services(hass)
 

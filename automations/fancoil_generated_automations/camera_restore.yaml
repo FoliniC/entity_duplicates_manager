@@ -11,18 +11,20 @@
         options: >-
           {% set history = states('sensor.fancoil_camera_temp_sources_history') %}
           {% set defaults = ['sensor.fancoil_camera_temperature'] %}
-          {% if "sensor.th3c_temperature" != "%%" ~ "ref_sensor" ~ "%%" and "sensor.th3c_temperature" != "" %}
+          {% if "sensor.th3c_temperature" != "" %}
             {% set defaults = defaults + ["sensor.th3c_temperature"] %}
           {% endif %}
-          {% if "sensor.temperatura_camera" != "%%" ~ "knx_temp_sensor" ~ "%%" and "sensor.temperatura_camera" != "" %}
-            {% set defaults = defaults + ["sensor.temperatura_camera"] %}
-          {% endif %}
+          {% set defaults = defaults + ["sensor.stox_fancoil_camera_temperature"] %}
 
-          {% if history not in ['unavailable', 'unknown', None] and history != "" %}
-            {{ history.split(',') }}
-          {% else %}
-            {{ defaults }}
-          {% endif %}
+          {% set all_opts = history.split(',') if (history not in ['unavailable', 'unknown', None] and history != "") else defaults %}
+
+          {% set ns = namespace(unique=[]) %}
+          {% for opt in all_opts %}
+            {% if opt | trim != '' and opt | trim not in ns.unique %}
+              {% set ns.unique = ns.unique + [opt | trim] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.unique }}
 
     # 2. Ripristina la selezione specifica
     - action: input_select.select_option
@@ -46,7 +48,15 @@
       target:
         entity_id: input_select.fancoil_camera_temp_source
       data:
-        options: "{{ states('sensor.fancoil_camera_temp_sources_history').split(',') }}"
+        options: >-
+          {% set all_opts = states('sensor.fancoil_camera_temp_sources_history').split(',') %}
+          {% set ns = namespace(unique=[]) %}
+          {% for opt in all_opts %}
+            {% if opt | trim != '' and opt | trim not in ns.unique %}
+              {% set ns.unique = ns.unique + [opt | trim] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.unique }}
 
 - alias: "Camera: Handle New Sensor Added"
   trigger:

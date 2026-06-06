@@ -248,7 +248,7 @@ def generate_from_template(template_path, output_dir, vars_map, suffix):
         if "_coherence" in suffix:
             th_id = local_ctx.get("th_id", "")
             if th_id:
-                local_ctx["TH_COHERENCE_BLOCK"] = f"""- name: "Fancoil {friendly_name} Temp Delta (TH vs Internal)"
+                th_block = f"""- name: "Fancoil {friendly_name} Temp Delta (TH vs Internal)"
   unique_id: fancoil_{room_id}_temp_delta_th_internal
   unit_of_measurement: "°C"
   state_class: measurement
@@ -275,13 +275,16 @@ def generate_from_template(template_path, output_dir, vars_map, suffix):
     {{% else %}}
       unavailable
     {{% endif %}}"""
+                local_ctx["TH_COHERENCE_BLOCK"] = th_block
+                local_ctx["TH_COHERENCE_BLOCK_SENSOR"] = th_block
             else:
                 local_ctx["TH_COHERENCE_BLOCK"] = ""
+                local_ctx["TH_COHERENCE_BLOCK_SENSOR"] = ""
 
             knx_sensor = local_ctx.get("knx_temp_sensor", "")
             if knx_sensor:
                 ref_for_knx = f"sensor.{th_id}_temperature" if th_id else f"sensor.fancoil_{room_id}_temperature"
-                local_ctx["KNX_COHERENCE_BLOCK"] = f"""- name: "Fancoil {friendly_name} Temp Delta (KNX vs Ref)"
+                knx_block = f"""- name: "Fancoil {friendly_name} Temp Delta (KNX vs Ref)"
   unique_id: fancoil_{room_id}_temp_delta_knx_th
   unit_of_measurement: "°C"
   state_class: measurement
@@ -294,11 +297,16 @@ def generate_from_template(template_path, output_dir, vars_map, suffix):
     {{% else %}}
       unavailable
     {{% endif %}}"""
+                local_ctx["KNX_COHERENCE_BLOCK"] = knx_block
+                local_ctx["KNX_COHERENCE_BLOCK_SENSOR"] = knx_block
             else:
                 local_ctx["KNX_COHERENCE_BLOCK"] = ""
+                local_ctx["KNX_COHERENCE_BLOCK_SENSOR"] = ""
         else:
             local_ctx["TH_COHERENCE_BLOCK"] = ""
+            local_ctx["TH_COHERENCE_BLOCK_SENSOR"] = ""
             local_ctx["KNX_COHERENCE_BLOCK"] = ""
+            local_ctx["KNX_COHERENCE_BLOCK_SENSOR"] = ""
 
         # Render
         final_ctx = {**local_ctx, **common_ctx}
@@ -376,8 +384,25 @@ def generate_master_and_rooms(
 
     room_text = read_template(room_template_path)
     common_room_ctx = get_common_context(room_template_path)
-    for _, context in vars_map.items():
+    for key, context in vars_map.items():
+        # Setup local context
         local_room_ctx = {**context, **common_room_ctx}
+        room_id = local_room_ctx.get("id", key)
+        
+        # Unique options for temp_source
+        opts = [
+            f"sensor.fancoil_{room_id}_temperature",
+            local_room_ctx.get("ref_sensor", ""),
+            f"sensor.stox_fancoil_{room_id}_temperature"
+        ]
+        unique_opts = []
+        for o in opts:
+            if o and o not in unique_opts:
+                unique_opts.append(o)
+        
+        # Format as YAML list string
+        local_room_ctx["TEMP_SOURCE_OPTIONS"] = "[" + ", ".join([f'"{o}"' for o in unique_opts]) + "]"
+
         append_text_file(
             output_file, substitute_tags(room_text, local_room_ctx).strip() + "\n"
         )

@@ -11,7 +11,7 @@
     {% set pvap = (RH / 100) * psat %}
     {{ (622 * pvap / (101325 - pvap)) | round(2) }}
 
-- name: "Punto di Rugiada Esterno"
+- name: "T_dew Esterno"
   unique_id: punto_di_rugiada_esterno
   unit_of_measurement: "°C"
   state: >
@@ -28,7 +28,7 @@
     {% set pvap = (RH / 100) * psat %}
     {{ (622 * pvap / (101325 - pvap)) | round(2) }}
 
-- name: "Punto di Rugiada Cucina"
+- name: "T_dew Cucina"
   unique_id: punto_di_rugiada_cucina
   unit_of_measurement: "°C"
   state: >
@@ -81,7 +81,7 @@
     {% set pvap = (RH / 100) * psat %}
     {{ (622 * pvap / (101325 - pvap)) | round(2) }}
 
-- name: "Punto di Rugiada Camera Grande"
+- name: "T_dew Camera Grande"
   unique_id: punto_di_rugiada_camera_grande
   unit_of_measurement: "°C"
   state: >
@@ -134,7 +134,7 @@
     {% set pvap = (RH / 100) * psat %}
     {{ (622 * pvap / (101325 - pvap)) | round(2) }}
 
-- name: "Punto di Rugiada Camera"
+- name: "T_dew Camera"
   unique_id: punto_di_rugiada_camera
   unit_of_measurement: "°C"
   state: >
@@ -187,7 +187,7 @@
     {% set pvap = (RH / 100) * psat %}
     {{ (622 * pvap / (101325 - pvap)) | round(2) }}
 
-- name: "Punto di Rugiada Corridoio"
+- name: "T_dew Corridoio"
   unique_id: punto_di_rugiada_corridoio
   unit_of_measurement: "°C"
   state: >
@@ -240,7 +240,7 @@
     {% set pvap = (RH / 100) * psat %}
     {{ (622 * pvap / (101325 - pvap)) | round(2) }}
 
-- name: "Punto di Rugiada Bagno"
+- name: "T_dew Bagno"
   unique_id: punto_di_rugiada_bagno
   unit_of_measurement: "°C"
   state: >
@@ -293,7 +293,7 @@
     {% set pvap = (RH / 100) * psat %}
     {{ (622 * pvap / (101325 - pvap)) | round(2) }}
 
-- name: "Punto di Rugiada Sala"
+- name: "T_dew Sala"
   unique_id: punto_di_rugiada_sala
   unit_of_measurement: "°C"
   state: >
