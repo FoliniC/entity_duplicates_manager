@@ -1,18 +1,28 @@
               - type: custom:mushroom-template-card
                 primary: "%%friendly_name%%: {{ states('sensor.fancoil_%%id%%_sensors_coherence_status') }}"
                 secondary: >
+                  {% set t_th_id = 'sensor.fancoil_%%id%%_temp_delta_th_internal' %}
+                  {% set h_th_id = 'sensor.fancoil_%%id%%_hum_delta_th_internal' %}
+                  {% set t_knx_id = 'sensor.fancoil_%%id%%_temp_delta_knx_th' %}
                   {% set t_th = states('sensor.fancoil_%%id%%_temp_delta_th_internal') %}
                   {% set h_th = states('sensor.fancoil_%%id%%_hum_delta_th_internal') %}
                   {% set t_knx = states('sensor.fancoil_%%id%%_temp_delta_knx_th') %}
+                  {% set t_th_change = state_attr(t_th_id, 'delta_change') %}
+                  {% set h_th_change = state_attr(h_th_id, 'delta_change') %}
+                  {% set t_knx_change = state_attr(t_knx_id, 'delta_change') %}
 
                   {% set dt = t_th if t_th != 'unknown' and t_th != 'unavailable' else t_knx %}
 
                   Delta T: {{ dt ~ '°C' if (dt != 'unknown' and dt != 'unavailable') else 'N/A' }}
+                  {{ '| Var T TH: ' ~ t_th_change if t_th_change is not none else '' }}
+                  {{ '| Var T KNX: ' ~ t_knx_change if t_knx_change is not none else '' }}
                   {{ '| Delta H: ' ~ h_th ~ '%' if (h_th != 'unknown' and h_th != 'unavailable') else '' }}
+                  {{ '| Var H: ' ~ h_th_change if h_th_change is not none else '' }}
                 entity: binary_sensor.fancoil_%%id%%_sensors_coherence_error
                 icon: >
                   {{ 'mdi:alert-circle' if is_state('binary_sensor.fancoil_%%id%%_sensors_coherence_error', 'on') else 'mdi:check-circle' }}
                 icon_color: >
-                  {{ 'red' if is_state('binary_sensor.fancoil_%%id%%_sensors_coherence_error', 'on') else 'green' }}
+                  {% set st = states('sensor.fancoil_%%id%%_sensors_coherence_status') %}
+                  {{ 'red' if is_state('binary_sensor.fancoil_%%id%%_sensors_coherence_error', 'on') else 'grey' if st == 'Nessun confronto' else 'green' }}
                 tap_action:
                   action: more-info

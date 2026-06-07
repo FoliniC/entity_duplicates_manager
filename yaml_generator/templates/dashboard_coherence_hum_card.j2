@@ -2,11 +2,13 @@
                 primary: "%%friendly_name%%: {{ states('sensor.fancoil_%%id%%_sensors_coherence_status') }}"
                 secondary: >
                   {% set h_th_id = 'sensor.fancoil_%%id%%_hum_delta_th_internal' %}
-                  {{ h_th_id }}: {{ states(h_th_id) }}
+                  {% set h_th = states(h_th_id) %}
+                  {% set h_change = state_attr(h_th_id, 'delta_change') %}
+                  TH-Fancoil: {{ h_th if h_th not in ['unknown','unavailable'] else 'N/A' }}{{ '%' if h_th not in ['unknown','unavailable'] else '' }} | var={{ h_change if h_change is not none else 'N/A' }}
                 entity: binary_sensor.fancoil_%%id%%_sensors_coherence_error
                 icon: mdi:water-percent-alert
                 icon_color: >
-                  {% set dh = states('sensor.fancoil_%%id%%_hum_delta_th_internal') | float(-1) %}
-                  {{ 'red' if dh > 20.0 else 'green' if dh != -1 else 'grey' }}
+                  {% set st = states('sensor.fancoil_%%id%%_sensors_coherence_status') %}
+                  {{ 'red' if is_state('binary_sensor.fancoil_%%id%%_sensors_coherence_error', 'on') else 'grey' if st == 'Nessun confronto' else 'green' }}
                 tap_action:
                   action: more-info

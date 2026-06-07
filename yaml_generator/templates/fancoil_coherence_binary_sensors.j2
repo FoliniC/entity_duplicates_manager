@@ -9,7 +9,7 @@
   unique_id: fancoil_%%id%%_sensors_coherence_error
   device_class: problem
   state: >
-    {{ not is_state('sensor.fancoil_%%id%%_sensors_coherence_status', 'Coerente') }}
+    {{ states('sensor.fancoil_%%id%%_sensors_coherence_status') not in ['Coerente', 'Nessun confronto'] }}
   attributes:
     managed_by: yaml_generator
     room: "%%friendly_name%%"
