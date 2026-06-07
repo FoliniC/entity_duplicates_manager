@@ -290,7 +290,7 @@ def generate_from_template(template_path, output_dir, vars_map, suffix):
             if th_id:
                 temp_block = build_delta_sensor_block(
                     f"Fancoil {friendly_name} Temp Delta TH Internal",
-                    f"fancoil_{room_id}_temp_delta_th_internal",
+                    f"fancoil_{room_id}_temp_delta_th_vs_internal",
                     "°C",
                     "temperature",
                     f"sensor.{th_id}_temperature",
@@ -298,7 +298,7 @@ def generate_from_template(template_path, output_dir, vars_map, suffix):
                 )
                 hum_block = build_delta_sensor_block(
                     f"Fancoil {friendly_name} Hum Delta TH Internal",
-                    f"fancoil_{room_id}_hum_delta_th_internal",
+                    f"fancoil_{room_id}_hum_delta_th_vs_internal",
                     "%",
                     "humidity",
                     f"sensor.{th_id}_humidity",
@@ -312,8 +312,8 @@ def generate_from_template(template_path, output_dir, vars_map, suffix):
             if knx_sensor:
                 ref_for_knx = f"sensor.{th_id}_temperature" if th_id else f"sensor.fancoil_{room_id}_temperature"
                 knx_block = build_delta_sensor_block(
-                    f"Fancoil {friendly_name} Temp Delta KNX Ref",
-                    f"fancoil_{room_id}_temp_delta_knx_th",
+                    f"Fancoil {friendly_name} Temp Delta KNX TH",
+                    f"fancoil_{room_id}_temp_delta_knx_vs_ref",
                     "°C",
                     "temperature",
                     knx_sensor,
@@ -476,7 +476,7 @@ def generate_dashboard(vars_map):
         th_id = local_ctx.get("th_id", "")
         if th_id:
             local_ctx["TH_COHERENCE_BLOCK_SENSOR"] = f"""- name: "Fancoil {friendly_name} Temp Delta (TH vs Internal)"
-  unique_id: fancoil_{room_id}_temp_delta_th_internal
+  unique_id: fancoil_{room_id}_temp_delta_th_vs_internal
   unit_of_measurement: "°C"
   state_class: measurement
   device_class: temperature
@@ -490,7 +490,7 @@ def generate_dashboard(vars_map):
     {{% endif %}}
 
 - name: "Fancoil {friendly_name} Hum Delta (TH vs Internal)"
-  unique_id: fancoil_{room_id}_hum_delta_th_internal
+  unique_id: fancoil_{room_id}_hum_delta_th_vs_internal
   unit_of_measurement: "%"
   state_class: measurement
   device_class: humidity
@@ -509,7 +509,7 @@ def generate_dashboard(vars_map):
         if knx_sensor:
             ref_for_knx = f"sensor.{th_id}_temperature" if th_id else f"sensor.fancoil_{room_id}_temperature"
             local_ctx["KNX_COHERENCE_BLOCK_SENSOR"] = f"""- name: "Fancoil {friendly_name} Temp Delta (KNX vs Ref)"
-  unique_id: fancoil_{room_id}_temp_delta_knx_th
+  unique_id: fancoil_{room_id}_temp_delta_knx_vs_ref
   unit_of_measurement: "°C"
   state_class: measurement
   device_class: temperature

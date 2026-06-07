@@ -1,5 +1,5 @@
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, CoreState
 from homeassistant.exceptions import ConfigEntryNotReady
 import asyncio
 from .api import SAICMGAPIClient
@@ -10,8 +10,13 @@ from .services import async_setup_services, async_unload_services
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up MG SAIC from a config entry with a startup delay."""
-    LOGGER.info("MG SAIC: Waiting 30 seconds before starting setup to avoid boot delay.")
-    await asyncio.sleep(30)
+    # Check if Home Assistant is still starting.
+    # If it is, we raise ConfigEntryNotReady to avoid blocking the boot process.
+    # Home Assistant will automatically retry the setup later.
+    if hass.state != CoreState.running:
+        LOGGER.info("MG SAIC: Home Assistant is not yet fully started (state: %s), deferring setup to avoid blocking startup.", hass.state)
+        raise ConfigEntryNotReady(f"Deferred setup until Home Assistant is fully started (Current state: {hass.state}).")
+
     return await _async_setup_entry(hass, entry)
 
 
@@ -35,37 +40,44 @@ async def _async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     )
 
     try:
-        await client.login()
+        # Wrap the whole setup in a timeout to avoid blocking the event loop
+        # if the cloud services are unresponsive.
+        # Using 30 seconds to be faster than HA's default timeout (60s).
+        async with asyncio.timeout(30):
+            await client.login()
 
-        if not vin:
-            LOGGER.error("No VIN specified in Config Entry")
-            return False
+            if not vin:
+                LOGGER.error("No VIN specified in Config Entry")
+                return False
 
-        vehicles = await client.get_vehicle_info()
-        if not any(v.vin == vin for v in vehicles):
-            LOGGER.error("VIN %s not found in account vehicles", vin)
-            return False
+            vehicles = await client.get_vehicle_info()
+            if not any(v.vin == vin for v in vehicles):
+                LOGGER.error("VIN %s not found in account vehicles", vin)
+                return False
 
-        hass.data[DOMAIN][entry.entry_id] = client
+            hass.data[DOMAIN][entry.entry_id] = client
 
-        coordinator = SAICMGDataUpdateCoordinator(hass, client, entry)
-        try:
-            await coordinator.async_setup()
-        except Exception as e:
-            LOGGER.warning("Coordinator setup failed, retrying later: %s", e)
-            raise ConfigEntryNotReady(f"Timeout or connection error during coordinator setup: {e}") from e
+            coordinator = SAICMGDataUpdateCoordinator(hass, client, entry)
+            try:
+                await coordinator.async_setup()
+            except Exception as e:
+                LOGGER.warning("Coordinator setup failed, retrying later: %s", e)
+                raise ConfigEntryNotReady(f"Timeout or connection error during coordinator setup: {e}") from e
 
-        hass.data[DOMAIN][f"{entry.entry_id}_coordinator"] = coordinator
-        hass.data[DOMAIN].setdefault("coordinators_by_vin", {})
-        hass.data[DOMAIN]["coordinators_by_vin"][vin] = coordinator
+            hass.data[DOMAIN][f"{entry.entry_id}_coordinator"] = coordinator
+            hass.data[DOMAIN].setdefault("coordinators_by_vin", {})
+            hass.data[DOMAIN]["coordinators_by_vin"][vin] = coordinator
 
-        entry.async_on_unload(entry.add_update_listener(update_listener))
+            entry.async_on_unload(entry.add_update_listener(update_listener))
 
-        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-        await async_setup_services(hass, client, coordinator)
+            await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+            await async_setup_services(hass, client, coordinator)
 
-        LOGGER.info("MG SAIC integration setup completed successfully.")
-        return True
+            LOGGER.info("MG SAIC integration setup completed successfully.")
+            return True
+    except (asyncio.TimeoutError, asyncio.CancelledError) as e:
+        LOGGER.warning("MG SAIC: Setup timed out or was cancelled, retrying later. This is expected if the cloud is slow or HA is restarting.")
+        raise ConfigEntryNotReady(f"Timeout or cancellation during SAIC services connection: {e}") from e
     except ConfigEntryNotReady:
         raise
     except Exception as e:

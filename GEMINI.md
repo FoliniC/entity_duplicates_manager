@@ -29,6 +29,10 @@ action:
 - Logs can be searched for `custom_components.window_alert` in the standard HA log.
 - Conditions include a thermal delta check (> 5°C difference with `sensor.temperatura_strenscia`).
 
+### MG SAIC Integration:
+- **Startup Resilience**: The integration is configured to avoid blocking HA startup. If the cloud is unreachable during boot, it uses `ConfigEntryNotReady` to defer setup.
+- **Persistent Fix**: Do not replace the `CoreState.starting` check with `asyncio.sleep` as it blocks the boot sequence.
+
 ## 🚀 Deployment Info
 - Backup script: `/usr/local/bin/ha_gh_backup` (managed by `ha-gh-backup.timer`).
 - Authentication: Root SSH key (`/root/.ssh/id_rsa`).
