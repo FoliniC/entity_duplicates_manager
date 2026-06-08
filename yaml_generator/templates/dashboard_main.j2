@@ -504,71 +504,76 @@ views:
   - title: Informazioni
     path: riscaldamento-info
     badges: []
+    panel: true
     cards:
-      - graph: line
-        type: sensor
-        entity: sensor.temperatura_circuito_riscaldamento
-        detail: 2
-      - type: entities
-        entities:
-          - entity: sensor.temperatura_acqua_calda
-          - entity: sensor.temperatura_circuito_riscaldamento
-          - entity: binary_sensor.pdc_heating
-          - entity: binary_sensor.pdc_acqua_calda
-          - entity: binary_sensor.pdc_cooling
-          - entity: binary_sensor.pdc_standby
-          - entity: binary_sensor.pdc_acqua_calda
-          - entity: sensor.temperatura_strenscia
-
-      - type: vertical-stack
+      - type: grid
+        columns: 2
+        square: false
         cards:
-          - type: markdown
-            content: "### Monitoraggio Delta Temperatura"
-          - type: grid
-            columns: 2
-            square: false
-            cards:
-%%COHERENCE_CARDS_TEMP%%
-
-      - type: vertical-stack
-        cards:
-          - type: markdown
-            content: "### Monitoraggio Delta Umidità (Tuya TH vs Internal)"
-          - type: grid
-            columns: 2
-            square: false
-            cards:
-%%COHERENCE_CARDS_HUM%%
-
-      - type: vertical-stack
-        cards:
-          - type: markdown
-            content: "### Analisi Scostamenti (Deltas)"
-          - type: history-graph
-            hours_to_show: 24
-            title: "Trend Delta Temperatura"
+          - graph: line
+            type: sensor
+            entity: sensor.temperatura_circuito_riscaldamento
+            detail: 2
+          - type: entities
             entities:
-              - entity: sensor.fancoil_cucina_temp_delta_th_internal
-                name: Delta Cucina (TH)
-              - entity: sensor.fancoil_camera_grande_temp_delta_th_internal
-                name: Delta C.Grande (TH)
-              - entity: sensor.fancoil_camera_temp_delta_th_internal
-                name: Delta Camera (TH)
-              - entity: sensor.fancoil_bagno_temp_delta_knx_th
-                name: Delta Bagno (KNX)
-              - entity: sensor.fancoil_sala_temp_delta_knx_th
-                name: Delta Sala (KNX)
+              - entity: sensor.temperatura_acqua_calda
+              - entity: sensor.temperatura_circuito_riscaldamento
+              - entity: binary_sensor.pdc_heating
+              - entity: binary_sensor.pdc_acqua_calda
+              - entity: binary_sensor.pdc_cooling
+              - entity: binary_sensor.pdc_standby
+              - entity: binary_sensor.pdc_acqua_calda
+              - entity: sensor.temperatura_strenscia
 
-          - type: history-graph
-            hours_to_show: 24
-            title: "Trend Delta Umidità"
-            entities:
-              - entity: sensor.fancoil_cucina_hum_delta_th_internal
-                name: Delta Cucina
-              - entity: sensor.fancoil_camera_grande_hum_delta_th_internal
-                name: Delta C.Grande
-              - entity: sensor.fancoil_camera_hum_delta_th_internal
-                name: Delta Camera
+          - type: vertical-stack
+            cards:
+              - type: markdown
+                content: "### Monitoraggio Delta Temperatura"
+              - type: grid
+                columns: 2
+                square: false
+                cards:
+    %%COHERENCE_CARDS_TEMP%%
+
+          - type: vertical-stack
+            cards:
+              - type: markdown
+                content: "### Monitoraggio Delta Umidità (Tuya TH vs Internal)"
+              - type: grid
+                columns: 2
+                square: false
+                cards:
+    %%COHERENCE_CARDS_HUM%%
+
+          - type: vertical-stack
+            cards:
+              - type: markdown
+                content: "### Analisi Scostamenti (Deltas)"
+              - type: history-graph
+                hours_to_show: 24
+                title: "Trend Delta Temperatura"
+                entities:
+                  - entity: sensor.fancoil_cucina_temp_delta_th_internal
+                    name: Delta Cucina (TH)
+                  - entity: sensor.fancoil_camera_grande_temp_delta_th_internal
+                    name: Delta C.Grande (TH)
+                  - entity: sensor.fancoil_camera_temp_delta_th_internal
+                    name: Delta Camera (TH)
+                  - entity: sensor.fancoil_bagno_temp_delta_knx_th
+                    name: Delta Bagno (KNX)
+                  - entity: sensor.fancoil_sala_temp_delta_knx_th
+                    name: Delta Sala (KNX)
+
+              - type: history-graph
+                hours_to_show: 24
+                title: "Trend Delta Umidità"
+                entities:
+                  - entity: sensor.fancoil_cucina_hum_delta_th_internal
+                    name: Delta Cucina
+                  - entity: sensor.fancoil_camera_grande_hum_delta_th_internal
+                    name: Delta C.Grande
+                  - entity: sensor.fancoil_camera_hum_delta_th_internal
+                    name: Delta Camera
   - title: Climatizzazione
     path: climatizzazione
     icon: mdi:air-filter
