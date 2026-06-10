@@ -17,22 +17,113 @@ views:
                   Analisi automatica della linea.
                   
                   ---
-                  🚀 **Boost Mode**: Aumenta la frequenza di campionamento (configurabile).
-                  *Ottimizzato con SSH Multiplexing: la connessione resta aperta per tutta la durata del boost riducendo il carico sul router.*
+                  🚀 **Boost Mode**: Monitoraggio rapido configurabile.
+                  *Ottimizzato con SSH Multiplexing per il minimo carico.*
                 card_mod:
                   style: |
                     ha-card { user-select: text !important; }
 
-              - type: entities
-                entities:
-                  - entity: input_number.network_boost_duration
-                    name: "Durata Boost (sec)"
-                  - entity: input_number.network_boost_interval
-                    name: "Frequenza Boost (sec)"
-                  - entity: input_button.start_network_boost
-                    name: "Avvia Monitoraggio Rapido"
+              - type: vertical-stack
+                cards:
+                  - type: entities
+                    entities:
+                      - entity: input_number.network_boost_duration
+                        name: "Durata Boost (sec)"
+                      - entity: input_number.network_boost_interval
+                        name: "Frequenza Boost (sec)"
+                    card_mod:
+                      style: |
+                        ha-card {
+                          {% if is_state('input_boolean.network_boost_mode', 'on') %}
+                            background: rgba(255, 165, 0, 0.1);
+                            border: 1px solid orange;
+                          {% endif %}
+                        }
+
+                  # MESSAGGIO STATO/ERRORE (Sempre presente ma cambia colore)
+                  - type: markdown
+                    content: >
+                      {% set error = states('sensor.network_boost_validation_error') %}
+                      {% if error == 'OK' %}
+                        <div style="background-color: #4caf50; color: white; padding: 10px; border-radius: 5px; font-weight: bold; text-align: center;">
+                          ✅ Parametri Corretti
+                        </div>
+                      {% else %}
+                        <div style="background-color: #f44336; color: white; padding: 10px; border-radius: 5px; font-weight: bold; text-align: center;">
+                          ⚠️ {{ error }}
+                        </div>
+                      {% endif %}
+                    card_mod:
+                      style: "ha-card { margin: 5px 0; border: none; background: none; }"
+
+                  # Bottone ATTIVO
+                  - type: conditional
+                    conditions:
+                      - entity: sensor.network_boost_validation_error
+                        state: "OK"
+                      - entity: input_boolean.network_boost_mode
+                        state: "off"
+                    card:
+                      type: button
+                      name: "AVVIA MONITORAGGIO RAPIDO"
+                      icon: mdi:timer-play
+                      tap_action:
+                        action: perform-action
+                        perform_action: input_button.press
+                        target:
+                          entity_id: input_button.start_network_boost
+
+                  # Bottone DISABILITATO (Se Errore)
+                  - type: conditional
+                    conditions:
+                      - entity: sensor.network_boost_validation_error
+                        state_not: "OK"
+                    card:
+                      type: button
+                      name: "AVVIO BLOCCATO"
+                      icon: mdi:timer-off
+                      tap_action: { action: none }
+                      card_mod:
+                        style: "ha-card { opacity: 0.4; filter: grayscale(1); cursor: not-allowed; }"
+
+                  - type: entities
+                    entities:
+                      - entity: input_boolean.network_boost_mode
+                        name: "Stato Boost"
+                      - entity: sensor.network_boost_countdown
+                        name: "Tempo Rimanente"
+                    card_mod:
+                      style: |
+                        ha-card {
+                          {% if is_state('input_boolean.network_boost_mode', 'on') %}
+                            background: rgba(255, 165, 0, 0.1);
+                            border: 1px solid orange;
+                          {% endif %}
+                        }
+
+              - type: conditional
+                conditions:
                   - entity: input_boolean.network_boost_mode
-                    name: "Stato Boost"
+                    state: "off"
+                  - entity: sensor.network_boost_speed_max
+                    state_not: "0.0"
+                card:
+                  type: entities
+                  title: "🏁 Risultati Ultimo Boost"
+                  entities:
+                    - entity: sensor.network_boost_speed_min
+                      name: "Velocità Minima"
+                    - entity: sensor.network_boost_speed_max
+                      name: "Velocità Massima"
+                    - entity: sensor.network_boost_speed_avg
+                      name: "Velocità Media"
+                  card_mod:
+                    style: |
+                      ha-card {
+                        border: 1px solid #4caf50;
+                        background: rgba(76, 175, 80, 0.05);
+                        user-select: text !important;
+                      }
 
               - type: entity
                 entity: sensor.network_status_diagnosis
@@ -49,35 +140,20 @@ views:
                   - type: sensor
                     entity: sensor.internet_packet_loss
                     name: Loss (%)
-                    card_mod: { style: "ha-card { user-select: text !important; }" }
                   - type: sensor
                     entity: sensor.internet_jitter
                     name: Jitter (ms)
-                    card_mod: { style: "ha-card { user-select: text !important; }" }
                   - type: sensor
                     entity: sensor.wan_saturation_percent
                     name: Saturazione (%)
-                    card_mod: { style: "ha-card { user-select: text !important; }" }
 
               - type: markdown
-                content: "## 📊 Riepilogo Storico"
+                content: "## 📊 Riepilogo Storico (Top 10)"
                 card_mod:
                   style: |
                     ha-card { user-select: text !important; }
 
-              - type: horizontal-stack
-                cards:
-                  - type: sensor
-                    entity: sensor.router_total_download
-                    name: Download Totale
-                    card_mod: { style: "ha-card { user-select: text !important; }" }
-                  - type: sensor
-                    entity: sensor.router_total_upload
-                    name: Upload Totale
-                    card_mod: { style: "ha-card { user-select: text !important; }" }
-
               - type: custom:flex-table-card
-                title: "🏆 Top 10 Dispositivi (MB Totali)"
                 entities:
                   - entity: sensor.router_traffic_stats
                 card_mod: { style: "ha-card { user-select: text !important; }" }
@@ -104,15 +180,30 @@ views:
                   - type: sensor
                     entity: sensor.wan_download_speed_realtime
                     name: Down (kbps)
-                    card_mod: { style: "ha-card { user-select: text !important; }" }
+                    card_mod:
+                      style: |
+                        ha-card { 
+                          user-select: text !important;
+                          {% if is_state('input_boolean.network_boost_mode', 'on') %}
+                            background: rgba(30, 136, 229, 0.2) !important;
+                            border: 1px solid #1e88e5;
+                          {% endif %}
+                        }
                   - type: sensor
                     entity: sensor.wan_upload_speed_realtime
                     name: Up (kbps)
-                    card_mod: { style: "ha-card { user-select: text !important; }" }
+                    card_mod:
+                      style: |
+                        ha-card { 
+                          user-select: text !important;
+                          {% if is_state('input_boolean.network_boost_mode', 'on') %}
+                            background: rgba(229, 57, 53, 0.2) !important;
+                            border: 1px solid #e53935;
+                          {% endif %}
+                        }
                   - type: sensor
                     entity: sensor.internet_ping
                     name: Ping (ms)
-                    card_mod: { style: "ha-card { user-select: text !important; }" }
 
               - type: custom:apexcharts-card
                 graph_span: 15m

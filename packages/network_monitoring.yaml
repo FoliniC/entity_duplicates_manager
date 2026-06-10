@@ -44,16 +44,16 @@ input_boolean:
 input_number:
   network_boost_duration:
     name: "Durata Boost"
-    min: 30
-    max: 600
+    min: 0
+    max: 9999
     step: 1
     unit_of_measurement: "s"
     mode: box
 
   network_boost_interval:
     name: "Intervallo Boost"
-    min: 1
-    max: 15
+    min: 0
+    max: 100
     step: 1
     unit_of_measurement: "s"
     mode: box
@@ -64,6 +64,29 @@ input_number:
     max: 600
     unit_of_measurement: "s"
     mode: box
+
+  network_boost_stats_max:
+    name: "Boost Max Speed"
+    min: 0
+    max: 1000000
+    unit_of_measurement: "kbps"
+
+  network_boost_stats_min:
+    name: "Boost Min Speed"
+    min: 0
+    max: 1000000
+    unit_of_measurement: "kbps"
+
+  network_boost_stats_avg_sum:
+    name: "Boost Avg Sum"
+    min: 0
+    max: 100000000
+    unit_of_measurement: "kbps"
+
+  network_boost_stats_count:
+    name: "Boost Sample Count"
+    min: 0
+    max: 1000
 
 input_button:
   start_network_boost:
@@ -80,9 +103,24 @@ automation:
     action:
       - action: input_number.set_value
         target:
+          entity_id: 
+            - input_number.network_boost_remaining
+            - input_number.network_boost_stats_max
+            - input_number.network_boost_stats_min
+            - input_number.network_boost_stats_avg_sum
+            - input_number.network_boost_stats_count
+        data:
+          value: 0
+      - action: input_number.set_value
+        target:
           entity_id: input_number.network_boost_remaining
         data:
           value: "{{ states('input_number.network_boost_duration') | float }}"
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.network_boost_stats_min
+        data:
+          value: 999999
       - repeat:
           while:
             - condition: state
@@ -98,6 +136,28 @@ automation:
                   - sensor.realtime_per_device_speed
             - delay:
                 seconds: "{{ states('input_number.network_boost_interval') | int(1) }}"
+            - variables:
+                curr_speed: "{{ states('sensor.wan_download_speed_realtime') | float(0) }}"
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.network_boost_stats_max
+              data:
+                value: "{{ [states('input_number.network_boost_stats_max') | float, curr_speed] | max }}"
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.network_boost_stats_min
+              data:
+                value: "{{ [states('input_number.network_boost_stats_min') | float, curr_speed] | min }}"
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.network_boost_stats_avg_sum
+              data:
+                value: "{{ states('input_number.network_boost_stats_avg_sum') | float + curr_speed }}"
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.network_boost_stats_count
+              data:
+                value: "{{ states('input_number.network_boost_stats_count') | int + 1 }}"
             - action: input_number.set_value
               target:
                 entity_id: input_number.network_boost_remaining
@@ -123,6 +183,42 @@ template:
         state: "{{ states('input_number.network_boost_remaining') | int(0) }}"
         unit_of_measurement: "s"
         icon: mdi:timer-sand
+
+      - name: "Network Boost Speed Max"
+        unique_id: network_boost_speed_max
+        state: "{{ states('input_number.network_boost_stats_max') | float(0) | round(1) }}"
+        unit_of_measurement: "kbps"
+        icon: mdi:speedometer-thick
+
+      - name: "Network Boost Speed Min"
+        unique_id: network_boost_speed_min
+        state: >
+          {% set val = states('input_number.network_boost_stats_min') | float(0) %}
+          {{ val | round(1) if val < 999999 else 0 }}
+        unit_of_measurement: "kbps"
+        icon: mdi:speedometer-slow
+
+      - name: "Network Boost Speed Avg"
+        unique_id: network_boost_speed_avg
+        state: >
+          {% set sum = states('input_number.network_boost_stats_avg_sum') | float(0) %}
+          {% set count = states('input_number.network_boost_stats_count') | int(0) %}
+          {{ (sum / count) | round(1) if count > 0 else 0 }}
+        unit_of_measurement: "kbps"
+        icon: mdi:speedometer-medium
+
+      - name: "Network Boost Validation Error"
+        unique_id: network_boost_validation_error
+        state: >
+          {% set dur = states('input_number.network_boost_duration') | float(0) %}
+          {% set intv = states('input_number.network_boost_interval') | float(0) %}
+          {% if dur < 30 or dur > 600 %}
+            La durata deve essere tra 30 e 600 secondi
+          {% elif intv < 1 or intv > 15 %}
+            L'intervallo deve essere tra 1 e 15 secondi
+          {% else %}
+            OK
+          {% endif %}
 
       - name: "Internet Ping"
         unique_id: internet_ping_ms
