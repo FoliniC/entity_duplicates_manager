@@ -19,7 +19,8 @@
               event_data:
                 message: "Switch {{ trigger.entity_id }} cambiato a {{ trigger.to_state.state }} (Origine: HA)"
                 level: INFO
-                action: "{{ 'acceso' if trigger.to_state.state == 'on' else 'spento' }}"
+                action: "attuatore"
+                wait: 3
         
         # Case 2: Physical/External (Boolean is OFF)
         - conditions:
@@ -31,5 +32,6 @@
               event_data:
                 message: "Switch {{ trigger.entity_id }} cambiato a {{ trigger.to_state.state }} (Origine: Interruttore Fisico)"
                 level: INFO
-                action: "{{ 'acceso' if trigger.to_state.state == 'on' else 'spento' }}"
+                action: "attuatore"
+                wait: 3
   mode: queued

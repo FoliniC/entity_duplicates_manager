@@ -9,7 +9,7 @@
       event_data:
         level: INFO
         message: "Contatto porta garage 🚪 cambiato a {{ trigger.to_state.state }}"
-        action: "invariato"
+        action: "nulla"
     - if:
         - condition: template
           value_template: "{{ trigger.to_state.state == 'on' }}"
@@ -19,20 +19,10 @@
               entity_id: light.luce_scale
               state: "on"
           then:
-            - event: scale_log_event
-              event_data:
-                level: INFO
-                message: "Luce scale già accesa, invio toggle"
-                action: "toggle"
             - action: light.toggle
               target:
                 entity_id: light.luce_scale
           else:
-            - event: scale_log_event
-              event_data:
-                level: INFO
-                message: "Luce scale spenta, accendo"
-                action: "acceso"
             - action: light.turn_on
               target:
                 entity_id: light.luce_scale

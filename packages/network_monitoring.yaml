@@ -33,6 +33,7 @@ command_line:
       name: Internet Ping CLI
       unique_id: internet_ping_cli
       command: "ping -c 1 1.1.1.1 | grep 'time=' | sed 's/.*time=\\([0-9.]*\\) ms/\\1/'"
+      value_template: "{{ value if value != '' else '0' }}"
       unit_of_measurement: "ms"
       scan_interval: 30
 

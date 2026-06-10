@@ -174,7 +174,7 @@
               data:
                 time: "{{ (now() + timedelta(minutes=duration)).strftime('%H:%M:%S') }}"
 
-    - event: scale_log_event
+    - event: ev_log_event
       event_data:
         level: info
         message: "Step1_Check: mode={{mode}}, target={{target_amp}}A, target_mode={{target_mode}}, real_m={{real_prism_mode_num}}, crono={{crono}}, inertia={{inertia_delta_a}}A/{{inertia_interval_s}}s"
@@ -273,8 +273,8 @@
                 - action: input_text.set_value
                   target: { entity_id: input_text.ev_charge_2025_last_current_change_time }
                   data: { value: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}" }
-                - event: scale_log_event
+                - event: ev_log_event
                   event_data: { message: "Step3_MQTT_Sent: {{target_amp}}A (mode={{target_mode}}, delta={{amp_delta}}A, age={{seconds_since_current_change}}s)" }
               else:
-                - event: scale_log_event
+                - event: ev_log_event
                   event_data: { level: debug, message: "Step3_MQTT_Held_By_Inertia: target={{target_amp}}A last={{current_last_amp}}A delta={{amp_delta}}A age={{seconds_since_current_change}}s min={{inertia_delta_a}}A/{{inertia_interval_s}}s" }

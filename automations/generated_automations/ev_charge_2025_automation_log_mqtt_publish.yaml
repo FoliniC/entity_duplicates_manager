@@ -36,7 +36,7 @@
         entity_id: input_text.ev_charge_2025_last_mqtt_time
       data:
         value: "{{ now_str }}"
-    - event: scale_log_event
+    - event: ev_log_event
       event_data:
         level: info
         message: "MQTT publish -> topic={{ topic }} payload={{ payload }}"

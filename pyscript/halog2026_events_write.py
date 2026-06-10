@@ -39,6 +39,7 @@ def _enrich_scale(kwargs: dict) -> str:
         "spento":  "spegnimento",
         "nulla":   "invariato",
         "toggle":  "toggle",
+        "attuatore": "attuatore",
     }
     mapped = action_map.get(kwargs.get("action", "nulla"), kwargs.get("action", "nulla"))
     try:

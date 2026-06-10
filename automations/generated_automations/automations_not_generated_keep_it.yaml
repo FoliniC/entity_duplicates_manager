@@ -160,7 +160,7 @@
                 "{{ current_value | int >= 6 and current_value != previous_recharge_ampere_value
                 }}"
           sequence:
-            - event: scale_log_event
+            - event: ev_log_event
               event_data:
                 level: info
                 message: "LEGACY_AUTO (1706437692341) -> set_mode: 2"
@@ -168,7 +168,7 @@
                 topic: home/prism/1/command/set_mode
                 payload: "2"
               action: mqtt.publish
-            - event: scale_log_event
+            - event: ev_log_event
               event_data:
                 level: info
                 message: "LEGACY_AUTO (1706437692341) -> set_current_user: {{ current_value }}"
@@ -180,7 +180,7 @@
             - condition: template
               value_template: "{{ current_value | int < 6  }}"
           sequence:
-            - event: scale_log_event
+            - event: ev_log_event
               event_data:
                 level: info
                 message: "LEGACY_AUTO (1706437692341) -> set_mode: 3"
@@ -324,7 +324,7 @@
             - condition: template
               value_template: "{{ current_value | int >= 6 and current_value != previous_recharge_ampere_value }}"
           sequence:
-            - event: scale_log_event
+            - event: ev_log_event
               event_data:
                 level: info
                 message: "LEGACY_GUI (1706437692342) -> set_mode: 2"
@@ -332,7 +332,7 @@
               data:
                 topic: home/prism/1/command/set_mode
                 payload: "2" # Modalità di ricarica
-            - event: scale_log_event
+            - event: ev_log_event
               event_data:
                 level: info
                 message: "LEGACY_GUI (1706437692342) -> set_current_user: {{ current_value }}"
@@ -344,7 +344,7 @@
             - condition: template
               value_template: "{{ current_value | int < 6 }}"
           sequence:
-            - event: scale_log_event
+            - event: ev_log_event
               event_data:
                 level: info
                 message: "LEGACY_GUI (1706437692342) -> set_mode: 3"
@@ -628,7 +628,7 @@
               event_data:
                 message: "Correzione ENTRAMBI ON: Spento switch_2. S1={{ states('switch.sonoff_10024024c4_1') }}, S2={{ states('switch.sonoff_10024024c4_2') }}"
                 level: WARNING
-                action: "spento"
+                action: "attuatore"
 
         # Caso 2: Entrambi OFF - Accendi switch_1
         - conditions:
@@ -660,7 +660,7 @@
               event_data:
                 message: "Correzione ENTRAMBI OFF: Acceso switch_1. S1={{ states('switch.sonoff_10024024c4_1') }}, S2={{ states('switch.sonoff_10024024c4_2') }}"
                 level: WARNING
-                action: "acceso"
+                action: "attuatore"
 
         # Caso 3: Stati problematici - logghiamo senza correggere
         - conditions:
@@ -730,14 +730,14 @@
           Spegnimento automatico luci scale.
           Consumo: {{ states('sensor.luce_scale_switch_infos') }}W
         notification_id: spegni_luci_123
-    - action: light.turn_off
-      target:
-        entity_id: light.luce_scale
-    - event: scale_log_event
-      event_data:
-        message: "Spegni luci scale dopo tempo - Spenta light.luce_scale dopo 4 min (Trigger: {{ trigger.platform }})"
-        level: INFO
-        action: "spento"
+    - if:
+        - condition: template
+          value_template: >
+            {{ states('sensor.luce_scale_switch_infos') | float(0) > 7 }}
+      then:
+        - action: light.turn_off
+          target:
+            entity_id: light.luce_scale
     - delay:
         seconds: 2
 

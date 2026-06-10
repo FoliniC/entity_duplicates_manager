@@ -15,3 +15,4 @@
         level: "{{ trigger.event.data.level | default('info') }}"
         message: "{{ trigger.event.data.message | default('') }}"
         action: "{{ trigger.event.data.action | default('nulla') }}"
+        wait: "{{ trigger.event.data.wait | default(0) }}"
