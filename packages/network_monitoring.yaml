@@ -134,10 +134,9 @@ automation:
                 entity_id: 
                   - sensor.wan_traffic_realtime
                   - sensor.realtime_per_device_speed
-            - delay:
-                seconds: "{{ states('input_number.network_boost_interval') | int(1) }}"
             - variables:
                 curr_speed: "{{ states('sensor.wan_download_speed_realtime') | float(0) }}"
+                interval: "{{ states('input_number.network_boost_interval') | float(1) }}"
             - action: input_number.set_value
               target:
                 entity_id: input_number.network_boost_stats_max
@@ -158,11 +157,15 @@ automation:
                 entity_id: input_number.network_boost_stats_count
               data:
                 value: "{{ states('input_number.network_boost_stats_count') | int + 1 }}"
+            - delay:
+                seconds: "{{ interval }}"
             - action: input_number.set_value
               target:
                 entity_id: input_number.network_boost_remaining
               data:
-                value: "{{ [0, (states('input_number.network_boost_remaining') | float - states('input_number.network_boost_interval') | float)] | max }}"
+                value: >
+                  {% set rem = states('input_number.network_boost_remaining') | float %}
+                  {{ [0, (rem - interval)] | max }}
       - action: input_boolean.turn_off
         target:
           entity_id: input_boolean.network_boost_mode
