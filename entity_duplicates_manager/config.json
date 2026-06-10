@@ -2,7 +2,7 @@
     "max_suffix": 9,
     "exclusion_patterns": "",
     "excluded_entities": [
-        "number.smart_meter_2025_energy_a_calibrations_2",
+        "number.smart_meter_2026_energy_a_calibrations_2",
         "select.sonoff_10024f7cec_2",
         "sensor.sonoff_10024024c4_power_1",
         "switch.sonoff_10024024c4_2",
@@ -74,7 +74,7 @@
         "automation.memorizza_stato_di_luci_scale_switch_2_e_luci_scale_switch_3",
         "light.luci_cucina_switch_4",
         "sensor.envoy_122134037538_inverter_est_122105019253",
-        "sensor.smart_meter_2025",
+        "sensor.smart_meter_2026",
         "input_number.cronostar_gentemp_00",
         "automation.spegni_balcone_2",
         "switch.fancoil_corridoio_switch_3",

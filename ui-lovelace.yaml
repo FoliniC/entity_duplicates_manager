@@ -152,7 +152,7 @@ views:
       - entity: sensor.potenza_prelevata_attuale
       - entity: sensor.produzione_solare
       - entity: sensor.envoy_122134037538_current_power_production
-      - entity: sensor.smart_meter_2025_power_a
+      - entity: sensor.smart_meter_2026_power_a
       - entity: sensor.byd_battery_box_premium_hv_state_of_charge
       - entity: sensor.consumo_appartamento_template
       - entity: sensor.consumo_netto_pdc
@@ -162,7 +162,7 @@ views:
       - entity: sensor.prism_potenza
       - entity: sensor.prism_potenza
       - entity: sensor.smart_meter_ts_100a_1_potenza_reale
-      - entity: sensor.smart_meter_2025_power_b
+      - entity: sensor.smart_meter_2026_power_b
       - entity: sensor.solarnet_power_battery
       - entity: sensor.solarnet_power_battery_charge
       - entity: sensor.solarnet_power_battery_discharge

@@ -170,8 +170,8 @@ sensor.prism_tensione_attuale
 sensor.produzione_solare
 sensor.pun_fascia_corrente
 sensor.silla_prism_current_state
-sensor.smart_meter_2025_power_a
-sensor.smart_meter_2025_power_b
+sensor.smart_meter_2026_power_a
+sensor.smart_meter_2026_power_b
 sensor.smart_meter_ts_100a_1_potenza_reale
 sensor.smart_meter_ts_100a_1_power_real
 sensor.solarnet_power_battery
