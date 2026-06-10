@@ -13,13 +13,13 @@ sensor.misuratore_canale_b:
   unit_of_measurement: kWh
 sensor.smart_meter_2026_a_pdc_energy_forword_a:
   unit_of_measurement: kWh
-sensor.smart_meter_2026_a_pdc_forward_energy_b:
+sensor.smart_meter_2026_a_pdc_energy_forword_b:
   unit_of_measurement: kWh
 sensor.smart_meter_2026_a_pdc_energy_reverse_a:
   unit_of_measurement: kWh
 sensor.smart_meter_2026_a_pdc_energy_reserse_b:
   unit_of_measurement: kWh
-sensor.wifi_dual_meter_b_new_a_old_power_a:
+sensor.smart_meter_2026_a_pdc_power_a:
   unit_of_measurement: W
 sensor.smart_meter_2026_a_pdc_power_b:
   unit_of_measurement: W

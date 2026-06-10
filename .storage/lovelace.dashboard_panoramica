@@ -1106,6 +1106,20 @@
                 {
                   "entity": "sensor.wifi_dual_meter_b_new_a_old_power_b",
                   "name": "impianto nuovo"
+                },
+                {
+                  "entity": "sensor.smart_meter_2026_a_pdc_power_a",
+                  "name": "PDC"
+                },
+                {
+                  "entity": "sensor.smart_meter_2026_a_pdc_power_b",
+                  "name": "knx"
+                },
+                {
+                  "entity": "sensor.potenza_misuratore"
+                },
+                {
+                  "entity": "sensor.lavastoviglie_wifi_digital_meter_lavastoviglie_potenza"
                 }
               ]
             },
