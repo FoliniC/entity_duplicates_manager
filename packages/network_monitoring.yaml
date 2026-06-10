@@ -29,17 +29,18 @@ command_line:
         - tx_bytes
       scan_interval: 10
 
-binary_sensor:
-  - platform: ping
-    host: 1.1.1.1
-    name: "Internet Ping"
-    scan_interval: 30
+  - sensor:
+      name: Internet Ping CLI
+      unique_id: internet_ping_cli
+      command: "ping -c 1 1.1.1.1 | grep 'time=' | sed 's/.*time=\\([0-9.]*\\) ms/\\1/'"
+      unit_of_measurement: "ms"
+      scan_interval: 30
 
 template:
   - sensor:
       - name: "Internet Ping"
         unique_id: internet_ping_ms
-        state: "{{ state_attr('binary_sensor.internet_ping', 'round_trip_time_avg') | float(0) }}"
+        state: "{{ states('sensor.internet_ping_cli') | float(0) | round(1) }}"
         unit_of_measurement: "ms"
         icon: mdi:gauge
 

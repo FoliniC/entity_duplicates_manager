@@ -2,156 +2,146 @@ views:
   - title: Traffico internet
     path: traffico-internet
     icon: mdi:router-wireless
+    type: sidebar
     cards:
-      - type: markdown
-        content: "# 📊 Monitoraggio Traffico Internet\nAnalisi della banda in tempo reale."
-        card_mod:
-          style: |
-            ha-card { user-select: text !important; }
-
-      - type: horizontal-stack
+      - type: grid
+        columns: 2
+        square: false
         cards:
-          - type: sensor
-            entity: sensor.router_total_download
-            name: Download Totale (MB)
-          - type: sensor
-            entity: sensor.router_total_upload
-            name: Upload Totale (MB)
+          # --- COLONNA 1 (Sinistra) ---
+          - type: vertical-stack
+            cards:
+              - type: markdown
+                content: "# 📊 Monitoraggio Rete\nStatistiche di riepilogo."
+                card_mod:
+                  style: |
+                    ha-card { user-select: text !important; }
 
-      - type: horizontal-stack
-        cards:
-          - type: sensor
-            entity: sensor.wan_download_speed_realtime
-            name: Speed Download
-          - type: sensor
-            entity: sensor.wan_upload_speed_realtime
-            name: Speed Upload
-          - type: sensor
-            entity: sensor.internet_ping
-            name: Ping (ms)
+              - type: horizontal-stack
+                cards:
+                  - type: sensor
+                    entity: sensor.router_total_download
+                    name: Download Totale
+                  - type: sensor
+                    entity: sensor.router_total_upload
+                    name: Upload Totale
 
-      - type: markdown
-        content: "## 📋 Dati testuali"
-        card_mod:
-          style: |
-            ha-card { user-select: text !important; }
+              - type: entities
+                title: "📋 Top Device (Totale)"
+                entities:
+                  - entity: sensor.router_top_1_consumer_name
+                    name: "1° Nome"
+                  - entity: sensor.router_top_1_consumer_value
+                    name: "1° Valore"
+                  - entity: sensor.router_top_2_consumer_name
+                    name: "2° Nome"
+                  - entity: sensor.router_top_2_consumer_value
+                    name: "2° Valore"
+                  - entity: sensor.router_realtime_top_consumer
+                    name: "Velocità Istantanea"
+                card_mod:
+                  style: |
+                    ha-card { user-select: text !important; }
 
-      - type: entities
-        entities:
-          - entity: sensor.router_top_1_consumer_name
-            name: "1° Nome"
-          - entity: sensor.router_top_1_consumer_value
-            name: "1° Valore"
-          - entity: sensor.router_top_2_consumer_name
-            name: "2° Nome"
-          - entity: sensor.router_top_2_consumer_value
-            name: "2° Valore"
-          - entity: sensor.router_realtime_top_consumer
-            name: "Velocità Istantanea"
-        card_mod:
-          style: |
-            ha-card { user-select: text !important; }
-            .card-content { user-select: text !important; }
+              - type: custom:apexcharts-card
+                experimental:
+                  disable_config_validation: true
+                update_interval: 60s
+                header:
+                  title: "Top 5 Dispositivi (MB)"
+                  show: true
+                apex_config:
+                  chart:
+                    type: bar
+                    height: 250
+                  plotOptions:
+                    bar:
+                      horizontal: true
+                  xaxis:
+                    type: category
+                  dataLabels:
+                    enabled: true
+                  legend:
+                    show: false
+                series:
+                  - entity: sensor.top_device_1_mb
+                    name: >-
+                      {{ state_attr('sensor.top_device_1_mb', 'device_name') or 'Device 1' }}
+                    ignore_history: true
+                  - entity: sensor.top_device_2_mb
+                    name: >-
+                      {{ state_attr('sensor.top_device_2_mb', 'device_name') or 'Device 2' }}
+                    ignore_history: true
+                  - entity: sensor.top_device_3_mb
+                    name: >-
+                      {{ state_attr('sensor.top_device_3_mb', 'device_name') or 'Device 3' }}
+                    ignore_history: true
+                  - entity: sensor.top_device_4_mb
+                    name: >-
+                      {{ state_attr('sensor.top_device_4_mb', 'device_name') or 'Device 4' }}
+                    ignore_history: true
+                  - entity: sensor.top_device_5_mb
+                    name: >-
+                      {{ state_attr('sensor.top_device_5_mb', 'device_name') or 'Device 5' }}
+                    ignore_history: true
 
-      - type: markdown
-        content: "## 📈 Top 5 Dispositivi (MB)"
-        card_mod:
-          style: |
-            ha-card { user-select: text !important; }
-      - type: custom:apexcharts-card
-        experimental:
-          disable_config_validation: true
-        update_interval: 60s
-        header:
-          title: "Top 5 Dispositivi (MB)"
-          show: true
-        apex_config:
-          chart:
-            type: bar
-            height: 300
-          plotOptions:
-            bar:
-              horizontal: true
-          xaxis:
-            type: category
-          dataLabels:
-            enabled: true
-          legend:
-            show: false
-        series:
-          - entity: sensor.top_device_1_mb
-            name: >-
-              {{ state_attr('sensor.top_device_1_mb', 'device_name') or 'Device 1' }}
-            ignore_history: true
-          - entity: sensor.top_device_2_mb
-            name: >-
-              {{ state_attr('sensor.top_device_2_mb', 'device_name') or 'Device 2' }}
-            ignore_history: true
-          - entity: sensor.top_device_3_mb
-            name: >-
-              {{ state_attr('sensor.top_device_3_mb', 'device_name') or 'Device 3' }}
-            ignore_history: true
-          - entity: sensor.top_device_4_mb
-            name: >-
-              {{ state_attr('sensor.top_device_4_mb', 'device_name') or 'Device 4' }}
-            ignore_history: true
-          - entity: sensor.top_device_5_mb
-            name: >-
-              {{ state_attr('sensor.top_device_5_mb', 'device_name') or 'Device 5' }}
-            ignore_history: true
-      - type: markdown
-        content: "## 📉 Velocità di Rete (kbps)"
-        card_mod:
-          style: |
-            ha-card { user-select: text !important; }
+          # --- COLONNA 2 (Destra) ---
+          - type: vertical-stack
+            cards:
+              - type: markdown
+                content: "# ⚡ Real-time\nAndamento istantaneo."
+                card_mod:
+                  style: |
+                    ha-card { user-select: text !important; }
 
-      - type: custom:apexcharts-card
-        graph_span: 30m
-        header:
-          show: true
-          show_states: true
-          colorize_states: true
-        series:
-          - entity: sensor.wan_download_speed_realtime
-            name: Download
-            color: "#1e88e5"
-            type: area
-          - entity: sensor.wan_upload_speed_realtime
-            name: Upload
-            color: "#e53935"
-            type: area
-        yaxis:
-          - min: 0
-            apex_config:
-              forceNiceScale: true
+              - type: horizontal-stack
+                cards:
+                  - type: sensor
+                    entity: sensor.wan_download_speed_realtime
+                    name: Down (kbps)
+                  - type: sensor
+                    entity: sensor.wan_upload_speed_realtime
+                    name: Up (kbps)
+                  - type: sensor
+                    entity: sensor.internet_ping
+                    name: Ping (ms)
 
-      - type: markdown
-        content: "## 📋 Tabella Dettaglio Completa"
-        card_mod:
-          style: |
-            ha-card { user-select: text !important; }
-            tbody tr td { user-select: text !important; }
+              - type: custom:apexcharts-card
+                graph_span: 30m
+                header:
+                  show: true
+                  show_states: true
+                  colorize_states: true
+                  title: Velocità di Rete (kbps)
+                series:
+                  - entity: sensor.wan_download_speed_realtime
+                    name: Download
+                    color: "#1e88e5"
+                    type: area
+                  - entity: sensor.wan_upload_speed_realtime
+                    name: Upload
+                    color: "#e53935"
+                    type: area
+                yaxis:
+                  - min: 0
+                    apex_config:
+                      forceNiceScale: true
 
-      - type: custom:flex-table-card
-        entities:
-          - entity: sensor.router_traffic_stats
-        columns:
-          - name: Dispositivo
-            data: top_consumers
-            modify: x.name
-          - name: IP
-            data: top_consumers
-            modify: x.ip
-          - name: Down (kbps)
-            data: top_consumers
-            modify: x.rx_kbps
-            align: center
-          - name: Up (kbps)
-            data: top_consumers
-            modify: x.tx_kbps
-            align: center
-          - name: Totale (MB)
-            data: top_consumers
-            modify: x.total_rx_mb
-            align: center
-        sort_by: Down (kbps)-
+              - type: custom:flex-table-card
+                title: "📋 Dettaglio Completo"
+                entities:
+                  - entity: sensor.router_traffic_stats
+                columns:
+                  - name: Device
+                    data: top_consumers
+                    modify: x.name
+                  - name: Down
+                    data: top_consumers
+                    modify: x.rx_kbps
+                  - name: Up
+                    data: top_consumers
+                    modify: x.tx_kbps
+                  - name: Tot (MB)
+                    data: top_consumers
+                    modify: x.total_rx_mb
+                sort_by: Down-
