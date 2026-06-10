@@ -523,7 +523,11 @@
   action:
     - delay: "00:00:02"
     - variables:
-        current_state_str: "S1={{ states('switch.sonoff_10024024c4_1') }}, S2={{ states('switch.sonoff_10024024c4_2') }}, Luce={{ states('light.luce_scale_switch') }}"
+        current_state_str: >
+          {% set s1 = states('switch.sonoff_10024024c4_1') %}
+          {% set s2 = states('switch.sonoff_10024024c4_2') %}
+          {% set l = states('light.luce_scale') %}
+          S1={{ s1 }}, S2={{ s2 }}{% if l not in ['unknown', 'unavailable'] %}, Luce={{ l }}{% endif %}
         last_state_str: "{{ states('input_text.debug_deviatore_last_state') }}"
     - choose:
         # Caso 1: HA Start
@@ -735,6 +739,11 @@
           value_template: >
             {{ states('sensor.luce_scale_switch_infos') | float(0) > 7 }}
       then:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.scale_light_source
+          data:
+            value: "{{ this.attributes.friendly_name }}"
         - action: light.turn_off
           target:
             entity_id: light.luce_scale

@@ -1,6 +1,7 @@
 - id: log_luce_scale_state_change
   alias: "Log Luce Scale State Change"
   description: "Logga l'accensione e lo spegnimento effettivo della luce scale con il motivo."
+  initial_state: true
   trigger:
     - platform: state
       entity_id: light.luce_scale
@@ -9,28 +10,16 @@
       value_template: "{{ trigger.to_state.state != trigger.from_state.state }}"
   action:
     - variables:
-        is_ha: "{{ is_state('input_boolean.scale_light_ha_command', 'on') }}"
         ctx: "{{ trigger.to_state.context }}"
+        source: "{{ states('input_text.scale_light_source') }}"
         reason: >
-          {% if ctx.user_id != none %}
+          {% if source != '' %}
+            {{ source }}
+          {% elif ctx.user_id != none %}
             {% set user = states.person | selectattr('attributes.user_id', 'eq', ctx.user_id) | first | default(none) %}
             Interfaccia ({{ user.attributes.friendly_name if user else 'Utente' }})
-          {% elif ctx.parent_id != none %}
-            {% set auto = states.automation | selectattr('context.id', 'eq', ctx.parent_id) | first | default(none) %}
-            {% if auto %}
-              Automazione: {{ auto.attributes.friendly_name }}
-            {% else %}
-              {% set scri = states.script | selectattr('context.id', 'eq', ctx.parent_id) | first | default(none) %}
-              {% if scri %}
-                Script: {{ scri.attributes.friendly_name }}
-              {% else %}
-                Comando HA (ID: {{ ctx.parent_id[:8] }})
-              {% endif %}
-            {% endif %}
-          {% elif is_ha %}
-            Sistema (Avvio/Interno)
           {% else %}
-            Pulsante Fisico
+            Pulsante Fisico / Sistema
           {% endif %}
     - event: scale_log_event
       event_data:

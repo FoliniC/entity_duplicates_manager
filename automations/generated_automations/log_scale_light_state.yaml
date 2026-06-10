@@ -8,25 +8,25 @@
         - switch.sonoff_10024024c4_2
   conditions: []
   actions:
+    - variables:
+        source: "{{ states('input_text.scale_light_source') }}"
     - choose:
-        # Case 1: HA Command (Boolean is ON)
+        # Case 1: HA Command (Source is not empty)
         - conditions:
-            - condition: state
-              entity_id: input_boolean.scale_light_ha_command
-              state: "on"
+            - condition: template
+              value_template: "{{ source != '' }}"
           sequence:
             - event: scale_log_event
               event_data:
-                message: "Switch {{ trigger.entity_id }} cambiato a {{ trigger.to_state.state }} (Origine: HA)"
+                message: "Switch {{ trigger.entity_id }} cambiato a {{ trigger.to_state.state }} (Origine: HA - {{ source }})"
                 level: INFO
                 action: "attuatore"
                 wait: 3
         
-        # Case 2: Physical/External (Boolean is OFF)
+        # Case 2: Physical/External (Source is empty)
         - conditions:
-            - condition: state
-              entity_id: input_boolean.scale_light_ha_command
-              state: "off"
+            - condition: template
+              value_template: "{{ source == '' }}"
           sequence:
             - event: scale_log_event
               event_data:

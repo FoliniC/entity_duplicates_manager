@@ -32,9 +32,15 @@ light:
           value_template: >
             {{ (states('sensor.sonoff_10024024c4_power_1') | float(0) + 
                 states('sensor.sonoff_10024024c4_power_2') | float(0)) < 7 }}
-        - action: input_boolean.turn_on
-          target:
-            entity_id: input_boolean.scale_light_ha_command
+        - if:
+            - condition: template
+              value_template: "{{ states('input_text.scale_light_source') == '' }}"
+          then:
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.scale_light_source
+              data:
+                value: "Interfaccia HA"
         - choose:
             - conditions:
                 - condition: state
@@ -97,18 +103,26 @@ light:
             level: info
             message: "Luce scale Turn ON - Switch1: {{ states('switch.sonoff_10024024c4_1') }}, Switch2: {{ states('switch.sonoff_10024024c4_2') }}, Power: {{ (states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0)) }}W"
         - delay: "0:00:02"
-        - action: input_boolean.turn_off
+        - action: input_text.set_value
           target:
-            entity_id: input_boolean.scale_light_ha_command
+            entity_id: input_text.scale_light_source
+          data:
+            value: ""
 
       turn_off:
         - condition: template
           value_template: >
             {{ (states('sensor.sonoff_10024024c4_power_1') | float(0) + 
                 states('sensor.sonoff_10024024c4_power_2') | float(0)) > 7 }}
-        - action: input_boolean.turn_on
-          target:
-            entity_id: input_boolean.scale_light_ha_command
+        - if:
+            - condition: template
+              value_template: "{{ states('input_text.scale_light_source') == '' }}"
+          then:
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.scale_light_source
+              data:
+                value: "Interfaccia HA"
         - choose:
             - conditions:
                 - condition: state
@@ -175,6 +189,8 @@ light:
             level: info
             message: "Luce scale Turn OFF - Switch1: {{ states('switch.sonoff_10024024c4_1') }}, Switch2: {{ states('switch.sonoff_10024024c4_2') }}, Power: {{ (states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0)) }}W"
         - delay: "0:00:02"
-        - action: input_boolean.turn_off
+        - action: input_text.set_value
           target:
-            entity_id: input_boolean.scale_light_ha_command
+            entity_id: input_text.scale_light_source
+          data:
+            value: ""

@@ -31,6 +31,12 @@
       data:
         entity_id: input_boolean.fancoil_boot_buffering
         log_queue: ""
+    
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.scale_light_source
+      data:
+        value: ""
 
     # ── Step 3: wait for pyscript services to register (max 3 min) ────────
     - wait_template: >
