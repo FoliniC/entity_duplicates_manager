@@ -112,21 +112,21 @@
                   | float(0) < 30 else ((states('sensor.byd_battery_box_premium_hv_state_of_charge')
                   | float(0) - 30) / 70 * 4500) if states('sensor.byd_battery_box_premium_hv_state_of_charge')
                   | float(0) <= 100 else 0 }}\n solarnet_power_battery: {{ states('sensor.solarnet_power_battery')
-                  | float(0)}}\n W pef PDC e appartamento : {{ ( ( states('sensor.consumo_netto_pdc_template')
+                  | float(0)}}\n W pef PDC e appartamento : {{ ( ( states('sensor.smart_meter_2026_a_pdc_power_a')
                   | float(50)  + states('sensor.consumo_appartamento_template') | float(100)  )  )
                   }}\n W totale : {{  (states('sensor.envoy_122134037538_current_power_production'
                   ) | float(0) \n         + \n        (((30-states('sensor.byd_battery_box_premium_hv_state_of_charge')
                   | float(0)) / 30 * -4500) if states('sensor.byd_battery_box_premium_hv_state_of_charge')
                   | float(0) < 30 else ((states('sensor.byd_battery_box_premium_hv_state_of_charge')
                   | float(0) - 30) / 70 * 4500) if states('sensor.byd_battery_box_premium_hv_state_of_charge')
-                  | float(0) <= 100 else 0)\n        -  (states('sensor.consumo_netto_pdc_template') |
+                  | float(0) <= 100 else 0)\n        -  (states('sensor.smart_meter_2026_a_pdc_power_a') |
                   float(50) +  states('sensor.consumo_appartamento_template') | float(100) ) \n       )
                   \ }}\n A per colonnina: {{ \n (\n   (\n     (\n        (states('sensor.envoy_122134037538_current_power_production'
                   ) | float(0) \n         + \n        (((30-states('sensor.byd_battery_box_premium_hv_state_of_charge')
                   | float(0)) / 30 * -4500) if states('sensor.byd_battery_box_premium_hv_state_of_charge')
                   | float(0) < 30 else ((states('sensor.byd_battery_box_premium_hv_state_of_charge')
                   | float(0) - 30) / 70 * 4500) if states('sensor.byd_battery_box_premium_hv_state_of_charge')
-                  | float(0) <= 100 else 0)\n        -  (states('sensor.consumo_netto_pdc_template') |
+                  | float(0) <= 100 else 0)\n        -  (states('sensor.smart_meter_2026_a_pdc_power_a') |
                   float(50) +  states('sensor.consumo_appartamento_template') | float(100) ) \n       )
                   \n       / \n       (states('sensor.folini_carlo_voltage_ac') | float(220)\n
                   \      ) +0\n     ) | round(0)\n   )\n ) | string }}\n current_value:
@@ -141,7 +141,7 @@
           | float(0)) / 30 * -4500) if states('sensor.byd_battery_box_premium_hv_state_of_charge')
           | float(0) < 30 else ((states('sensor.byd_battery_box_premium_hv_state_of_charge')
           | float(0) - 30) / 70 * 4500) if states('sensor.byd_battery_box_premium_hv_state_of_charge')
-          | float(0) <= 100 else 0)\n        -  (states('sensor.consumo_netto_pdc_template') | float(50)
+          | float(0) <= 100 else 0)\n        -  (states('sensor.smart_meter_2026_a_pdc_power_a') | float(50)
           +  states('sensor.consumo_appartamento_template') | float(100) ) \n       ) \n       /
           \n       (states('sensor.folini_carlo_voltage_ac') | float(220)\n       )
           +0\n     ) | round(0)\n   )\n ) | string }}"
@@ -287,7 +287,7 @@
         soc: "{{ states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) }}"
         power_production: "{{ states('sensor.envoy_122134037538_current_power_production') | float(0) }}"
         voltage: "{{ states('sensor.folini_carlo_voltage_ac') | float(220) }}"
-        consumo_pdc: "{{ states('sensor.consumo_netto_pdc_template') | float(50) }}"
+        consumo_pdc: "{{ states('sensor.smart_meter_2026_a_pdc_power_a') | float(50) }}"
         consumo_appartamento: "{{ states('sensor.consumo_appartamento_template') | float(100) }}"
         solarnet_power_battery: "{{ states('sensor.solarnet_power_battery') | float(0) }}"
         w_battery: >

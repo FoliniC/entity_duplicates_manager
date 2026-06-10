@@ -9,7 +9,7 @@ trigger:
 
 sensor:
   - name: "Consumo netto PDC"
-    unique_id: sensor.consumo_netto_pdc
+    unique_id: sensor.smart_meter_2026_a_pdc_power_a
     unit_of_measurement: "W"
     device_class: power
     state_class: measurement

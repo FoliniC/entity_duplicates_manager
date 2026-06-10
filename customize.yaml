@@ -11,17 +11,17 @@ sensor.forward_energy:
   unit_of_measurement: kWh
 sensor.misuratore_canale_b:
   unit_of_measurement: kWh
-sensor.wifi_dual_meter_b_new_a_old_energy_a:
+sensor.smart_meter_2026_a_pdc_energy_forword_a:
   unit_of_measurement: kWh
-sensor.wifi_dual_meter_b_new_a_old_energy_b:
+sensor.smart_meter_2026_a_pdc_forward_energy_b:
   unit_of_measurement: kWh
-sensor.wifi_dual_meter_b_new_a_old_reverse_energy_a:
+sensor.smart_meter_2026_a_pdc_energy_reverse_a:
   unit_of_measurement: kWh
-sensor.wifi_dual_meter_b_new_a_old_reverse_energy_b:
+sensor.smart_meter_2026_a_pdc_energy_reserse_b:
   unit_of_measurement: kWh
 sensor.wifi_dual_meter_b_new_a_old_power_a:
   unit_of_measurement: W
-sensor.wifi_dual_meter_b_new_a_old_power_b:
+sensor.smart_meter_2026_a_pdc_power_b:
   unit_of_measurement: W
 
 #Cambia icona e colore icona del sensore che indica lo stato della wallbox

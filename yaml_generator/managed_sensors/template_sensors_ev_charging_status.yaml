@@ -32,7 +32,7 @@
     {% set soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) %}
     {% set power_production = states('sensor.envoy_122134037538_current_power_production') | float(0) %}
     {% set voltage = states('sensor.folini_carlo_voltage_ac') | float(220) %}
-    {% set consumo_pdc = states('sensor.consumo_netto_pdc_template') | float(50) %}
+    {% set consumo_pdc = states('sensor.smart_meter_2026_a_pdc_power_a') | float(50) %}
     {% set consumo_app = states('sensor.consumo_appartamento_template') | float(100) %}
     {% set w_battery = ((30 - soc) / 30 * -4500) if soc < 30 else ((soc - 30) / 70 * 4500) if soc <= 100 else 0 %}
     {% set w_totale = power_production + w_battery - (consumo_pdc + consumo_app) %}
@@ -44,7 +44,7 @@
     w_totale: >
       {% set soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) %}
       {% set power_production = states('sensor.envoy_122134037538_current_power_production') | float(0) %}
-      {% set consumo_pdc = states('sensor.consumo_netto_pdc_template') | float(50) %}
+      {% set consumo_pdc = states('sensor.smart_meter_2026_a_pdc_power_a') | float(50) %}
       {% set consumo_app = states('sensor.consumo_appartamento_template') | float(100) %}
       {% set w_battery = ((30 - soc) / 30 * -4500) if soc < 30 else ((soc - 30) / 70 * 4500) if soc <= 100 else 0 %}
       {{ (power_production + w_battery - (consumo_pdc + consumo_app)) | round(0) }}

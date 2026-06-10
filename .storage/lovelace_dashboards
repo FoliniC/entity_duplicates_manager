@@ -11,6 +11,15 @@
         "require_admin": false,
         "mode": "storage",
         "url_path": "dashboard-prove"
+      },
+      {
+        "id": "dashboard_panoramica",
+        "show_in_sidebar": true,
+        "icon": "mdi:home",
+        "title": "Panoramica",
+        "require_admin": false,
+        "mode": "storage",
+        "url_path": "dashboard-panoramica"
       }
     ]
   }

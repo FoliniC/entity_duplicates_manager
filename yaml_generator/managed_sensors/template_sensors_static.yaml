@@ -4,7 +4,7 @@
   state_class: measurement
   unit_of_measurement: "W"
   state: >
-    {% set p = states('sensor.wifi_dual_meter_b_new_a_old_power_a') %}
+    {% set p = states('sensor.smart_meter_2026_a_pdc_power_a') %}
     {{ (p | float(0) / 10) | round(2) if p not in ['unavailable', 'unknown', 'none'] else 0 }}
 - name: Potenza prelevata attuale
   unique_id: potenza_prelevata_attuale
@@ -80,17 +80,18 @@
   state_class: measurement
   unit_of_measurement: "W"
   state: >
-    {# Priorità 1: Misuratore Totale Impianto Nuovo #}
-    {% set p_tot = states('sensor.wifi_dual_meter_b_new_a_old_power_b') %}
+    {# Priorità 1: Misuratore Totale Impianto Nuovo (Canale Knx) #}
+    {% set p_tot = states('sensor.smart_meter_2026_a_pdc_power_b') %}
     {% if p_tot not in ['unavailable', 'unknown', 'none'] %}
       {{ (p_tot | float(0)) | round(2) }}
     {% else %}
       {# Fallback: Somma dei carichi noti #}
-      {% set pdc = states('sensor.consumo_netto_pdc_template') | float(0) %}
+      {% set pdc = states('sensor.smart_meter_2026_a_pdc_power_a') | float(0) %}
       {% set lava = states('sensor.lavastoviglie_wifi_digital_meter_lavastoviglie_potenza') | float(0) %}
       {% set indu = states('sensor.potenza_misuratore') | float(0) %}
       {{ (pdc + lava + indu) | round(2) }}
     {% endif %}
+
 
 - name: "Produzione Solare"
   unique_id: produzione_solare_combined

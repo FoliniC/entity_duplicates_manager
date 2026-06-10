@@ -336,7 +336,7 @@ views:
           - Batteria (scarica): {{ states('sensor.battery_power_discharging') | float(0) | round(0) }} W
 
           **Consumo:**
-          - Pompa Calore: {{ states('sensor.consumo_netto_pdc_template') | float(0) | round(0) }} W
+          - Pompa Calore: {{ states('sensor.smart_meter_2026_a_pdc_power_a') | float(0) | round(0) }} W
           - Appartamento: {{ states('sensor.consumo_appartamento_template') | float(0) | round(0) }} W
           - Batteria (carica): {{ states('sensor.battery_power_charging') | float(0) | round(0) }} W
           - Colonnina EV: {{ states('sensor.prism_potenza') | float(0) | round(0) }} W
@@ -631,7 +631,7 @@ views:
                     return opts.w.config.series[opts.seriesIndex] + " W"
                   }
             series:
-              - entity: sensor.consumo_netto_pdc_template
+              - entity: sensor.smart_meter_2026_a_pdc_power_a
                 name: PDC
                 color: "#E74C3C"
               - entity: sensor.consumo_appartamento_template

@@ -395,10 +395,6 @@ lovelace:
     - url: /local/flex-table-card.js
       type: module
   dashboards:
-    lovelace:
-      mode: yaml
-      filename: ui-lovelace.yaml
-      title: Overview
     internet-traffic:
       mode: yaml
       title: Traffico internet
