@@ -23,6 +23,7 @@ views:
                 card_mod:
                   style: |
                     ha-card { 
+                      user-select: text !important;
                       --paper-item-icon-color: {% if is_state('sensor.network_status_diagnosis', 'OK') %} green {% else %} red {% endif %};
                     }
 
@@ -31,12 +32,15 @@ views:
                   - type: sensor
                     entity: sensor.internet_packet_loss
                     name: Loss (%)
+                    card_mod: { style: "ha-card { user-select: text !important; }" }
                   - type: sensor
                     entity: sensor.internet_jitter
                     name: Jitter (ms)
+                    card_mod: { style: "ha-card { user-select: text !important; }" }
                   - type: sensor
                     entity: sensor.wan_saturation_percent
                     name: Saturazione (%)
+                    card_mod: { style: "ha-card { user-select: text !important; }" }
 
               - type: markdown
                 content: "## 📊 Riepilogo Storico"
@@ -49,47 +53,29 @@ views:
                   - type: sensor
                     entity: sensor.router_total_download
                     name: Download Totale
+                    card_mod: { style: "ha-card { user-select: text !important; }" }
                   - type: sensor
                     entity: sensor.router_total_upload
                     name: Upload Totale
+                    card_mod: { style: "ha-card { user-select: text !important; }" }
 
-              - type: custom:apexcharts-card
-                experimental:
-                  disable_config_validation: true
-                update_interval: 60s
-                header:
-                  title: "Top 5 Dispositivi (MB Totali)"
-                  show: true
-                apex_config:
-                  chart:
-                    type: bar
-                    height: 250
-                  plotOptions:
-                    bar:
-                      horizontal: true
-                  xaxis:
-                    type: category
-                series:
-                  - entity: sensor.top_device_1_mb
-                    name: >-
-                      {{ state_attr('sensor.top_device_1_mb', 'device_name') or 'Device 1' }}
-                    ignore_history: true
-                  - entity: sensor.top_device_2_mb
-                    name: >-
-                      {{ state_attr('sensor.top_device_2_mb', 'device_name') or 'Device 2' }}
-                    ignore_history: true
-                  - entity: sensor.top_device_3_mb
-                    name: >-
-                      {{ state_attr('sensor.top_device_3_mb', 'device_name') or 'Device 3' }}
-                    ignore_history: true
-                  - entity: sensor.top_device_4_mb
-                    name: >-
-                      {{ state_attr('sensor.top_device_4_mb', 'device_name') or 'Device 4' }}
-                    ignore_history: true
-                  - entity: sensor.top_device_5_mb
-                    name: >-
-                      {{ state_attr('sensor.top_device_5_mb', 'device_name') or 'Device 5' }}
-                    ignore_history: true
+              - type: custom:flex-table-card
+                title: "🏆 Top 5 Dispositivi (MB Totali)"
+                entities:
+                  - entity: sensor.router_traffic_stats
+                card_mod: { style: "ha-card { user-select: text !important; }" }
+                columns:
+                  - name: Pos.
+                    data: top_consumers
+                    modify: index + 1
+                  - name: Dispositivo
+                    data: top_consumers
+                    modify: x.name
+                  - name: Totale MB
+                    data: top_consumers
+                    modify: x.total_rx_mb
+                sort_by: Totale MB-
+                max_rows: 5
 
           # --- COLONNA 2 (Destra) ---
           - type: vertical-stack
@@ -105,12 +91,15 @@ views:
                   - type: sensor
                     entity: sensor.wan_download_speed_realtime
                     name: Down (kbps)
+                    card_mod: { style: "ha-card { user-select: text !important; }" }
                   - type: sensor
                     entity: sensor.wan_upload_speed_realtime
                     name: Up (kbps)
+                    card_mod: { style: "ha-card { user-select: text !important; }" }
                   - type: sensor
-                    entity: sensor.internet_ping_ms
+                    entity: sensor.internet_ping
                     name: Ping (ms)
+                    card_mod: { style: "ha-card { user-select: text !important; }" }
 
               - type: custom:apexcharts-card
                 graph_span: 30m
@@ -119,6 +108,7 @@ views:
                   show_states: true
                   colorize_states: true
                   title: Velocità di Rete (kbps)
+                card_mod: { style: "ha-card { user-select: text !important; }" }
                 series:
                   - entity: sensor.wan_download_speed_realtime
                     name: Download
@@ -137,6 +127,7 @@ views:
                 title: "📋 Chi sta usando banda ORA?"
                 entities:
                   - entity: sensor.realtime_per_device_speed
+                card_mod: { style: "ha-card { user-select: text !important; }" }
                 columns:
                   - name: Device
                     data: devices
@@ -150,9 +141,10 @@ views:
                 sort_by: Down (kbps)-
 
               - type: custom:flex-table-card
-                title: "📋 Dettaglio Storico (nlbwmon)"
+                title: "📋 Dettaglio Storico Completo"
                 entities:
                   - entity: sensor.router_traffic_stats
+                card_mod: { style: "ha-card { user-select: text !important; }" }
                 columns:
                   - name: Device
                     data: top_consumers

@@ -47,7 +47,7 @@ template:
         icon: mdi:stethoscope
         state: >
           {% set wan_dl = states('sensor.wan_download_speed_realtime') | float(0) %}
-          {% set ping = states('sensor.internet_ping_ms') | float(0) %}
+          {% set ping = states('sensor.internet_ping') | float(0) %}
           {% set loss = states('sensor.internet_packet_loss') | float(0) %}
           {% set line_kbps = 100000 %}
           {% set saturation = wan_dl / line_kbps %}

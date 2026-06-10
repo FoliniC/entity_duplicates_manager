@@ -4,8 +4,10 @@ import time
 import os
 
 ROUTER_IP = "192.168.0.11"
-SSH_KEY = "/config/.ssh/router_key"
-CACHE_FILE = "/config/temp/wan_traffic_realtime.json"
+# Path handling for both HA and local testing
+CONFIG_DIR = "/config" if os.path.exists("/config") else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SSH_KEY = os.path.join(CONFIG_DIR, ".ssh/router_key")
+CACHE_FILE = os.path.join(CONFIG_DIR, "temp/wan_traffic_realtime.json")
 INTERFACE = "usb0"
 
 def fetch_raw_bytes():
@@ -41,15 +43,15 @@ def main():
             with open(CACHE_FILE, 'r') as f:
                 prev = json.load(f)
         except:
-            prev = {"rx": rx, "tx": tx, "time": current_time - 1}
+            prev = {"rx_bytes": rx, "tx_bytes": tx, "time": current_time - 1}
     else:
-        prev = {"rx": rx, "tx": tx, "time": current_time - 1}
+        prev = {"rx_bytes": rx, "tx_bytes": tx, "time": current_time - 1}
 
-    delta_time = current_time - prev["time"]
+    delta_time = current_time - prev.get("time", current_time - 1)
     if delta_time <= 0: delta_time = 0.1
     
-    rx_speed = (rx - prev["rx"]) * 8 / (delta_time * 1024) # kbps
-    tx_speed = (tx - prev["tx"]) * 8 / (delta_time * 1024) # kbps
+    rx_speed = (rx - prev.get("rx_bytes", rx)) * 8 / (delta_time * 1024) # kbps
+    tx_speed = (tx - prev.get("tx_bytes", tx)) * 8 / (delta_time * 1024) # kbps
     
     # Handle wrap around or reset
     if rx_speed < 0: rx_speed = 0

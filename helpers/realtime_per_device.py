@@ -4,8 +4,10 @@ import time
 import os
 
 ROUTER_IP = "192.168.0.11"
-SSH_KEY = "/config/.ssh/router_key"
-CACHE_FILE = "/config/temp/realtime_per_device.json"
+# Path handling for both HA and local testing
+CONFIG_DIR = "/config" if os.path.exists("/config") else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SSH_KEY = os.path.join(CONFIG_DIR, ".ssh/router_key")
+CACHE_FILE = os.path.join(CONFIG_DIR, "temp/realtime_per_device.json")
 
 DEVICES = {
     "192.168.0.8":  "Desktop",
@@ -94,8 +96,11 @@ def main():
         curr = current_counters.get(ip, {"rx": 0, "tx": 0})
         last = last_counters.get(ip, curr)
         
-        rx_speed = (curr["rx"] - last["rx"]) * 8 / (delta_time * 1024) if curr["rx"] >= last["rx"] else 0
-        tx_speed = (tx_speed := (curr["tx"] - last["tx"]) * 8 / (delta_time * 1024)) if curr["tx"] >= last["tx"] else 0
+        rx_delta = curr["rx"] - last["rx"] if curr["rx"] >= last["rx"] else curr["rx"]
+        tx_delta = curr["tx"] - last["tx"] if curr["tx"] >= last["tx"] else curr["tx"]
+        
+        rx_speed = (rx_delta * 8) / (delta_time * 1024) # kbps
+        tx_speed = (tx_delta * 8) / (delta_time * 1024) # kbps
         
         processed.append({
             "ip": ip,
