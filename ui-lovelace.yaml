@@ -62,7 +62,7 @@ views:
           children:
           - sensor.lavastoviglie_wifi_digital_meter_lavastoviglie_potenza
           - sensor.potenza_misuratore
-          - sensor.consumo_netto_pdc_template
+          - sensor.smart_meter_2026_a_pdc_power_a
           entity_id: sensor.consumo_impianto_nuovo_template
           name: Impianto nuovo
         - type: entity
@@ -78,12 +78,13 @@ views:
         - type: entity
           children: []
           entity_id: sensor.potenza_misuratore
+          name: Knx
         - type: entity
           children: []
           entity_id: sensor.lavastoviglie_wifi_digital_meter_lavastoviglie_potenza
         - type: entity
           children: []
-          entity_id: sensor.consumo_netto_pdc_template
+          entity_id: sensor.smart_meter_2026_a_pdc_power_a
           name: PDC
       energy_date_selection: false
       type: custom:sankey-chart
@@ -152,7 +153,7 @@ views:
       - entity: sensor.potenza_prelevata_attuale
       - entity: sensor.produzione_solare
       - entity: sensor.envoy_122134037538_current_power_production
-      - entity: sensor.smart_meter_2026_power_a
+      - entity: sensor.smart_meter_2026_a_pdc_power_a
       - entity: sensor.byd_battery_box_premium_hv_state_of_charge
       - entity: sensor.consumo_appartamento_template
       - entity: sensor.consumo_netto_pdc
@@ -162,7 +163,7 @@ views:
       - entity: sensor.prism_potenza
       - entity: sensor.prism_potenza
       - entity: sensor.smart_meter_ts_100a_1_potenza_reale
-      - entity: sensor.smart_meter_2026_power_b
+      - entity: sensor.potenza_misuratore
       - entity: sensor.solarnet_power_battery
       - entity: sensor.solarnet_power_battery_charge
       - entity: sensor.solarnet_power_battery_discharge

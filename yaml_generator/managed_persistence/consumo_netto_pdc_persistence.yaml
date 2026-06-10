@@ -1,7 +1,7 @@
 # Trigger-based sensors for PDC Persistence
 trigger:
   - platform: state
-    entity_id: sensor.smart_meter_power_a
+    entity_id: sensor.smart_meter_2026_a_pdc_power_a
   - platform: homeassistant
     event: start
   - platform: time_pattern
@@ -14,7 +14,7 @@ sensor:
     device_class: power
     state_class: measurement
     state: >-
-      {% set source = states('sensor.smart_meter_power_a') %}
+      {% set source = states('sensor.smart_meter_2026_a_pdc_power_a') %}
       {% if is_number(source) %}
         {{ source | float(0) }}
       {% elif this.state not in ['unknown', 'unavailable', 'none', None] %}
