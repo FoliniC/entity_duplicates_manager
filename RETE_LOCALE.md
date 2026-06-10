@@ -77,7 +77,9 @@ Per diagnosticare rallentamenti e identificare dispositivi che saturano la banda
     *   **Monitoraggio Qualità (Livello 1):** `helpers/network_quality.py` (ogni 60s). Misura **Packet Loss**, **Jitter** e **Latenza** tramite ping sequenziali.
     *   **Velocità WAN (Livello 2):** `helpers/wan_traffic_realtime.py` (ogni 10s). Legge `/proc/net/dev` per la banda totale istantanea e calcola la **Saturazione %**.
     *   **Real-time Per-Device (Livello 3):** `helpers/realtime_per_device.py` (ogni 15s). Utilizza **nftables accounting** sul router per tracciare la banda dei dispositivi critici (Desktop, Alexa, HA).
-    *   **Diagnosi Automatica:** Package `packages/network_diagnosis.yaml`. Un sensore template (`sensor.network_status_diagnosis`) incrocia i dati dei tre livelli per identificare se eventuali rallentamenti sono causati dalla linea o dalla saturazione locale.
+    *   **Diagnosi Automatica:** Package `packages/network_diagnosis.yaml`. Un sensore template (`sensor.network_status_diagnosis`) incrocia i dati dei tre livelli per identificarle se eventuali rallentamenti sono causati dalla linea o dalla saturazione locale.
+    *   **Boost Mode:** Sistema per aumentare temporaneamente la frequenza di campionamento tramite `input_boolean.network_boost_mode`. La durata e l'intervallo (2-15s) sono configurabili dall'utente.
+        - *Nota tecnica:* Grazie all'implementazione di **SSH Multiplexing (ControlMaster)**, la sessione rimane aperta per tutta la durata del boost. Questo azzera l'overhead di connessione/autenticazione, rendendo l'intervallo di 2s estremamente leggero per la CPU del router.
 
 3.  **Dashboard di Controllo:**
     *   **Visualizzazione:** Dashboard "Traffico internet" a due colonne.

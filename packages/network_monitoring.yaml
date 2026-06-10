@@ -36,8 +36,94 @@ command_line:
       unit_of_measurement: "ms"
       scan_interval: 30
 
+input_boolean:
+  network_boost_mode:
+    name: "Network Boost Mode"
+    icon: mdi:rocket-launch
+
+input_number:
+  network_boost_duration:
+    name: "Durata Boost"
+    min: 30
+    max: 600
+    step: 1
+    unit_of_measurement: "s"
+    mode: box
+
+  network_boost_interval:
+    name: "Intervallo Boost"
+    min: 1
+    max: 15
+    step: 1
+    unit_of_measurement: "s"
+    mode: box
+
+  network_boost_remaining:
+    name: "Tempo Rimanente Boost"
+    min: 0
+    max: 600
+    unit_of_measurement: "s"
+    mode: box
+
+input_button:
+  start_network_boost:
+    name: "Avvia Boost Monitoraggio"
+    icon: mdi:timer-play
+
+automation:
+  - alias: "Network Boost Mode Rapid Update"
+    mode: restart
+    trigger:
+      - platform: state
+        entity_id: input_boolean.network_boost_mode
+        to: "on"
+    action:
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.network_boost_remaining
+        data:
+          value: "{{ states('input_number.network_boost_duration') | float }}"
+      - repeat:
+          while:
+            - condition: state
+              entity_id: input_boolean.network_boost_mode
+              state: "on"
+            - condition: template
+              value_template: "{{ states('input_number.network_boost_remaining') | float > 0 }}"
+          sequence:
+            - action: homeassistant.update_entity
+              target:
+                entity_id: 
+                  - sensor.wan_traffic_realtime
+                  - sensor.realtime_per_device_speed
+            - delay:
+                seconds: "{{ states('input_number.network_boost_interval') | int(1) }}"
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.network_boost_remaining
+              data:
+                value: "{{ [0, (states('input_number.network_boost_remaining') | float - states('input_number.network_boost_interval') | float)] | max }}"
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.network_boost_mode
+
+  - alias: "Network Boost Mode Trigger"
+    trigger:
+      - platform: state
+        entity_id: input_button.start_network_boost
+    action:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.network_boost_mode
+
 template:
   - sensor:
+      - name: "Network Boost Countdown"
+        unique_id: network_boost_countdown
+        state: "{{ states('input_number.network_boost_remaining') | int(0) }}"
+        unit_of_measurement: "s"
+        icon: mdi:timer-sand
+
       - name: "Internet Ping"
         unique_id: internet_ping_ms
         state: "{{ states('sensor.internet_ping_cli') | float(0) | round(1) }}"

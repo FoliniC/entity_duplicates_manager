@@ -21,6 +21,9 @@ def run_ssh(cmd):
         "ssh", "-i", SSH_KEY, 
         "-o", "StrictHostKeyChecking=no", 
         "-o", "UserKnownHostsFile=/dev/null", 
+        "-o", "ControlMaster=auto",
+        "-o", f"ControlPath={CONFIG_DIR}/temp/ssh_mux_%h_%p_%r",
+        "-o", "ControlPersist=60s",
         f"root@{ROUTER_IP}", cmd
     ]
     try:

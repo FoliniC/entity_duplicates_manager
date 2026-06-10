@@ -11,11 +11,15 @@ CACHE_FILE = os.path.join(CONFIG_DIR, "temp/wan_traffic_realtime.json")
 INTERFACE = "usb0"
 
 def fetch_raw_bytes():
+    # Use SSH Multiplexing to keep the session alive and reduce overhead
     cmd = [
         "ssh", 
         "-i", SSH_KEY, 
         "-o", "StrictHostKeyChecking=no", 
         "-o", "UserKnownHostsFile=/dev/null", 
+        "-o", "ControlMaster=auto",
+        "-o", f"ControlPath={CONFIG_DIR}/temp/ssh_mux_%h_%p_%r",
+        "-o", "ControlPersist=60s",
         "root@" + ROUTER_IP, 
         f"grep {INTERFACE} /proc/net/dev"
     ]

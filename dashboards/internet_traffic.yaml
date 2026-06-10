@@ -12,10 +12,27 @@ views:
           - type: vertical-stack
             cards:
               - type: markdown
-                content: "# 🩺 Diagnosi Avanzata\nAnalisi automatica della linea."
+                content: >
+                  # 🩺 Diagnosi Avanzata
+                  Analisi automatica della linea.
+                  
+                  ---
+                  🚀 **Boost Mode**: Aumenta la frequenza di campionamento (configurabile).
+                  *Ottimizzato con SSH Multiplexing: la connessione resta aperta per tutta la durata del boost riducendo il carico sul router.*
                 card_mod:
                   style: |
                     ha-card { user-select: text !important; }
+
+              - type: entities
+                entities:
+                  - entity: input_number.network_boost_duration
+                    name: "Durata Boost (sec)"
+                  - entity: input_number.network_boost_interval
+                    name: "Frequenza Boost (sec)"
+                  - entity: input_button.start_network_boost
+                    name: "Avvia Monitoraggio Rapido"
+                  - entity: input_boolean.network_boost_mode
+                    name: "Stato Boost"
 
               - type: entity
                 entity: sensor.network_status_diagnosis
@@ -60,22 +77,18 @@ views:
                     card_mod: { style: "ha-card { user-select: text !important; }" }
 
               - type: custom:flex-table-card
-                title: "🏆 Top 5 Dispositivi (MB Totali)"
+                title: "🏆 Top 10 Dispositivi (MB Totali)"
                 entities:
                   - entity: sensor.router_traffic_stats
                 card_mod: { style: "ha-card { user-select: text !important; }" }
                 columns:
-                  - name: Pos.
-                    data: top_consumers
-                    modify: index + 1
                   - name: Dispositivo
                     data: top_consumers
                     modify: x.name
-                  - name: Totale MB
+                  - name: Totale (MB)
                     data: top_consumers
                     modify: x.total_rx_mb
-                sort_by: Totale MB-
-                max_rows: 5
+                sort_by: Totale (MB)-
 
           # --- COLONNA 2 (Destra) ---
           - type: vertical-stack
@@ -102,7 +115,7 @@ views:
                     card_mod: { style: "ha-card { user-select: text !important; }" }
 
               - type: custom:apexcharts-card
-                graph_span: 30m
+                graph_span: 15m
                 header:
                   show: true
                   show_states: true
@@ -139,17 +152,3 @@ views:
                     data: devices
                     modify: x.tx_kbps
                 sort_by: Down (kbps)-
-
-              - type: custom:flex-table-card
-                title: "📋 Dettaglio Storico Completo"
-                entities:
-                  - entity: sensor.router_traffic_stats
-                card_mod: { style: "ha-card { user-select: text !important; }" }
-                columns:
-                  - name: Device
-                    data: top_consumers
-                    modify: x.name
-                  - name: Tot (MB)
-                    data: top_consumers
-                    modify: x.total_rx_mb
-                sort_by: Tot (MB)-
