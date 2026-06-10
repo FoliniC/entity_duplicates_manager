@@ -116,25 +116,43 @@ views:
                 conditions:
                   - entity: input_boolean.network_boost_mode
                     state: "off"
-                  - entity: sensor.network_boost_speed_max
+                  - entity: sensor.network_boost_dl_max
                     state_not: "0.0"
                 card:
-                  type: entities
-                  title: "🏁 Risultati Ultimo Boost"
-                  entities:
-                    - entity: sensor.network_boost_speed_min
-                      name: "Velocità Minima"
-                    - entity: sensor.network_boost_speed_max
-                      name: "Velocità Massima"
-                    - entity: sensor.network_boost_speed_avg
-                      name: "Velocità Media"
-                  card_mod:
-                    style: |
-                      ha-card {
-                        border: 1px solid #4caf50;
-                        background: rgba(76, 175, 80, 0.05);
-                        user-select: text !important;
-                      }
+                  type: vertical-stack
+                  cards:
+                    - type: entities
+                      title: "🏁 Risultati Ultimo Boost (Download)"
+                      entities:
+                        - entity: sensor.network_boost_dl_min
+                          name: "Velocità Minima DL"
+                        - entity: sensor.network_boost_dl_max
+                          name: "Velocità Massima DL"
+                        - entity: sensor.network_boost_dl_avg
+                          name: "Velocità Media DL"
+                      card_mod:
+                        style: |
+                          ha-card {
+                            border: 1px solid #1e88e5;
+                            background: rgba(30, 136, 229, 0.05);
+                            user-select: text !important;
+                          }
+                    - type: entities
+                      title: "🏁 Risultati Ultimo Boost (Upload)"
+                      entities:
+                        - entity: sensor.network_boost_ul_min
+                          name: "Velocità Minima UL"
+                        - entity: sensor.network_boost_ul_max
+                          name: "Velocità Massima UL"
+                        - entity: sensor.network_boost_ul_avg
+                          name: "Velocità Media UL"
+                      card_mod:
+                        style: |
+                          ha-card {
+                            border: 1px solid #e53935;
+                            background: rgba(229, 57, 53, 0.05);
+                            user-select: text !important;
+                          }
 
               - type: entity
                 entity: sensor.network_status_diagnosis

@@ -65,20 +65,38 @@ input_number:
     unit_of_measurement: "s"
     mode: box
 
-  network_boost_stats_max:
-    name: "Boost Max Speed"
+  network_boost_stats_dl_max:
+    name: "Boost DL Max Speed"
     min: 0
     max: 1000000
     unit_of_measurement: "kbps"
 
-  network_boost_stats_min:
-    name: "Boost Min Speed"
+  network_boost_stats_dl_min:
+    name: "Boost DL Min Speed"
     min: 0
     max: 1000000
     unit_of_measurement: "kbps"
 
-  network_boost_stats_avg_sum:
-    name: "Boost Avg Sum"
+  network_boost_stats_dl_avg_sum:
+    name: "Boost DL Avg Sum"
+    min: 0
+    max: 100000000
+    unit_of_measurement: "kbps"
+
+  network_boost_stats_ul_max:
+    name: "Boost UL Max Speed"
+    min: 0
+    max: 1000000
+    unit_of_measurement: "kbps"
+
+  network_boost_stats_ul_min:
+    name: "Boost UL Min Speed"
+    min: 0
+    max: 1000000
+    unit_of_measurement: "kbps"
+
+  network_boost_stats_ul_avg_sum:
+    name: "Boost UL Avg Sum"
     min: 0
     max: 100000000
     unit_of_measurement: "kbps"
@@ -105,9 +123,12 @@ automation:
         target:
           entity_id: 
             - input_number.network_boost_remaining
-            - input_number.network_boost_stats_max
-            - input_number.network_boost_stats_min
-            - input_number.network_boost_stats_avg_sum
+            - input_number.network_boost_stats_dl_max
+            - input_number.network_boost_stats_dl_min
+            - input_number.network_boost_stats_dl_avg_sum
+            - input_number.network_boost_stats_ul_max
+            - input_number.network_boost_stats_ul_min
+            - input_number.network_boost_stats_ul_avg_sum
             - input_number.network_boost_stats_count
         data:
           value: 0
@@ -118,7 +139,9 @@ automation:
           value: "{{ states('input_number.network_boost_duration') | float }}"
       - action: input_number.set_value
         target:
-          entity_id: input_number.network_boost_stats_min
+          entity_id: 
+            - input_number.network_boost_stats_dl_min
+            - input_number.network_boost_stats_ul_min
         data:
           value: 999999
       - repeat:
@@ -135,23 +158,39 @@ automation:
                   - sensor.wan_traffic_realtime
                   - sensor.realtime_per_device_speed
             - variables:
-                curr_speed: "{{ states('sensor.wan_download_speed_realtime') | float(0) }}"
+                curr_dl: "{{ states('sensor.wan_download_speed_realtime') | float(0) }}"
+                curr_ul: "{{ states('sensor.wan_upload_speed_realtime') | float(0) }}"
                 interval: "{{ states('input_number.network_boost_interval') | float(1) }}"
             - action: input_number.set_value
               target:
-                entity_id: input_number.network_boost_stats_max
+                entity_id: input_number.network_boost_stats_dl_max
               data:
-                value: "{{ [states('input_number.network_boost_stats_max') | float, curr_speed] | max }}"
+                value: "{{ [states('input_number.network_boost_stats_dl_max') | float, curr_dl] | max }}"
             - action: input_number.set_value
               target:
-                entity_id: input_number.network_boost_stats_min
+                entity_id: input_number.network_boost_stats_dl_min
               data:
-                value: "{{ [states('input_number.network_boost_stats_min') | float, curr_speed] | min }}"
+                value: "{{ [states('input_number.network_boost_stats_dl_min') | float, curr_dl] | min }}"
             - action: input_number.set_value
               target:
-                entity_id: input_number.network_boost_stats_avg_sum
+                entity_id: input_number.network_boost_stats_dl_avg_sum
               data:
-                value: "{{ states('input_number.network_boost_stats_avg_sum') | float + curr_speed }}"
+                value: "{{ states('input_number.network_boost_stats_dl_avg_sum') | float + curr_dl }}"
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.network_boost_stats_ul_max
+              data:
+                value: "{{ [states('input_number.network_boost_stats_ul_max') | float, curr_ul] | max }}"
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.network_boost_stats_ul_min
+              data:
+                value: "{{ [states('input_number.network_boost_stats_ul_min') | float, curr_ul] | min }}"
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.network_boost_stats_ul_avg_sum
+              data:
+                value: "{{ states('input_number.network_boost_stats_ul_avg_sum') | float + curr_ul }}"
             - action: input_number.set_value
               target:
                 entity_id: input_number.network_boost_stats_count
@@ -179,6 +218,20 @@ automation:
         target:
           entity_id: input_boolean.network_boost_mode
 
+  - alias: "Network Boost Mode Boot Safety"
+    trigger:
+      - platform: homeassistant
+        event: start
+    action:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.network_boost_mode
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.network_boost_remaining
+        data:
+          value: 0
+
 template:
   - sensor:
       - name: "Network Boost Countdown"
@@ -187,28 +240,51 @@ template:
         unit_of_measurement: "s"
         icon: mdi:timer-sand
 
-      - name: "Network Boost Speed Max"
-        unique_id: network_boost_speed_max
-        state: "{{ states('input_number.network_boost_stats_max') | float(0) | round(1) }}"
+      - name: "Network Boost DL Max"
+        unique_id: network_boost_dl_max
+        state: "{{ states('input_number.network_boost_stats_dl_max') | float(0) | round(1) }}"
         unit_of_measurement: "kbps"
-        icon: mdi:speedometer-thick
+        icon: mdi:download-speed
 
-      - name: "Network Boost Speed Min"
-        unique_id: network_boost_speed_min
+      - name: "Network Boost DL Min"
+        unique_id: network_boost_dl_min
         state: >
-          {% set val = states('input_number.network_boost_stats_min') | float(0) %}
+          {% set val = states('input_number.network_boost_stats_dl_min') | float(0) %}
           {{ val | round(1) if val < 999999 else 0 }}
         unit_of_measurement: "kbps"
-        icon: mdi:speedometer-slow
+        icon: mdi:download-lock
 
-      - name: "Network Boost Speed Avg"
-        unique_id: network_boost_speed_avg
+      - name: "Network Boost DL Avg"
+        unique_id: network_boost_dl_avg
         state: >
-          {% set sum = states('input_number.network_boost_stats_avg_sum') | float(0) %}
+          {% set sum = states('input_number.network_boost_stats_dl_avg_sum') | float(0) %}
           {% set count = states('input_number.network_boost_stats_count') | int(0) %}
           {{ (sum / count) | round(1) if count > 0 else 0 }}
         unit_of_measurement: "kbps"
-        icon: mdi:speedometer-medium
+        icon: mdi:download-multiple
+
+      - name: "Network Boost UL Max"
+        unique_id: network_boost_ul_max
+        state: "{{ states('input_number.network_boost_stats_ul_max') | float(0) | round(1) }}"
+        unit_of_measurement: "kbps"
+        icon: mdi:upload-speed
+
+      - name: "Network Boost UL Min"
+        unique_id: network_boost_ul_min
+        state: >
+          {% set val = states('input_number.network_boost_stats_ul_min') | float(0) %}
+          {{ val | round(1) if val < 999999 else 0 }}
+        unit_of_measurement: "kbps"
+        icon: mdi:upload-lock
+
+      - name: "Network Boost UL Avg"
+        unique_id: network_boost_ul_avg
+        state: >
+          {% set sum = states('input_number.network_boost_stats_ul_avg_sum') | float(0) %}
+          {% set count = states('input_number.network_boost_stats_count') | int(0) %}
+          {{ (sum / count) | round(1) if count > 0 else 0 }}
+        unit_of_measurement: "kbps"
+        icon: mdi:upload-multiple
 
       - name: "Network Boost Validation Error"
         unique_id: network_boost_validation_error
