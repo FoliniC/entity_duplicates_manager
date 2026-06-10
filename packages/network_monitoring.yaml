@@ -17,8 +17,44 @@ command_line:
         - timestamp
       scan_interval: 60
 
+  - sensor:
+      name: WAN Traffic Realtime
+      unique_id: wan_traffic_realtime
+      command: "python3 /config/helpers/wan_traffic_realtime.py"
+      value_template: "{{ value_json.rx_kbps | default(0) }}"
+      json_attributes:
+        - rx_kbps
+        - tx_kbps
+        - rx_bytes
+        - tx_bytes
+      scan_interval: 10
+
+binary_sensor:
+  - platform: ping
+    host: 1.1.1.1
+    name: "Internet Ping"
+    scan_interval: 30
+
 template:
   - sensor:
+      - name: "Internet Ping"
+        unique_id: internet_ping_ms
+        state: "{{ state_attr('binary_sensor.internet_ping', 'round_trip_time_avg') | float(0) }}"
+        unit_of_measurement: "ms"
+        icon: mdi:gauge
+
+      - name: "WAN Download Speed Realtime"
+        unique_id: wan_download_speed_realtime
+        state: "{{ state_attr('sensor.wan_traffic_realtime', 'rx_kbps') | float(0) }}"
+        unit_of_measurement: "kbps"
+        icon: mdi:download-network-outline
+
+      - name: "WAN Upload Speed Realtime"
+        unique_id: wan_upload_speed_realtime
+        state: "{{ state_attr('sensor.wan_traffic_realtime', 'tx_kbps') | float(0) }}"
+        unit_of_measurement: "kbps"
+        icon: mdi:upload-network-outline
+
       - name: "Router Total Download"
         unique_id: router_total_download
         state: >

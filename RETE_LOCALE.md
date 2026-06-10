@@ -73,25 +73,30 @@ Per diagnosticare rallentamenti e identificare dispositivi che saturano la banda
     *   **Configurazione Ottimizzata (Giugno 2026):**
         - **Commit Interval:** Impostato a `1m` (in RAM) per avere dati quasi real-time.
         - **Flow Offloading:** Disattivato (`flow_offloading='0'`, `flow_offloading_hw='0'`). Questa modifica è necessaria perché l'offloading accelera il traffico bypassando i contatori della CPU, rendendo invisibile il traffico dei dispositivi collegati tramite bridge/mesh (es. Alexa in cucina).
-
 2.  **Server HA (Integrazione):**
-    *   **Script:** `helpers/router_traffic.py`.
-    *   **Logica:** Interroga il router ogni 60 secondi, calcola la velocità differenziale (kbps) e risolve i nomi host tramite DNS locale (`socket`).
+    *   **Script Principale:** `helpers/router_traffic.py` (ogni 60s per statistiche per-device).
+    *   **Script Real-time:** `helpers/wan_traffic_realtime.py` (ogni 10s per velocità WAN istantanea).
+    *   **Logica:** Interroga il router tramite SSH. Per il real-time, legge direttamente `/proc/net/dev` sull'interfaccia `usb0`.
     *   **Entità:** Gestite tramite il package `packages/network_monitoring.yaml`.
         - `sensor.router_total_download`: Traffico totale in ingresso (GB).
         - `sensor.router_total_upload`: Traffico totale in uscita (GB).
+        - `sensor.wan_download_speed_realtime`: Velocità istantanea in download (kbps).
+        - `sensor.wan_upload_speed_realtime`: Velocità istantanea in upload (kbps).
+        - `sensor.internet_ping`: Latenza della connessione (ms).
         - `sensor.router_traffic_stats`: Attributo `top_consumers` con la lista dettagliata dei device.
 
 3.  **Dashboard di Controllo:**
     *   **Visualizzazione:** Dashboard dedicata "Traffico Rete".
     *   **Funzionalità:**
+        - Indicatori istantanei per Down/Up e Ping.
         - Tabella interattiva ordinabile (`flex-table-card`) con nomi amichevoli dei dispositivi.
         - Grafico a barre dei primi 10 consumatori per MB totali.
-        - Grafico real-time della velocità complessiva (KB/s) nell'ultima ora.
+        - Grafico real-time della velocità complessiva (kbps) basato sui sensori WAN ad alta frequenza.
 
 ### Configurazione Grafico Top 5 Dispositivi
-Il grafico "Top 5 Dispositivi (MB)" utilizza una struttura a sensori multipli per garantire la massima stabilità:
-
+...
+---
+*Ultimo aggiornamento: 10 Giugno 2026*
 1.  **Sensori Template** (`/config/packages/network_monitoring.yaml`): Sono definiti 5 sensori individuali (`top_device_1_mb` ... `top_device_5_mb`). 
     - **Nome statico**: "Top Device X MB" per un'identificazione univoca nel database.
     - **Stato**: Valore numerico del traffico (MB).

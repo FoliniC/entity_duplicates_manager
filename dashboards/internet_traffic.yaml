@@ -18,6 +18,18 @@ views:
             entity: sensor.router_total_upload
             name: Upload Totale (MB)
 
+      - type: horizontal-stack
+        cards:
+          - type: sensor
+            entity: sensor.wan_download_speed_realtime
+            name: Speed Download
+          - type: sensor
+            entity: sensor.wan_upload_speed_realtime
+            name: Speed Upload
+          - type: sensor
+            entity: sensor.internet_ping
+            name: Ping (ms)
+
       - type: markdown
         content: "## 📋 Dati testuali"
         card_mod:
@@ -100,11 +112,11 @@ views:
           show_states: true
           colorize_states: true
         series:
-          - entity: sensor.router_download_speed
+          - entity: sensor.wan_download_speed_realtime
             name: Download
             color: "#1e88e5"
             type: area
-          - entity: sensor.router_upload_speed
+          - entity: sensor.wan_upload_speed_realtime
             name: Upload
             color: "#e53935"
             type: area
