@@ -1,0 +1,65 @@
+command_line:
+  - sensor:
+      name: Network Quality Stats
+      unique_id: network_quality_stats
+      command: "python3 /config/helpers/network_quality.py"
+      value_template: "{{ value_json.status }}"
+      json_attributes:
+        - packet_loss
+        - jitter
+        - ping
+      scan_interval: 60
+
+  - sensor:
+      name: Realtime Per Device Speed
+      unique_id: realtime_per_device_speed
+      command: "python3 /config/helpers/realtime_per_device.py"
+      value_template: "OK"
+      json_attributes:
+        - devices
+      scan_interval: 15
+
+template:
+  - sensor:
+      - name: "Internet Packet Loss"
+        unique_id: internet_packet_loss
+        state: "{{ state_attr('sensor.network_quality_stats', 'packet_loss') | float(0) }}"
+        unit_of_measurement: "%"
+        icon: mdi:packet-loss
+
+      - name: "Internet Jitter"
+        unique_id: internet_jitter
+        state: "{{ state_attr('sensor.network_quality_stats', 'jitter') | float(0) }}"
+        unit_of_measurement: "ms"
+        icon: mdi:pulse
+
+      - name: "WAN Saturation Percent"
+        unique_id: wan_saturation_percent
+        unit_of_measurement: "%"
+        icon: mdi:speedometer
+        state: >
+          {% set wan_dl = states('sensor.wan_download_speed_realtime') | float(0) %}
+          {% set line_mbps = 100000 %} {# Impostato a 100Mbps come da suggerimento #}
+          {{ ((wan_dl / line_mbps) * 100) | round(1) }}
+
+      - name: "Network Status Diagnosis"
+        unique_id: network_status_diagnosis
+        icon: mdi:stethoscope
+        state: >
+          {% set wan_dl = states('sensor.wan_download_speed_realtime') | float(0) %}
+          {% set ping = states('sensor.internet_ping_ms') | float(0) %}
+          {% set loss = states('sensor.internet_packet_loss') | float(0) %}
+          {% set line_kbps = 100000 %}
+          {% set saturation = wan_dl / line_kbps %}
+          
+          {% if loss > 5 %}
+            PROBLEMA LINEA - Packet loss {{ loss }}%
+          {% elif ping > 80 and saturation < 0.5 %}
+            PROBLEMA LINEA - Latenza alta senza carico
+          {% elif saturation > 0.85 %}
+            SATURAZIONE - Banda al {{ (saturation*100)|round }}%
+          {% elif ping > 50 and saturation > 0.7 %}
+            SATURAZIONE - Congestione in corso
+          {% else %}
+            OK
+          {% endif %}

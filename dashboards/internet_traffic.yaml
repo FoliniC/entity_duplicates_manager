@@ -12,7 +12,34 @@ views:
           - type: vertical-stack
             cards:
               - type: markdown
-                content: "# 📊 Monitoraggio Rete\nStatistiche di riepilogo."
+                content: "# 🩺 Diagnosi Avanzata\nAnalisi automatica della linea."
+                card_mod:
+                  style: |
+                    ha-card { user-select: text !important; }
+
+              - type: entity
+                entity: sensor.network_status_diagnosis
+                name: "Stato Rete"
+                card_mod:
+                  style: |
+                    ha-card { 
+                      --paper-item-icon-color: {% if is_state('sensor.network_status_diagnosis', 'OK') %} green {% else %} red {% endif %};
+                    }
+
+              - type: horizontal-stack
+                cards:
+                  - type: sensor
+                    entity: sensor.internet_packet_loss
+                    name: Loss (%)
+                  - type: sensor
+                    entity: sensor.internet_jitter
+                    name: Jitter (ms)
+                  - type: sensor
+                    entity: sensor.wan_saturation_percent
+                    name: Saturazione (%)
+
+              - type: markdown
+                content: "## 📊 Riepilogo Storico"
                 card_mod:
                   style: |
                     ha-card { user-select: text !important; }
@@ -26,29 +53,12 @@ views:
                     entity: sensor.router_total_upload
                     name: Upload Totale
 
-              - type: entities
-                title: "📋 Top Device (Totale)"
-                entities:
-                  - entity: sensor.router_top_1_consumer_name
-                    name: "1° Nome"
-                  - entity: sensor.router_top_1_consumer_value
-                    name: "1° Valore"
-                  - entity: sensor.router_top_2_consumer_name
-                    name: "2° Nome"
-                  - entity: sensor.router_top_2_consumer_value
-                    name: "2° Valore"
-                  - entity: sensor.router_realtime_top_consumer
-                    name: "Velocità Istantanea"
-                card_mod:
-                  style: |
-                    ha-card { user-select: text !important; }
-
               - type: custom:apexcharts-card
                 experimental:
                   disable_config_validation: true
                 update_interval: 60s
                 header:
-                  title: "Top 5 Dispositivi (MB)"
+                  title: "Top 5 Dispositivi (MB Totali)"
                   show: true
                 apex_config:
                   chart:
@@ -59,10 +69,6 @@ views:
                       horizontal: true
                   xaxis:
                     type: category
-                  dataLabels:
-                    enabled: true
-                  legend:
-                    show: false
                 series:
                   - entity: sensor.top_device_1_mb
                     name: >-
@@ -103,7 +109,7 @@ views:
                     entity: sensor.wan_upload_speed_realtime
                     name: Up (kbps)
                   - type: sensor
-                    entity: sensor.internet_ping
+                    entity: sensor.internet_ping_ms
                     name: Ping (ms)
 
               - type: custom:apexcharts-card
@@ -128,20 +134,30 @@ views:
                       forceNiceScale: true
 
               - type: custom:flex-table-card
-                title: "📋 Dettaglio Completo"
+                title: "📋 Chi sta usando banda ORA?"
+                entities:
+                  - entity: sensor.realtime_per_device_speed
+                columns:
+                  - name: Device
+                    data: devices
+                    modify: x.name
+                  - name: Down (kbps)
+                    data: devices
+                    modify: x.rx_kbps
+                  - name: Up (kbps)
+                    data: devices
+                    modify: x.tx_kbps
+                sort_by: Down (kbps)-
+
+              - type: custom:flex-table-card
+                title: "📋 Dettaglio Storico (nlbwmon)"
                 entities:
                   - entity: sensor.router_traffic_stats
                 columns:
                   - name: Device
                     data: top_consumers
                     modify: x.name
-                  - name: Down
-                    data: top_consumers
-                    modify: x.rx_kbps
-                  - name: Up
-                    data: top_consumers
-                    modify: x.tx_kbps
                   - name: Tot (MB)
                     data: top_consumers
                     modify: x.total_rx_mb
-                sort_by: Down-
+                sort_by: Tot (MB)-
