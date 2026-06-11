@@ -35,13 +35,16 @@ except ImportError as e:
 
 def _enrich_scale(kwargs: dict) -> str:
     action_map = {
-        "acceso":  "accensione",
-        "spento":  "spegnimento",
-        "nulla":   "invariato",
-        "toggle":  "toggle",
+        "acceso":    "accensione",
+        "spento":    "spegnimento",
+        "nulla":     "invariato",
+        "debug":     "debug",
+        "toggle":    "toggle",
         "attuatore": "attuatore",
     }
-    mapped = action_map.get(kwargs.get("action", "nulla"), kwargs.get("action", "nulla"))
+    # Se manca l'azione, usiamo 'debug' come default per questo sottosistema
+    action_raw = kwargs.get("action", "debug")
+    mapped = action_map.get(action_raw, action_raw)
     try:
         p1    = float(state.get("sensor.sonoff_10024024c4_power_1") or 0)
         p2    = float(state.get("sensor.sonoff_10024024c4_power_2") or 0)

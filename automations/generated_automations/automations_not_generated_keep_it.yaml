@@ -539,7 +539,6 @@
               event_data:
                 message: "DEBUG - Ripartito Home Assistant. {{ current_state_str }}"
                 level: INFO
-                action: "invariato"
             - action: input_text.set_value
               target:
                 entity_id: input_text.debug_deviatore_last_state
@@ -555,7 +554,6 @@
               event_data:
                 message: "DEBUG - Cambio stato rilevato. {{ current_state_str }}"
                 level: INFO
-                action: "invariato"
             - action: input_text.set_value
               target:
                 entity_id: input_text.debug_deviatore_last_state
@@ -573,7 +571,6 @@
               event_data:
                 message: "DEBUG - Aggiornamento periodico (stato disallineato?). {{ current_state_str }} (Era: {{ last_state_str }})"
                 level: INFO
-                action: "invariato"
             - action: input_text.set_value
               target:
                 entity_id: input_text.debug_deviatore_last_state

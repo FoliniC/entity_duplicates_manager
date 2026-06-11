@@ -4,6 +4,8 @@
 - **Architectural Pattern**: Unified persistence for fancoil system using native HA helpers.
 - **Conventions**: Adhere to the existing YAML structure and naming conventions.
 - **Testing**: Empirical reproduction of failures is mandatory before applying fixes.
+- **Validation**: After modifying any YAML configuration, ALWAYS run the configuration check:
+  `docker exec homeassistant hass --script check_config -c /config`
 
 ## 📁 Logging & Maintenance (HALog2026)
 Custom logs are centrally managed by the **HALog2026** event-based system.

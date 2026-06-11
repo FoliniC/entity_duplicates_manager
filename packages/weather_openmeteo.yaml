@@ -4,127 +4,149 @@ rest:
     sensor:
       - name: "Meteo Castionetto - Temperatura"
         unique_id: meteo_castionetto_temperatura
-        value_template: "{{ value_json.current.temperature_2m }}"
+        value_template: "{{ value_json.current.temperature_2m if value_json is defined and value_json.current is defined else none }}"
+        availability: "{{ value_json is defined and value_json.current is defined }}"
         unit_of_measurement: "°C"
         device_class: temperature
 
       - name: "Meteo Castionetto - Umidità"
         unique_id: meteo_castionetto_umidita
-        value_template: "{{ value_json.current.relative_humidity_2m }}"
+        value_template: "{{ value_json.current.relative_humidity_2m if value_json is defined and value_json.current is defined else none }}"
+        availability: "{{ value_json is defined and value_json.current is defined }}"
         unit_of_measurement: "%"
         device_class: humidity
 
       - name: "Meteo Castionetto - Punto di Rugiada"
         unique_id: meteo_castionetto_punto_di_rugiada
-        value_template: "{{ value_json.current.dew_point_2m }}"
+        value_template: "{{ value_json.current.dew_point_2m if value_json is defined and value_json.current is defined else none }}"
+        availability: "{{ value_json is defined and value_json.current is defined }}"
         unit_of_measurement: "°C"
         device_class: temperature
 
       - name: "Castionetto Precipitazione"
         unique_id: castionetto_precipitazione
-        value_template: "{{ value_json.current.precipitation }}"
+        value_template: "{{ value_json.current.precipitation if value_json is defined and value_json.current is defined else none }}"
+        availability: "{{ value_json is defined and value_json.current is defined }}"
         unit_of_measurement: "mm/h"
         device_class: precipitation_intensity
 
       - name: "Castionetto Pioggia"
         unique_id: castionetto_pioggia
-        value_template: "{{ value_json.current.rain }}"
+        value_template: "{{ value_json.current.rain if value_json is defined and value_json.current is defined else none }}"
+        availability: "{{ value_json is defined and value_json.current is defined }}"
         unit_of_measurement: "mm"
 
       - name: "Castionetto Weather Code"
         unique_id: castionetto_weather_code
-        value_template: "{{ value_json.current.weather_code }}"
+        value_template: "{{ value_json.current.weather_code if value_json is defined and value_json.current is defined else none }}"
+        availability: "{{ value_json is defined and value_json.current is defined }}"
 
       - name: "Castionetto Weather Description"
         unique_id: castionetto_weather_description
+        availability: "{{ value_json is defined and value_json.current is defined }}"
         value_template: >-
-          {% set mapper = {
-            0: "Sereno",
-            1: "Prevalentemente sereno",
-            2: "Parzialmente nuvoloso",
-            3: "Coperto",
-            45: "Nebbia",
-            48: "Nebbia con brina",
-            51: "Pioviggine leggera",
-            53: "Pioviggine moderata",
-            55: "Pioviggine densa",
-            56: "Pioviggine gelata leggera",
-            57: "Pioviggine gelata densa",
-            61: "Pioggia leggera",
-            63: "Pioggia moderata",
-            65: "Pioggia forte",
-            66: "Pioggia gelata leggera",
-            67: "Pioggia gelata forte",
-            71: "Neve leggera",
-            73: "Neve moderata",
-            75: "Neve forte",
-            77: "Granelli di neve",
-            80: "Rovesci di pioggia leggeri",
-            81: "Rovesci di pioggia moderati",
-            82: "Rovesci di pioggia violenti",
-            85: "Rovesci di neve leggeri",
-            86: "Rovesci di neve forti",
-            95: "Temporale",
-            96: "Temporale con grandine leggera",
-            99: "Temporale con grandine forte"
-          } %}
-          {{ mapper.get(value_json.current.weather_code, "Sconosciuto (" ~ value_json.current.weather_code ~ ")") }}
+          {% if value_json is defined and value_json.current is defined %}
+            {% set mapper = {
+              0: "Sereno",
+              1: "Prevalentemente sereno",
+              2: "Parzialmente nuvoloso",
+              3: "Coperto",
+              45: "Nebbia",
+              48: "Nebbia con brina",
+              51: "Pioviggine leggera",
+              53: "Pioviggine moderata",
+              55: "Pioviggine densa",
+              56: "Pioviggine gelata leggera",
+              57: "Pioviggine gelata densa",
+              61: "Pioggia leggera",
+              63: "Pioggia moderata",
+              65: "Pioggia forte",
+              66: "Pioggia gelata leggera",
+              67: "Pioggia gelata forte",
+              71: "Neve leggera",
+              73: "Neve moderata",
+              75: "Neve forte",
+              77: "Granelli di neve",
+              80: "Rovesci di pioggia leggeri",
+              81: "Rovesci di pioggia moderati",
+              82: "Rovesci di pioggia violenti",
+              85: "Rovesci di neve leggeri",
+              86: "Rovesci di neve forti",
+              95: "Temporale",
+              96: "Temporale con grandine leggera",
+              99: "Temporale con grandine forte"
+            } %}
+            {{ mapper.get(value_json.current.weather_code, "Sconosciuto (" ~ value_json.current.weather_code ~ ")") }}
+          {% else %}
+            none
+          {% endif %}
 
       - name: "Castionetto Is Day"
         unique_id: castionetto_is_day
-        value_template: "{{ value_json.current.is_day }}"
+        value_template: "{{ value_json.current.is_day if value_json is defined and value_json.current is defined else none }}"
+        availability: "{{ value_json is defined and value_json.current is defined }}"
 
       - name: "Castionetto Radiazione Globale"
         unique_id: castionetto_radiazione_globale
-        value_template: "{{ value_json.current.shortwave_radiation }}"
+        value_template: "{{ value_json.current.shortwave_radiation if value_json is defined and value_json.current is defined else none }}"
+        availability: "{{ value_json is defined and value_json.current is defined }}"
         unit_of_measurement: "W/m²"
         device_class: irradiance
 
       - name: "Castionetto Radiazione Diretta"
         unique_id: castionetto_radiazione_diretta
-        value_template: "{{ value_json.current.direct_radiation }}"
+        value_template: "{{ value_json.current.direct_radiation if value_json is defined and value_json.current is defined else none }}"
+        availability: "{{ value_json is defined and value_json.current is defined }}"
         unit_of_measurement: "W/m²"
         device_class: irradiance
 
       - name: "Castionetto DNI"
         unique_id: castionetto_dni
-        value_template: "{{ value_json.current.direct_normal_irradiance }}"
+        value_template: "{{ value_json.current.direct_normal_irradiance if value_json is defined and value_json.current is defined else none }}"
+        availability: "{{ value_json is defined and value_json.current is defined }}"
         unit_of_measurement: "W/m²"
         device_class: irradiance
 
       - name: "Castionetto Sunshine Duration"
         unique_id: castionetto_sunshine_duration
-        value_template: "{{ value_json.current.sunshine_duration }}"
+        value_template: "{{ value_json.current.sunshine_duration if value_json is defined and value_json.current is defined else none }}"
+        availability: "{{ value_json is defined and value_json.current is defined }}"
         unit_of_measurement: "s"
 
       - name: "Castionetto Prob. Pioggia Ora"
         unique_id: castionetto_prob_pioggia_ora
-        value_template: "{{ value_json.hourly.precipitation_probability[0] }}"
+        value_template: "{{ value_json.hourly.precipitation_probability[0] if value_json is defined and value_json.hourly is defined else none }}"
+        availability: "{{ value_json is defined and value_json.hourly is defined }}"
         unit_of_measurement: "%"
 
       - name: "Castionetto Prob. Pioggia +1h"
         unique_id: castionetto_prob_pioggia_1h
-        value_template: "{{ value_json.hourly.precipitation_probability[1] }}"
+        value_template: "{{ value_json.hourly.precipitation_probability[1] if value_json is defined and value_json.hourly is defined else none }}"
+        availability: "{{ value_json is defined and value_json.hourly is defined }}"
         unit_of_measurement: "%"
 
       - name: "Castionetto Prob. Pioggia +3h"
         unique_id: castionetto_prob_pioggia_3h
-        value_template: "{{ value_json.hourly.precipitation_probability[3] }}"
+        value_template: "{{ value_json.hourly.precipitation_probability[3] if value_json is defined and value_json.hourly is defined else none }}"
+        availability: "{{ value_json is defined and value_json.hourly is defined }}"
         unit_of_measurement: "%"
 
       - name: "Castionetto Prob. Pioggia +6h"
         unique_id: castionetto_prob_pioggia_6h
-        value_template: "{{ value_json.hourly.precipitation_probability[6] }}"
+        value_template: "{{ value_json.hourly.precipitation_probability[6] if value_json is defined and value_json.hourly is defined else none }}"
+        availability: "{{ value_json is defined and value_json.hourly is defined }}"
         unit_of_measurement: "%"
 
       - name: "Castionetto Alba"
         unique_id: castionetto_alba
-        value_template: "{{ value_json.daily.sunrise[0] ~ now().isoformat()[-6:] }}"
+        value_template: "{{ value_json.daily.sunrise[0] ~ now().isoformat()[-6:] if value_json is defined and value_json.daily is defined else none }}"
+        availability: "{{ value_json is defined and value_json.daily is defined }}"
         device_class: timestamp
 
       - name: "Castionetto Tramonto"
         unique_id: castionetto_tramonto
-        value_template: "{{ value_json.daily.sunset[0] ~ now().isoformat()[-6:] }}"
+        value_template: "{{ value_json.daily.sunset[0] ~ now().isoformat()[-6:] if value_json is defined and value_json.daily is defined else none }}"
+        availability: "{{ value_json is defined and value_json.daily is defined }}"
         device_class: timestamp
 
 template:
