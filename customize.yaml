@@ -14,17 +14,22 @@ sensor.misuratore_canale_b:
 sensor.smart_meter_2026_a_pdc_energy_forword_a:
   unit_of_measurement: kWh
   state_class: total_increasing
+  device_class: null
 sensor.smart_meter_2026_a_pdc_energy_forword_b:
   unit_of_measurement: kWh
   state_class: total_increasing
+  device_class: null
 sensor.smart_meter_2026_a_pdc_energy_reverse_a:
   unit_of_measurement: kWh
   state_class: total_increasing
+  device_class: null
 sensor.smart_meter_2026_a_pdc_energy_reserse_b:
   unit_of_measurement: kWh
   state_class: total_increasing
+  device_class: null
 sensor.smart_meter_2026_a_pdc_voltage_coef:
   device_class: null
+  unit_of_measurement: " "
 sensor.smart_meter_2026_a_pdc_power_a:
   unit_of_measurement: W
 sensor.smart_meter_2026_a_pdc_power_b:

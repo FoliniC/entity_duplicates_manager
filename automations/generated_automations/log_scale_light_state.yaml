@@ -9,9 +9,17 @@
   conditions: []
   actions:
     - variables:
+        ctx: "{{ trigger.to_state.context }}"
         source: "{{ states('input_text.scale_light_source') }}"
+        user_name: >
+          {% if ctx.user_id is not none %}
+            {% set person = states.person | selectattr('attributes.user_id', 'eq', ctx.user_id) | first | default(none) %}
+            {{ person.attributes.friendly_name if person else 'ID:' ~ ctx.user_id[:8] }}
+          {% else %}
+            none
+          {% endif %}
     - choose:
-        # Case 1: HA Command (Source is not empty)
+        # Case 1: Intent declared (Automation/UI script)
         - conditions:
             - condition: template
               value_template: "{{ source != '' }}"
@@ -23,10 +31,22 @@
                 action: "attuatore"
                 wait: 3
         
-        # Case 2: Physical/External (Source is empty)
+        # Case 2: Direct UI interaction (No intent but has user)
         - conditions:
             - condition: template
-              value_template: "{{ source == '' }}"
+              value_template: "{{ source == '' and user_name != 'none' }}"
+          sequence:
+            - event: scale_log_event
+              event_data:
+                message: "Switch {{ trigger.entity_id }} cambiato a {{ trigger.to_state.state }} (Origine: Interfaccia - {{ user_name }})"
+                level: INFO
+                action: "attuatore"
+                wait: 3
+
+        # Case 3: Physical (No source, no user)
+        - conditions:
+            - condition: template
+              value_template: "{{ source == '' and user_name == 'none' }}"
           sequence:
             - event: scale_log_event
               event_data:

@@ -12,14 +12,24 @@
     - variables:
         ctx: "{{ trigger.to_state.context }}"
         source: "{{ states('input_text.scale_light_source') }}"
+        # Riconoscimento utente o sistema
+        user_name: >
+          {% if ctx.user_id is not none %}
+            {% set person = states.person | selectattr('attributes.user_id', 'eq', ctx.user_id) | first | default(none) %}
+            {{ person.attributes.friendly_name if person else 'ID:' ~ ctx.user_id[:8] }}
+          {% else %}
+            none
+          {% endif %}
+        # Riconoscimento motivo finale
         reason: >
           {% if source != '' %}
             {{ source }}
-          {% elif ctx.user_id != none %}
-            {% set user = states.person | selectattr('attributes.user_id', 'eq', ctx.user_id) | first | default(none) %}
-            Interfaccia ({{ user.attributes.friendly_name if user else 'Utente' }})
+          {% elif user_name != 'none' %}
+            Interfaccia ({{ user_name }})
+          {% elif ctx.parent_id is not none %}
+            Sistema (Azione Automatica)
           {% else %}
-            Pulsante Fisico / Sistema
+            Pulsante Fisico
           {% endif %}
     - event: scale_log_event
       event_data:

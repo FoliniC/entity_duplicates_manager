@@ -607,6 +607,11 @@
             - condition: template
               value_template: "{{ states('switch.sonoff_10024024c4_1') == 'on' and states('switch.sonoff_10024024c4_2') == 'on' }}"
           sequence:
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.scale_light_source
+              data:
+                value: "Automazione: Correzione Deviatore (ON-ON)"
             - action: switch.turn_off
               target:
                 entity_id: switch.sonoff_10024024c4_2
@@ -633,12 +638,23 @@
                 message: "Correzione ENTRAMBI ON: Spento switch_2. S1={{ states('switch.sonoff_10024024c4_1') }}, S2={{ states('switch.sonoff_10024024c4_2') }}"
                 level: WARNING
                 action: "attuatore"
+            - delay: "0:00:02"
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.scale_light_source
+              data:
+                value: ""
 
         # Caso 2: Entrambi OFF - Accendi switch_1
         - conditions:
             - condition: template
               value_template: "{{ states('switch.sonoff_10024024c4_1') == 'off' and states('switch.sonoff_10024024c4_2') == 'off' }}"
           sequence:
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.scale_light_source
+              data:
+                value: "Automazione: Correzione Deviatore (OFF-OFF)"
             - action: switch.turn_on
               target:
                 entity_id: switch.sonoff_10024024c4_1
@@ -665,6 +681,12 @@
                 message: "Correzione ENTRAMBI OFF: Acceso switch_1. S1={{ states('switch.sonoff_10024024c4_1') }}, S2={{ states('switch.sonoff_10024024c4_2') }}"
                 level: WARNING
                 action: "attuatore"
+            - delay: "0:00:02"
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.scale_light_source
+              data:
+                value: ""
 
         # Caso 3: Stati problematici - logghiamo senza correggere
         - conditions:

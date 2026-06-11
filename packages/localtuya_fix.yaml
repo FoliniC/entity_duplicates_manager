@@ -1,0 +1,37 @@
+
+# Fix per sensori LocalTuya che ignorano le personalizzazioni
+template:
+  - sensor:
+      - name: "PDC Energy Forword A Fixed"
+        unique_id: pdc_energy_forword_a_fixed
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total_increasing
+        state: "{{ states('sensor.smart_meter_2026_a_pdc_energy_forword_a') }}"
+
+      - name: "PDC Energy Forword B Fixed"
+        unique_id: pdc_energy_forword_b_fixed
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total_increasing
+        state: "{{ states('sensor.smart_meter_2026_a_pdc_energy_forword_b') }}"
+
+      - name: "PDC Energy Reverse A Fixed"
+        unique_id: pdc_energy_reverse_a_fixed
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total_increasing
+        state: "{{ states('sensor.smart_meter_2026_a_pdc_energy_reverse_a') }}"
+
+      - name: "PDC Energy Reserse B Fixed"
+        unique_id: pdc_energy_reserse_b_fixed
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total_increasing
+        state: "{{ states('sensor.smart_meter_2026_a_pdc_energy_reserse_b') }}"
+        
+      - name: "PDC Voltage Coef Fixed"
+        unique_id: pdc_voltage_coef_fixed
+        unit_of_measurement: "V"
+        device_class: voltage
+        state: "{{ states('sensor.smart_meter_2026_a_pdc_voltage_coef') }}"
