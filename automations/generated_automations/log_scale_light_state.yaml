@@ -9,12 +9,12 @@
   conditions: []
   actions:
     - variables:
-        ctx: "{{ trigger.to_state.context }}"
+        user_id: "{{ trigger.to_state.context.user_id }}"
         source: "{{ states('input_text.scale_light_source') }}"
         user_name: >
-          {% if ctx.user_id is not none %}
-            {% set person = states.person | selectattr('attributes.user_id', 'eq', ctx.user_id) | first | default(none) %}
-            {{ person.attributes.friendly_name if person else 'ID:' ~ ctx.user_id[:8] }}
+          {% if user_id is not none %}
+            {% set person = states.person | selectattr('attributes.user_id', 'eq', user_id) | first | default(none) %}
+            {{ person.attributes.friendly_name if person else 'ID:' ~ user_id[:8] }}
           {% else %}
             none
           {% endif %}

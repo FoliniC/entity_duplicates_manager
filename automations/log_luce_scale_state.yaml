@@ -10,13 +10,14 @@
       value_template: "{{ trigger.to_state.state != trigger.from_state.state }}"
   action:
     - variables:
-        ctx: "{{ trigger.to_state.context }}"
+        user_id: "{{ trigger.to_state.context.user_id }}"
+        parent_id: "{{ trigger.to_state.context.parent_id }}"
         source: "{{ states('input_text.scale_light_source') }}"
         # Riconoscimento utente o sistema
         user_name: >
-          {% if ctx.user_id is not none %}
-            {% set person = states.person | selectattr('attributes.user_id', 'eq', ctx.user_id) | first | default(none) %}
-            {{ person.attributes.friendly_name if person else 'ID:' ~ ctx.user_id[:8] }}
+          {% if user_id is not none %}
+            {% set person = states.person | selectattr('attributes.user_id', 'eq', user_id) | first | default(none) %}
+            {{ person.attributes.friendly_name if person else 'ID:' ~ user_id[:8] }}
           {% else %}
             none
           {% endif %}
@@ -26,7 +27,7 @@
             {{ source }}
           {% elif user_name != 'none' %}
             Interfaccia ({{ user_name }})
-          {% elif ctx.parent_id is not none %}
+          {% elif parent_id is not none %}
             Sistema (Azione Automatica)
           {% else %}
             Pulsante Fisico
