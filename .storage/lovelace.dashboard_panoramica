@@ -1124,40 +1124,250 @@
               ]
             },
             {
-              "chart_type": "bar",
-              "period": "day",
-              "type": "statistics-graph",
-              "entities": [
-                "sensor.alfa_energia_attiva_prelevata_totale"
-              ],
-              "stat_types": [
-                "change"
-              ],
-              "title": "Energia prelevata rete"
-            },
-            {
-              "chart_type": "bar",
-              "period": "day",
-              "type": "statistics-graph",
-              "entities": [
-                "sensor.alfa_energia_attiva_immessa_totale"
-              ],
-              "stat_types": [
-                "change"
-              ],
-              "title": "Energia immessa in rete"
-            },
-            {
-              "chart_type": "bar",
-              "period": "day",
-              "type": "statistics-graph",
-              "entities": [
-                "sensor.alfa_energia_attiva_prodotta_totale"
-              ],
-              "stat_types": [
-                "change"
-              ],
-              "title": "Energia prodotta"
+              "type": "vertical-stack",
+              "cards": [
+                {
+                  "type": "entities",
+                  "entities": [
+                    "input_select.energy_stats_period"
+                  ],
+                  "title": "Statistiche Energia (Alfa Sinapsi)"
+                },
+                {
+                  "type": "conditional",
+                  "conditions": [
+                    {
+                      "entity": "input_select.energy_stats_period",
+                      "state": "Giornaliero"
+                    }
+                  ],
+                  "card": {
+                    "type": "vertical-stack",
+                    "cards": [
+                      {
+                        "type": "grid",
+                        "columns": 3,
+                        "square": false,
+                        "cards": [
+                          {
+                            "type": "entity",
+                            "entity": "sensor.alfa_energia_prodotta_daily",
+                            "name": "Produzione"
+                          },
+                          {
+                            "type": "entity",
+                            "entity": "sensor.alfa_energia_esportata_daily",
+                            "name": "Inviata"
+                          },
+                          {
+                            "type": "entity",
+                            "entity": "sensor.alfa_energia_importata_daily",
+                            "name": "Prelevata"
+                          }
+                        ]
+                      },
+                      {
+                        "type": "custom:apexcharts-card",
+                        "graph_span": "24h",
+                        "span": {
+                          "end": "day"
+                        },
+                        "header": {
+                          "show": true,
+                          "title": "Produzione e Scambio (Oggi)",
+                          "show_states": true,
+                          "colorize_states": true
+                        },
+                        "series": [
+                          {
+                            "entity": "sensor.alfa_new_energia_prodotta",
+                            "type": "column",
+                            "group_by": {
+                              "duration": "1h",
+                              "func": "diff"
+                            },
+                            "name": "Produzione"
+                          },
+                          {
+                            "entity": "sensor.alfa_new_energia_esportata",
+                            "type": "column",
+                            "group_by": {
+                              "duration": "1h",
+                              "func": "diff"
+                            },
+                            "name": "Esportata"
+                          },
+                          {
+                            "entity": "sensor.alfa_new_energia_importata",
+                            "type": "column",
+                            "group_by": {
+                              "duration": "1h",
+                              "func": "diff"
+                            },
+                            "name": "Importata"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "conditional",
+                  "conditions": [
+                    {
+                      "entity": "input_select.energy_stats_period",
+                      "state": "Mensile"
+                    }
+                  ],
+                  "card": {
+                    "type": "vertical-stack",
+                    "cards": [
+                      {
+                        "type": "grid",
+                        "columns": 3,
+                        "square": false,
+                        "cards": [
+                          {
+                            "type": "entity",
+                            "entity": "sensor.alfa_energia_prodotta_monthly",
+                            "name": "Produzione"
+                          },
+                          {
+                            "type": "entity",
+                            "entity": "sensor.alfa_energia_esportata_monthly",
+                            "name": "Inviata"
+                          },
+                          {
+                            "type": "entity",
+                            "entity": "sensor.alfa_energia_importata_monthly",
+                            "name": "Prelevata"
+                          }
+                        ]
+                      },
+                      {
+                        "type": "custom:apexcharts-card",
+                        "graph_span": "30d",
+                        "span": {
+                          "end": "day"
+                        },
+                        "header": {
+                          "show": true,
+                          "title": "Produzione e Scambio (Ultimi 30gg)",
+                          "show_states": true,
+                          "colorize_states": true
+                        },
+                        "series": [
+                          {
+                            "entity": "sensor.alfa_new_energia_prodotta",
+                            "type": "column",
+                            "group_by": {
+                              "duration": "1d",
+                              "func": "diff"
+                            },
+                            "name": "Produzione"
+                          },
+                          {
+                            "entity": "sensor.alfa_new_energia_esportata",
+                            "type": "column",
+                            "group_by": {
+                              "duration": "1d",
+                              "func": "diff"
+                            },
+                            "name": "Esportata"
+                          },
+                          {
+                            "entity": "sensor.alfa_new_energia_importata",
+                            "type": "column",
+                            "group_by": {
+                              "duration": "1d",
+                              "func": "diff"
+                            },
+                            "name": "Importata"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "conditional",
+                  "conditions": [
+                    {
+                      "entity": "input_select.energy_stats_period",
+                      "state": "Annuale"
+                    }
+                  ],
+                  "card": {
+                    "type": "vertical-stack",
+                    "cards": [
+                      {
+                        "type": "grid",
+                        "columns": 3,
+                        "square": false,
+                        "cards": [
+                          {
+                            "type": "entity",
+                            "entity": "sensor.alfa_energia_prodotta_yearly",
+                            "name": "Produzione"
+                          },
+                          {
+                            "type": "entity",
+                            "entity": "sensor.alfa_energia_esportata_yearly",
+                            "name": "Inviata"
+                          },
+                          {
+                            "type": "entity",
+                            "entity": "sensor.alfa_energia_importata_yearly",
+                            "name": "Prelevata"
+                          }
+                        ]
+                      },
+                      {
+                        "type": "custom:apexcharts-card",
+                        "graph_span": "1y",
+                        "span": {
+                          "end": "month"
+                        },
+                        "header": {
+                          "show": true,
+                          "title": "Produzione e Scambio (Quest'anno)",
+                          "show_states": true,
+                          "colorize_states": true
+                        },
+                        "series": [
+                          {
+                            "entity": "sensor.alfa_new_energia_prodotta",
+                            "type": "column",
+                            "group_by": {
+                              "duration": "1month",
+                              "func": "diff"
+                            },
+                            "name": "Produzione"
+                          },
+                          {
+                            "entity": "sensor.alfa_new_energia_esportata",
+                            "type": "column",
+                            "group_by": {
+                              "duration": "1month",
+                              "func": "diff"
+                            },
+                            "name": "Esportata"
+                          },
+                          {
+                            "entity": "sensor.alfa_new_energia_importata",
+                            "type": "column",
+                            "group_by": {
+                              "duration": "1month",
+                              "func": "diff"
+                            },
+                            "name": "Importata"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
             },
             {
               "type": "gauge",

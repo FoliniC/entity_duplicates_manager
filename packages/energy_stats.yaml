@@ -1,0 +1,48 @@
+utility_meter:
+  alfa_energia_prodotta_daily:
+    source: sensor.alfa_new_energia_prodotta
+    name: "Produzione Solare Giornaliera (Alfa)"
+    cycle: daily
+  alfa_energia_prodotta_monthly:
+    source: sensor.alfa_new_energia_prodotta
+    name: "Produzione Solare Mensile (Alfa)"
+    cycle: monthly
+  alfa_energia_prodotta_yearly:
+    source: sensor.alfa_new_energia_prodotta
+    name: "Produzione Solare Annuale (Alfa)"
+    cycle: yearly
+
+  alfa_energia_esportata_daily:
+    source: sensor.alfa_new_energia_esportata
+    name: "Energia Inviata Rete Giornaliera (Alfa)"
+    cycle: daily
+  alfa_energia_esportata_monthly:
+    source: sensor.alfa_new_energia_esportata
+    name: "Energia Inviata Rete Mensile (Alfa)"
+    cycle: monthly
+  alfa_energia_esportata_yearly:
+    source: sensor.alfa_new_energia_esportata
+    name: "Energia Inviata Rete Annuale (Alfa)"
+    cycle: yearly
+
+  alfa_energia_importata_daily:
+    source: sensor.alfa_new_energia_importata
+    name: "Energia Prelevata Rete Giornaliera (Alfa)"
+    cycle: daily
+  alfa_energia_importata_monthly:
+    source: sensor.alfa_new_energia_importata
+    name: "Energia Prelevata Rete Mensile (Alfa)"
+    cycle: monthly
+  alfa_energia_importata_yearly:
+    source: sensor.alfa_new_energia_importata
+    name: "Energia Prelevata Rete Annuale (Alfa)"
+    cycle: yearly
+
+input_select:
+  energy_stats_period:
+    name: "Periodo Statistiche Energia"
+    options:
+      - "Giornaliero"
+      - "Mensile"
+      - "Annuale"
+    icon: mdi:calendar-clock
