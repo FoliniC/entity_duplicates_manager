@@ -60,17 +60,9 @@
   unique_id: potenza_consumata_attuale
   state_class: measurement
   state: >
-    {# Sorgente 1: Solare #}
-    {% set solare = states('sensor.produzione_solare') | float(0) %}
-
-    {# Sorgente 2: Prelievo dalla Rete #}
-    {% set p_prelevata = states('sensor.potenza_prelevata_attuale') | float(0) %}
-
-    {# Sorgente 3: Batteria (Scarica) #}
-    {% set p_battery_dis = states('sensor.solarnet_power_battery_discharge') | float(0) %}
-
-    {# La Potenza Consumata Attuale nel nodo centrale DEVE essere la somma delle sorgenti per bilanciare la Sankey Chart #}
-    {{ (solare + p_prelevata + p_battery_dis) | round(2) }}
+    {# Uso del sensore nativo Alfa_new (Carico totale misurato dal contatore) #}
+    {% set p = states('sensor.alfa_new_potenza_consumata') %}
+    {{ (p | float(0) * 1000) | round(2) if p not in ['unavailable', 'unknown', 'none'] else 0 }}
   unit_of_measurement: W
   device_class: power
 
@@ -164,10 +156,9 @@
   device_class: "power"
   unit_of_measurement: "kW"
   state: >
-    {% set prelevata_kw = states('sensor.potenza_prelevata_attuale') | float(0) / 1000 %}
-    {{ (prelevata_kw +
-        states('sensor.alfa_new_potenza_prodotta')|float(0) +
-        states('sensor.solarnet_power_battery_charge')|float(0) / 1000) | round(3) }}
+    {# Uso del sensore nativo Alfa_new (Carico totale misurato dal contatore) converted in kW #}
+    {% set p = states('sensor.alfa_new_potenza_consumata') %}
+    {{ (p | float(0)) | round(3) if p not in ['unavailable', 'unknown', 'none'] else 0 }}
 - name: "Consumo stox scale (template)"
   unique_id: consumo_stox_scale
   device_class: power
