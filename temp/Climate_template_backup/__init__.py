@@ -1,1 +1,0 @@
-"""The climate template component."""
