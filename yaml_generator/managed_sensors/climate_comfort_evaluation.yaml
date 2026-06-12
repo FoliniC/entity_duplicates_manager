@@ -59,15 +59,22 @@
 - name: "Climate Advice Cucina"
   unique_id: climate_advice_cucina
   state: >
-    {% set t = states('sensor.temperatura_cucina_reale_calcolata') | float(0) %}
     {% set rh = states('sensor.th1a_humidity') | float(0) %}
     {% set omega_int = states('sensor.omega_cucina') | float(0) %}
     {% set omega_ext = states('sensor.omega_esterno') | float(0) %}
+    {% set variance = states('sensor.statistics_umidita_cucina_variance') | float(0) %}
     {% set delta_omega = omega_int - omega_ext %}
     {% set ns = namespace(advices=[]) %}
     {% if rh > 65 %}{% set ns.advices = ns.advices + ['Accendi Fancoil (Deumidifica)'] %}{% endif %}
-    {% if delta_omega > 1.5 and t > 21 %}{% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
-    {% elif delta_omega < 0.5 and rh > 60 %}{% set ns.advices = ns.advices + ['Tieni chiuso (Esterno più umido)'] %}{% endif %}
+    {% if delta_omega > 1.0 %}
+      {% if variance < 0.2 and delta_omega < 1.3 %}
+        {% set ns.advices = ns.advices + ['Puoi chiudere (Umidità stabilizzata)'] %}
+      {% else %}
+        {% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
+      {% endif %}
+    {% elif delta_omega < 0.2 and rh > 60 %}
+      {% set ns.advices = ns.advices + ['Tieni chiuso (Esterno più umido)'] %}
+    {% endif %}
     {{ ns.advices | join(' | ') if ns.advices | length > 0 else 'Nessuna azione necessaria' }}
 
 # CAMERA GRANDE
@@ -112,15 +119,22 @@
 - name: "Climate Advice Camera Grande"
   unique_id: climate_advice_camera_grande
   state: >
-    {% set t = states('sensor.temperatura_camera_grande_reale_calcolata') | float(0) %}
     {% set rh = states('sensor.th2b_humidity') | float(0) %}
     {% set omega_int = states('sensor.omega_camera_grande') | float(0) %}
     {% set omega_ext = states('sensor.omega_esterno') | float(0) %}
+    {% set variance = states('sensor.statistics_umidita_camera_grande_variance') | float(0) %}
     {% set delta_omega = omega_int - omega_ext %}
     {% set ns = namespace(advices=[]) %}
     {% if rh > 65 %}{% set ns.advices = ns.advices + ['Accendi Fancoil (Deumidifica)'] %}{% endif %}
-    {% if delta_omega > 1.5 and t > 21 %}{% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
-    {% elif delta_omega < 0.5 and rh > 60 %}{% set ns.advices = ns.advices + ['Tieni chiuso (Esterno più umido)'] %}{% endif %}
+    {% if delta_omega > 1.0 %}
+      {% if variance < 0.2 and delta_omega < 1.3 %}
+        {% set ns.advices = ns.advices + ['Puoi chiudere (Umidità stabilizzata)'] %}
+      {% else %}
+        {% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
+      {% endif %}
+    {% elif delta_omega < 0.2 and rh > 60 %}
+      {% set ns.advices = ns.advices + ['Tieni chiuso (Esterno più umido)'] %}
+    {% endif %}
     {{ ns.advices | join(' | ') if ns.advices | length > 0 else 'Nessuna azione necessaria' }}
 
 # CAMERA
@@ -165,15 +179,22 @@
 - name: "Climate Advice Camera"
   unique_id: climate_advice_camera
   state: >
-    {% set t = states('sensor.temperatura_camera_reale_calcolata') | float(0) %}
     {% set rh = states('sensor.th3c_humidity') | float(0) %}
     {% set omega_int = states('sensor.omega_camera') | float(0) %}
     {% set omega_ext = states('sensor.omega_esterno') | float(0) %}
+    {% set variance = states('sensor.statistics_umidita_camera_variance') | float(0) %}
     {% set delta_omega = omega_int - omega_ext %}
     {% set ns = namespace(advices=[]) %}
     {% if rh > 65 %}{% set ns.advices = ns.advices + ['Accendi Fancoil (Deumidifica)'] %}{% endif %}
-    {% if delta_omega > 1.5 and t > 21 %}{% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
-    {% elif delta_omega < 0.5 and rh > 60 %}{% set ns.advices = ns.advices + ['Tieni chiuso (Esterno più umido)'] %}{% endif %}
+    {% if delta_omega > 1.0 %}
+      {% if variance < 0.2 and delta_omega < 1.3 %}
+        {% set ns.advices = ns.advices + ['Puoi chiudere (Umidità stabilizzata)'] %}
+      {% else %}
+        {% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
+      {% endif %}
+    {% elif delta_omega < 0.2 and rh > 60 %}
+      {% set ns.advices = ns.advices + ['Tieni chiuso (Esterno più umido)'] %}
+    {% endif %}
     {{ ns.advices | join(' | ') if ns.advices | length > 0 else 'Nessuna azione necessaria' }}
 
 # CORRIDOIO
@@ -218,15 +239,22 @@
 - name: "Climate Advice Corridoio"
   unique_id: climate_advice_corridoio
   state: >
-    {% set t = states('sensor.temperatura_corridoio_reale_calcolata') | float(0) %}
     {% set rh = states('sensor.fancoil_corridoio_humidity') | float(0) %}
     {% set omega_int = states('sensor.omega_corridoio') | float(0) %}
     {% set omega_ext = states('sensor.omega_esterno') | float(0) %}
+    {% set variance = states('sensor.statistics_umidita_corridoio_variance') | float(0) %}
     {% set delta_omega = omega_int - omega_ext %}
     {% set ns = namespace(advices=[]) %}
     {% if rh > 65 %}{% set ns.advices = ns.advices + ['Accendi Fancoil (Deumidifica)'] %}{% endif %}
-    {% if delta_omega > 1.5 and t > 21 %}{% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
-    {% elif delta_omega < 0.5 and rh > 60 %}{% set ns.advices = ns.advices + ['Tieni chiuso (Esterno più umido)'] %}{% endif %}
+    {% if delta_omega > 1.0 %}
+      {% if variance < 0.2 and delta_omega < 1.3 %}
+        {% set ns.advices = ns.advices + ['Puoi chiudere (Umidità stabilizzata)'] %}
+      {% else %}
+        {% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
+      {% endif %}
+    {% elif delta_omega < 0.2 and rh > 60 %}
+      {% set ns.advices = ns.advices + ['Tieni chiuso (Esterno più umido)'] %}
+    {% endif %}
     {{ ns.advices | join(' | ') if ns.advices | length > 0 else 'Nessuna azione necessaria' }}
 
 # BAGNO
@@ -271,15 +299,22 @@
 - name: "Climate Advice Bagno"
   unique_id: climate_advice_bagno
   state: >
-    {% set t = states('sensor.temperatura_bagno_reale_calcolata') | float(0) %}
     {% set rh = states('sensor.fancoil_bagno_humidity') | float(0) %}
     {% set omega_int = states('sensor.omega_bagno') | float(0) %}
     {% set omega_ext = states('sensor.omega_esterno') | float(0) %}
+    {% set variance = states('sensor.statistics_umidita_bagno_variance') | float(0) %}
     {% set delta_omega = omega_int - omega_ext %}
     {% set ns = namespace(advices=[]) %}
     {% if rh > 65 %}{% set ns.advices = ns.advices + ['Accendi Fancoil (Deumidifica)'] %}{% endif %}
-    {% if delta_omega > 1.5 and t > 21 %}{% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
-    {% elif delta_omega < 0.5 and rh > 60 %}{% set ns.advices = ns.advices + ['Tieni chiuso (Esterno più umido)'] %}{% endif %}
+    {% if delta_omega > 1.0 %}
+      {% if variance < 0.2 and delta_omega < 1.3 %}
+        {% set ns.advices = ns.advices + ['Puoi chiudere (Umidità stabilizzata)'] %}
+      {% else %}
+        {% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
+      {% endif %}
+    {% elif delta_omega < 0.2 and rh > 60 %}
+      {% set ns.advices = ns.advices + ['Tieni chiuso (Esterno più umido)'] %}
+    {% endif %}
     {{ ns.advices | join(' | ') if ns.advices | length > 0 else 'Nessuna azione necessaria' }}
 
 # SALA
@@ -324,13 +359,20 @@
 - name: "Climate Advice Sala"
   unique_id: climate_advice_sala
   state: >
-    {% set t = states('sensor.temperatura_sala_reale_calcolata') | float(0) %}
     {% set rh = states('sensor.fancoil_sala_humidity') | float(0) %}
     {% set omega_int = states('sensor.omega_sala') | float(0) %}
     {% set omega_ext = states('sensor.omega_esterno') | float(0) %}
+    {% set variance = states('sensor.statistics_umidita_sala_variance') | float(0) %}
     {% set delta_omega = omega_int - omega_ext %}
     {% set ns = namespace(advices=[]) %}
     {% if rh > 65 %}{% set ns.advices = ns.advices + ['Accendi Fancoil (Deumidifica)'] %}{% endif %}
-    {% if delta_omega > 1.5 and t > 21 %}{% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
-    {% elif delta_omega < 0.5 and rh > 60 %}{% set ns.advices = ns.advices + ['Tieni chiuso (Esterno più umido)'] %}{% endif %}
+    {% if delta_omega > 1.0 %}
+      {% if variance < 0.2 and delta_omega < 1.3 %}
+        {% set ns.advices = ns.advices + ['Puoi chiudere (Umidità stabilizzata)'] %}
+      {% else %}
+        {% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
+      {% endif %}
+    {% elif delta_omega < 0.2 and rh > 60 %}
+      {% set ns.advices = ns.advices + ['Tieni chiuso (Esterno più umido)'] %}
+    {% endif %}
     {{ ns.advices | join(' | ') if ns.advices | length > 0 else 'Nessuna azione necessaria' }}

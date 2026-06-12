@@ -58,14 +58,7 @@
     - variables:
         rooms: [{'id': 'cucina', 'climate': 'climate.controllo_temperatura_cucina', 'follow': 'input_boolean.fancoil_cucina_hvac_mode_follow_master'}, {'id': 'camera_grande', 'climate': 'climate.controllo_temperatura_camera_grande', 'follow': 'input_boolean.fancoil_camera_grande_hvac_mode_follow_master'}, {'id': 'camera', 'climate': 'climate.controllo_temperatura_camera', 'follow': 'input_boolean.fancoil_camera_hvac_mode_follow_master'}, {'id': 'corridoio', 'climate': 'climate.controllo_temperatura_corridoio', 'follow': 'input_boolean.fancoil_corridoio_hvac_mode_follow_master'}, {'id': 'bagno', 'climate': 'climate.controllo_temperatura_bagno', 'follow': 'input_boolean.fancoil_bagno_hvac_mode_follow_master'}, {'id': 'sala', 'climate': 'climate.controllo_temperatura_sala', 'follow': 'input_boolean.fancoil_sala_hvac_mode_follow_master'}]
         climates: ['climate.controllo_temperatura_cucina', 'climate.controllo_temperatura_camera_grande', 'climate.controllo_temperatura_camera', 'climate.controllo_temperatura_corridoio', 'climate.controllo_temperatura_bagno', 'climate.controllo_temperatura_sala']
-        all_rooms_off: >-
-          {% set ok = True %}
-          {% for e in climates %}
-            {% if states(e) != 'off' %}
-              {% set ok = False %}
-            {% endif %}
-          {% endfor %}
-          {{ ok }}
+        all_rooms_off: "{{ climates | map('states') | select('!=', 'off') | list | length == 0 }}"
 
     - if:
         - condition: template
@@ -105,14 +98,7 @@
         mode_now: "{{ states('input_select.fancoil_system_hvac_mode') }}"
         rooms: [{'id': 'cucina', 'climate': 'climate.controllo_temperatura_cucina', 'follow': 'input_boolean.fancoil_cucina_hvac_mode_follow_master'}, {'id': 'camera_grande', 'climate': 'climate.controllo_temperatura_camera_grande', 'follow': 'input_boolean.fancoil_camera_grande_hvac_mode_follow_master'}, {'id': 'camera', 'climate': 'climate.controllo_temperatura_camera', 'follow': 'input_boolean.fancoil_camera_hvac_mode_follow_master'}, {'id': 'corridoio', 'climate': 'climate.controllo_temperatura_corridoio', 'follow': 'input_boolean.fancoil_corridoio_hvac_mode_follow_master'}, {'id': 'bagno', 'climate': 'climate.controllo_temperatura_bagno', 'follow': 'input_boolean.fancoil_bagno_hvac_mode_follow_master'}, {'id': 'sala', 'climate': 'climate.controllo_temperatura_sala', 'follow': 'input_boolean.fancoil_sala_hvac_mode_follow_master'}]
         climates: ['climate.controllo_temperatura_cucina', 'climate.controllo_temperatura_camera_grande', 'climate.controllo_temperatura_camera', 'climate.controllo_temperatura_corridoio', 'climate.controllo_temperatura_bagno', 'climate.controllo_temperatura_sala']
-        all_rooms_off: >-
-          {% set ok = True %}
-          {% for e in climates %}
-            {% if states(e) != 'off' %}
-              {% set ok = False %}
-            {% endif %}
-          {% endfor %}
-          {{ ok }}
+        all_rooms_off: "{{ climates | map('states') | select('!=', 'off') | list | length == 0 }}"
 
     - if:
         - condition: template

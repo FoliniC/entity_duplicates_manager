@@ -658,7 +658,7 @@ views:
   - type: gauge
     entity: sensor.envoy_122134037538_current_power_production
   - type: gauge
-    entity: sensor.smart_meter_ts_100a_1_power_real
+    entity: sensor.smart_meter_ts_100a_1_potenza_reale
     needle: false
   - type: gauge
     entity: sensor.byd_battery_box_premium_hv_state_of_charge
@@ -732,7 +732,7 @@ views:
     - entity: sensor.envoy_122134037538_current_power_production
     - entity: sensor.consumo_appartamento_template
     - entity: sensor.smart_meter_2026_a_pdc_power_a
-    - entity: sensor.smart_meter_ts_100a_1_power_real
+    - entity: sensor.smart_meter_ts_100a_1_potenza_reale
     - entity: sensor.prism_risultato_set_current_ko
     - entity: sensor.prism_risultato_set_current_ok
     - entity: sensor.pun_fascia_corrente
@@ -1030,7 +1030,7 @@ views:
       - entity: sensor.envoy_122134037538_current_power_production
       - entity: sensor.consumo_appartamento_template
       - entity: sensor.smart_meter_2026_a_pdc_power_a
-      - entity: sensor.smart_meter_ts_100a_1_power_real
+      - entity: sensor.smart_meter_ts_100a_1_potenza_reale
       - entity: sensor.prism_risultato_set_current_ko
       - entity: sensor.prism_risultato_set_current_ok
       - entity: sensor.pun_fascia_corrente

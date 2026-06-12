@@ -58,14 +58,7 @@
     - variables:
         rooms: %%rooms_array%%
         climates: %%climate_entities_list%%
-        all_rooms_off: >-
-          {% set ok = True %}
-          {% for e in climates %}
-            {% if states(e) != 'off' %}
-              {% set ok = False %}
-            {% endif %}
-          {% endfor %}
-          {{ ok }}
+        all_rooms_off: "{{ climates | map('states') | select('!=', 'off') | list | length == 0 }}"
     
     - if:
         - condition: template
@@ -105,14 +98,7 @@
         mode_now: "{{ states('input_select.fancoil_system_hvac_mode') }}"
         rooms: %%rooms_array%%
         climates: %%climate_entities_list%%
-        all_rooms_off: >-
-          {% set ok = True %}
-          {% for e in climates %}
-            {% if states(e) != 'off' %}
-              {% set ok = False %}
-            {% endif %}
-          {% endfor %}
-          {{ ok }}
+        all_rooms_off: "{{ climates | map('states') | select('!=', 'off') | list | length == 0 }}"
     
     - if:
         - condition: template

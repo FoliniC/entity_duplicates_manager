@@ -1076,10 +1076,16 @@
         {
           "title": "Consumo elettrico",
           "path": "nuova-vista",
+          "card_mod": {
+            "style": ":host { user-select: text !important; -webkit-user-select: text !important; } ha-card { user-select: text !important; -webkit-user-select: text !important; } .card-content { user-select: text !important; }"
+          },
           "badges": [],
           "cards": [
             {
               "type": "entities",
+              "card_mod": {
+                "style": "ha-card { user-select: text !important; -webkit-user-select: text !important; }"
+              },
               "entities": [
                 {
                   "entity": "sensor.potenza_esportata_attuale"
@@ -1125,6 +1131,9 @@
             },
             {
               "type": "vertical-stack",
+              "card_mod": {
+                "style": "ha-card { user-select: text !important; -webkit-user-select: text !important; }"
+              },
               "cards": [
                 {
                   "type": "entities",
@@ -1371,6 +1380,9 @@
             },
             {
               "type": "gauge",
+              "card_mod": {
+                "style": "ha-card { user-select: text !important; -webkit-user-select: text !important; }"
+              },
               "entity": "sensor.potenza_esportata_attuale",
               "needle": true,
               "severity": {
@@ -1384,6 +1396,9 @@
               "chart_type": "bar",
               "period": "day",
               "type": "statistics-graph",
+              "card_mod": {
+                "style": "ha-card { user-select: text !important; -webkit-user-select: text !important; }"
+              },
               "entities": [
                 "sensor.alfa_new_energia_esportata",
                 "sensor.alfa_new_energia_prodotta",
@@ -1398,6 +1413,9 @@
             },
             {
               "type": "gauge",
+              "card_mod": {
+                "style": "ha-card { user-select: text !important; -webkit-user-select: text !important; }"
+              },
               "entity": "sensor.potenza_prelevata_attuale",
               "needle": true,
               "severity": {
@@ -1409,6 +1427,9 @@
             },
             {
               "type": "gauge",
+              "card_mod": {
+                "style": "ha-card { user-select: text !important; -webkit-user-select: text !important; }"
+              },
               "entity": "sensor.produzione_solare",
               "max": 7500,
               "needle": true,
@@ -1421,15 +1442,24 @@
             },
             {
               "type": "gauge",
+              "card_mod": {
+                "style": "ha-card { user-select: text !important; -webkit-user-select: text !important; }"
+              },
               "entity": "sensor.envoy_122134037538_current_power_production"
             },
             {
               "type": "gauge",
-              "entity": "sensor.smart_meter_ts_100a_1_power_real",
+              "card_mod": {
+                "style": "ha-card { user-select: text !important; -webkit-user-select: text !important; }"
+              },
+              "entity": "sensor.smart_meter_ts_100a_1_potenza_reale",
               "needle": false
             },
             {
               "type": "gauge",
+              "card_mod": {
+                "style": "ha-card { user-select: text !important; -webkit-user-select: text !important; }"
+              },
               "entity": "sensor.byd_battery_box_premium_hv_state_of_charge",
               "needle": true,
               "max": 100,
@@ -1564,7 +1594,7 @@
                   "entity": "sensor.smart_meter_2026_a_pdc_power_a"
                 },
                 {
-                  "entity": "sensor.smart_meter_ts_100a_1_power_real"
+                  "entity": "sensor.smart_meter_ts_100a_1_potenza_reale"
                 },
                 {
                   "entity": "sensor.prism_risultato_set_current_ko"
@@ -1853,6 +1883,9 @@
               "chart_type": "bar",
               "period": "day",
               "type": "statistics-graph",
+              "card_mod": {
+                "style": "ha-card { user-select: text !important; -webkit-user-select: text !important; }"
+              },
               "entities": [
                 "sensor.pdc_consumo_riscaldamento",
                 "sensor.pdc_consumo_acqua_calda",
@@ -2084,7 +2117,7 @@
                       "entity": "sensor.smart_meter_2026_a_pdc_power_a"
                     },
                     {
-                      "entity": "sensor.smart_meter_ts_100a_1_power_real"
+                      "entity": "sensor.smart_meter_ts_100a_1_potenza_reale"
                     },
                     {
                       "entity": "sensor.prism_risultato_set_current_ko"
