@@ -3,7 +3,7 @@
 https://github.com/alexdelprete/ha-sinapsi-alfa
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 import logging
 import time
 from typing import Any
@@ -14,7 +14,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .api import SinapsiAlfaAPI, SinapsiConnectionError, SinapsiModbusError
+from .api import SinapsiAlfaAPI, SinapsiConnectionError, SinapsiModbusError, SinapsiWarmupError
 from .const import (
     CONF_ENABLE_REPAIR_NOTIFICATION,
     CONF_FAILURES_THRESHOLD,
@@ -40,14 +40,18 @@ from .repairs import (
     create_connection_issue,
     create_modbus_conflict_issue,
     create_recovery_notification,
+    create_warmup_issue,
+    create_warmup_recovery_notification,
     delete_connection_issue,
     delete_modbus_conflict_issue,
+    delete_warmup_issue,
+    is_warmup_issue_active,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class SinapsiAlfaCoordinator(DataUpdateCoordinator):
+class SinapsiAlfaCoordinator(DataUpdateCoordinator[bool]):
     """Class to manage fetching data from the API."""
 
     config_entry: ConfigEntry
@@ -100,11 +104,11 @@ class SinapsiAlfaCoordinator(DataUpdateCoordinator):
             hass,
             _LOGGER,
             name=f"{DOMAIN} ({config_entry.unique_id})",
-            update_method=self.async_update_data,  # type: ignore[arg-type]
+            update_method=self.async_update_data,
             update_interval=self.update_interval,
         )
 
-        self.last_update_time = datetime.now()
+        self.last_update_time = datetime.now(tz=UTC)
         self.last_update_success = True
         self._consecutive_failures = 0
         self._repair_issue_created = False
@@ -163,7 +167,7 @@ class SinapsiAlfaCoordinator(DataUpdateCoordinator):
 
     async def async_update_data(self) -> bool:
         """Update data method."""
-        log_debug(_LOGGER, "async_update_data", "Update started", time=datetime.now())
+        log_debug(_LOGGER, "async_update_data", "Update started", time=datetime.now(tz=UTC))
 
         # Check for Modbus conflict at runtime
         conflicting_host = await check_modbus_conflict(self.hass, self.conf_host)
@@ -200,13 +204,25 @@ class SinapsiAlfaCoordinator(DataUpdateCoordinator):
 
         try:
             self.last_update_status = await self.api.async_get_data()
-            self.last_update_time = datetime.now()
+            self.last_update_time = datetime.now(tz=UTC)
             log_debug(
                 _LOGGER,
                 "async_update_data",
                 "Update completed",
                 time=self.last_update_time,
             )
+            # Handle warm-up recovery: the device finished warming up after a
+            # restart/reboot. Detected via the issue registry (not instance state)
+            # because the coordinator is rebuilt on every config-entry setup retry.
+            if is_warmup_issue_active(self.hass, self._entry_id):
+                delete_warmup_issue(self.hass, self._entry_id)
+                create_warmup_recovery_notification(self.hass, self._entry_id, self.conf_name)
+                log_info(
+                    _LOGGER,
+                    "async_update_data",
+                    "Device finished warm-up, repair issue cleared",
+                )
+
             # Handle recovery after repair issue was created
             if self._repair_issue_created:
                 # Calculate downtime and format times using locale-aware format
@@ -277,6 +293,21 @@ class SinapsiAlfaCoordinator(DataUpdateCoordinator):
 
             # Reset failure counter on success
             self._consecutive_failures = 0
+        except SinapsiWarmupError as ex:
+            # Device warm-up after a restart/reboot: registers return 0 for a few
+            # minutes. This is an expected transient, not a fault — fail the poll so
+            # sensors stay unavailable (no zeroed data published), but do NOT touch
+            # the connection-failure counter, the connection issue, or the recovery
+            # script. A dedicated warm-up repair issue is raised instead.
+            self.last_update_status = False
+            log_info(
+                _LOGGER,
+                "async_update_data",
+                "Device in warm-up phase, skipping update",
+            )
+            if self._enable_repair_notification:
+                create_warmup_issue(self.hass, self._entry_id, self.conf_name)
+            raise UpdateFailed from ex
         except Exception as ex:
             self.last_update_status = False
             self._consecutive_failures += 1

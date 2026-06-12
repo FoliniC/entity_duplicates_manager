@@ -29,6 +29,9 @@ from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.core import HomeAssistant
 
 from .const import (
+    CHECK_PORT_CLOSE_TIMEOUT,
+    CUMULATIVE_ENERGY_SENSORS,
+    DEFAULT_CONNECTION_TIMEOUT,
     DEFAULT_DEVICE_ID,
     DEFAULT_SENSOR_VALUE,
     DEFAULT_TIMEOUT,
@@ -41,6 +44,8 @@ from .const import (
     MODEL,
     REGISTER_BATCHES,
     SENSOR_ENTITIES,
+    SYNC_TIMEOUT_SECONDS,
+    WARMUP_FASCIA_VALUE,
 )
 from .helpers import log_debug, log_error, log_warning, unix_timestamp_to_iso8601_local_tz
 
@@ -50,9 +55,9 @@ set_language(Language.EN)
 _LOGGER = logging.getLogger(__name__)
 
 # Batch read constants
-BATCH_MAX_RETRIES = 5
-BATCH_RETRY_DELAY_CONNECTION = 2.0  # seconds
-BATCH_RETRY_DELAY_TIMEOUT = 4.0  # seconds
+BATCH_MAX_RETRIES = 3
+BATCH_RETRY_DELAY_CONNECTION = 1.0  # seconds
+BATCH_RETRY_DELAY_TIMEOUT = 2.0  # seconds
 BATCH_RETRY_DELAY_PROTOCOL = 3.0  # seconds - longer delay for protocol errors
 MAX_PROTOCOL_ERRORS_PER_CYCLE = 3  # Abort cycle early if too many protocol errors
 
@@ -126,6 +131,18 @@ class SinapsiModbusError(Exception):
         super().__init__(message)
 
 
+class SinapsiWarmupError(Exception):
+    """Raised when the device is still in a post-restart warm-up phase.
+
+    In some setups (an edge case) the Alfa can return 0 on every register for a few
+    minutes instead of its real values — most likely when it does not yet have current
+    data from the energy meter (e.g. a poor Chain2 link). Publishing those zeroed
+    readings would corrupt HA's TOTAL_INCREASING statistics, so the whole poll is
+    rejected. This is not a fault — it is a transient state, handled separately from
+    SinapsiConnectionError / SinapsiModbusError.
+    """
+
+
 class SinapsiAlfaAPI:
     """Thread safe wrapper class for ModbusLink."""
 
@@ -167,6 +184,7 @@ class SinapsiAlfaAPI:
             host=self._host,
             port=self._port,
             timeout=self._timeout,
+            connection_timeout=float(DEFAULT_CONNECTION_TIMEOUT),
         )
         self._client = AsyncModbusClient(self._transport)
         self._uid = ""  # Initialize empty, will be set during first data fetch
@@ -177,6 +195,13 @@ class SinapsiAlfaAPI:
         self._last_successful_read: float | None = None
         # Protocol error tracking for early abort
         self._protocol_errors_this_cycle = 0
+        # Sync tracking for derived energy calculation: the Alfa firmware updates
+        # energia_prodotta ~1 min before energia_immessa, causing oscillation in
+        # calculated sensors (prodotta - immessa). We only recalculate when both
+        # base sensors have updated since the last calculation.
+        self._last_calc_prodotta: float | None = None
+        self._last_calc_immessa: float | None = None
+        self._first_unsync_time: float | None = None
         # Initialize ModBus data structure before first read
         self._initialize_data_structure()
 
@@ -320,7 +345,7 @@ class SinapsiAlfaAPI:
 
                 # Exponential backoff with jitter for remaining attempts
                 if attempt < MAX_RETRY_ATTEMPTS - 1:
-                    delay = min(2**attempt + random.uniform(0, 1), 10)
+                    delay = min(2**attempt + random.uniform(0, 1), 10)  # noqa: S311
                     log_debug(
                         _LOGGER,
                         "get_mac_address",
@@ -338,7 +363,7 @@ class SinapsiAlfaAPI:
                     error=e,
                 )
                 if attempt < MAX_RETRY_ATTEMPTS - 1:
-                    delay = min(2**attempt + random.uniform(0, 1), 10)
+                    delay = min(2**attempt + random.uniform(0, 1), 10)  # noqa: S311
                     await asyncio.sleep(delay)
 
         log_debug(_LOGGER, "get_mac_address", "MAC address not found after all attempts")
@@ -365,7 +390,7 @@ class SinapsiAlfaAPI:
             # Force IPv4 (AF_INET) to avoid dual-stack timeout issues
             # Some devices only support IPv4, and dual-stack DNS can cause
             # timeouts when IPv6 is tried first but not supported
-            reader, writer = await asyncio.wait_for(
+            _reader, writer = await asyncio.wait_for(
                 asyncio.open_connection(
                     self._host,
                     self._port,
@@ -384,7 +409,26 @@ class SinapsiAlfaAPI:
 
             # Clean up the connection
             writer.close()
-            await writer.wait_closed()
+            try:
+                await asyncio.wait_for(writer.wait_closed(), timeout=CHECK_PORT_CLOSE_TIMEOUT)
+            except TimeoutError:
+                log_debug(
+                    _LOGGER,
+                    "check_port",
+                    "wait_closed timed out — peer did not send FIN, socket abandoned",
+                    host=self._host,
+                    port=self._port,
+                    timeout=CHECK_PORT_CLOSE_TIMEOUT,
+                )
+            except OSError as e:
+                log_debug(
+                    _LOGGER,
+                    "check_port",
+                    "wait_closed raised OSError, ignoring",
+                    host=self._host,
+                    port=self._port,
+                    error=e,
+                )
         except (TimeoutError, ConnectionRefusedError, OSError) as e:
             log_debug(
                 _LOGGER,
@@ -597,7 +641,7 @@ class SinapsiAlfaAPI:
 
         # Unit conversion for power/energy
         if reg_dev_class in [SensorDeviceClass.ENERGY, SensorDeviceClass.POWER]:
-            value = round(value / 1000, 2)  # W/Wh to kW/kWh
+            value = round(value / 1000, 3)  # W/Wh to kW/kWh (1 W / 1 Wh precision)
         else:
             value = int(value)
 
@@ -615,21 +659,116 @@ class SinapsiAlfaAPI:
             return unix_timestamp_to_iso8601_local_tz(value + self.data["tempo_residuo_distacco"])
 
         if reg_key == "fascia_oraria_attuale":
+            # Format tariff band 0-6 as "F0"-"F6". EXPLICIT COUPLING: register 0
+            # must become exactly WARMUP_FASCIA_VALUE ("F0") — _check_device_warmup
+            # relies on it. If this formatting changes, update WARMUP_FASCIA_VALUE.
             return f"F{value}"
 
         return value
 
     def _calculate_derived_values(self) -> None:
-        """Calculate derived values from base measurements."""
+        """Calculate derived values from base measurements.
+
+        Power sensors (MEASUREMENT state class) are always calculated — oscillations
+        in instantaneous values are normal and don't cause accumulation errors.
+
+        Energy sensors use two different strategies:
+
+        energia_auto_consumata (prodotta - immessa) uses synchronized calculation:
+        the Alfa firmware updates energia_prodotta ~55-60s before energia_immessa,
+        so polling captures them on different cycles. Calculating the difference
+        when only one updated produces a temporary spike/dip that HA's
+        TOTAL_INCREASING logic misinterprets as a meter reset, causing
+        over-counting. We wait for both to update before recalculating,
+        with a time-based timeout fallback for periods when only one sensor
+        is changing (e.g., no-export periods where immessa stays constant).
+
+        energia_consumata (auto_consumata + prelevata) is always recalculated
+        because it depends on energia_prelevata (import from grid) which changes
+        independently every poll. Without this, the sensor freezes when production
+        stops and prodotta/immessa stop changing, even though prelevata keeps growing.
+        This is safe for TOTAL_INCREASING: both addends are monotonically
+        non-decreasing, so their sum can never dip.
+        """
+        # Power sensors: always calculate (instantaneous, no accumulation issue)
         self.data["potenza_auto_consumata"] = (
             self.data["potenza_prodotta"] - self.data["potenza_immessa"]
         )
         self.data["potenza_consumata"] = (
             self.data["potenza_auto_consumata"] + self.data["potenza_prelevata"]
         )
-        self.data["energia_auto_consumata"] = (
-            self.data["energia_prodotta"] - self.data["energia_immessa"]
-        )
+
+        # Energy sensors: wait for both base sensors to update before recalculating
+        curr_prodotta = self.data["energia_prodotta"]
+        curr_immessa = self.data["energia_immessa"]
+
+        prodotta_fresh = curr_prodotta != self._last_calc_prodotta
+        immessa_fresh = curr_immessa != self._last_calc_immessa
+
+        should_calculate = False
+
+        if self._last_calc_prodotta is None:
+            # First poll — no previous data, must calculate
+            should_calculate = True
+        elif prodotta_fresh and immessa_fresh:
+            # Both updated since last calc — synchronized reading, always safe
+            should_calculate = True
+            self._first_unsync_time = None
+        elif prodotta_fresh or immessa_fresh:
+            # Exactly one changed — possible firmware timing skew, wait for the other.
+            # Use a time-based timeout so the guard works regardless of scan_interval.
+            now = time.monotonic()
+            if self._first_unsync_time is None:
+                self._first_unsync_time = now
+            elapsed = now - self._first_unsync_time
+            if elapsed >= SYNC_TIMEOUT_SECONDS:
+                # Waited long enough; if only one sensor is changing after 120s,
+                # there's no alternating pattern and no oscillation risk.
+                should_calculate = True
+                self._first_unsync_time = None
+        else:
+            # Neither changed — no new data, reset timer so the next
+            # actual change gets a full timeout window to wait for its pair
+            self._first_unsync_time = None
+            # Reconcile any residual gap from the last sync guard delay.
+            # During quiescent periods (neither sensor changing), there is
+            # zero oscillation risk, so it is safe to force-align the
+            # calculated value with the current base sensor values.
+            true_auto = curr_prodotta - curr_immessa
+            if abs(self.data["energia_auto_consumata"] - true_auto) > 0.001:
+                log_debug(
+                    _LOGGER,
+                    "_calculate_derived_values",
+                    "Quiescent reconciliation: aligned auto_consumata",
+                    gap=round(self.data["energia_auto_consumata"] - true_auto, 3),
+                )
+                self.data["energia_auto_consumata"] = true_auto
+                self._last_calc_prodotta = curr_prodotta
+                self._last_calc_immessa = curr_immessa
+
+        if should_calculate:
+            self.data["energia_auto_consumata"] = curr_prodotta - curr_immessa
+            self._last_calc_prodotta = curr_prodotta
+            self._last_calc_immessa = curr_immessa
+        elif prodotta_fresh or immessa_fresh:
+            elapsed = (
+                round(time.monotonic() - self._first_unsync_time, 1)
+                if self._first_unsync_time is not None
+                else 0
+            )
+            log_debug(
+                _LOGGER,
+                "_calculate_derived_values",
+                "Waiting for synchronized base sensor update",
+                prodotta_fresh=prodotta_fresh,
+                immessa_fresh=immessa_fresh,
+                elapsed_seconds=elapsed,
+            )
+
+        # Always update consumed energy — it depends on prelevata (import)
+        # which changes independently of the prodotta/immessa sync mechanism.
+        # Without this, energia_consumata freezes when production stops and
+        # prodotta/immessa stop changing, even though prelevata keeps growing.
         self.data["energia_consumata"] = (
             self.data["energia_auto_consumata"] + self.data["energia_prelevata"]
         )
@@ -687,6 +826,10 @@ class SinapsiAlfaAPI:
                 result = await self.read_modbus_alfa()
 
                 if result:
+                    # Reject the poll if the device is still warming up (registers
+                    # not yet populated). Raised as SinapsiWarmupError so the
+                    # coordinator handles it separately from connection failures.
+                    self._check_device_warmup()
                     log_debug(_LOGGER, "async_get_data", "Data collection completed")
                     self._connection_healthy = True
                     self._last_successful_read = time.time()
@@ -755,6 +898,26 @@ class SinapsiAlfaAPI:
                 key = str(sensor_def["key"])
                 raw_value = self._extract_sensor_value(batches, key)
                 processed_value = self._process_sensor_value(raw_value, sensor_def)
+
+                # Validate cumulative energy sensors: reject values that decrease
+                # This protects against device reboots that return zeroed registers
+                if key in CUMULATIVE_ENERGY_SENSORS:
+                    previous_value = self.data[key]
+                    if (
+                        isinstance(previous_value, (int, float))
+                        and previous_value > 0
+                        and processed_value < previous_value
+                    ):
+                        log_warning(
+                            _LOGGER,
+                            "read_modbus_alfa",
+                            "Cumulative energy value decreased, keeping previous value",
+                            sensor=key,
+                            previous=previous_value,
+                            new=processed_value,
+                        )
+                        continue
+
                 self.data[key] = processed_value
 
                 log_debug(
@@ -773,3 +936,36 @@ class SinapsiAlfaAPI:
             raise SinapsiModbusError(f"Failed to read modbus data: {error}") from error
         else:
             return True
+
+    def _check_device_warmup(self) -> None:
+        """Raise SinapsiWarmupError unless the device is fully out of warm-up.
+
+        In some setups the Alfa can return 0 on its registers for a few minutes after
+        a restart before the real meter values reappear (an edge case). The device is
+        considered ready, and the poll trusted, only when BOTH of two independent
+        registers hold a valid value:
+
+        - energia_prelevata > 0: a lifetime grid-import meter is never 0 on a real
+          installation.
+        - fascia_oraria_attuale != "F0": register 203 reads 0 ("F0") during warm-up;
+          a running device always reports a real band F1-F6.
+
+        While either register is still in its warm-up value, the whole poll's data is
+        untrustworthy and is rejected.
+        """
+        energia_prelevata = self.data.get("energia_prelevata")
+        fascia_oraria_attuale = self.data.get("fascia_oraria_attuale")
+        device_ready = (
+            isinstance(energia_prelevata, (int, float))
+            and energia_prelevata > 0
+            and fascia_oraria_attuale != WARMUP_FASCIA_VALUE
+        )
+        if not device_ready:
+            log_warning(
+                _LOGGER,
+                "_check_device_warmup",
+                "Device in warm-up phase, rejecting poll",
+                energia_prelevata=energia_prelevata,
+                fascia_oraria_attuale=fascia_oraria_attuale,
+            )
+            raise SinapsiWarmupError("Device in warm-up: registers not yet populated")

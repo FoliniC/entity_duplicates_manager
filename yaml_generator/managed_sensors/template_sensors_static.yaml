@@ -21,10 +21,10 @@
       {{ (val_w if val_w > 0 else 0) | round(2) }}
     {% else %}
       {# Fallback: Alfa New #}
-      {% set alfa = states('sensor.alfa_potenza_attiva_prelevata_istantanea') %}
+      {% set alfa = states('sensor.alfa_new_potenza_importata') %}
       {% if alfa not in ['unavailable', 'unknown', 'none'] %}
         {% set val = alfa | float(0) %}
-        {% set unit = state_attr('sensor.alfa_potenza_attiva_prelevata_istantanea', 'unit_of_measurement') %}
+        {% set unit = state_attr('sensor.alfa_new_potenza_importata', 'unit_of_measurement') %}
         {{ (val * 1000 if unit == 'kW' else val) | round(2) }}
       {% else %}
         0
@@ -46,10 +46,10 @@
       {{ (val_w | abs if val_w < 0 else 0) | round(2) }}
     {% else %}
       {# Fallback: Alfa New #}
-      {% set alfa = states('sensor.alfa_potenza_attiva_immessa_istantanea') %}
+      {% set alfa = states('sensor.alfa_new_potenza_esportata') %}
       {% if alfa not in ['unavailable', 'unknown', 'none'] %}
         {% set val = alfa | float(0) %}
-        {% set unit = state_attr('sensor.alfa_potenza_attiva_immessa_istantanea', 'unit_of_measurement') %}
+        {% set unit = state_attr('sensor.alfa_new_potenza_esportata', 'unit_of_measurement') %}
         {{ (val * 1000 if unit == 'kW' else val) | round(2) }}
       {% else %}
         0
@@ -106,9 +106,9 @@
         {{ value }}
       {% endif %}
     {# Priorità 2: Alfa New #}
-    {% elif states('sensor.produzione_solare') not in ['unavailable', 'unknown', 'none'] %}
-      {% set value = states('sensor.produzione_solare') | float(0) %}
-      {% if 'kW' in state_attr('sensor.produzione_solare', 'unit_of_measurement') | string %}
+    {% elif states('sensor.alfa_new_potenza_prodotta') not in ['unavailable', 'unknown', 'none'] %}
+      {% set value = states('sensor.alfa_new_potenza_prodotta') | float(0) %}
+      {% if 'kW' in state_attr('sensor.alfa_new_potenza_prodotta', 'unit_of_measurement') | string %}
         {{ (value * 1000) | round(1) }}
       {% else %}
         {{ value }}
@@ -120,13 +120,13 @@
   device_class: power
   state_class: measurement
   availability: >-
-    {{ states('sensor.produzione_solare') not in ['unavailable', 'unknown', 'none']
+    {{ states('sensor.alfa_new_potenza_prodotta') not in ['unavailable', 'unknown', 'none']
         or states('sensor.envoy_122134037538_current_power_production') not in ['unavailable', 'unknown', 'none'] }}
   attributes:
     fonte_dati: >-
       {% if states('sensor.envoy_122134037538_current_power_production') not in ['unavailable', 'unknown', 'none'] %}
         envoy
-      {% elif states('sensor.produzione_solare') not in ['unavailable', 'unknown', 'none'] %}
+      {% elif states('sensor.alfa_new_potenza_prodotta') not in ['unavailable', 'unknown', 'none'] %}
         alfa_new
       {% else %}
         nessuna
@@ -164,10 +164,10 @@
   device_class: "power"
   unit_of_measurement: "kW"
   state: >
-    {% set prelevata_kw = states('sensor.potenza_prelevata_attuale') | float(0) %}
-    {{ (prelevata_kw * 1000 +
-        states('sensor.alfa_potenza_attiva_prodotta_istantanea')|float(0) +
-        states('sensor.solarnet_power_battery_charge')|float(0)) / 1000 }}
+    {% set prelevata_kw = states('sensor.potenza_prelevata_attuale') | float(0) / 1000 %}
+    {{ (prelevata_kw +
+        states('sensor.alfa_new_potenza_prodotta')|float(0) +
+        states('sensor.solarnet_power_battery_charge')|float(0) / 1000) | round(3) }}
 - name: "Consumo stox scale (template)"
   unique_id: consumo_stox_scale
   device_class: power

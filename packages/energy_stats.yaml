@@ -1,42 +1,60 @@
 utility_meter:
-  alfa_energia_prodotta_daily:
+  produzione_solare_giornaliera_alfa:
     source: sensor.alfa_new_energia_prodotta
     name: "Produzione Solare Giornaliera (Alfa)"
+    unique_id: produzione_solare_giornaliera_alfa
     cycle: daily
-  alfa_energia_prodotta_monthly:
+    always_available: true
+  produzione_solare_mensile_alfa:
     source: sensor.alfa_new_energia_prodotta
     name: "Produzione Solare Mensile (Alfa)"
+    unique_id: produzione_solare_mensile_alfa
     cycle: monthly
-  alfa_energia_prodotta_yearly:
+    always_available: true
+  produzione_solare_annuale_alfa:
     source: sensor.alfa_new_energia_prodotta
     name: "Produzione Solare Annuale (Alfa)"
+    unique_id: produzione_solare_annuale_alfa
     cycle: yearly
+    always_available: true
 
-  alfa_energia_esportata_daily:
+  energia_inviata_rete_giornaliera_alfa:
     source: sensor.alfa_new_energia_esportata
     name: "Energia Inviata Rete Giornaliera (Alfa)"
+    unique_id: energia_inviata_rete_giornaliera_alfa
     cycle: daily
-  alfa_energia_esportata_monthly:
+    always_available: true
+  energia_inviata_rete_mensile_alfa:
     source: sensor.alfa_new_energia_esportata
     name: "Energia Inviata Rete Mensile (Alfa)"
+    unique_id: energia_inviata_rete_mensile_alfa
     cycle: monthly
-  alfa_energia_esportata_yearly:
+    always_available: true
+  energia_inviata_rete_annuale_alfa:
     source: sensor.alfa_new_energia_esportata
     name: "Energia Inviata Rete Annuale (Alfa)"
+    unique_id: energia_inviata_rete_annuale_alfa
     cycle: yearly
+    always_available: true
 
-  alfa_energia_importata_daily:
+  energia_prelevata_rete_giornaliera_alfa:
     source: sensor.alfa_new_energia_importata
     name: "Energia Prelevata Rete Giornaliera (Alfa)"
+    unique_id: energia_prelevata_rete_giornaliera_alfa
     cycle: daily
-  alfa_energia_importata_monthly:
+    always_available: true
+  energia_prelevata_rete_mensile_alfa:
     source: sensor.alfa_new_energia_importata
     name: "Energia Prelevata Rete Mensile (Alfa)"
+    unique_id: energia_prelevata_rete_mensile_alfa
     cycle: monthly
-  alfa_energia_importata_yearly:
+    always_available: true
+  energia_prelevata_rete_annuale_alfa:
     source: sensor.alfa_new_energia_importata
     name: "Energia Prelevata Rete Annuale (Alfa)"
+    unique_id: energia_prelevata_rete_annuale_alfa
     cycle: yearly
+    always_available: true
 
 input_select:
   energy_stats_period:

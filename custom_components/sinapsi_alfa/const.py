@@ -3,7 +3,7 @@
 https://github.com/alexdelprete/ha-sinapsi-alfa
 """
 
-from modbuslink import __version__ as MODBUSLINK_VERSION
+from modbuslink import __version__ as MODBUSLINK_VERSION  # noqa: N812
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import UnitOfEnergy, UnitOfPower
@@ -11,7 +11,7 @@ from homeassistant.const import UnitOfEnergy, UnitOfPower
 # Base component constants
 NAME = "Sinapsi Alfa"
 DOMAIN = "sinapsi_alfa"
-VERSION = "1.2.11"
+VERSION = "1.13.7"
 ATTRIBUTION = "by @alexdelprete"
 ISSUE_URL = "https://github.com/alexdelprete/ha-sinapsi-alfa/issues"
 
@@ -31,6 +31,12 @@ MAX_SCAN_INTERVAL = 600
 DEFAULT_TIMEOUT = 10
 MIN_TIMEOUT = 5
 MAX_TIMEOUT = 60
+DEFAULT_CONNECTION_TIMEOUT = 5  # TCP connection establishment (seconds)
+# Timeout (seconds) for writer.wait_closed() in check_port(). After we call
+# writer.close() the peer should send FIN; if the device hard-resets without
+# sending it, wait_closed() would block until the kernel TCP timeout (~10 min).
+# Normal closures complete in milliseconds; only stuck sockets hit this limit.
+CHECK_PORT_CLOSE_TIMEOUT = 2.0
 DEFAULT_SKIP_MAC_DETECTION = False
 MANUFACTURER = "Sinapsi"
 MODEL = "Alfa"
@@ -54,6 +60,38 @@ DEFAULT_SENSOR_VALUE = 0.0
 MAX_RETRY_ATTEMPTS = 5
 INVALID_DISTACCO_VALUE = 65535
 MAX_EVENT_VALUE = 4294967294
+
+# Warm-up sentinel for the fascia_oraria_attuale sensor (current tariff band).
+# The Alfa exposes the band as register 203 with values 0-6, and api.py's
+# _process_sensor_value formats it as f"F{value}" — so register 0 becomes "F0".
+# "F0" is not a real Italian tariff band (valid bands are F1-F6); it only appears
+# while the device is still warming up after a restart. _check_device_warmup uses
+# this constant to detect that state. EXPLICIT COUPLING: this value must stay in
+# sync with the f"F{value}" formatting in api.py _process_sensor_value — if that
+# formatting changes, update this constant too.
+WARMUP_FASCIA_VALUE = "F0"
+
+# Cumulative energy sensors (lifetime meter totals that should never decrease)
+# Used to validate readings during device reboots that return zeroed registers
+CUMULATIVE_ENERGY_SENSORS: set[str] = {
+    "energia_prelevata",
+    "energia_immessa",
+    "energia_prodotta",
+}
+
+# Time-based timeout (seconds) before calculating derived energy values when
+# only one base sensor has changed. The Alfa firmware updates energia_prodotta
+# ~55-60s before energia_immessa on a ~15-min cycle. The sync guard holds
+# auto_consumata frozen until both sensors update ("both fresh"). If only one
+# sensor keeps changing (e.g., no-export periods where immessa stays constant),
+# the timeout allows calculation after SYNC_TIMEOUT_SECONDS — safe because
+# there's no alternating pattern when only one sensor changes.
+#
+# This MUST be longer than the firmware delay (~60s) to prevent calculating
+# with stale immessa. A poll-count-based timeout breaks when scan_interval
+# varies (e.g., 10s polling × 3 polls = 30s timeout, too short for 55s delay).
+# Time-based timeout works correctly regardless of scan_interval.
+SYNC_TIMEOUT_SECONDS: int = 120
 
 # Batch read configuration: (start_address, count)
 # Groups consecutive registers to minimize Modbus requests
@@ -131,6 +169,7 @@ SENSOR_ENTITIES = [
     {
         "name": "Energia Prelevata",
         "key": "energia_prelevata",
+        "sensor_scope": "lifetime",
         "icon": "mdi:transmission-tower-export",
         "device_class": SensorDeviceClass.ENERGY,
         "state_class": SensorStateClass.TOTAL_INCREASING,
@@ -141,6 +180,7 @@ SENSOR_ENTITIES = [
     {
         "name": "Energia Immessa",
         "key": "energia_immessa",
+        "sensor_scope": "lifetime",
         "icon": "mdi:transmission-tower-import",
         "device_class": SensorDeviceClass.ENERGY,
         "state_class": SensorStateClass.TOTAL_INCREASING,
@@ -151,6 +191,7 @@ SENSOR_ENTITIES = [
     {
         "name": "Energia Prodotta",
         "key": "energia_prodotta",
+        "sensor_scope": "lifetime",
         "icon": "mdi:solar-power-variant-outline",
         "device_class": SensorDeviceClass.ENERGY,
         "state_class": SensorStateClass.TOTAL_INCREASING,
@@ -161,6 +202,7 @@ SENSOR_ENTITIES = [
     {
         "name": "Energia Prelevata Giornaliera F1",
         "key": "energia_prelevata_giornaliera_f1",
+        "sensor_scope": "periodic",
         "icon": "mdi:transmission-tower-export",
         "device_class": SensorDeviceClass.ENERGY,
         "state_class": SensorStateClass.TOTAL_INCREASING,
@@ -172,6 +214,7 @@ SENSOR_ENTITIES = [
     {
         "name": "Energia Prelevata Giornaliera F2",
         "key": "energia_prelevata_giornaliera_f2",
+        "sensor_scope": "periodic",
         "icon": "mdi:transmission-tower-export",
         "device_class": SensorDeviceClass.ENERGY,
         "state_class": SensorStateClass.TOTAL_INCREASING,
@@ -183,6 +226,7 @@ SENSOR_ENTITIES = [
     {
         "name": "Energia Prelevata Giornaliera F3",
         "key": "energia_prelevata_giornaliera_f3",
+        "sensor_scope": "periodic",
         "icon": "mdi:transmission-tower-export",
         "device_class": SensorDeviceClass.ENERGY,
         "state_class": SensorStateClass.TOTAL_INCREASING,
@@ -194,6 +238,7 @@ SENSOR_ENTITIES = [
     {
         "name": "Energia Prelevata Giornaliera F4",
         "key": "energia_prelevata_giornaliera_f4",
+        "sensor_scope": "periodic",
         "icon": "mdi:transmission-tower-export",
         "device_class": SensorDeviceClass.ENERGY,
         "state_class": SensorStateClass.TOTAL_INCREASING,
@@ -205,6 +250,7 @@ SENSOR_ENTITIES = [
     {
         "name": "Energia Prelevata Giornaliera F5",
         "key": "energia_prelevata_giornaliera_f5",
+        "sensor_scope": "periodic",
         "icon": "mdi:transmission-tower-export",
         "device_class": SensorDeviceClass.ENERGY,
         "state_class": SensorStateClass.TOTAL_INCREASING,
@@ -216,6 +262,7 @@ SENSOR_ENTITIES = [
     {
         "name": "Energia Prelevata Giornaliera F6",
         "key": "energia_prelevata_giornaliera_f6",
+        "sensor_scope": "periodic",
         "icon": "mdi:transmission-tower-export",
         "device_class": SensorDeviceClass.ENERGY,
         "state_class": SensorStateClass.TOTAL_INCREASING,
@@ -227,6 +274,7 @@ SENSOR_ENTITIES = [
     {
         "name": "Energia Immessa Giornaliera F1",
         "key": "energia_immessa_giornaliera_f1",
+        "sensor_scope": "periodic",
         "icon": "mdi:transmission-tower-import",
         "device_class": SensorDeviceClass.ENERGY,
         "state_class": SensorStateClass.TOTAL_INCREASING,
@@ -238,6 +286,7 @@ SENSOR_ENTITIES = [
     {
         "name": "Energia Immessa Giornaliera F2",
         "key": "energia_immessa_giornaliera_f2",
+        "sensor_scope": "periodic",
         "icon": "mdi:transmission-tower-import",
         "device_class": SensorDeviceClass.ENERGY,
         "state_class": SensorStateClass.TOTAL_INCREASING,
@@ -249,6 +298,7 @@ SENSOR_ENTITIES = [
     {
         "name": "Energia Immessa Giornaliera F3",
         "key": "energia_immessa_giornaliera_f3",
+        "sensor_scope": "periodic",
         "icon": "mdi:transmission-tower-import",
         "device_class": SensorDeviceClass.ENERGY,
         "state_class": SensorStateClass.TOTAL_INCREASING,
@@ -260,6 +310,7 @@ SENSOR_ENTITIES = [
     {
         "name": "Energia Immessa Giornaliera F4",
         "key": "energia_immessa_giornaliera_f4",
+        "sensor_scope": "periodic",
         "icon": "mdi:transmission-tower-import",
         "device_class": SensorDeviceClass.ENERGY,
         "state_class": SensorStateClass.TOTAL_INCREASING,
@@ -271,6 +322,7 @@ SENSOR_ENTITIES = [
     {
         "name": "Energia Immessa Giornaliera F5",
         "key": "energia_immessa_giornaliera_f5",
+        "sensor_scope": "periodic",
         "icon": "mdi:transmission-tower-import",
         "device_class": SensorDeviceClass.ENERGY,
         "state_class": SensorStateClass.TOTAL_INCREASING,
@@ -282,6 +334,7 @@ SENSOR_ENTITIES = [
     {
         "name": "Energia Immessa Giornaliera F6",
         "key": "energia_immessa_giornaliera_f6",
+        "sensor_scope": "periodic",
         "icon": "mdi:transmission-tower-import",
         "device_class": SensorDeviceClass.ENERGY,
         "state_class": SensorStateClass.TOTAL_INCREASING,
@@ -343,6 +396,7 @@ SENSOR_ENTITIES = [
     {
         "name": "Energia Consumata",
         "key": "energia_consumata",
+        "sensor_scope": "lifetime",
         "icon": "mdi:home-lightning-bolt-outline",
         "device_class": SensorDeviceClass.ENERGY,
         "state_class": SensorStateClass.TOTAL_INCREASING,
@@ -353,6 +407,7 @@ SENSOR_ENTITIES = [
     {
         "name": "Energia Auto Consumata",
         "key": "energia_auto_consumata",
+        "sensor_scope": "lifetime",
         "icon": "mdi:home-lightning-bolt-outline",
         "device_class": SensorDeviceClass.ENERGY,
         "state_class": SensorStateClass.TOTAL_INCREASING,

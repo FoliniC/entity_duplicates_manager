@@ -1082,10 +1082,10 @@
               "type": "entities",
               "entities": [
                 {
-                  "entity": "sensor.alfa_potenza_attiva_immessa_istantanea"
+                  "entity": "sensor.potenza_esportata_attuale"
                 },
                 {
-                  "entity": "sensor.alfa_potenza_attiva_prodotta_istantanea"
+                  "entity": "sensor.produzione_solare"
                 },
                 {
                   "entity": "sensor.potenza_prelevata_attuale"
@@ -1151,17 +1151,17 @@
                         "cards": [
                           {
                             "type": "entity",
-                            "entity": "sensor.alfa_energia_prodotta_daily",
+                            "entity": "sensor.produzione_solare_giornaliera_alfa",
                             "name": "Produzione"
                           },
                           {
                             "type": "entity",
-                            "entity": "sensor.alfa_energia_esportata_daily",
+                            "entity": "sensor.energia_inviata_rete_giornaliera_alfa",
                             "name": "Inviata"
                           },
                           {
                             "type": "entity",
-                            "entity": "sensor.alfa_energia_importata_daily",
+                            "entity": "sensor.energia_prelevata_rete_giornaliera_alfa",
                             "name": "Prelevata"
                           }
                         ]
@@ -1229,17 +1229,17 @@
                         "cards": [
                           {
                             "type": "entity",
-                            "entity": "sensor.alfa_energia_prodotta_monthly",
+                            "entity": "sensor.produzione_solare_mensile_alfa",
                             "name": "Produzione"
                           },
                           {
                             "type": "entity",
-                            "entity": "sensor.alfa_energia_esportata_monthly",
+                            "entity": "sensor.energia_inviata_rete_mensile_alfa",
                             "name": "Inviata"
                           },
                           {
                             "type": "entity",
-                            "entity": "sensor.alfa_energia_importata_monthly",
+                            "entity": "sensor.energia_prelevata_rete_mensile_alfa",
                             "name": "Prelevata"
                           }
                         ]
@@ -1307,17 +1307,17 @@
                         "cards": [
                           {
                             "type": "entity",
-                            "entity": "sensor.alfa_energia_prodotta_yearly",
+                            "entity": "sensor.produzione_solare_annuale_alfa",
                             "name": "Produzione"
                           },
                           {
                             "type": "entity",
-                            "entity": "sensor.alfa_energia_esportata_yearly",
+                            "entity": "sensor.energia_inviata_rete_annuale_alfa",
                             "name": "Inviata"
                           },
                           {
                             "type": "entity",
-                            "entity": "sensor.alfa_energia_importata_yearly",
+                            "entity": "sensor.energia_prelevata_rete_annuale_alfa",
                             "name": "Prelevata"
                           }
                         ]
@@ -1371,7 +1371,7 @@
             },
             {
               "type": "gauge",
-              "entity": "sensor.alfa_potenza_attiva_immessa_istantanea",
+              "entity": "sensor.potenza_esportata_attuale",
               "needle": true,
               "severity": {
                 "green": 0,
@@ -1385,9 +1385,9 @@
               "period": "day",
               "type": "statistics-graph",
               "entities": [
-                "sensor.alfa_energia_attiva_immessa_totale",
-                "sensor.alfa_energia_attiva_prodotta_totale",
-                "sensor.alfa_energia_attiva_prelevata_totale"
+                "sensor.alfa_new_energia_esportata",
+                "sensor.alfa_new_energia_prodotta",
+                "sensor.alfa_new_energia_importata"
               ],
               "stat_types": [
                 "change"
@@ -1409,7 +1409,7 @@
             },
             {
               "type": "gauge",
-              "entity": "sensor.alfa_potenza_attiva_prodotta_istantanea",
+              "entity": "sensor.produzione_solare",
               "max": 7500,
               "needle": true,
               "severity": {
@@ -2385,8 +2385,7 @@
                 {
                   "source": "solare",
                   "target": "totale",
-                  "value": "{{ states('sensor.alfa_potenza_attiva_prodotta_istantanea')|float(0) }}"
-                },
+                  "value": "{{ states('sensor.produzione_solare')|float(0) }}"                },
                 {
                   "source": "batteria",
                   "target": "totale",
