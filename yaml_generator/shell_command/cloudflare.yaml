@@ -1,0 +1,2 @@
+stop_cloudflare: "docker stop cloudflare-tunnel"
+start_cloudflare: "docker start cloudflare-tunnel"

@@ -264,11 +264,9 @@ intent_script:
     speech:
       text: "Sto accendendo le luci della cucina."
     action:
-      - action: switch.turn_on
+      - action: light.turn_on
         target:
-          entity_id:
-            - light.luci_cucina_switch_3
-            - light.luci_cucina_switch_2
+          entity_id: light.luci_cucina
 
   AccendiLuciScale:
     speech:
@@ -282,11 +280,9 @@ intent_script:
     speech:
       text: "Sto spegnendo le luci della cucina."
     action:
-      - action: switch.turn_off
+      - action: light.turn_off
         target:
-          entity_id:
-            - light.luci_cucina_switch_3
-            - light.luci_cucina_switch_2
+          entity_id: light.luci_cucina
 
   SpegniLuciScale:
     speech:

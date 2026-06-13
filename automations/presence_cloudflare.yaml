@@ -1,0 +1,23 @@
+- id: gestione_cloudflare_presence
+  alias: "Gestione Cloudflare Presence"
+  description: "Spegne Cloudflare quando Carlo è a casa, lo accende quando esce."
+  trigger:
+    - platform: state
+      entity_id: person.carlo
+  action:
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: person.carlo
+              state: "home"
+          sequence:
+            - service: shell_command.stop_cloudflare
+              data: {}
+        - conditions:
+            - condition: state
+              entity_id: person.carlo
+              state: "not_home"
+          sequence:
+            - service: shell_command.start_cloudflare
+              data: {}
+  mode: single

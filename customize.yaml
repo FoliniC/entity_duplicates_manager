@@ -78,3 +78,13 @@ sensor.prism_autolimit:
     icon: >
       if (state === 'Attivo') return 'mdi:boom-gate';
       else return 'mdi:hand-okay';
+
+# Alias richiesti per luci e switch
+switch.luce_balcone_switch_1:
+  friendly_name: "Luce balcone"
+
+light.luci_cucina_switch_2:
+  friendly_name: "luce bancone"
+
+light.luci_cucina_switch_3:
+  friendly_name: "luce tavolo"

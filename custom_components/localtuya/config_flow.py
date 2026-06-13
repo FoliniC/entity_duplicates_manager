@@ -101,8 +101,9 @@ EXPORT_CONFIG = "export_config"
 TUYA_CATEGORY = "category"
 DEVICE_CLOUD_DATA = "device_cloud_data"
 
+CONF_MANAGE_NETWORK = "manage_network"
 # Using list method so we can translate options.
-CONFIGURE_MENU = [CONF_ADD_DEVICE, CONF_EDIT_DEVICE, CONF_CONFIGURE_CLOUD]
+CONFIGURE_MENU = [CONF_ADD_DEVICE, CONF_EDIT_DEVICE, CONF_CONFIGURE_CLOUD, CONF_MANAGE_NETWORK]
 
 _LOGGER.debug("[TRACER] Config flow file loaded")
 
@@ -586,13 +587,13 @@ class LocaltuyaConfigFlow(ConfigFlow, domain=DOMAIN):
             raise e
 
     def __init__(self):
-        _LOGGER.error("[TRACER] LocaltuyaConfigFlow instantiated")
+        _LOGGER.debug("[TRACER] LocaltuyaConfigFlow instantiated")
         """Initialize a new LocaltuyaConfigFlow."""
 
     async def async_step_user(self, user_input=None):
         """Handle the initial step."""
-        _LOGGER.error(f"[TRACER] async_step_user called. Input: {_redact_log_input(user_input)}")
-        _LOGGER.error(f"[TRACER] Current language: {self.hass.config.language}")
+        _LOGGER.debug(f"[TRACER] async_step_user called. Input: {_redact_log_input(user_input)}")
+        _LOGGER.debug(f"[TRACER] Current language: {self.hass.config.language}")
         errors = {}
         placeholders = {}
         if user_input is not None:
@@ -821,7 +822,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         return self.localtuya_data.cloud_data
 
     async def async_step_init(self, user_input=None):
-        _LOGGER.error(f"[TRACER] async_step_init called. Input: {_redact_log_input(user_input)}")
+        _LOGGER.debug(f"[TRACER] async_step_init called. Input: {_redact_log_input(user_input)}")
         """Manage basic options."""
         configure_menu = CONFIGURE_MENU.copy()
         # Remove Reconfigure existing device option if there is no existed devices.
@@ -834,7 +835,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         return self.async_show_menu(step_id="init", menu_options=configure_menu)
 
     async def async_step_configure_cloud(self, user_input=None):
-        _LOGGER.error(f"[TRACER] async_step_configure_cloud called. Input: {_redact_log_input(user_input)}")
+        _LOGGER.debug(f"[TRACER] async_step_configure_cloud called. Input: {_redact_log_input(user_input)}")
         """Handle the initial step."""
         errors = {}
         placeholders = {}
@@ -876,7 +877,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         )
 
     async def async_step_add_device(self, user_input=None):
-        _LOGGER.error(f"[TRACER] async_step_add_device called. Input: {_redact_log_input(user_input)}")
+        _LOGGER.debug(f"[TRACER] async_step_add_device called. Input: {_redact_log_input(user_input)}")
         """Handle adding a new device."""
         # Use cache if available or fallback to manual discovery
         self.editing_device = False
@@ -994,7 +995,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         return await self.async_step_configure_device()
 
     async def async_step_edit_device(self, user_input=None):
-        _LOGGER.error(f"[TRACER] async_step_edit_device called. Input: {_redact_log_input(user_input)}")
+        _LOGGER.debug(f"[TRACER] async_step_edit_device called. Input: {_redact_log_input(user_input)}")
         """Handle editing a device."""
         self.editing_device = True
         # Use cache if available or fallback to manual discovery
@@ -1025,7 +1026,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         )
 
     async def async_step_confirm_cloud_dps(self, user_input=None):
-        _LOGGER.error(f"[TRACER] async_step_confirm_cloud_dps called. Input: {_redact_log_input(user_input)}")
+        _LOGGER.debug(f"[TRACER] async_step_confirm_cloud_dps called. Input: {_redact_log_input(user_input)}")
         """Step to confirm adding missing Cloud DPS."""
         if user_input is not None:
             if user_input.get("add_cloud_dps"):
@@ -1047,7 +1048,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         )
 
     async def async_step_configure_device(self, user_input=None):
-        _LOGGER.error(f"[TRACER] async_step_configure_device called. Input: {_redact_log_input(user_input)}")
+        _LOGGER.debug(f"[TRACER] async_step_configure_device called. Input: {_redact_log_input(user_input)}")
         """Handle input of basic info."""
         errors = {}
         placeholders = {}
@@ -1437,6 +1438,96 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
     def current_entity(self):
         """Existing configuration for entity currently being edited."""
         return self.entities[len(self.device_data[CONF_ENTITIES])]
+
+    async def _run_router_command(self, cmd):
+        """Run a command on the router via SSH."""
+        ssh_key = "/config/.ssh/router_key"
+        router_ip = "192.168.0.11"
+
+        full_cmd = [
+            "ssh",
+            "-i",
+            ssh_key,
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=5",
+            f"root@{router_ip}",
+            cmd,
+        ]
+
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *full_cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await process.communicate()
+            if process.returncode != 0:
+                err_msg = stderr.decode().strip()
+                _LOGGER.error("Router command failed: %s", err_msg)
+                return False, err_msg
+            return True, stdout.decode().strip()
+        except Exception as e:
+            _LOGGER.error("Error running router command: %s", e)
+            return False, str(e)
+
+    async def async_step_manage_network(self, user_input=None):
+        """Manage network blocking for Tuya devices."""
+        status = "Pronto"
+        if user_input is not None:
+            action = user_input.get("action")
+            devices = self.config_entry.data.get(CONF_DEVICES, {})
+            ips = [dev.get(CONF_HOST) for dev in devices.values() if dev.get(CONF_HOST)]
+
+            if not ips:
+                status = "Nessun dispositivo configurato."
+            else:
+                # Ensure table, set and chain exist
+                await self._run_router_command("nft add table inet tuya_block")
+                await self._run_router_command(
+                    "nft add set inet tuya_block blocked_ips '{ type ipv4_addr ; }'"
+                )
+                await self._run_router_command(
+                    "nft add chain inet tuya_block forward '{ type filter hook forward priority -10 ; policy accept ; }'"
+                )
+                await self._run_router_command(
+                    "nft add rule inet tuya_block forward ip saddr @blocked_ips drop"
+                )
+                await self._run_router_command(
+                    "nft add rule inet tuya_block forward ip daddr @blocked_ips drop"
+                )
+
+                if action == "block":
+                    # Clear and re-add to avoid "element already exists" errors
+                    await self._run_router_command("nft flush set inet tuya_block blocked_ips")
+                    for ip in ips:
+                        await self._run_router_command(
+                            f"nft add element inet tuya_block blocked_ips '{{ {ip} }}'"
+                        )
+                    status = f"Bloccati {len(ips)} dispositivi"
+                else:
+                    await self._run_router_command("nft flush set inet tuya_block blocked_ips")
+                    status = "Tutti i dispositivi sbloccati"
+
+        return self.async_show_form(
+            step_id="manage_network",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("action", default="unblock"): vol.In(
+                        {
+                            "block": "Blocca Accesso Internet",
+                            "unblock": "Sblocca Accesso Internet",
+                        }
+                    )
+                }
+            ),
+            description_placeholders={"status": status},
+        )
 
 
 class CannotConnect(exceptions.HomeAssistantError):

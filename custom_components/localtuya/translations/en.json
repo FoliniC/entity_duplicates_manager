@@ -62,10 +62,19 @@
                 "menu_options": {
                     "add_device": "Add new device",
                     "edit_device": "Reconfigure existing device",
-                    "configure_cloud": "Manage Cloud API account"
+                    "configure_cloud": "Manage Cloud API account",
+                    "manage_network": "Manage Network Blocking (OpenWrt)"
+                }
+            },
+            "manage_network": {
+                "title": "Tuya Network Management",
+                "description": "Current status: {status}. Choose whether to block or unblock internet access for configured Tuya devices.",
+                "data": {
+                    "action": "Action"
                 }
             },
             "add_device": {
+
                 "title": "Choose device to configure",
                 "description": "Compatible Tuya devices on your local network are discovered automatically once they have been set-up in the Tuya app. If you can't see the device you expected, choose `Add device manually` from the dropdown.",
                 "data": {

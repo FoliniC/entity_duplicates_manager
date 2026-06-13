@@ -82,7 +82,15 @@
                 "menu_options": {
                     "add_device": "Aggiungi nuovo dispositivo",
                     "edit_device": "Riconfigura dispositivo esistente",
-                    "configure_cloud": "Gestisci account Cloud"
+                    "configure_cloud": "Gestisci account Cloud",
+                    "manage_network": "Gestisci blocco rete (OpenWrt)"
+                }
+            },
+            "manage_network": {
+                "title": "Gestione Rete Tuya",
+                "description": "Stato attuale: {status}. Scegli se bloccare o sbloccare l'accesso internet per i dispositivi Tuya configurati.",
+                "data": {
+                    "action": "Azione"
                 }
             }
         },

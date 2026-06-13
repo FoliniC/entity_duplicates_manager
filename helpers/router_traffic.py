@@ -5,8 +5,21 @@ import os
 import socket
 
 ROUTER_IP = "192.168.0.11"
-SSH_KEY = "/config/.ssh/router_key"
-CACHE_FILE = "/config/temp/router_traffic_cache.json"
+# Robust path handling
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SSH_KEY = os.path.join(BASE_DIR, ".ssh/router_key")
+CACHE_FILE = os.path.join(BASE_DIR, "temp/router_traffic_cache.json")
+
+MANUAL_NAMES = {
+    "192.168.0.3":  "Home Assistant",
+    "192.168.0.89": "Alexa Camera",
+    "192.168.0.90": "Alexa Cucina",
+    "192.168.0.9":  "TCL TV (WiFi)",
+    "192.168.0.123": "TCL TV (Alt)",
+    "192.168.0.107": "Smart TV (Lan?)",
+    "192.168.0.45": "Smart TV Pro",
+    "192.168.0.8":   "Desktop PC",
+}
 
 def fetch_stats():
     cmd = [
@@ -19,34 +32,30 @@ def fetch_stats():
     ]
     try:
         raw_output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode('utf-8')
-        # Skip potential SSH warnings (lines starting with 'Warning:')
         clean_output = ""
         for line in raw_output.splitlines():
             if not line.startswith("Warning:"):
                 clean_output += line
-        
-        try:
-            return json.loads(clean_output)
-        except json.JSONDecodeError:
-            return {"error": f"JSON decode failed. Raw output: {raw_output}"}
+        return json.loads(clean_output)
     except Exception as e:
         return {"error": str(e)}
 
 def get_hostname(ip, name_cache):
+    if ip in MANUAL_NAMES:
+        return MANUAL_NAMES[ip]
     if ip in name_cache:
         return name_cache[ip]
     
     try:
         hostname = socket.gethostbyaddr(ip)[0]
-        # Simplify names like pcnvme.lan -> pcnvme
         if hostname.endswith(".lan"):
             hostname = hostname[:-4]
         name_cache[ip] = hostname
         return hostname
-    except (socket.herror, socket.gaierror):
+    except:
         pass
     
-    name_cache[ip] = ip # Fallback to IP
+    name_cache[ip] = ip
     return ip
 
 def load_cache():
@@ -59,9 +68,12 @@ def load_cache():
     return {}
 
 def save_cache(cache):
-    os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
-    with open(CACHE_FILE, 'w') as f:
-        json.dump(cache, f)
+    try:
+        os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
+        with open(CACHE_FILE, 'w') as f:
+            json.dump(cache, f)
+    except:
+        pass # Silently fail if cannot write cache (e.g. permission issues in some envs)
 
 def main():
     current_time = time.time()
@@ -71,77 +83,69 @@ def main():
         return
 
     cache = load_cache()
-    last_stats = cache.get("last_data", [])
+    last_stats_data = cache.get("last_data", [])
     last_time = cache.get("last_time", current_time - 60)
     name_cache = cache.get("name_cache", {})
     
     time_delta = current_time - last_time
     if time_delta <= 0: time_delta = 1
 
-    # Map columns to indices
     cols = stats.get("columns", [])
-    idx_mac = cols.index("mac")
-    idx_ip = cols.index("ip")
-    idx_rx = cols.index("rx_bytes")
-    idx_tx = cols.index("tx_bytes")
+    try:
+        idx_mac = cols.index("mac")
+        idx_ip = cols.index("ip")
+        idx_rx = cols.index("rx_bytes")
+        idx_tx = cols.index("tx_bytes")
+    except ValueError:
+        print(json.dumps({"error": "Invalid columns from router"}))
+        return
 
-    # Map mac to stats
     current_map = {}
     for item in stats.get("data", []):
-        mac = item[idx_mac]
-        if mac:
-            current_map[mac] = {"rx": item[idx_rx], "tx": item[idx_tx], "ip": item[idx_ip]}
+        ip = item[idx_ip]
+        if ip:
+            current_map[ip] = {"rx": item[idx_rx], "tx": item[idx_tx], "mac": item[idx_mac]}
 
     last_map = {}
-    if last_stats:
-        last_cols = cache.get("last_cols", cols)
-        try:
-            l_idx_mac = last_cols.index("mac")
-            l_idx_rx = last_cols.index("rx_bytes")
-            l_idx_tx = last_cols.index("tx_bytes")
-            for item in last_stats:
-                mac = item[l_idx_mac]
-                if mac:
-                    last_map[mac] = {"rx": item[l_idx_rx], "tx": item[l_idx_tx]}
-        except:
-            pass
+    if last_stats_data:
+        for item in last_stats_data:
+            if len(item) > idx_ip:
+                ip = item[idx_ip]
+                last_map[ip] = {"rx": item[idx_rx], "tx": item[idx_tx]}
 
     processed = []
-    for mac, data in current_map.items():
-        last = last_map.get(mac, {"rx": data["rx"], "tx": data["tx"]})
+    for ip, data in current_map.items():
+        last = last_map.get(ip, {"rx": data["rx"], "tx": data["tx"]})
         
-        # Calculate deltas
         rx_delta = data["rx"] - last["rx"] if data["rx"] >= last["rx"] else data["rx"]
         tx_delta = data["tx"] - last["tx"] if data["tx"] >= last["tx"] else data["tx"]
         
-        rx_speed = (rx_delta * 8) / (time_delta * 1000) # kbps
-        tx_speed = (tx_delta * 8) / (time_delta * 1000) # kbps
+        rx_speed = (rx_delta * 8) / (time_delta * 1024) # kbps
+        tx_speed = (tx_delta * 8) / (time_delta * 1024) # kbps
         
-        processed.append({
-            "mac": mac,
-            "ip": data["ip"],
-            "name": get_hostname(data["ip"], name_cache),
-            "total_rx_mb": round(data["rx"] / (1024*1024), 2),
-            "total_tx_mb": round(data["tx"] / (1024*1024), 2),
-            "rx_kbps": round(rx_speed, 2),
-            "tx_kbps": round(tx_speed, 2)
-        })
+        # Only include if there is some traffic or it's a known device
+        if rx_speed > 0.1 or tx_speed > 0.1 or ip in MANUAL_NAMES:
+            processed.append({
+                "ip": ip,
+                "name": get_hostname(ip, name_cache),
+                "total_rx_mb": round(data["rx"] / (1024*1024), 2),
+                "total_tx_mb": round(data["tx"] / (1024*1024), 2),
+                "rx_kbps": round(rx_speed, 2),
+                "tx_kbps": round(tx_speed, 2)
+            })
 
-    # Sort by speed
     processed.sort(key=lambda x: x["rx_kbps"] + x["tx_kbps"], reverse=True)
 
     output = {
-        "top_consumers": processed[:20],
-        "total_rx_gb": round(sum(d["rx"] for d in current_map.values()) / (1024*1024*1024), 3),
-        "total_tx_gb": round(sum(d["tx"] for d in current_map.values()) / (1024*1024*1024), 3),
+        "top_consumers": processed[:50], # Increase to top 50
+        "total_rx_gb": round(sum(d["rx"] for d in current_map.values()) / (1024**3), 3),
+        "total_tx_gb": round(sum(d["tx"] for d in current_map.values()) / (1024**3), 3),
         "timestamp": current_time
     }
 
     print(json.dumps(output))
 
-    # Update cache
     cache["last_data"] = stats.get("data", [])
-    cache["last_cols"] = cols
     cache["last_time"] = current_time
     cache["name_cache"] = name_cache
     save_cache(cache)

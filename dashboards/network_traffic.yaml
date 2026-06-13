@@ -29,7 +29,7 @@ views:
               return consumers.slice(0, 5).map((entry) => {
                 return {
                   value: entry.total_rx_mb,
-                  name: entry.ip
+                  name: entry.name && entry.name !== entry.ip ? entry.name : entry.ip
                 }
               });
 
@@ -43,10 +43,10 @@ views:
           content: >
             {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
             {% if top %}
-              | IP | Down (kbps) | Up (kbps) | Totale (MB) |
+              | Dispositivo | Down (kbps) | Up (kbps) | Totale (MB) |
               | :--- | :---: | :---: | :---: |
               {% for d in top[:10] %}
-              | {{ d.ip }} | {{ d.rx_kbps }} | {{ d.tx_kbps }} | {{ d.total_rx_mb }} |
+              | {{ d.name if d.name != d.ip else d.ip }} | {{ d.rx_kbps }} | {{ d.tx_kbps }} | {{ d.total_rx_mb }} |
               {% endfor %}
             {% else %}
               *Nessun dato disponibile in questo momento.*
