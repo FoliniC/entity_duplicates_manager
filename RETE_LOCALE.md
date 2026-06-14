@@ -14,6 +14,7 @@ Documentazione della configurazione di rete per l'ambiente Home Assistant.
 ### Router (Gateway & Internet)
 - **Hardware:** TP-Link AC1750 C7
 - **Firmware:** OpenWrt 24.10 (LuCI)
+- **Indirizzo IP:** `192.168.0.11`
 - **Accesso:** SSH abilitato.
 - **Funzione:** Accesso a Internet e routing locale.
 

@@ -107,10 +107,31 @@ input_number:
     min: 0
     max: 1000
 
+input_select:
+  network_graph_span:
+    name: "Range Grafico"
+    options:
+      - "15 minuti"
+      - "30 minuti"
+      - "1 ora"
+      - "3 ore"
+      - "6 ore"
+      - "12 ore"
+      - "24 ore"
+    initial: "15 minuti"
+    icon: mdi:timer-outline
+
 input_button:
   start_network_boost:
     name: "Avvia Boost Monitoraggio"
     icon: mdi:timer-play
+  reset_network_counters:
+    name: "Azzera Statistiche Rete"
+    icon: mdi:counter
+
+shell_command:
+  reset_router_counters: >
+    ssh -i /config/.ssh/router_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@192.168.0.11 "nft reset counters table inet bwmon ; /usr/sbin/nlbwmon -c"
 
 automation:
   - alias: "Network Boost Mode Rapid Update"
@@ -232,6 +253,18 @@ automation:
           entity_id: input_number.network_boost_remaining
         data:
           value: 0
+
+  - alias: "Reset Network Counters"
+    trigger:
+      - platform: state
+        entity_id: input_button.reset_network_counters
+    action:
+      - action: shell_command.reset_router_counters
+      - action: homeassistant.update_entity
+        target:
+          entity_id: 
+            - sensor.router_traffic_stats
+            - sensor.realtime_per_device_speed
 
 template:
   - sensor:
@@ -471,3 +504,68 @@ template:
             {% set top = state_attr('sensor.router_traffic_stats', 'top_consumers') %}
             {{ top[4].name if top and top|length > 4 else 'N/A' }}
         unit_of_measurement: "MB"
+
+      - name: >
+          {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+          {{ devices[0].name if devices and devices|length > 0 else 'Top 1' }}
+        unique_id: top_device_1_kbps
+        state: >
+          {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+          {{ devices[0].rx_kbps if devices and devices|length > 0 else 0 }}
+        attributes:
+          device_name: >
+            {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+            {{ devices[0].name if devices and devices|length > 0 else 'N/A' }}
+        unit_of_measurement: "kbps"
+
+      - name: >
+          {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+          {{ devices[1].name if devices and devices|length > 1 else 'Top 2' }}
+        unique_id: top_device_2_kbps
+        state: >
+          {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+          {{ devices[1].rx_kbps if devices and devices|length > 1 else 0 }}
+        attributes:
+          device_name: >
+            {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+            {{ devices[1].name if devices and devices|length > 1 else 'N/A' }}
+        unit_of_measurement: "kbps"
+
+      - name: >
+          {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+          {{ devices[2].name if devices and devices|length > 2 else 'Top 3' }}
+        unique_id: top_device_3_kbps
+        state: >
+          {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+          {{ devices[2].rx_kbps if devices and devices|length > 2 else 0 }}
+        attributes:
+          device_name: >
+            {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+            {{ devices[2].name if devices and devices|length > 2 else 'N/A' }}
+        unit_of_measurement: "kbps"
+
+      - name: >
+          {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+          {{ devices[3].name if devices and devices|length > 3 else 'Top 4' }}
+        unique_id: top_device_4_kbps
+        state: >
+          {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+          {{ devices[3].rx_kbps if devices and devices|length > 3 else 0 }}
+        attributes:
+          device_name: >
+            {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+            {{ devices[3].name if devices and devices|length > 3 else 'N/A' }}
+        unit_of_measurement: "kbps"
+
+      - name: >
+          {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+          {{ devices[4].name if devices and devices|length > 4 else 'Top 5' }}
+        unique_id: top_device_5_kbps
+        state: >
+          {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+          {{ devices[4].rx_kbps if devices and devices|length > 4 else 0 }}
+        attributes:
+          device_name: >
+            {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+            {{ devices[4].name if devices and devices|length > 4 else 'N/A' }}
+        unit_of_measurement: "kbps"

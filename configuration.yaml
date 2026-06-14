@@ -147,6 +147,7 @@ sensor:
         query: >
           filter(fn: (r) => r["_measurement"] == "climate.controllo_temperatura_camera_grande" )
           |> filter(fn: (r) => r["_field"] == "current_temperature")
+          |> last()
 
   # Media Mobile per Ricarica EV
   - platform: filter

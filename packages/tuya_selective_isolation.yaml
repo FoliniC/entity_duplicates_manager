@@ -1,0 +1,14 @@
+shell_command:
+  refresh_tuya_selective_isolation: "python3 /config/helpers/tuya_selective_isolation.py apply --strict-battery"
+
+automation:
+  - id: refresh_tuya_selective_isolation
+    alias: "Tuya - refresh selective isolation allowlist"
+    mode: single
+    trigger:
+      - platform: homeassistant
+        event: start
+      - platform: time_pattern
+        minutes: "/10"
+    action:
+      - service: shell_command.refresh_tuya_selective_isolation

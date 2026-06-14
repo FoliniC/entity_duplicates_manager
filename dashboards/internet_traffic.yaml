@@ -272,3 +272,125 @@ views:
                     data: devices
                     modify: x.tx_kbps
                 sort_by: Down (kbps)-
+
+              - type: markdown
+                content: "## 📈 Andamento Top 5 Dispositivi"
+                card_mod:
+                  style: |
+                    ha-card { user-select: text !important; }
+
+              - type: horizontal-stack
+                cards:
+                  - type: entities
+                    entities:
+                      - entity: input_select.network_graph_span
+                        name: "Range"
+                  - type: button
+                    name: "RESET DATI"
+                    icon: mdi:counter
+                    tap_action:
+                      action: perform-action
+                      perform_action: input_button.press
+                      target:
+                        entity_id: input_button.reset_network_counters
+                    card_mod:
+                      style: |
+                        ha-card {
+                          background: rgba(255, 165, 0, 0.1) !important;
+                          height: 100%;
+                        }
+
+              - type: vertical-stack
+                cards:
+                  - type: conditional
+                    conditions:
+                      - entity: input_select.network_graph_span
+                        state: "15 minuti"
+                    card:
+                      type: custom:apexcharts-card
+                      graph_span: 15m
+                      header: { show: true, show_states: true, colorize_states: true, title: "Top 5 Devices (15m)" }
+                      series: &series_config
+                        - entity: sensor.top_device_1_speed
+                          type: area
+                          group_by: { func: avg, duration: 1m }
+                        - entity: sensor.top_device_2_speed
+                          type: area
+                          group_by: { func: avg, duration: 1m }
+                        - entity: sensor.top_device_3_speed
+                          type: area
+                          group_by: { func: avg, duration: 1m }
+                        - entity: sensor.top_device_4_speed
+                          type: area
+                          group_by: { func: avg, duration: 1m }
+                        - entity: sensor.top_device_5_speed
+                          type: area
+                          group_by: { func: avg, duration: 1m }
+                      yaxis: [{ min: 0, apex_config: { forceNiceScale: true } }]
+
+                  - type: conditional
+                    conditions:
+                      - entity: input_select.network_graph_span
+                        state: "30 minuti"
+                    card:
+                      type: custom:apexcharts-card
+                      graph_span: 30m
+                      header: { show: true, show_states: true, colorize_states: true, title: "Top 5 Devices (30m)" }
+                      series: *series_config
+                      yaxis: [{ min: 0, apex_config: { forceNiceScale: true } }]
+
+                  - type: conditional
+                    conditions:
+                      - entity: input_select.network_graph_span
+                        state: "1 ora"
+                    card:
+                      type: custom:apexcharts-card
+                      graph_span: 1h
+                      header: { show: true, show_states: true, colorize_states: true, title: "Top 5 Devices (1h)" }
+                      series: *series_config
+                      yaxis: [{ min: 0, apex_config: { forceNiceScale: true } }]
+
+                  - type: conditional
+                    conditions:
+                      - entity: input_select.network_graph_span
+                        state: "3 ore"
+                    card:
+                      type: custom:apexcharts-card
+                      graph_span: 3h
+                      header: { show: true, show_states: true, colorize_states: true, title: "Top 5 Devices (3h)" }
+                      series: *series_config
+                      yaxis: [{ min: 0, apex_config: { forceNiceScale: true } }]
+
+                  - type: conditional
+                    conditions:
+                      - entity: input_select.network_graph_span
+                        state: "6 ore"
+                    card:
+                      type: custom:apexcharts-card
+                      graph_span: 6h
+                      header: { show: true, show_states: true, colorize_states: true, title: "Top 5 Devices (6h)" }
+                      series: *series_config
+                      yaxis: [{ min: 0, apex_config: { forceNiceScale: true } }]
+
+                  - type: conditional
+                    conditions:
+                      - entity: input_select.network_graph_span
+                        state: "12 ore"
+                    card:
+                      type: custom:apexcharts-card
+                      graph_span: 12h
+                      header: { show: true, show_states: true, colorize_states: true, title: "Top 5 Devices (12h)" }
+                      series: *series_config
+                      yaxis: [{ min: 0, apex_config: { forceNiceScale: true } }]
+
+                  - type: conditional
+                    conditions:
+                      - entity: input_select.network_graph_span
+                        state: "24 ore"
+                    card:
+                      type: custom:apexcharts-card
+                      graph_span: 24h
+                      header: { show: true, show_states: true, colorize_states: true, title: "Top 5 Devices (24h)" }
+                      series: *series_config
+                      yaxis: [{ min: 0, apex_config: { forceNiceScale: true } }]
+
