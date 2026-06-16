@@ -38,6 +38,7 @@ action:
 ## 🚀 Deployment Info
 - Backup script: `/usr/local/bin/ha_gh_backup` (managed by `ha-gh-backup.timer`).
 - Authentication: Root SSH key (`/root/.ssh/id_rsa`).
+- Host Control: Dedicated SSH key at `/config/.ssh/host_key` used by shell commands to control host Docker containers.
 - documentation: `/config/GITHUB_BACKUP.md`.
 - Rete Locale: `/config/RETE_LOCALE.md`.
 

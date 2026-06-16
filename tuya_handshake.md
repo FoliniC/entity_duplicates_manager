@@ -42,10 +42,26 @@ Simulare la risposta cloud locale è difficile per i seguenti motivi:
 | 192.168.0.66 | Luci cucina | Alimentato | Online | Funziona LocalTuya |
 | 192.168.0.47 | Garage | Alimentato | Online | Handshake cloud fallito ma WiFi attivo |
 
-## Conclusione Preliminare
-La simulazione locale dell'handshake cloud richiede un server che agisca da proxy TLS trasparente o un'emulazione completa dei servizi MQTT/HTTPS di Tuya. Al momento, la soluzione più efficace per i sensori a batteria è consentire l'accesso WAN limitato ai soli domini Tuya necessari per l'attivazione.
+## 7. Conclusioni Finali e Raccomandazioni (15 Giugno 2026)
 
-## 6. Aggiornamento Operativo - 13 Giugno 2026
+L'analisi approfondita del comportamento dei sensori Tuya a batteria (serie TH) ha portato alle seguenti conclusioni definitive:
+
+1.  **Handshake Cloud Mandatorio**: I sensori a batteria **non abilitano la porta locale 6668** (necessaria per LocalTuya) se non riescono a completare con successo l'handshake TLS con il cloud Tuya ad ogni risveglio.
+2.  **Comportamento in caso di Blocco**: Se il cloud è irraggiungibile (blocco WAN totale):
+    *   Il sensore tenta la connessione cloud per alcuni secondi.
+    *   In assenza di risposta, **spegne immediatamente il modulo WiFi** per risparmiare batteria.
+    *   Il dispositivo risulta `FAILED` o `INCOMPLETE` nelle tabelle ARP/Neighbor del router e non risponde a nessuna sollecitazione locale (ping o tentativi di connessione LocalTuya).
+3.  **LocalTuya Shadow Fallback**: Quando il sensore si sveglia e ha accesso al cloud, ma la connessione locale fallisce o è instabile, LocalTuya utilizza il "Cloud shadow fallback". Questo messaggio indica che i dati vengono letti via Internet dai server Tuya invece che direttamente via LAN.
+
+### 💡 Consigli Operativi per l'Isolamento
+Per i sensori a batteria, l'isolamento totale **non è praticabile**. La strategia consigliata è l'**accesso WAN selettivo**:
+
+*   **DNS**: Consentire richieste DNS verso i domini Tuya (es. `*.tuyaeu.com`, `*.lifeaiot.com`).
+*   **Handshake Ports**: Aprire le porte TCP `443`, `8883` e `8886` verso gli IP del cloud Tuya.
+*   **NTP**: Consentire il traffico UDP sulla porta `123` (fondamentale per la validazione dei certificati TLS).
+*   **Script di Automazione**: Utilizzare lo script `helpers/tuya_selective_isolation.py` per aggiornare dinamicamente le regole del firewall in base agli IP cloud risolti, minimizzando l'esposizione WAN.
+
+Se i sensori non aggiornano i valori dopo aver ripristinato la connettività, è necessario attendere un **evento fisico** (cambio temperatura/umidità) o premere il tasto di reset/wake-up sul dispositivo per forzare una nuova associazione WiFi.
 
 ### Diagnosi sul Router
 La tabella `inet tuya_block` su OpenWrt blocca i dispositivi Tuya tramite il set `blocked_ips`. Il blocco pieno intercetta anche le richieste DNS redirette verso AdGuard (`192.168.0.3`), quindi una allowlist basata sui domini Tuya non puo' funzionare se prima non si consente ai sensori di risolvere quei domini.

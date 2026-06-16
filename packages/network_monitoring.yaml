@@ -505,9 +505,7 @@ template:
             {{ top[4].name if top and top|length > 4 else 'N/A' }}
         unit_of_measurement: "MB"
 
-      - name: >
-          {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
-          {{ devices[0].name if devices and devices|length > 0 else 'Top 1' }}
+      - name: "Top Device 1 Speed"
         unique_id: top_device_1_kbps
         state: >
           {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
@@ -518,9 +516,7 @@ template:
             {{ devices[0].name if devices and devices|length > 0 else 'N/A' }}
         unit_of_measurement: "kbps"
 
-      - name: >
-          {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
-          {{ devices[1].name if devices and devices|length > 1 else 'Top 2' }}
+      - name: "Top Device 2 Speed"
         unique_id: top_device_2_kbps
         state: >
           {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
@@ -531,9 +527,7 @@ template:
             {{ devices[1].name if devices and devices|length > 1 else 'N/A' }}
         unit_of_measurement: "kbps"
 
-      - name: >
-          {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
-          {{ devices[2].name if devices and devices|length > 2 else 'Top 3' }}
+      - name: "Top Device 3 Speed"
         unique_id: top_device_3_kbps
         state: >
           {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
@@ -544,9 +538,7 @@ template:
             {{ devices[2].name if devices and devices|length > 2 else 'N/A' }}
         unit_of_measurement: "kbps"
 
-      - name: >
-          {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
-          {{ devices[3].name if devices and devices|length > 3 else 'Top 4' }}
+      - name: "Top Device 4 Speed"
         unique_id: top_device_4_kbps
         state: >
           {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
@@ -557,9 +549,7 @@ template:
             {{ devices[3].name if devices and devices|length > 3 else 'N/A' }}
         unit_of_measurement: "kbps"
 
-      - name: >
-          {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
-          {{ devices[4].name if devices and devices|length > 4 else 'Top 5' }}
+      - name: "Top Device 5 Speed"
         unique_id: top_device_5_kbps
         state: >
           {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
