@@ -1,22 +1,20 @@
 - id: gestione_cloudflare_presence
   alias: "Gestione Cloudflare Presence"
-  description: "Spegne Cloudflare quando Carlo è a casa, lo accende quando esce."
+  description: "Spegne Cloudflare quando Carlo è a casa (home o Casa), lo accende quando esce."
   trigger:
     - platform: state
       entity_id: person.carlo
   action:
     - choose:
         - conditions:
-            - condition: state
-              entity_id: person.carlo
-              state: "home"
+            - condition: template
+              value_template: "{{ states('person.carlo') in ['home', 'Casa'] }}"
           sequence:
             - service: shell_command.stop_cloudflare
               data: {}
         - conditions:
-            - condition: state
-              entity_id: person.carlo
-              state: "not_home"
+            - condition: template
+              value_template: "{{ states('person.carlo') not in ['home', 'Casa', 'unknown', 'unavailable'] }}"
           sequence:
             - service: shell_command.start_cloudflare
               data: {}

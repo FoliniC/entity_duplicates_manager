@@ -8,6 +8,7 @@ template:
         device_class: energy
         state_class: total_increasing
         state: "{{ states('sensor.smart_meter_2026_a_pdc_energy_forword_a') }}"
+        availability: "{{ is_number(states('sensor.smart_meter_2026_a_pdc_energy_forword_a')) }}"
 
       - name: "PDC Energy Forword B Fixed"
         unique_id: pdc_energy_forword_b_fixed
@@ -15,6 +16,7 @@ template:
         device_class: energy
         state_class: total_increasing
         state: "{{ states('sensor.smart_meter_2026_a_pdc_energy_forword_b') }}"
+        availability: "{{ is_number(states('sensor.smart_meter_2026_a_pdc_energy_forword_b')) }}"
 
       - name: "PDC Energy Reverse A Fixed"
         unique_id: pdc_energy_reverse_a_fixed
@@ -22,6 +24,7 @@ template:
         device_class: energy
         state_class: total_increasing
         state: "{{ states('sensor.smart_meter_2026_a_pdc_energy_reverse_a') }}"
+        availability: "{{ is_number(states('sensor.smart_meter_2026_a_pdc_energy_reverse_a')) }}"
 
       - name: "PDC Energy Reserse B Fixed"
         unique_id: pdc_energy_reserse_b_fixed
@@ -29,9 +32,11 @@ template:
         device_class: energy
         state_class: total_increasing
         state: "{{ states('sensor.smart_meter_2026_a_pdc_energy_reserse_b') }}"
-        
+        availability: "{{ is_number(states('sensor.smart_meter_2026_a_pdc_energy_reserse_b')) }}"
+
       - name: "PDC Voltage Coef Fixed"
         unique_id: pdc_voltage_coef_fixed
         unit_of_measurement: "V"
         device_class: voltage
         state: "{{ states('sensor.smart_meter_2026_a_pdc_voltage_coef') }}"
+        availability: "{{ is_number(states('sensor.smart_meter_2026_a_pdc_voltage_coef')) }}"

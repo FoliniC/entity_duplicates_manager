@@ -151,6 +151,14 @@ async def async_setup(hass: HomeAssistant, config: dict):
                 updated = True
                 new_data[CONF_DEVICES][dev_id][CONF_HOST] = device_ip
                 device_cache[device_id][dev_id] = device_ip
+            elif host == device_ip:
+                if dev_obj := hass_data.devices.get(device_ip):
+                    if not dev_obj.connected and dev_obj._device_config.sleep_time > 0:
+                        _LOGGER.debug(
+                            "Battery device %s discovered with same IP, triggering connection",
+                            device_id,
+                        )
+                        entry.async_create_task(hass, dev_obj.async_connect(is_discovery=True))
 
             if (p_key := dev_entry.get(CONF_PRODUCT_KEY)) and p_key != product_key:
                 updated = True
