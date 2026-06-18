@@ -1,0 +1,30 @@
+- alias: "Alexa: Risposta al Buongiorno"
+  trigger:
+    - platform: state
+      entity_id: input_boolean.buongiorno_alexa
+      to: "on"
+  action:
+    # 1. Messaggio di benvenuto
+    - service: notify.send_message
+      target:
+        entity_id: notify.cucina_speak
+      data:
+        message: "Buongiorno Carlo! Spero che tu abbia passato una splendida notte. Tutto è pronto in casa per iniziare la giornata."
+    
+    # 2. Apertura tapparella camera grande
+    - service: cover.open_cover
+      target:
+        entity_id: cover.camera_grande_tapparella_knx
+    
+    # 3. Riproduzione Radio m2o su Alexa
+    - service: media_player.play_media
+      target:
+        entity_id: media_player.cucina
+      data:
+        media_content_id: "radio m2o"
+        media_content_type: "TUNEIN"
+    
+    - delay: "00:00:05"
+    - service: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.buongiorno_alexa

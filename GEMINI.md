@@ -41,4 +41,5 @@ action:
 - Host Control: Dedicated SSH key at `/config/.ssh/host_key` used by shell commands to control host Docker containers.
 - documentation: `/config/GITHUB_BACKUP.md`.
 - Rete Locale: `/config/RETE_LOCALE.md`.
+- Alexa: `/config/alexa.md`.
 
