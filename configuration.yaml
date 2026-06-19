@@ -298,6 +298,10 @@ intent_script:
 # ============================================================================
 logger:
   default: warning
+  filters:
+    homeassistant.components.emulated_hue.hue_api:
+      - "Entity not found"
+      - "Entity not exposed"
   logs:
     custom_components.localtuya: info
     fancoil_system: error

@@ -1,0 +1,33 @@
+command_line:
+  - binary_sensor:
+      name: Cloudflare Tunnel External Status
+      unique_id: cloudflare_tunnel_external_status
+      # Controlla se l'URL risponde con codice 200
+      command: "curl -I -s --connect-timeout 5 https://home.vialeformica.org | grep -q '200' && echo ON || echo OFF"
+      payload_on: "ON"
+      payload_off: "OFF"
+      scan_interval: 60
+
+shell_command:
+  restart_cloudflare_tunnel: "ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null carlo@localhost 'docker restart cloudflare-tunnel'"
+
+automation:
+  - alias: "Cloudflare Tunnel Watchdog"
+    id: cloudflare_tunnel_watchdog
+    description: "Riavvia il tunnel Cloudflare se l'URL esterno non risponde per 5 minuti"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.cloudflare_tunnel_external_status
+        to: "off"
+        for:
+          minutes: 5
+    action:
+      - action: shell_command.restart_cloudflare_tunnel
+      - action: notify.persistent_notification
+        data:
+          title: "Cloudflare Watchdog"
+          message: "Il tunnel Cloudflare non rispondeva da 5 minuti. Riavvio effettuato alle {{ now().strftime('%H:%M:%S') }}."
+      - event: system_log_event
+        event_data:
+          level: "WARNING"
+          message: "Watchdog: Cloudflare tunnel riavviato per mancata risposta dell'URL esterno."

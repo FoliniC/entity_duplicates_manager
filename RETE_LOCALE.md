@@ -76,6 +76,7 @@ Per diagnosticare rallentamenti e identificare dispositivi che saturano la banda
         - **Flow Offloading:** Disattivato (`flow_offloading='0'`, `flow_offloading_hw='0'`). Questa modifica è necessaria perché l'offloading accelera il traffico bypassando i contatori della CPU, rendendo invisibile il traffico dei dispositivi collegati tramite bridge/mesh (es. Alexa in cucina).
 2.  **Server HA (Integrazione Avanzata):**
     *   **Monitoraggio Qualità (Livello 1):** `helpers/network_quality.py` (ogni 60s). Misura **Packet Loss**, **Jitter** e **Latenza** tramite ping sequenziali.
+    *   **Watchdog Tunnel Cloudflare (Livello 1.5):** `packages/cloudflare_watchdog.yaml`. Controlla ogni 60s la raggiungibilità dell'URL esterno (`https://home.vialeformica.org`). Se l'URL non risponde per oltre **5 minuti**, il sistema esegue automaticamente il riavvio del container `cloudflare-tunnel` tramite SSH sul server host.
     *   **Velocità WAN (Livello 2):** `helpers/wan_traffic_realtime.py` (ogni 10s). Legge `/proc/net/dev` per la banda totale istantanea e calcola la **Saturazione %**.
     *   **Real-time Per-Device (Livello 3):** `helpers/realtime_per_device.py` (ogni 15s). Utilizza **nftables accounting** sul router per tracciare la banda dei dispositivi critici (Desktop, Alexa, HA).
     *   **Diagnosi Automatica:** Package `packages/network_diagnosis.yaml`. Un sensore template (`sensor.network_status_diagnosis`) incrocia i dati dei tre livelli per identificarle se eventuali rallentamenti sono causati dalla linea o dalla saturazione locale.

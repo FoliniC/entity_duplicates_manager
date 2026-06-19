@@ -1864,6 +1864,16 @@ views:
                           entity: sensor.omega_esterno
                           tap_action: { action: more-info }
                           card_mod: *row_style
+                        - type: custom:mushroom-template-card
+                          primary: "🌡️ Temp (Clima): {{ states('sensor.sensore_clima_temp_current') }}°C"
+                          entity: sensor.sensore_clima_temp_current
+                          tap_action: { action: more-info }
+                          card_mod: *row_style
+                        - type: custom:mushroom-template-card
+                          primary: "💧 Hum (Clima): {{ states('sensor.sensore_clima_humidity_value') }}%"
+                          entity: sensor.sensore_clima_humidity_value
+                          tap_action: { action: more-info }
+                          card_mod: *row_style
 
                     # COLONNA 2: SOLE E PIOGGIA
                     - type: vertical-stack
