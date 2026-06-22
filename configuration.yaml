@@ -410,7 +410,7 @@ lovelace:
       filename: ui/ev_charge_control_2025.yaml
     distacco-rete:
       mode: yaml
-      title: Protezione distacco reteXXX
+      title: Protezione distacco rete
       icon: mdi:transmission-tower-off
       show_in_sidebar: true
       filename: ui/distacco_rete.yaml

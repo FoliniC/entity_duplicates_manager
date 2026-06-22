@@ -11,6 +11,23 @@ command_line:
 shell_command:
   restart_cloudflare_tunnel: "ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null carlo@localhost 'docker restart cloudflare-tunnel'"
 
+template:
+  - switch:
+      - name: "Cloudflare Tunnel"
+        unique_id: cloudflare_tunnel
+        state: "{{ is_state('binary_sensor.cloudflare_tunnel_external_status', 'on') }}"
+        turn_on:
+          action: shell_command.start_cloudflare
+        turn_off:
+          action: shell_command.stop_cloudflare
+        icon: >-
+          {% if is_state('binary_sensor.cloudflare_tunnel_external_status', 'on') %}
+            mdi:cloud-check
+          {% else %}
+            mdi:cloud-off-outline
+          {% endif %}
+
+
 automation:
   - alias: "Cloudflare Tunnel Watchdog"
     id: cloudflare_tunnel_watchdog
@@ -21,6 +38,9 @@ automation:
         to: "off"
         for:
           minutes: 5
+    condition:
+      - condition: template
+        value_template: "{{ states('person.carlo') not in ['home', 'Casa'] }}"
     action:
       - action: shell_command.restart_cloudflare_tunnel
       - action: notify.persistent_notification
@@ -31,3 +51,4 @@ automation:
         event_data:
           level: "WARNING"
           message: "Watchdog: Cloudflare tunnel riavviato per mancata risposta dell'URL esterno."
+

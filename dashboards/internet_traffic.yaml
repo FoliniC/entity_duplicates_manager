@@ -154,6 +154,16 @@ views:
                             user-select: text !important;
                           }
 
+              - type: entities
+                title: "☁️ Tunnel Cloudflare"
+                entities:
+                  - entity: switch.cloudflare_tunnel
+                    name: "Stato Tunnel"
+                  - entity: automation.gestione_cloudflare_presence
+                    name: "Gestione Automatica Presenza"
+                  - entity: automation.cloudflare_tunnel_watchdog
+                    name: "Watchdog Automatico"
+
               - type: entity
                 entity: sensor.network_status_diagnosis
                 name: "Stato Rete"
