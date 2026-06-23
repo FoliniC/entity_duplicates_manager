@@ -1,0 +1,67 @@
+- id: log_luce_balcone_state_change
+  alias: "Log Luce Balcone State Change"
+  description: "Traccia ogni cambio di stato di switch.luce_balcone_switch_1 con il motivo (fisico/RF, blackout, vocale, automazione, UI) per diagnosticare le accensioni saltuarie."
+  mode: queued
+  max: 50
+  trigger:
+    - platform: state
+      entity_id: switch.luce_balcone_switch_1
+  condition:
+    # Logga solo i cambiamenti reali on<->off (ignora gli unknown iniziali)
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.state in ['on', 'off']
+           and trigger.from_state.state in ['on', 'off']
+           and trigger.to_state.state != trigger.from_state.state }}
+  action:
+    - variables:
+        to_state: "{{ trigger.to_state.state }}"
+        from_state: "{{ trigger.from_state.state }}"
+        ctx: "{{ trigger.to_state.context }}"
+        user_id: "{{ trigger.to_state.context.user_id }}"
+        parent_id: "{{ trigger.to_state.context.parent_id }}"
+        source: "{{ (trigger.to_state.context | default('')).get('source', '') }}"
+        # Timestamp leggibile
+        ts: "{{ trigger.to_state.last_changed | default(now()) }}"
+        # Riconoscimento utente (interfaccia web/app)
+        user_name: >
+          {% if user_id is not none %}
+            {% set person = states.person | selectattr('attributes.user_id', 'eq', user_id) | first | default(none) %}
+            {{ person.attributes.friendly_name if person else 'ID:' ~ user_id[:8] }}
+          {% else %}
+            none
+          {% endif %}
+        # Classificazione del MOTIVO dell'evento
+        reason: >
+          {% if source == 'BUTTON' or (user_id is none and parent_id is none and source == '') %}
+            Fisico/RF (pulsante o telecomando Tuya)
+          {% elif user_id is not none %}
+            Interfaccia Web/App ({{ user_name }})
+          {% elif parent_id is not none %}
+            Sistema/Automazione (parent: {{ parent_id[:12] }})
+          {% elif source != '' %}
+            Esterno (source={{ source }})
+          {% else %}
+            Fisico/RF (pulsante o telecomando Tuya)
+          {% endif %}
+        action_word: "{{ 'ACCESO' if to_state == 'on' else 'SPENTO' }}"
+    - event: balcone_log_event
+      event_data:
+        level: INFO
+        action: "{{ action_word }}"
+        message: "Luce balcone {{ action_word }} (era {{ from_state }}) — Motivo: {{ reason }} [source={{ source }} user_id={{ user_id }} parent_id={{ parent_id }}] @ {{ ts }}"
+        wait: 1
+    # Notifica push in tempo reale su tutti i device con app HA
+    - action: notify.send_message
+      target:
+        entity_id:
+          - notify.mobile_app_redmi_note_9s
+          - notify.mobile_app_redmi_note_13_pro_5g
+      data:
+        title: "💡 Luce balcone {{ action_word }}"
+        message: "Motivo: {{ reason }}"
+        data:
+          tag: luce_balcone_change
+          # Se si accende (caso problematico), rendila priority + notifica ad alta priorità
+          importance: "{{ 'high' if to_state == 'on' else 'normal' }}"
+          notification_icon: "mdi:lightbulb"

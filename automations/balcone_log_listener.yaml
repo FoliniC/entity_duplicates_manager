@@ -1,0 +1,18 @@
+# HALog2026 — Balcone Log Listener
+# Invia eventi log balcone a HALog2026 tramite event bus
+
+- id: balcone_listener_eventi_log
+  alias: "Balcone: Listener Eventi Log"
+  description: "Invia eventi log luce balcone a HALog2026 tramite event bus"
+  initial_state: true
+  trigger:
+    - trigger: event
+      event_type: balcone_log_event
+  actions:
+    - event: halog2026_write_event
+      event_data:
+        subsystem: balcone
+        level: "{{ trigger.event.data.level | default('info') }}"
+        message: "{{ trigger.event.data.message | default('') }}"
+        action: "{{ trigger.event.data.action | default('nulla') }}"
+        wait: "{{ trigger.event.data.wait | default(0) }}"
