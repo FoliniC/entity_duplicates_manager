@@ -7,20 +7,28 @@
     - platform: state
       entity_id: switch.luce_balcone_switch_1
   condition:
-    # Logga solo i cambiamenti reali on<->off (ignora gli unknown iniziali)
+    # Logga OGNI cambio di stato reale: on<->off ma anche i passaggi da/verso
+    # unavailable/unknown, che sono esattamente la firma delle accensioni
+    # saltuarie notturne (dropout Wi-Fi/Tuya cloud o riavvio dispositivo).
+    # Si escludono solo: nessun cambio reale (from==to) e il puro rumore di
+    # polling unavailable<->unknown (nessuna informazione utile).
     - condition: template
       value_template: >
-        {{ trigger.to_state.state in ['on', 'off']
-           and trigger.from_state.state in ['on', 'off']
-           and trigger.to_state.state != trigger.from_state.state }}
+        {{ trigger.to_state.state != trigger.from_state.state
+           and not (trigger.to_state.state in ['unavailable', 'unknown']
+                    and trigger.from_state.state in ['unavailable', 'unknown']) }}
   action:
     - variables:
         to_state: "{{ trigger.to_state.state }}"
         from_state: "{{ trigger.from_state.state }}"
         ctx: "{{ trigger.to_state.context }}"
-        user_id: "{{ trigger.to_state.context.user_id }}"
-        parent_id: "{{ trigger.to_state.context.parent_id }}"
-        source: "{{ (trigger.to_state.context | default('')).get('source', '') }}"
+        user_id: "{{ trigger.to_state.context.user_id if trigger.to_state.context is defined else none }}"
+        parent_id: "{{ trigger.to_state.context.parent_id if trigger.to_state.context is defined else none }}"
+        # NOTA: trigger.to_state.context e' un oggetto Context, NON un dict.
+        # Non ha .get(); va acceso per attributo con guardia.
+        source: >
+          {% set ctx = trigger.to_state.context if trigger.to_state.context is defined else none %}
+          {{ ctx.source if ctx is not none and ctx.source is defined else '' }}
         # Timestamp leggibile
         ts: "{{ trigger.to_state.last_changed | default(now()) }}"
         # Riconoscimento utente (interfaccia web/app)
@@ -31,9 +39,14 @@
           {% else %}
             none
           {% endif %}
+        # Stato anomalo? (arrivo da/per unavailable/unknown) -> pista dropout
+        anomalous: >
+          {{ from_state in ['unavailable', 'unknown'] or to_state in ['unavailable', 'unknown'] }}
         # Classificazione del MOTIVO dell'evento
         reason: >
-          {% if source == 'BUTTON' or (user_id is none and parent_id is none and source == '') %}
+          {% if anomalous %}
+            Stato anomalo (dropout Wi-Fi/cloud o riavvio dispositivo): {{ from_state }} -> {{ to_state }}
+          {% elif source == 'BUTTON' or (user_id is none and parent_id is none and source == '') %}
             Fisico/RF (pulsante o telecomando Tuya)
           {% elif user_id is not none %}
             Interfaccia Web/App ({{ user_name }})
@@ -44,24 +57,39 @@
           {% else %}
             Fisico/RF (pulsante o telecomando Tuya)
           {% endif %}
-        action_word: "{{ 'ACCESO' if to_state == 'on' else 'SPENTO' }}"
+        # Etichetta leggibile per l'azione nel log
+        action_word: >
+          {% if to_state == 'on' %}ACCESO
+          {% elif to_state == 'off' %}SPENTO
+          {% else %}{{ to_state | upper }}{% endif %}
+        # Livello di log: WARNING se c'è un'anomalia (dropout), INFO altrimenti
+        level: "{{ 'WARNING' if anomalous else 'INFO' }}"
+    # 1) PRIMA il log (priorita' assoluta: deve sempre finire nel file)
     - event: balcone_log_event
       event_data:
-        level: INFO
+        level: "{{ level }}"
         action: "{{ action_word }}"
         message: "Luce balcone {{ action_word }} (era {{ from_state }}) — Motivo: {{ reason }} [source={{ source }} user_id={{ user_id }} parent_id={{ parent_id }}] @ {{ ts }}"
         wait: 1
-    # Notifica push in tempo reale su tutti i device con app HA
-    - action: notify.send_message
-      target:
-        entity_id:
-          - notify.mobile_app_redmi_note_9s
-          - notify.mobile_app_redmi_note_13_pro_5g
-      data:
-        title: "💡 Luce balcone {{ action_word }}"
-        message: "Motivo: {{ reason }}"
-        data:
-          tag: luce_balcone_change
-          # Se si accende (caso problematico), rendila priority + notifica ad alta priorità
-          importance: "{{ 'high' if to_state == 'on' else 'normal' }}"
-          notification_icon: "mdi:lightbulb"
+    # 2) POI la notifica push (non bloccante: un suo eventuale fallimento
+    #    non impatta il log sopra). Solo per gli eventi utente rilevanti,
+    #    per non allagare il telefono con i flapping unavailable.
+    - if:
+        - condition: template
+          value_template: "{{ to_state in ['on', 'off'] }}"
+      then:
+        - action: notify.send_message
+          target:
+            entity_id:
+              - notify.mobile_app_redmi_note_9s
+              - notify.mobile_app_redmi_note_13_pro_5g
+          data:
+            title: "💡 Luce balcone {{ action_word }}{% if anomalous %} ⚠️{% endif %}"
+            message: "Motivo: {{ reason }}"
+            data:
+              tag: luce_balcone_change
+              # Se si accende (caso problematico) o c'è anomalia: alta priorità
+              importance: "{{ 'high' if (to_state == 'on' or anomalous) else 'normal' }}"
+              notification_icon: "mdi:lightbulb"
+      # fall-through controllato: in caso di errore notify non blocca il flow
+      else: []

@@ -48,6 +48,19 @@ You can modify the behavior of each log by editing `halog2026_config.json`:
 - **Destination**: `/config/logs/scale/scale_events.log`
 - **Features**: Weekly archiving (`when: Weeks`, `interval: 1`), keeps 4 files. Enriches logs with light status and power consumption.
 
+### 4. System (Cron / Scripts)
+- **Event**: `system_log_event`
+- **Destination**: `/config/logs/system/system.log`
+- **Source**: External shell scripts (e.g., `ha_update.sh`) or maintenance automations.
+- **Features**: Daily rotation, keeps 100 files. Records container update outcomes and system tasks.
+- **Updated**: 2026-06-03 - Added support for `ha_update.sh`.
+
+### 5. Balcone (Light)
+- **Event**: `balcone_log_event`
+- **Destination**: `/config/logs/balcone/balcone_events.log`
+- **Features**: Active archiving (2MB or midnight), keeps 100 files. Logs every state change of `switch.luce_balcone_switch_1` (`on` / `off` / `unavailable` / `unknown`), classifying the reason (physical/RF, web UI/app, automation, Wi-Fi/cloud dropout). Uses `WARNING` level for anomalous transitions (arrival from `unavailable` / `unknown`).
+- **Updated**: 2026-06-23 - Fixed bug in the `variables` block (`context` is an object, accessed via attribute with `is defined` guard, not `.get()`).
+
 ---
 
 # HALog2026 — Sistema di Logging Unificato
@@ -100,7 +113,13 @@ Puoi modificare il comportamento di ogni log agendo su `halog2026_config.json`:
 - **Destinazione**: `/config/logs/scale/scale_events.log`
 - **Caratteristiche**: Archiviazione settimanale (`when: Weeks`, `interval: 1`), tiene 4 file. Arricchisce il log con lo stato delle luci e la potenza assorbita.
 
-### 4. Sistema (Cron / Script)
+### 4. Balcone (Luce)
+- **Evento**: `balcone_log_event`
+- **Destinazione**: `/config/logs/balcone/balcone_events.log`
+- **Caratteristiche**: Archiviazione attiva (2MB o mezzanotte), tiene 100 file. Registra ogni cambio di stato di `switch.luce_balcone_switch_1` (`on` / `off` / `unavailable` / `unknown`), classificando il motivo (fisico/RF, interfaccia web/app, automazione, dropout Wi-Fi/cloud). Usa livello `WARNING` per le transizioni anomale (arrivo da `unavailable` / `unknown`).
+- **Aggiornato**: 2026-06-23 - Corretto bug nel blocco `variables` (`context` è un oggetto, va acceso per attributo con guardia `is defined`, non con `.get()`).
+
+### 5. Sistema (Cron / Script)
 - **Evento**: `system_log_event`
 - **Destinazione**: `/config/logs/system/system.log`
 - **Provenienza**: Script shell esterni (es: `ha_update.sh`) o automazioni di manutenzione.
