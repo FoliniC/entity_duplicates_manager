@@ -1,0 +1,55 @@
+# Anti-Accensione Balcone
+# ─────────────────────────────────────────────────────────────────────────────
+# Spegne la luce del balcone quando si accende per un comando ESTERNO non voluto
+# (pulsante fisico, telecomando RF, o comando cloud Tuya).
+#
+# Come distingue le accensioni legittime da quelle non volute:
+#   - UI / App        -> context.user_id valorizzato      -> NON intercetta
+#   - Automazione HA  -> context.parent_id valorizzato    -> NON intercetta
+#   - Fisico/RF/Cloud -> user_id=None AND parent_id=None  -> INTERCETTA e spegne
+#
+# Le automazioni del tramonto (accendi_balcone / spegni_balcone) e gli interventi
+# manuali da dashboard NON vengono toccati.
+# Per accendere fisicamente col pulsante reale, disabilitare questa automazione
+# dall'UI di HA (Impostazioni -> Automazioni).
+# ─────────────────────────────────────────────────────────────────────────────
+
+- id: anti_accensione_balcone
+  alias: "Balcone: Anti-Accensione (comando esterno)"
+  description: "Spegne la luce balcone se accesa da una sorgente esterna non voluta (fisico/RF/cloud)"
+  mode: single
+  trigger:
+    - platform: state
+      entity_id: switch.luce_balcone_switch_1
+      to: "on"
+  condition:
+    # Solo accensioni con origine ESTERNA: nessun utente e nessuna automazione.
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.context.user_id is none
+           and trigger.to_state.context.parent_id is none }}
+  action:
+    # 1) Log WARNING nel balcone_events.log (traccia dell'intervento)
+    - event: balcone_log_event
+      event_data:
+        level: WARNING
+        action: "SPENTO (anti-accensione)"
+        message: "Accensione esterna NON voluta rilevata (user_id=None, parent_id=None) → luce spenta automaticamente"
+        wait: 0
+    # 2) Spegni immediatamente
+    - action: switch.turn_off
+      target:
+        entity_id: switch.luce_balcone_switch_1
+    # 3) Notifica push ad alta priorita'
+    - action: notify.send_message
+      target:
+        entity_id:
+          - notify.mobile_app_redmi_note_9s
+          - notify.mobile_app_redmi_note_13_pro_5g
+      data:
+        title: "🚫 Luce balcone spenta (anti-accensione)"
+        message: "Rilevata accensione esterna non voluta → spenta automaticamente"
+        data:
+          tag: balcone_anti_accensione
+          importance: high
+          notification_icon: "mdi:shield-alert"

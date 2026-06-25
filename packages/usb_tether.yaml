@@ -1,0 +1,147 @@
+# ============================================================================
+# usb_tether.yaml - Controllo tethering USB per aggiornamenti del server
+# ----------------------------------------------------------------------------
+# Permette di instradare temporaneamente la default route del server Debian
+# verso un telefono in USB tethering, in modo che apt/usi i giga del cellulare.
+# Lo swap di route e la safety-net (watcher) vivono sul server; HA legge lo
+# stato reale via SSH e comanda attivazione/ripristino.
+#
+# Fonte di verita': sensor.usb_tether_status (command_line, poll 30s).
+# Lo stato del server e' autorevole: switch e dashboard ne derivano.
+#
+# Prerequisito (one-time): installare host_scripts/usb_tether.sudoers sul server.
+# ============================================================================
+
+# --- Helpers configurabili --------------------------------------------------
+input_number:
+  usb_tether_max_duration:
+    name: "Tethering USB - durata massima (min)"
+    icon: mdi:timer-outline
+    min: 5
+    max: 120
+    step: 5
+    initial: 30
+    unit_of_measurement: "min"
+
+input_text:
+  usb_tether_last_error:
+    name: "Tethering USB - ultimo errore"
+    icon: mdi:alert-circle-outline
+    max: 255
+    initial: ""
+
+# --- Sensore di stato (fonte di verita', poll 30s) --------------------------
+# SSH con ControlMaster per azzerare l'overhead di autenticazione, come gia'
+# fanno wan_traffic_realtime/realtime_per_device. Esegue lo script via sudo
+# (regola sudoers dedicata) e legge il JSON prodotto da 'status'.
+command_line:
+  - sensor:
+      name: USB Tether Status
+      unique_id: usb_tether_status
+      command: >-
+        ssh -i /config/.ssh/host_key
+        -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+        -o ControlMaster=auto -o ControlPath=/config/temp/ssh_mux_%h_%p_%r -o ControlPersist=60s
+        -o ConnectTimeout=5
+        carlo@localhost
+        'sudo -n /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh status'
+      value_template: "{{ value_json.state }}"
+      command_timeout: 15
+      json_attributes:
+        - phone_if
+        - phone_gw
+        - lan_gw
+        - active_since
+        - remaining_min
+        - auto_expire
+        - message
+      scan_interval: 30
+
+# --- Switch di controllo ----------------------------------------------------
+template:
+  - switch:
+      - name: "USB Tether"
+        unique_id: usb_tether
+        icon: >-
+          {% if is_state('sensor.usb_tether_status', 'active') %}
+            mdi:usb-port
+          {% elif is_state('sensor.usb_tether_status', 'error') %}
+            mdi:alert-circle
+          {% else %}
+            mdi:usb
+          {% endif %}
+        # Lo stato deriva dal sensore (server autorevole).
+        state: "{{ is_state('sensor.usb_tether_status', 'active') }}"
+        turn_on:
+          - action: shell_command.usb_tether_activate
+            data:
+              max_min: "{{ states('input_number.usb_tether_max_duration') | int(30) }}"
+          - delay: "00:00:02"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.usb_tether_status
+        turn_off:
+          - action: shell_command.usb_tether_restore
+          - delay: "00:00:02"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.usb_tether_status
+
+  # Sensore template: descrizione umana dello stato
+  - sensor:
+      - name: "USB Tether Descrizione"
+        unique_id: usb_tether_descrizione
+        icon: mdi:cellphone-information
+        state: "{{ state_attr('sensor.usb_tether_status', 'message') }}"
+        attributes:
+          remaining_min: "{{ state_attr('sensor.usb_tether_status', 'remaining_min') | int(0) }}"
+          auto_expire: "{{ state_attr('sensor.usb_tether_status', 'auto_expire') }}"
+
+# --- Comandi remoti ---------------------------------------------------------
+# Eseguono lo script host-side via SSH. capture_errors ritorna l'eventuale
+# messaggio di errore dello script, registrato poi per la dashboard.
+shell_command:
+  usb_tether_activate: >-
+    ssh -i /config/.ssh/host_key
+    -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+    -o ControlMaster=auto -o ControlPath=/config/temp/ssh_mux_%h_%p_%r -o ControlPersist=60s
+    -o ConnectTimeout=10
+    carlo@localhost
+    'sudo -n /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh activate {{ max_min }}' 2>&1; true
+  usb_tether_restore: >-
+    ssh -i /config/.ssh/host_key
+    -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+    -o ControlMaster=auto -o ControlPath=/config/temp/ssh_mux_%h_%p_%r -o ControlPersist=60s
+    -o ConnectTimeout=10
+    carlo@localhost
+    'sudo -n /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh restore' 2>&1; true
+  usb_tether_detect: >-
+    ssh -i /config/.ssh/host_key
+    -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+    -o ControlMaster=auto -o ControlPath=/config/temp/ssh_mux_%h_%p_%r -o ControlPersist=60s
+    -o ConnectTimeout=10
+    carlo@localhost
+    'sudo -n /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh detect' 2>&1; true
+
+# --- Automazione: notifica al failback automatico --------------------------
+automation:
+  - alias: "USB Tether - notifica failback automatico"
+    id: usb_tether_notifica_failback
+    description: "Avvisa quando il tethering si disattiva da solo (scadenza timer o watchdog)."
+    trigger:
+      - platform: state
+        entity_id: sensor.usb_tether_status
+        from: "active"
+        to: "idle"
+    condition:
+      - condition: template
+        # Solo se e' scaduto (non se e' stato un ripristino manuale: in quel
+        # caso l'utente sa cosa fa). Indizio: l'auto_expire era true prima.
+        value_template: "{{ trigger.from_state.attributes.get('auto_expire') == true }}"
+    action:
+      - action: persistent_notification.create
+        data:
+          title: "Tethering USB disattivato"
+          message: >-
+            Il tethering USB e' scaduto automaticamente alle {{ now().strftime('%H:%M:%S') }}.
+            La default route e' tornata alla LAN ({{ state_attr('sensor.usb_tether_status', 'lan_gw') }}).

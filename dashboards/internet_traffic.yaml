@@ -404,3 +404,197 @@ views:
                       series: *series_config
                       yaxis: [{ min: 0, apex_config: { forceNiceScale: true } }]
 
+  # ==========================================================================
+  # TAB: TETHERING USB
+  # Controllo del tethering USB per aggiornamenti del server via giga del cellulare.
+  # ==========================================================================
+  - title: Tethering USB
+    path: tethering-usb
+    icon: mdi:usb
+    type: sidebar
+    cards:
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          # --- COLONNA SINISTRA: controllo ---
+          - type: vertical-stack
+            cards:
+              - type: markdown
+                content: >
+                  # 📱 Tethering USB
+
+                  Instrada temporaneamente il traffico Internet del server verso il
+                  telefono collegato in USB. Pensato per **aggiornamenti software (apt)**
+                  pagati con i giga del cellulare.
+                card_mod:
+                  style: "ha-card { user-select: text !important; }"
+
+              # Box stato principale (colore dinamico)
+              - type: markdown
+                content: >
+                  {% set st = states('sensor.usb_tether_status') %}
+                  {% if st == 'active' %}
+                    <div style="background-color: #2e7d32; color: white; padding: 12px; border-radius: 6px; font-weight: bold; text-align: center;">
+                      ✅ TETHERING ATTIVO
+                    </div>
+                  {% elif st == 'error' %}
+                    <div style="background-color: #c62828; color: white; padding: 12px; border-radius: 6px; font-weight: bold; text-align: center;">
+                      ⚠️ {{ state_attr('sensor.usb_tether_status', 'message') }}
+                    </div>
+                  {% else %}
+                    <div style="background-color: #455a64; color: white; padding: 12px; border-radius: 6px; font-weight: bold; text-align: center;">
+                      💤 INATTIVO (route normale via router)
+                    </div>
+                  {% endif %}
+                card_mod:
+                  style: "ha-card { margin: 4px 0; border: none; background: none; }"
+
+              # Toggle principale
+              - type: horizontal-stack
+                cards:
+                  - type: button
+                    name: "ATTIVA TETHERING"
+                    icon: mdi:usb-port
+                    tap_action:
+                      action: perform-action
+                      perform_action: switch.turn_on
+                      target:
+                        entity_id: switch.usb_tether
+                    card_mod:
+                      style: |
+                        ha-card {
+                          {% if is_state('switch.usb_tether', 'on') %}
+                            background: #2e7d32 !important;
+                            --mdc-theme-primary: white;
+                          {% else %}
+                            background: #1e88e5 !important;
+                            --mdc-theme-primary: white;
+                          {% endif %}
+                        }
+                  - type: button
+                    name: "RIPRISTINA ORA"
+                    icon: mdi:restore
+                    tap_action:
+                      action: perform-action
+                      perform_action: switch.turn_off
+                      target:
+                        entity_id: switch.usb_tether
+                    card_mod:
+                      style: |
+                        ha-card {
+                          background: #c62828 !important;
+                          --mdc-theme-primary: white;
+                        }
+
+              # Configurazione durata
+              - type: entities
+                title: "Durata massima (safety-net)"
+                entities:
+                  - entity: input_number.usb_tether_max_duration
+                    name: "Minuti prima del ripristino automatico"
+                card_mod:
+                  style: |
+                    ha-card {
+                      {% if is_state('sensor.usb_tether_status', 'active') %}
+                        background: rgba(46, 125, 50, 0.1);
+                        border: 1px solid #2e7d32;
+                      {% endif %}
+                    }
+
+              # Dettagli tecnici
+              - type: entities
+                title: "Dettagli connessione"
+                entities:
+                  - entity: sensor.usb_tether_descrizione
+                    name: "Stato"
+                  - entity: sensor.usb_tether_status
+                    name: "Interfaccia telefono"
+                    attribute: phone_if
+                  - entity: sensor.usb_tether_status
+                    name: "Gateway telefono"
+                    attribute: phone_gw
+                  - entity: sensor.usb_tether_status
+                    name: "Gateway LAN (originale)"
+                    attribute: lan_gw
+                  - entity: sensor.usb_tether_status
+                    name: "Attivo dalle"
+                    attribute: active_since
+                card_mod:
+                  style: "ha-card { user-select: text !important; }"
+
+          # --- COLONNA DESTRA: countdown + istruzioni ---
+          - type: vertical-stack
+            cards:
+              # Countdown (visibile solo se attivo)
+              - type: conditional
+                conditions:
+                  - entity: sensor.usb_tether_status
+                    state: "active"
+                card:
+                  type: markdown
+                  content: >
+                    # ⏳ Auto-ripristino
+
+                    Mancano circa **{{ state_attr('sensor.usb_tether_status', 'remaining_min') | int(0) }} minuti**
+                    al ripristino automatico della route.
+
+                    *Il timer di sicurezza vive sul server: ripristina la route anche se
+                    Home Assistant o la rete dovessero cadere.*
+                  card_mod:
+                    style: |
+                      ha-card {
+                        user-select: text !important;
+                        background: rgba(46, 125, 50, 0.08);
+                        border: 1px solid #2e7d32;
+                      }
+
+              # Istruzioni d'uso
+              - type: markdown
+                content: >
+                  ## 📋 Come usarlo
+
+                  1. Sul telefono: attiva **Tethering USB** (Impostazioni → Rete).
+                  2. Collega il telefono via **cavo USB** al server Debian.
+                  3. Qui: premi **ATTIVA TETHERING**.
+                  4. Dal tuo accesso SSH / VS Code sul server, lancia:
+                     ```
+                     sudo apt update && sudo apt upgrade
+                     ```
+                     *(il traffico esce dal telefono)*
+                  5. Al termine: premi **RIPRISTINA ORA**, oppure aspetta il
+                     countdown (ripristino automatico garantito).
+
+                  ---
+
+                  **Cosa continua a funzionare** durante il tethering: Cloudflare,
+                  AdGuard (DNS/DHCP), Home Assistant. Il DNS upstream esce dal telefono
+                  (overhead trascurabile); il DHCP è traffico LAN locale.
+
+                  **Sicurezza**: lo swap di route è *non persistente*. Un riavvio del
+                  server o lo scadere del timer riportano tutto alla normalità.
+                card_mod:
+                  style: "ha-card { user-select: text !important; }"
+
+              # Ultimo errore (se presente)
+              - type: conditional
+                conditions:
+                  - entity: sensor.usb_tether_status
+                    state: "error"
+                card:
+                  type: markdown
+                  content: >
+                    ## ⚠️ Problema rilevato
+
+                    {{ state_attr('sensor.usb_tether_status', 'message') }}
+
+                    Cause comuni: telefono non collegato, tethering non attivato sul
+                    cellulare, o route residua. Premi **RIPRISTINA ORA** per pulire lo stato.
+                  card_mod:
+                    style: |
+                      ha-card {
+                        user-select: text !important;
+                        background: rgba(198, 40, 40, 0.08);
+                        border: 1px solid #c62828;
+                      }
+
