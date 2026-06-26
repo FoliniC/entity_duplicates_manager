@@ -1,0 +1,29 @@
+# rest_command per il gateway GenAI Grounded (sidecar Docker locale).
+# Il gateway gira sullo stesso host di Home Assistant (network_mode: host),
+# quindi e' raggiungibile su 127.0.0.1:8010.
+#
+# Consuma il credito "Trial credit for GenAI App Builder" tramite la
+# Grounded Generation API (grounding su Google Search).
+#
+# Risponde con il JSON { answer, grounding_score?, web_search_queries? }.
+# Catturare la risposta nello script con:  response_variable: genai_result
+genai_ask:
+  url: !secret genai_grounded_url
+  method: POST
+  headers:
+    Content-Type: application/json
+    X-Api-Token: !secret genai_grounded_token
+  payload: >-
+    {%- set body = {"prompt": prompt} -%}
+    {%- if system is defined and (system | trim) != "" -%}
+      {%- set _ = body.update({"system": system}) -%}
+    {%- endif -%}
+    {%- if model_id is defined and (model_id | trim) != "" -%}
+      {%- set _ = body.update({"model_id": model_id}) -%}
+    {%- endif -%}
+    {%- if temperature is defined and temperature != None -%}
+      {%- set _ = body.update({"temperature": temperature}) -%}
+    {%- endif -%}
+    {{- body | to_json -}}
+  content_type: application/json
+  timeout: 90

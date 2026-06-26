@@ -653,31 +653,13 @@
                   "entity": "cover.knx_tapparella_cucina_porta_finestra_3"
                 },
                 {
-                  "entity": "cover.porta_finestra_sala_knx_tapparella"
-                },
-                {
-                  "entity": "cover.tapparella_bagno"
-                },
-                {
-                  "entity": "cover.tapparella_camera"
-                },
-                {
-                  "entity": "cover.tapparella_camera_grande"
-                },
-                {
-                  "entity": "cover.tapparella_cucina_finestra"
-                },
-                {
-                  "entity": "cover.tapparella_porta_finestra"
-                },
-                {
-                  "entity": "cover.tapparelle_tutte"
+                  "entity": "cover.tenda"
                 },
                 {
                   "entity": "cover.tutte_tapparelle_knx"
                 },
                 {
-                  "entity": "cover.smart_curtain_switch"
+                  "entity": "cover.sonoff_10024cc29e"
                 }
               ],
               "title": "Copertura"
@@ -2418,7 +2400,8 @@
                 {
                   "source": "solare",
                   "target": "totale",
-                  "value": "{{ states('sensor.produzione_solare')|float(0) }}"                },
+                  "value": "{{ states('sensor.produzione_solare')|float(0) }}"
+                },
                 {
                   "source": "batteria",
                   "target": "totale",

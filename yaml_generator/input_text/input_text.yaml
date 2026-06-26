@@ -11,3 +11,11 @@ previous_recharge_ampere_value:
 debug_deviatore_last_state:
   name: Debug Deviatore Last State
   initial: "unknown"
+
+# Anteprima (troncata) della risposta GenAI Grounded per la UI.
+# La risposta COMPLETA e' salvata su file e letta dal template sensor
+# 'sensor.risposta_google_grounded'.
+risposta_google_grounded:
+  name: Risposta Google Grounded (anteprima)
+  initial: ""
+  max: 255
