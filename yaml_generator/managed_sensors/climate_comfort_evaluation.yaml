@@ -67,7 +67,7 @@
     {% set ns = namespace(advices=[]) %}
     {% if rh > 65 %}{% set ns.advices = ns.advices + ['Accendi Fancoil (Deumidifica)'] %}{% endif %}
     {% if delta_omega > 1.0 %}
-      {% if variance < 0.1 and delta_omega < 0.5 %}
+      {% if variance < 0.1 %}
         {% set ns.advices = ns.advices + ['Puoi chiudere (Umidità ottimale)'] %}
       {% else %}
         {% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
@@ -187,7 +187,7 @@
     {% set ns = namespace(advices=[]) %}
     {% if rh > 65 %}{% set ns.advices = ns.advices + ['Accendi Fancoil (Deumidifica)'] %}{% endif %}
     {% if delta_omega > 1.0 %}
-      {% if variance < 0.1 and delta_omega < 0.5 %}
+      {% if variance < 0.1 %}
         {% set ns.advices = ns.advices + ['Puoi chiudere (Umidità ottimale)'] %}
       {% else %}
         {% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
@@ -247,7 +247,7 @@
     {% set ns = namespace(advices=[]) %}
     {% if rh > 65 %}{% set ns.advices = ns.advices + ['Accendi Fancoil (Deumidifica)'] %}{% endif %}
     {% if delta_omega > 1.0 %}
-      {% if variance < 0.1 and delta_omega < 0.5 %}
+      {% if variance < 0.1 %}
         {% set ns.advices = ns.advices + ['Puoi chiudere (Umidità ottimale)'] %}
       {% else %}
         {% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
@@ -307,7 +307,7 @@
     {% set ns = namespace(advices=[]) %}
     {% if rh > 65 %}{% set ns.advices = ns.advices + ['Accendi Fancoil (Deumidifica)'] %}{% endif %}
     {% if delta_omega > 1.0 %}
-      {% if variance < 0.1 and delta_omega < 0.5 %}
+      {% if variance < 0.1 %}
         {% set ns.advices = ns.advices + ['Puoi chiudere (Umidità ottimale)'] %}
       {% else %}
         {% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}

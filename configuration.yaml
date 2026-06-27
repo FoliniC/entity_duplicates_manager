@@ -133,6 +133,14 @@ sensor:
     max_age:
       minutes: 5
 
+  - platform: statistics
+    name: statistics_umidita_corridoio_variance
+    state_characteristic: variance
+    entity_id: sensor.fancoil_corridoio_humidity
+    unique_id: sensor.umidita_corridoio_variance
+    max_age:
+      minutes: 5
+
   # InfluxDB
   - platform: influxdb
     api_version: 2

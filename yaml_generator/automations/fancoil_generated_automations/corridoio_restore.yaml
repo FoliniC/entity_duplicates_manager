@@ -1,0 +1,78 @@
+- alias: "Corridoio: Force Init Temp Source Options"
+  trigger:
+    - platform: homeassistant
+      event: start
+  action:
+    # 1. Popola le opzioni dalla storia salvata (se valida) o usa i default
+    - action: input_select.set_options
+      target:
+        entity_id: input_select.fancoil_corridoio_temp_source
+      data:
+        options: >-
+          {% set history = states('sensor.fancoil_corridoio_temp_sources_history') %}
+          {% set defaults = ['sensor.fancoil_corridoio_temperature'] %}
+          {% if "sensor.fancoil_corridoio_temperature" != "" %}
+            {% set defaults = defaults + ["sensor.fancoil_corridoio_temperature"] %}
+          {% endif %}
+          {% set defaults = defaults + ["sensor.stox_fancoil_corridoio_temperature"] %}
+
+          {% set all_opts = history.split(',') if (history not in ['unavailable', 'unknown', None] and history != "") else defaults %}
+
+          {% set ns = namespace(unique=[]) %}
+          {% for opt in all_opts %}
+            {% if opt | trim != '' and opt | trim not in ns.unique %}
+              {% set ns.unique = ns.unique + [opt | trim] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.unique }}
+
+    # 2. Ripristina la selezione specifica
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.fancoil_corridoio_temp_source
+      data:
+        option: >-
+          {% set saved = states('sensor.fancoil_corridoio_saved_temp_source') %}
+          {% if saved not in ['unavailable', 'unknown', None] and saved != "" %}
+            {{ saved }}
+          {% else %}
+            sensor.fancoil_corridoio_temperature
+          {% endif %}
+
+- alias: "Corridoio: Sync Temp Source Options on Change"
+  trigger:
+    - platform: state
+      entity_id: sensor.fancoil_corridoio_temp_sources_history
+  action:
+    - action: input_select.set_options
+      target:
+        entity_id: input_select.fancoil_corridoio_temp_source
+      data:
+        options: >-
+          {% set all_opts = states('sensor.fancoil_corridoio_temp_sources_history').split(',') %}
+          {% set ns = namespace(unique=[]) %}
+          {% for opt in all_opts %}
+            {% if opt | trim != '' and opt | trim not in ns.unique %}
+              {% set ns.unique = ns.unique + [opt | trim] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.unique }}
+
+- alias: "Corridoio: Handle New Sensor Added"
+  trigger:
+    - platform: state
+      entity_id: input_text.fancoil_corridoio_add_temp_entity
+  condition:
+    - condition: template
+      value_template: "{{ states('input_text.fancoil_corridoio_add_temp_entity') != '' }}"
+  action:
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.fancoil_corridoio_temp_source
+      data:
+        option: "{{ states('input_text.fancoil_corridoio_add_temp_entity') }}"
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.fancoil_corridoio_add_temp_entity
+      data:
+        value: ""

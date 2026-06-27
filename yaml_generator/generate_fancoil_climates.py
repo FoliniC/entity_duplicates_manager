@@ -7,8 +7,10 @@ import logging
 from datetime import datetime
 
 # CONFIGURATION
-LOGGING_FILE = "yaml_generator/generator.log"
-CONFIG_PATH = "yaml_generator/fancoil_vars.yaml"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATE_DIR = os.path.join(SCRIPT_DIR, "templates")
+LOGGING_FILE = os.path.join(SCRIPT_DIR, "generator.log")
+CONFIG_PATH = os.path.join(SCRIPT_DIR, "fancoil_vars.yaml")
 GENERATOR_NAME = "yaml_generator/generate_fancoil_climates.py"
 
 def get_common_context(template_path):
@@ -20,47 +22,47 @@ def get_common_context(template_path):
     }
 
 # Templates (input)
-CLIMATE_TEMPLATE_PATH = "yaml_generator/templates/fancoil_climate.j2"
-AUTOMATION_TEMPLATE_PATH = "yaml_generator/templates/fancoil_automation.j2"
-SENSORS_TEMPLATE_PATH = "yaml_generator/templates/fancoil_sensors.j2"
-BINARY_SENSORS_TEMPLATE_PATH = "yaml_generator/templates/fancoil_binary_sensors.j2"
+CLIMATE_TEMPLATE_PATH = os.path.join(SCRIPT_DIR, "templates", "fancoil_climate.j2")
+AUTOMATION_TEMPLATE_PATH = os.path.join(SCRIPT_DIR, "templates", "fancoil_automation.j2")
+SENSORS_TEMPLATE_PATH = os.path.join(SCRIPT_DIR, "templates", "fancoil_sensors.j2")
+BINARY_SENSORS_TEMPLATE_PATH = os.path.join(SCRIPT_DIR, "templates", "fancoil_binary_sensors.j2")
 ROOM_INPUT_BOOLEAN_TEMPLATE_PATH = (
-    "yaml_generator/templates/fancoil_room_input_booleans.j2"
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_room_input_booleans.j2")
 )
 MASTER_INPUT_BOOLEAN_TEMPLATE_PATH = (
-    "yaml_generator/templates/fancoil_master_input_booleans.j2"
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_master_input_booleans.j2")
 )
 ROOM_INPUT_SELECT_TEMPLATE_PATH = (
-    "yaml_generator/templates/fancoil_room_input_selects.j2"
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_room_input_selects.j2")
 )
 ROOM_INPUT_NUMBER_TEMPLATE_PATH = (
-    "yaml_generator/templates/fancoil_room_input_numbers.j2"
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_room_input_numbers.j2")
 )
 MASTER_INPUT_SELECT_TEMPLATE_PATH = (
-    "yaml_generator/templates/fancoil_master_input_selects.j2"
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_master_input_selects.j2")
 )
 MASTER_INPUT_NUMBER_TEMPLATE_PATH = (
-    "yaml_generator/templates/fancoil_master_input_numbers.j2"
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_master_input_numbers.j2")
 )
-MASTER_CLIMATE_TEMPLATE_PATH = "yaml_generator/templates/fancoil_master_climate.j2"
+MASTER_CLIMATE_TEMPLATE_PATH = os.path.join(SCRIPT_DIR, "templates", "fancoil_master_climate.j2")
 ROOM_INPUT_DATETIME_TEMPLATE_PATH = (
-    "yaml_generator/templates/fancoil_room_input_datetime.j2"
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_room_input_datetime.j2")
 )
 MASTER_INPUT_DATETIME_TEMPLATE_PATH = (
-    "yaml_generator/templates/fancoil_master_input_datetime.j2"
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_master_input_datetime.j2")
 )
 
 ROOM_INPUT_TEXT_TEMPLATE_PATH = (
-    "yaml_generator/templates/fancoil_room_input_text.j2"
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_room_input_text.j2")
 )
 MASTER_INPUT_TEXT_TEMPLATE_PATH = (
-    "yaml_generator/templates/fancoil_master_input_text.j2"
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_master_input_text.j2")
 )
 RESTORE_TEMPLATE_PATH = (
-    "yaml_generator/templates/fancoil_restore.j2"
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_restore.j2")
 )
 COHERENCE_TEMPLATE_PATH = (
-    "yaml_generator/templates/fancoil_coherence.j2"
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_coherence.j2")
 )
 
 # Outputs (generated)
@@ -435,17 +437,21 @@ def generate_dashboard(vars_map):
     """Generates the full dashboard YAML."""
     logger.info("Generating dashboard")
     
-    main_tpl_path = "yaml_generator/templates/dashboard_main.j2"
-    termostati_tpl_path = "yaml_generator/templates/dashboard_termostati_card.j2"
-    impostazioni_tpl_path = "yaml_generator/templates/dashboard_impostazioni_card.j2"
-    room_details_tpl_path = "yaml_generator/templates/dashboard_room_details.j2"
-    coherence_tpl_path = "yaml_generator/templates/dashboard_coherence_card.j2"
+    main_tpl_path = os.path.join(SCRIPT_DIR, "templates", "dashboard_main.j2")
+    termostati_tpl_path = os.path.join(SCRIPT_DIR, "templates", "dashboard_termostati_card.j2")
+    impostazioni_tpl_path = os.path.join(SCRIPT_DIR, "templates", "dashboard_impostazioni_card.j2")
+    room_details_tpl_path = os.path.join(SCRIPT_DIR, "templates", "dashboard_room_details.j2")
+    coherence_tpl_path = os.path.join(SCRIPT_DIR, "templates", "dashboard_coherence_card.j2")
+    coherence_temp_tpl_path = os.path.join(SCRIPT_DIR, "templates", "dashboard_coherence_temp_card.j2")
+    coherence_hum_tpl_path = os.path.join(SCRIPT_DIR, "templates", "dashboard_coherence_hum_card.j2")
 
     main_tpl = read_template(main_tpl_path)
     termostati_tpl = read_template(termostati_tpl_path)
     impostazioni_tpl = read_template(impostazioni_tpl_path)
     room_details_tpl = read_template(room_details_tpl_path)
     coherence_tpl = read_template(coherence_tpl_path)
+    coherence_temp_tpl = read_template(coherence_temp_tpl_path)
+    coherence_hum_tpl = read_template(coherence_hum_tpl_path)
 
     common_main_ctx = get_common_context(main_tpl_path)
     common_termostati_ctx = get_common_context(termostati_tpl_path)
@@ -466,13 +472,7 @@ def generate_dashboard(vars_map):
         local_ctx["friendly_name"] = friendly_name
         local_ctx["id"] = room_id
 
-        # Add KNX sensor row if available
-        if local_ctx.get("knx_temp_sensor"):
-            local_ctx["knx_row"] = f"              - entity: {local_ctx['knx_temp_sensor']}\n                name: temperatura knx\n                icon: mdi:knx"
-        else:
-            local_ctx["knx_row"] = ""
-
-    # Prepare Coherence Blocks (Sensor definitions only)
+# Prepare Coherence Blocks (Sensor definitions only)
         th_id = local_ctx.get("th_id", "")
         if th_id:
             local_ctx["TH_COHERENCE_BLOCK_SENSOR"] = f"""- name: "Fancoil {friendly_name} Temp Delta (TH vs Internal)"
@@ -534,9 +534,9 @@ def generate_dashboard(vars_map):
         
     coherence_cards_temp = []
     coherence_cards_hum = []
-    with open("yaml_generator/templates/dashboard_coherence_temp_card.j2", "r") as f:
+    with open(os.path.join(TEMPLATE_DIR, "dashboard_coherence_temp_card.j2"), "r") as f:
         coherence_temp_tpl = f.read()
-    with open("yaml_generator/templates/dashboard_coherence_hum_card.j2", "r") as f:
+    with open(os.path.join(TEMPLATE_DIR, "dashboard_coherence_hum_card.j2"), "r") as f:
         coherence_hum_tpl = f.read()
 
     for room_id, room_data in vars_map.items():

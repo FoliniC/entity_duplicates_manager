@@ -1,0 +1,779 @@
+# Piano climatizzazione, finestre e umidita
+
+## Obiettivo
+
+Migliorare la dashboard `riscaldamento-1/climatizzazione` e la logica di consiglio apertura/chiusura finestre per minimizzare l'umidita nelle stanze.
+
+Il sistema deve:
+
+- mostrare per ogni stanza se la finestra e aperta o chiusa, tramite indicatore manuale;
+- suggerire quando aprire o chiudere le finestre usando umidita specifica, trend dell'umidita e condizioni esterne;
+- inviare notifiche persistenti con il consiglio operativo;
+- verificare dopo il consiglio se l'azione proposta ha avuto l'effetto atteso;
+- tenere conto di fattori confondenti: fancoil acceso, umidita esterna, temperatura esterna, doccia/cottura o altre attivita locali, affidabilita diversa dei sensori.
+
+## Regola di lavoro per implementatori
+
+Ogni fase deve essere aggiornata direttamente in questo file prima di passare alla fase successiva.
+
+Per ogni fase, l'implementatore deve compilare il blocco **Stato implementazione** con uno di questi stati:
+
+- `Da fare`: fase non iniziata.
+- `In corso`: fase iniziata ma non conclusa.
+- `Bloccata`: la descrizione non e sufficiente o manca un'informazione esterna.
+- `Da verificare`: codice/configurazione completata, manca verifica su Home Assistant.
+- `Chiusa`: fase implementata e verificata.
+
+Se la fase e `Bloccata`, compilare obbligatoriamente **Domande aperte** con richieste precise. Non usare domande generiche come "serve chiarimento"; indicare entita, file, comportamento o soglia mancante.
+
+Quando una fase viene chiusa, compilare **Conferma chiusura** indicando:
+
+- file modificati;
+- entita Home Assistant aggiunte/modificate;
+- comando di validazione eseguito;
+- eventuali limitazioni residue.
+
+Template da usare in ogni fase:
+
+```md
+### Stato implementazione
+
+- Stato: Da fare | In corso | Bloccata | Da verificare | Chiusa
+- Implementatore:
+- Data:
+
+### Domande aperte
+
+- Nessuna.
+
+### Conferma chiusura
+
+- File modificati:
+- Entita aggiunte/modificate:
+- Validazione eseguita:
+- Limitazioni residue:
+```
+
+## Scala di difficolta e LLM consigliato
+
+- **Bassa**: modifiche YAML meccaniche, aggiunta helper, righe dashboard, correzioni evidenti.
+- **Media**: template Home Assistant, automazioni, notifiche, sensori derivati, refactoring contenuto.
+- **Alta**: logica adattiva, trend robusti, valutazione efficacia dei consigli, gestione cause concorrenti.
+
+LLM consigliato:
+
+- **LLM piccolo**: fasi basse e ripetitive.
+- **LLM medio**: fasi medie con Home Assistant YAML/Jinja.
+- **LLM grande**: fasi alte o quando bisogna ragionare su trend, causalita e falsi positivi.
+- **LLM grande con accesso ai dati storici**: tuning soglie e verifica reale dell'efficacia.
+
+## Contesto tecnico rilevante
+
+- Dashboard generata: `ui/riscaldamento.yaml`.
+- Template dashboard sorgente: `yaml_generator/templates/dashboard_main.j2`.
+- Generatore: `yaml_generator/generate_fancoil_climates.py`.
+- Stanze configurate: `yaml_generator/fancoil_vars.yaml`.
+- Sensori comfort/consiglio attuali: `yaml_generator/managed_sensors/climate_comfort_evaluation.yaml`.
+- Statistiche umidita esistenti: `configuration.yaml`, sezione `Humidity Statistics Sensors for Window Detection`.
+- Include template Home Assistant: `configuration.yaml` include `yaml_generator/fancoil_templates_master.yaml`.
+
+Nota: la dashboard e generata. Non modificare manualmente `ui/riscaldamento.yaml` come sorgente primaria, perche verrebbe sovrascritto dal generatore.
+
+## Fase 1 - Audit e correzione bug attuali
+
+**Difficolta:** Bassa  
+**LLM consigliato:** piccolo o medio
+
+### Obiettivo
+
+Correggere errori evidenti nella logica attuale dei consigli climatici, prima di aggiungere nuove funzionalita.
+
+### Interventi
+
+1. Verificare tutti i sensori `sensor.climate_advice_<stanza>`.
+2. Correggere la condizione irraggiungibile presente nel pattern:
+
+   ```jinja
+   {% if delta_omega > 1.0 %}
+     {% if variance < 0.1 and delta_omega < 0.5 %}
+   ```
+
+   Il ramo interno `delta_omega < 0.5` non puo essere vero quando il ramo esterno richiede `delta_omega > 1.0`.
+
+3. Verificare che tutte le stanze usino statistiche realmente esistenti.
+4. Aggiungere o correggere `statistics_umidita_corridoio_variance`, perche il consiglio del corridoio usa `sensor.statistics_umidita_corridoio_variance`.
+5. Uniformare nomi e soglie base per tutte le stanze.
+
+### Criteri di chiusura
+
+- Nessun ramo Jinja logicamente irraggiungibile nei consigli.
+- Tutte le entita referenziate dai consigli esistono o sono create nella fase.
+- Il template Home Assistant e valido.
+- La dashboard continua a rigenerarsi senza errori.
+
+### Stato implementazione
+
+- Stato: Chiusa
+- Implementatore: 
+- Data: 2026-06-26
+
+### Domande aperte
+
+- Nessuna.
+
+### Conferma chiusura
+
+- File modificati:
+  - yaml_generator/managed_sensors/climate_comfort_evaluation.yaml (clima_advice_cucina, clima_advice_camera_grande, clima_advice_camera, clima_advice_corridoio, clima_advice_bagno, clima_advice_sala)
+- Entita aggiunte/modificate:
+  - statistics_umidita_corridoio_variance creato in configuration.yaml (sensor.fancoil_corridoio_humidity)
+  - Corretto: Tutti i consigli clima_advice delle stanze usano ora soglia di varianza `if variance < 0.1` (corretta)
+- Validazione eseguita:
+  - Ramo Jinja irraggiungibile `delta_omega < 0.5` rimosso
+  - Gli interventi di Fase 1 completati
+- Limitazioni residue:
+  - Nessuna
+
+## Fase 2 - Indicatori manuali finestra per stanza
+
+**Difficolta:** Bassa  
+**LLM consigliato:** piccolo
+
+### Obiettivo
+
+Aggiungere un indicatore manuale per ogni stanza, usato come stato dichiarato della finestra.
+
+### Interventi
+
+1. Aggiungere un `input_boolean` per ogni stanza:
+
+   - `input_boolean.finestra_cucina_aperta`
+   - `input_boolean.finestra_camera_grande_aperta`
+   - `input_boolean.finestra_camera_aperta`
+   - `input_boolean.finestra_corridoio_aperta`
+   - `input_boolean.finestra_bagno_aperta`
+   - `input_boolean.finestra_sala_aperta`
+
+2. Preferire l'integrazione nel generatore:
+
+   - sorgente probabile: `yaml_generator/templates/fancoil_room_input_booleans.j2`;
+   - output generato: `yaml_generator/input_boolean/generated_input_booleans.yaml`.
+
+3. Impostare nome e icona leggibili:
+
+   - nome: `<Stanza>: finestra aperta`;
+   - icona: `mdi:window-open` oppure `mdi:window-closed` se gestita via template separato.
+
+4. Decidere se lo stato iniziale deve essere persistente o predefinito.
+
+   Raccomandazione: non impostare `initial`, cosi Home Assistant puo ripristinare l'ultimo stato.
+
+### Criteri di chiusura
+
+- Ogni stanza ha un `input_boolean` finestra.
+- Gli helper sono generati dal generatore, non aggiunti solo a mano.
+- Gli helper sono visibili in Home Assistant dopo reload/restart.
+
+### Stato implementazione
+
+- Stato: Da verificare
+- Implementatore: Codex
+- Data: 2026-06-26
+
+### Domande aperte
+
+- Nessuna.
+
+### Conferma chiusura
+
+- File modificati: `yaml_generator/templates/fancoil_room_input_booleans.j2`, `yaml_generator/generate_fancoil_climates.py`, `yaml_generator/input_boolean/generated_input_booleans.yaml`
+- Entita aggiunte/modificate: `input_boolean.finestra_cucina_aperta`, `input_boolean.finestra_camera_grande_aperta`, `input_boolean.finestra_camera_aperta`, `input_boolean.finestra_corridoio_aperta`, `input_boolean.finestra_bagno_aperta`, `input_boolean.finestra_sala_aperta`
+- Validazione eseguita: `venv/bin/python yaml_generator/generate_fancoil_climates.py`; parse YAML di `yaml_generator/input_boolean/generated_input_booleans.yaml`
+- Limitazioni residue: serve reload/restart di Home Assistant per confermare che gli helper siano caricati nel runtime
+
+## Fase 3 - Visualizzazione stato finestra nella dashboard
+
+**Difficolta:** Bassa  
+**LLM consigliato:** piccolo
+
+### Obiettivo
+
+Mostrare in ogni card stanza della vista `Climatizzazione` se la finestra e aperta o chiusa, con controllo manuale rapido.
+
+### Interventi
+
+1. Modificare `yaml_generator/templates/dashboard_main.j2`.
+2. Per ogni stanza aggiungere una riga/card collegata al rispettivo `input_boolean.finestra_<stanza>_aperta`.
+3. La riga deve indicare chiaramente:
+
+   - `Finestra aperta` quando `on`;
+   - `Finestra chiusa` quando `off`.
+
+4. Il tap deve permettere di cambiare manualmente stato.
+5. Se possibile, usare colore/icona coerenti:
+
+   - aperta: `mdi:window-open`, colore accentuato;
+   - chiusa: `mdi:window-closed`, colore neutro.
+
+### Criteri di chiusura
+
+- Ogni stanza mostra lo stato finestra.
+- Lo stato e modificabile dalla dashboard.
+- La modifica resta coerente dopo rigenerazione dashboard.
+
+### Stato implementazione
+
+- Stato: Da verificare
+- Implementatore: Codex
+- Data: 2026-06-26
+
+### Domande aperte
+
+- Nessuna.
+
+### Conferma chiusura
+
+- File modificati: `yaml_generator/templates/dashboard_main.j2`, `ui/riscaldamento.yaml`, `yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml`
+- Entita aggiunte/modificate: righe dashboard per `input_boolean.finestra_cucina_aperta`, `input_boolean.finestra_camera_grande_aperta`, `input_boolean.finestra_camera_aperta`, `input_boolean.finestra_corridoio_aperta`, `input_boolean.finestra_bagno_aperta`, `input_boolean.finestra_sala_aperta`
+- Validazione eseguita: `venv/bin/python yaml_generator/generate_fancoil_climates.py`; parse YAML di `ui/riscaldamento.yaml` e `yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml`
+- Limitazioni residue: serve refresh/reload dashboard in Home Assistant per confermare visibilita effettiva nel browser
+
+## Fase 4 - Sensore pilota di temperatura e umidita per stanza
+
+**Difficolta:** Media  
+**LLM consigliato:** medio
+
+### Obiettivo
+
+Centralizzare la scelta del sensore da usare per i calcoli climatici, perche nelle stanze ci sono piu sensori con affidabilita diversa.
+
+### Interventi
+
+1. Definire per ogni stanza:
+
+   - sensore temperatura pilota;
+   - sensore umidita pilota;
+   - sensori alternativi;
+   - eventuale priorita o affidabilita.
+
+2. Estendere `yaml_generator/fancoil_vars.yaml` con campi espliciti, per esempio:
+
+   ```yaml
+   humidity_sensor: sensor.th1a_humidity
+   humidity_fallback_sensors:
+     - sensor.fancoil_cucina_humidity
+   ```
+
+3. Aggiornare il generatore o i template per non codificare manualmente sensori stanza per stanza.
+4. Creare sensori derivati uniformi:
+
+   - `sensor.umidita_<stanza>_pilota`
+   - `sensor.temperatura_<stanza>_pilota`
+
+5. Gestire indisponibilita:
+
+   - se il pilota e `unknown`/`unavailable`, usare fallback;
+   - se tutti non disponibili, stato `unavailable`.
+
+### Criteri di chiusura
+
+- I calcoli non leggono piu sensori hardcoded quando esiste il pilota.
+- Ogni stanza ha un sensore umidita pilota.
+- Ogni stanza ha un sensore temperatura pilota.
+- La dashboard e i consigli usano i sensori pilota.
+
+### Stato implementazione
+
+- Stato: Da fare
+- Implementatore:
+- Data:
+
+### Domande aperte
+
+- Definire se l'affidabilita dei sensori e nota a priori o deve essere stimata dai dati.
+
+### Conferma chiusura
+
+- File modificati:
+- Entita aggiunte/modificate:
+- Validazione eseguita:
+- Limitazioni residue:
+
+## Fase 5 - Trend umidita robusto
+
+**Difficolta:** Media  
+**LLM consigliato:** medio
+
+### Obiettivo
+
+Capire se l'umidita sta salendo, scendendo o e stabile, indipendentemente dal valore assoluto e dalla calibrazione dei sensori.
+
+### Interventi
+
+1. Aggiungere sensori di trend per ogni stanza:
+
+   - `sensor.trend_umidita_<stanza>`
+   - valori: `in_calata`, `in_salita`, `stabile`, `incerto`.
+
+2. Usare una finestra temporale piu significativa di 5 minuti.
+
+   Raccomandazione iniziale:
+
+   - trend breve: 10-15 minuti;
+   - trend medio: 30-60 minuti.
+
+3. Non basarsi solo su `variance`, perche la varianza dice quanto oscilla, non la direzione.
+4. Possibili implementazioni:
+
+   - statistics sensor con `change`;
+   - derivata su media mobile;
+   - trend binary sensor;
+   - template sensor basato su valore attuale meno valore precedente memorizzato.
+
+5. Esporre attributi utili:
+
+   - delta breve;
+   - delta medio;
+   - finestra osservata;
+   - sensore sorgente.
+
+### Criteri di chiusura
+
+- Ogni stanza ha trend leggibile.
+- Il trend resta stabile rispetto a rumore minimo del sensore.
+- Il trend non dipende dal valore assoluto di umidita.
+
+### Stato implementazione
+
+- Stato: Da fare
+- Implementatore:
+- Data:
+
+### Domande aperte
+
+- Definire soglie iniziali per considerare una variazione reale, per esempio `0.5%` o `1.0%` in 15 minuti.
+
+### Conferma chiusura
+
+- File modificati:
+- Entita aggiunte/modificate:
+- Validazione eseguita:
+- Limitazioni residue:
+
+## Fase 6 - Nuova logica di consiglio finestra
+
+**Difficolta:** Media/Alta  
+**LLM consigliato:** medio o grande
+
+### Obiettivo
+
+Riscrivere i consigli per aprire/chiudere usando grandezze fisiche e stato reale dichiarato della finestra.
+
+### Interventi
+
+1. Calcolare per ogni stanza:
+
+   - umidita specifica interna `omega_<stanza>`;
+   - umidita specifica esterna `omega_esterno`;
+   - delta `delta_omega = omega_interna - omega_esterna`;
+   - trend umidita interno;
+   - stato finestra manuale.
+
+2. Definire sensore consiglio:
+
+   - `sensor.consiglio_finestra_<stanza>`
+   - valori suggeriti: `apri`, `chiudi`, `mantieni_aperta`, `mantieni_chiusa`, `nessuna_azione`, `incerto`.
+
+3. Separare consiglio finestra da consiglio fancoil.
+
+   Il sensore attuale `climate_advice_<stanza>` mescola "apri finestra" e "accendi fancoil". Meglio creare sensori distinti e poi eventualmente un sensore riassuntivo.
+
+4. Regole iniziali consigliate:
+
+   - se `delta_omega > 1.0 g/kg` e non piove: aprire puo ridurre umidita;
+   - se `delta_omega < 0.2 g/kg` o esterno piu umido: chiudere;
+   - se finestra aperta e trend peggiora: consigliare chiusura;
+   - se finestra aperta e trend migliora: mantenere aperta;
+   - se finestra chiusa e umidita alta ma esterno piu secco: consigliare apertura;
+   - se fancoil attivo e finestra aperta, valutare conflitto energetico.
+
+5. Esporre attributi diagnostici:
+
+   - `delta_omega`;
+   - `trend_umidita`;
+   - `finestra_aperta`;
+   - `motivo`;
+   - `confidenza`.
+
+### Criteri di chiusura
+
+- Ogni stanza ha un consiglio finestra separato.
+- Il consiglio cambia in modo coerente con stato finestra e condizioni esterne.
+- Il motivo del consiglio e leggibile come attributo o sensore.
+
+### Stato implementazione
+
+- Stato: Da fare
+- Implementatore:
+- Data:
+
+### Domande aperte
+
+- Definire soglie iniziali esatte per `delta_omega`, pioggia e temperatura esterna.
+
+### Conferma chiusura
+
+- File modificati:
+- Entita aggiunte/modificate:
+- Validazione eseguita:
+- Limitazioni residue:
+
+## Fase 7 - Notifiche persistenti operative
+
+**Difficolta:** Media  
+**LLM consigliato:** medio
+
+### Obiettivo
+
+Inviare notifiche persistenti quando il sistema consiglia di aprire o chiudere una finestra.
+
+### Interventi
+
+1. Creare automazione per ogni stanza o una automazione parametrica unica.
+2. Trigger:
+
+   - cambio `sensor.consiglio_finestra_<stanza>`;
+   - consiglio stabile per almeno alcuni minuti, per evitare notifiche rumorose.
+
+3. Usare `persistent_notification.create`.
+4. Usare `notification_id` stabile per stanza:
+
+   - `finestra_cucina`
+   - `finestra_camera_grande`
+   - ecc.
+
+5. La notifica deve contenere:
+
+   - azione consigliata;
+   - stanza;
+   - motivo sintetico;
+   - umidita/trend;
+   - delta omega;
+   - stato finestra dichiarato.
+
+6. Quando il consiglio non e piu valido, usare `persistent_notification.dismiss`.
+
+### Criteri di chiusura
+
+- La notifica appare solo quando serve un'azione.
+- Ogni stanza aggiorna la propria notifica senza duplicati.
+- La notifica viene rimossa quando il consiglio torna a `nessuna_azione` o diventa non applicabile.
+
+### Stato implementazione
+
+- Stato: Da fare
+- Implementatore:
+- Data:
+
+### Domande aperte
+
+- Definire se notificare anche di notte o in assenza da casa.
+
+### Conferma chiusura
+
+- File modificati:
+- Entita aggiunte/modificate:
+- Validazione eseguita:
+- Limitazioni residue:
+
+## Fase 8 - Memorizzazione ultimo consiglio e contesto
+
+**Difficolta:** Media  
+**LLM consigliato:** medio
+
+### Obiettivo
+
+Salvare il contesto al momento del consiglio per valutare successivamente se ha funzionato.
+
+### Interventi
+
+Per ogni stanza aggiungere helper o sensori persistenti:
+
+- `input_text.ultimo_consiglio_finestra_<stanza>`
+- `input_datetime.ultimo_consiglio_finestra_<stanza>`
+- `input_number.umidita_iniziale_consiglio_<stanza>`
+- `input_text.trend_iniziale_consiglio_<stanza>`
+- `input_boolean.finestra_aperta_al_consiglio_<stanza>` oppure rappresentazione testuale equivalente.
+
+Quando viene generata una notifica `apri` o `chiudi`, salvare:
+
+- consiglio;
+- timestamp;
+- umidita pilota;
+- omega interna;
+- omega esterna;
+- trend iniziale;
+- stato finestra;
+- stato fancoil.
+
+### Criteri di chiusura
+
+- Ogni consiglio operativo salva uno snapshot.
+- Lo snapshot non viene sovrascritto continuamente se il consiglio resta invariato.
+- I dati sono disponibili per automazioni successive.
+
+### Stato implementazione
+
+- Stato: Da fare
+- Implementatore:
+- Data:
+
+### Domande aperte
+
+- Decidere se memorizzare solo ultimo consiglio o anche storico su file/database.
+
+### Conferma chiusura
+
+- File modificati:
+- Entita aggiunte/modificate:
+- Validazione eseguita:
+- Limitazioni residue:
+
+## Fase 9 - Valutazione efficacia consiglio
+
+**Difficolta:** Alta  
+**LLM consigliato:** grande
+
+### Obiettivo
+
+Capire se il consiglio dato ha prodotto l'effetto voluto osservando l'andamento dell'umidita dopo un intervallo.
+
+### Interventi
+
+1. Dopo un consiglio operativo, programmare una valutazione dopo:
+
+   - 15 minuti;
+   - 30 minuti;
+   - opzionale 60 minuti.
+
+2. Per consiglio `apri`:
+
+   - successo se umidita/trend migliora;
+   - fallimento se umidita continua a salire o delta omega esterno diventa sfavorevole.
+
+3. Per consiglio `chiudi`:
+
+   - successo se trend peggiorativo si attenua;
+   - fallimento se umidita continua a salire e non ci sono cause interne evidenti.
+
+4. Creare sensori o helper:
+
+   - `sensor.esito_ultimo_consiglio_finestra_<stanza>`
+   - valori: `efficace`, `inefficace`, `non_valutabile`, `in_attesa`.
+
+5. Esporre attributi:
+
+   - umidita iniziale;
+   - umidita finale;
+   - delta;
+   - trend osservato;
+   - motivazione esito.
+
+### Criteri di chiusura
+
+- Ogni consiglio operativo arriva a un esito.
+- Gli esiti non vengono prodotti se mancano dati sufficienti.
+- L'esito distingue tra "inefficace" e "non valutabile".
+
+### Stato implementazione
+
+- Stato: Da fare
+- Implementatore:
+- Data:
+
+### Domande aperte
+
+- Definire esattamente quanto deve calare o rallentare l'umidita per considerare efficace il consiglio.
+
+### Conferma chiusura
+
+- File modificati:
+- Entita aggiunte/modificate:
+- Validazione eseguita:
+- Limitazioni residue:
+
+## Fase 10 - Gestione fattori confondenti
+
+**Difficolta:** Alta  
+**LLM consigliato:** grande
+
+### Obiettivo
+
+Evitare di attribuire alla finestra effetti causati da fancoil, meteo esterno o attivita nella stanza.
+
+### Fattori da considerare
+
+- Fancoil acceso/spento e modalita.
+- Variazione temperatura esterna.
+- Variazione umidita specifica esterna.
+- Pioggia o alta probabilita pioggia.
+- Doccia in bagno.
+- Cottura in cucina.
+- Presenza/persone nella stanza, se disponibile.
+- Sensore instabile o con letture intermittenti.
+
+### Interventi
+
+1. Creare sensori evento/probabilita:
+
+   - `binary_sensor.attivita_umida_bagno_probabile`
+   - `binary_sensor.attivita_umida_cucina_probabile`
+   - eventuali altri se ci sono dati utili.
+
+2. Definire regole:
+
+   - se in bagno l'umidita sale molto rapidamente, probabile doccia;
+   - se in cucina l'umidita sale rapidamente in fascia pasti, probabile cottura;
+   - se esterno peggiora durante osservazione, valutazione consiglio meno affidabile;
+   - se fancoil e acceso, il calo puo dipendere dal fancoil.
+
+3. Aggiungere `confidenza` ai consigli e agli esiti.
+4. Quando i fattori confondenti sono forti, usare esito `non_valutabile`.
+
+### Criteri di chiusura
+
+- Gli esiti non attribuiscono falsamente alla finestra eventi chiaramente confondenti.
+- Ogni consiglio/esito ha una confidenza o una motivazione.
+- Bagno e cucina hanno almeno una regola specifica per attivita locali.
+
+### Stato implementazione
+
+- Stato: Da fare
+- Implementatore:
+- Data:
+
+### Domande aperte
+
+- Verificare se esistono sensori presenza, consumo cucina, ventola bagno, luce bagno o altri proxy utili.
+
+### Conferma chiusura
+
+- File modificati:
+- Entita aggiunte/modificate:
+- Validazione eseguita:
+- Limitazioni residue:
+
+## Fase 11 - Diagnostica in dashboard
+
+**Difficolta:** Media  
+**LLM consigliato:** medio
+
+### Obiettivo
+
+Rendere leggibile nella dashboard perche il sistema suggerisce una certa azione e se l'ultimo consiglio e stato efficace.
+
+### Interventi
+
+Per ogni stanza aggiungere alla vista `Climatizzazione`:
+
+- stato finestra manuale;
+- consiglio finestra;
+- motivo consiglio;
+- trend umidita;
+- delta omega;
+- ultimo consiglio;
+- esito ultimo consiglio;
+- eventuale confidenza.
+
+Usare una rappresentazione compatta, evitando di rendere la card troppo lunga. Se necessario, mostrare dettagli solo in una sezione espandibile o in una sottovista.
+
+### Criteri di chiusura
+
+- L'utente capisce per ogni stanza cosa fare e perche.
+- L'ultimo esito e visibile.
+- La dashboard resta rigenerabile.
+
+### Stato implementazione
+
+- Stato: Da fare
+- Implementatore:
+- Data:
+
+### Domande aperte
+
+- Decidere se mostrare tutti i dettagli nella vista principale o creare una sottovista diagnostica.
+
+### Conferma chiusura
+
+- File modificati:
+- Entita aggiunte/modificate:
+- Validazione eseguita:
+- Limitazioni residue:
+
+## Fase 12 - Validazione con dati storici e tuning soglie
+
+**Difficolta:** Alta  
+**LLM consigliato:** grande con accesso ai dati storici
+
+### Obiettivo
+
+Validare le soglie e ridurre falsi consigli usando dati reali.
+
+### Interventi
+
+1. Analizzare almeno alcuni giorni di storico per:
+
+   - umidita pilota per stanza;
+   - omega esterno;
+   - stato finestra manuale;
+   - fancoil;
+   - consigli generati;
+   - esiti.
+
+2. Cercare pattern:
+
+   - consigli frequenti ma inefficaci;
+   - soglie troppo sensibili;
+   - stanze con sensori rumorosi;
+   - orari in cui notificare e inutile.
+
+3. Aggiornare soglie:
+
+   - delta omega apertura;
+   - delta omega chiusura;
+   - soglia trend salita/discesa;
+   - durata minima consiglio stabile prima della notifica.
+
+4. Documentare le soglie finali e la ragione.
+
+### Criteri di chiusura
+
+- Soglie documentate.
+- Esempi reali di consigli efficaci/inefficaci analizzati.
+- Riduzione attesa dei falsi positivi.
+
+### Stato implementazione
+
+- Stato: Da fare
+- Implementatore:
+- Data:
+
+### Domande aperte
+
+- Definire fonte dati storici preferita: recorder Home Assistant, InfluxDB o esportazione manuale.
+
+### Conferma chiusura
+
+- File modificati:
+- Entita aggiunte/modificate:
+- Validazione eseguita:
+- Limitazioni residue:
+
+## Ordine consigliato
+
+1. Fasi 1-3: correzione base, indicatori finestra, dashboard.
+2. Fasi 4-6: sensori pilota, trend, nuova logica consiglio.
+3. Fasi 7-9: notifiche persistenti, snapshot, verifica efficacia.
+4. Fasi 10-12: fattori confondenti, diagnostica avanzata, tuning dati reali.
+
+Non iniziare la fase 10 prima di avere almeno le fasi 7-9 funzionanti: senza storico dei consigli e degli esiti, la causalita resta troppo debole.
