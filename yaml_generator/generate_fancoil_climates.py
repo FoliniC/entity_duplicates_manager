@@ -64,11 +64,29 @@ RESTORE_TEMPLATE_PATH = (
 COHERENCE_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "fancoil_coherence.j2")
 )
+PILOT_SENSORS_TEMPLATE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_pilot_sensors.j2")
+)
+CLIMATE_COMFORT_PER_ROOM_TEMPLATE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "climate_comfort_per_room.j2")
+)
+TREND_SENSORS_TEMPLATE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_trend_sensors.j2")
+)
+WINDOW_ADVICE_TEMPLATE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_window_advice.j2")
+)
+WINDOW_NOTIFICATION_TEMPLATE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_window_notification.j2")
+)
 
 # Outputs (generated)
 CLIMATE_OUTPUT_DIR = "yaml_generator/generated_climates"
 AUTOMATION_OUTPUT_DIR = "automations/fancoil_generated_automations"
 SENSORS_OUTPUT_DIR = "yaml_generator/managed_sensors"
+CLIMATE_COMFORT_PER_ROOM_OUTPUT_FILE = os.path.join(
+    SENSORS_OUTPUT_DIR, "climate_comfort_per_room.yaml"
+)
 BINARY_SENSORS_OUTPUT_DIR = "yaml_generator/managed_binary_sensors"
 PERSISTENCE_OUTPUT_DIR = "yaml_generator/managed_persistence"
 INPUT_BOOLEAN_OUTPUT_FILE = "yaml_generator/input_boolean/generated_input_booleans.yaml"
@@ -129,6 +147,11 @@ def load_fancoil_vars(config_path):
         # Ensure optional keys exist with default values
         if "knx_temp_sensor" not in v:
             v["knx_temp_sensor"] = ""
+        # Fase 4 - humidity pilot fields (optional; default to empty)
+        if "humidity_sensor" not in v:
+            v["humidity_sensor"] = ""
+        if "humidity_fallback_sensors" not in v:
+            v["humidity_fallback_sensors"] = []
 
     logger.info(f"Loaded fancoil_vars data: {vars_map}")
     logger.info("Successfully loaded vars")
@@ -358,6 +381,42 @@ def generate_aggregated(template_path, output_file, vars_map):
     write_text_file(output_file, result)
 
 
+def build_humidity_fallback_context(room_data):
+    """Fase 4 - Build Jinja-ready strings for the humidity pilot/fallback template tags.
+
+    Produces:
+      HUMIDITY_PRIMARY          -> 'sensor.xxx'
+      HUMIDITY_FALLBACK_LIST_JINJA -> ["sensor.a", "sensor.b"]   (valid Jinja literal list)
+      HUMIDITY_AVAIL_JINJA       -> has_value('primary') or has_value('fb1') or ...
+    """
+    primary = str(room_data.get("humidity_sensor", "")).strip()
+    fallback = room_data.get("humidity_fallback_sensors") or []
+    if isinstance(fallback, str):
+        fallback = [fallback]
+    fallback = [str(s).strip() for s in fallback if str(s).strip()]
+
+    if not primary:
+        logger.warning(
+            "Room '%s' has no humidity_sensor defined; pilot will be unavailable.",
+            room_data.get("id", "?"),
+        )
+
+    def _quote(ent):
+        return f"'{ent}'"
+
+    fallback_list = "[" + ", ".join(_quote(s) for s in fallback) + "]"
+
+    all_sensors = [primary] + fallback if primary else fallback
+    avail_parts = [f"has_value({ _quote(s) })" for s in all_sensors]
+    avail_expr = " or ".join(avail_parts) if avail_parts else "false"
+
+    return {
+        "HUMIDITY_PRIMARY": primary,
+        "HUMIDITY_FALLBACK_LIST_JINJA": fallback_list,
+        "HUMIDITY_AVAIL_JINJA": avail_expr,
+    }
+
+
 def build_master_context(vars_map):
     """Build dynamic context for master climate."""
     sensors_exprs = [
@@ -568,6 +627,8 @@ def generate_dashboard(vars_map):
 
 def main():
     logger.info("Generate fancoil files started")
+    # Ensure working directory is the homeassistant config directory so relative paths resolve correctly
+    os.chdir(os.path.dirname(SCRIPT_DIR))
     vars_map = load_fancoil_vars(CONFIG_PATH)
 
     # Enrich vars_map with derived fields
@@ -599,6 +660,51 @@ def main():
         BINARY_SENSORS_OUTPUT_DIR,
         vars_map,
         "_binary_sensors",
+    )
+
+    # Fase 4 - Per-room pilot sensors (umidita + temperatura pilota)
+    pilot_ctx_map = {}
+    for room_id, room_data in vars_map.items():
+        pilot_ctx_map[room_id] = {**room_data, **build_humidity_fallback_context(room_data)}
+    generate_from_template(
+        PILOT_SENSORS_TEMPLATE_PATH,
+        SENSORS_OUTPUT_DIR,
+        pilot_ctx_map,
+        "_pilot",
+    )
+
+    # Fase 4 - Per-room climate comfort (Omega+attr / T_dew / Comfort / Advice)
+    # Generato aggregato da template (climate_comfort_per_room.j2): il blocco per
+    # stanza esiste una sola volta, cosi aggiungere una stanza non richiede edit
+    # manuali. Generato in climate_comfort_per_room.yaml.
+    generate_aggregated(
+        CLIMATE_COMFORT_PER_ROOM_TEMPLATE_PATH,
+        CLIMATE_COMFORT_PER_ROOM_OUTPUT_FILE,
+        vars_map,
+    )
+
+    # Fase 5 - Per-room trend sensors (trend umidità)
+    generate_from_template(
+        TREND_SENSORS_TEMPLATE_PATH,
+        SENSORS_OUTPUT_DIR,
+        vars_map,
+        "_trend",
+    )
+
+    # Fase 6 - Per-room window advice sensors (consiglio finestra)
+    generate_from_template(
+        WINDOW_ADVICE_TEMPLATE_PATH,
+        SENSORS_OUTPUT_DIR,
+        vars_map,
+        "_window_advice",
+    )
+
+    # Fase 7 - Per-room window notification automations
+    generate_from_template(
+        WINDOW_NOTIFICATION_TEMPLATE_PATH,
+        AUTOMATION_OUTPUT_DIR,
+        vars_map,
+        "_window_notification",
     )
 
     # Per-room restore automations

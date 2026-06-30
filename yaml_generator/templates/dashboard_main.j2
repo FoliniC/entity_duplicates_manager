@@ -823,6 +823,12 @@ views:
                         action: more-info
                       card_mod: *row_style
                     - type: custom:mushroom-template-card
+                      primary: "📈 Trend Umidità: {{ states('sensor.trend_umidita_cucina') }}"
+                      entity: sensor.trend_umidita_cucina
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
                       primary: "🔋 Batteria Pilota: {{ states('sensor.th1a_battery') }}%"
                       entity: sensor.th1a_battery
                       tap_action:
@@ -919,6 +925,12 @@ views:
                     - type: custom:mushroom-template-card
                       primary: "🎯 Punto di Rugiada {{ states('sensor.punto_di_rugiada_camera_grande') }}°C"
                       entity: sensor.punto_di_rugiada_camera_grande
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "📈 Trend Umidità: {{ states('sensor.trend_umidita_camera_grande') }}"
+                      entity: sensor.trend_umidita_camera_grande
                       tap_action:
                         action: more-info
                       card_mod: *row_style
@@ -1023,6 +1035,12 @@ views:
                         action: more-info
                       card_mod: *row_style
                     - type: custom:mushroom-template-card
+                      primary: "📈 Trend Umidità: {{ states('sensor.trend_umidita_camera') }}"
+                      entity: sensor.trend_umidita_camera
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
                       primary: "🔋 Batteria Pilota: {{ states('sensor.th3c_battery') }}%"
                       entity: sensor.th3c_battery
                       tap_action:
@@ -1107,6 +1125,12 @@ views:
                     - type: custom:mushroom-template-card
                       primary: "🎯 Punto di Rugiada {{ states('sensor.punto_di_rugiada_corridoio') }}°C"
                       entity: sensor.punto_di_rugiada_corridoio
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "📈 Trend Umidità: {{ states('sensor.trend_umidita_corridoio') }}"
+                      entity: sensor.trend_umidita_corridoio
                       tap_action:
                         action: more-info
                       card_mod: *row_style
@@ -1198,6 +1222,12 @@ views:
                       tap_action:
                         action: more-info
                       card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "📈 Trend Umidità: {{ states('sensor.trend_umidita_bagno') }}"
+                      entity: sensor.trend_umidita_bagno
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
 
               # SALA
               - type: custom:mod-card
@@ -1280,3 +1310,74 @@ views:
                       tap_action:
                         action: more-info
                       card_mod: *row_style
+                    - type: custom:mushroom-template-card
+                      primary: "📈 Trend Umidità: {{ states('sensor.trend_umidita_sala') }}"
+                      entity: sensor.trend_umidita_sala
+                      tap_action:
+                        action: more-info
+                      card_mod: *row_style
+
+          # ── NOTA LOGICA CONSIGLI ─────────────────────────────────────────
+          - type: markdown
+            content: >
+              ---
+
+              ### 📖 Legenda logica dei consigli
+
+
+              #### 💡 Consiglio Climatico (`climate_advice_<stanza>`) — sensore legacy
+
+              | Condizione | Consiglio |
+              |---|---|
+              | Umidità interna > 65% | Accendi Fancoil (Deumidifica) |
+              | **δω > 1.0 g/kg** e varianza < 0.1 | Puoi chiudere (Umidità ottimale) |
+              | **δω > 1.0 g/kg** e varianza ≥ 0.1 | Apri Finestra (Aria esterna secca) |
+              | δω < 0.2 g/kg e umidità > 60% | Tieni chiuso (Esterno più umido) |
+              | Nessuna condizione vera | Nessuna azione necessaria |
+
+              > **δω = ω_interna − ω_esterna** (g/kg). Valore positivo = interno più umido dell'esterno.
+              > La **varianza** misura quanto l'umidità oscilla negli ultimi 5 minuti. Alta varianza = umidità instabile.
+
+
+              #### 🪟 Consiglio Finestra (`consiglio_finestra_<stanza>`) — Fase 6
+
+              **Con finestra CHIUSA:**
+
+              | Condizione | Consiglio |
+              |---|---|
+              | Piove (`precipitazione > 0 mm`) | `mantieni_chiusa` |
+              | δω ≥ 1.0 g/kg **e** umidità > 55% | `apri` |
+              | δω < 0.2 g/kg | `mantieni_chiusa` |
+              | Altro | `nessuna_azione` |
+
+              **Con finestra APERTA:**
+
+              | Condizione | Consiglio |
+              |---|---|
+              | Piove | `chiudi` |
+              | δω < 0.2 g/kg | `chiudi` |
+              | Trend `in_salita` e δω < 0.5 g/kg | `chiudi` |
+              | Trend `in_calata` **o** δω ≥ 1.0 g/kg | `mantieni_aperta` |
+              | Altro | `nessuna_azione` |
+
+              > **Trend umidità** (`trend_umidita_<stanza>`):
+              > - `in_salita`: variazione 15 min ≥ +0.5% (o +0.2% con 60 min ≥ +1.0%)
+              > - `in_calata`: variazione 15 min ≤ −0.5% (o −0.2% con 60 min ≤ −1.0%)
+              > - `stabile`: variazioni < soglia in entrambe le finestre
+              > - `incerto`: dati non disponibili
+
+
+              #### 🔔 Notifiche (`notifica_consiglio_finestra_<stanza>`) — Fase 7
+
+              Le notifiche persistenti si attivano **solo dopo 5 minuti consecutivi** con lo stesso consiglio operativo (`apri`, `chiudi`, `mantieni_aperta`, `mantieni_chiusa`).
+              Vengono rimosse automaticamente quando il consiglio torna a `nessuna_azione` o `incerto`.
+
+            card_mod:
+              style: |
+                ha-card {
+                  border: 2px solid #607d8b !important;
+                  border-radius: 12px !important;
+                  padding: 8px 16px !important;
+                  background: rgba(96,125,139,0.08) !important;
+                  font-size: 0.92em;
+                }

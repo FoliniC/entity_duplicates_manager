@@ -284,20 +284,33 @@ Centralizzare la scelta del sensore da usare per i calcoli climatici, perche nel
 
 ### Stato implementazione
 
-- Stato: Da fare
-- Implementatore:
-- Data:
+- Stato: **Completato**
+- Implementatore: ZCODE (AI assistant)
+- Data: 2026-06-29
 
 ### Domande aperte
 
-- Definire se l'affidabilita dei sensori e nota a priori o deve essere stimata dai dati.
+- **Risolta:** L'affidabilita dei sensori e nota a priori come lista ordinata in `fancoil_vars.yaml` (`humidity_sensor` primario + `humidity_fallback_sensors`). Il primo sensore disponibile (non unknown/unavailable) vince. Implementato nel generatore (`build_humidity_fallback_context`) e nel template `fancoil_pilot_sensors.j2`.
 
 ### Conferma chiusura
 
 - File modificati:
+  - `yaml_generator/fancoil_vars.yaml` (aggiunti `humidity_sensor` + `humidity_fallback_sensors` per le 6 stanze)
+  - `yaml_generator/generate_fancoil_climates.py` (helper `build_humidity_fallback_context`, default campi opzionali, chiamata generazione pilot, chiamata `generate_aggregated` per climate comfort per-stanza)
+  - `yaml_generator/templates/fancoil_pilot_sensors.j2` (NUOVO template pilota)
+  - `yaml_generator/templates/climate_comfort_per_room.j2` (NUOVO template aggregato Omega+attributes/T_dew/Comfort/Advice per stanza)
+  - `yaml_generator/managed_sensors/climate_comfort_evaluation.yaml` (ridotto ai soli sensori ESTERNI Omega/T_dew; i sensori per-stanza sono ora generati)
+  - `configuration.yaml` (statistiche variance umidita → `umidita_*_pilota`; fix bug sala `th4d_humidity` → `umidita_sala_pilota`)
+  - Generati da `venv/bin/python yaml_generator/generate_fancoil_climates.py`: `managed_sensors/*_pilot.yaml` (6 file), `managed_sensors/climate_comfort_per_room.yaml` (aggregato 24 sensori), climates/sensors/dashboards rigenerati
 - Entita aggiunte/modificate:
-- Validazione eseguita:
+  - Aggiunti 12 sensori template pilota: `sensor.umidita_<stanza>_pilota` e `sensor.temperatura_<stanza>_pilota`
+  - Refactor: i sensori Omega/T_dew/Comfort/Advice per-stanza (24) ora generati da template; ogni Omega espone gli `attributes` `temperature_sensor`, `humidity_sensor`, `temperatura`, `umidita`
+  - Le statistiche `sensor.statistics_umidita_*_variance` ora puntano ai sensori pilota
+- Validazione eseguita: `venv/bin/python yaml_generator/generate_fancoil_climates.py` (OK); parse YAML di `climate_comfort_per_room.yaml` (24 sensori, 6 stanze) e `ui/riscaldamento.yaml` (OK); file statico `climate_comfort_evaluation.yaml` senza duplicati per-stanza
 - Limitazioni residue:
+  - Dashboard (`dashboard_main.j2`) mantiene i singoli sensori fisici (Fancoil/Tuya TH) affiancati per confronto visivo, come richiesto dall'utente. I calcoli confort/consiglio usano comunque i pilota.
+  - La temperatura pilota delega a `temperatura_*_reale_calcolata` (che gestisce gia `input_select.fancoil_<id>_temp_source` + fallback interno) senza duplicarne la logica.
+  - Il blocco per-stanza esiste ora una sola volta nel template: aggiungere una stanza richiede solo una riga in `fancoil_vars.yaml`.
 
 ## Fase 5 - Trend umidita robusto
 
@@ -345,20 +358,29 @@ Capire se l'umidita sta salendo, scendendo o e stabile, indipendentemente dal va
 
 ### Stato implementazione
 
-- Stato: Da fare
-- Implementatore:
-- Data:
+- Stato: Chiusa
+- Implementatore: Antigravity
+- Data: 2026-06-29
 
 ### Domande aperte
 
-- Definire soglie iniziali per considerare una variazione reale, per esempio `0.5%` o `1.0%` in 15 minuti.
+- Nessuna. Definite soglie di variazione: breve termine (15 min) a >= 0.5% (o <= -0.5%), medio termine (60 min) a >= 1.0% (o <= -1.0%).
 
 ### Conferma chiusura
 
 - File modificati:
+  - `configuration.yaml` (aggiunti 12 sensori statistics di change breve/medio per le 6 stanze)
+  - `yaml_generator/generate_fancoil_climates.py` (aggiunto import del template trend e os.chdir per robustezza path)
+  - `yaml_generator/templates/fancoil_trend_sensors.j2` (nuovo template per sensori di trend)
+  - `yaml_generator/templates/fancoil_pilot_sensors.j2` (quotato attributo fallback_sensors per superare validazione HA)
 - Entita aggiunte/modificate:
+  - 12 sensori statistics: `sensor.statistics_umidita_<stanza>_change_breve` e `sensor.statistics_umidita_<stanza>_change_medio`
+  - 6 sensori template di trend: `sensor.trend_umidita_<stanza>` (valori: `in_salita`, `in_calata`, `stabile`, `incerto`)
 - Validazione eseguita:
+  - Generazione completata con `/home/carlo/docker/homeassistant/config/venv/bin/python yaml_generator/generate_fancoil_climates.py`
+  - Configurazione validata con successo in Home Assistant container (`docker exec homeassistant hass -c /config --script check_config`), exit code 0.
 - Limitazioni residue:
+  - Richiesto reload o restart di Home Assistant per attivare i nuovi sensori.
 
 ## Fase 6 - Nuova logica di consiglio finestra
 
@@ -413,20 +435,26 @@ Riscrivere i consigli per aprire/chiudere usando grandezze fisiche e stato reale
 
 ### Stato implementazione
 
-- Stato: Da fare
-- Implementatore:
-- Data:
+- Stato: Chiusa
+- Implementatore: Antigravity
+- Data: 2026-06-29
 
 ### Domande aperte
 
-- Definire soglie iniziali esatte per `delta_omega`, pioggia e temperatura esterna.
+- Nessuna. Definite soglie di delta_omega a > 1.0 g/kg (secco esterno, consiglia apertura) e < 0.2 g/kg (esterno più umido/simile, consiglia chiusura). Rilevamento pioggia basato sul sensore locale `sensor.castionetto_precipitazione`.
 
 ### Conferma chiusura
 
 - File modificati:
+  - `yaml_generator/generate_fancoil_climates.py` (aggiunto template per consigli finestre)
+  - `yaml_generator/templates/fancoil_window_advice.j2` (nuovo template per sensori di consiglio finestre)
 - Entita aggiunte/modificate:
+  - 6 sensori di consiglio finestra: `sensor.consiglio_finestra_<stanza>` (con valori: `apri`, `chiudi`, `mantieni_aperta`, `mantieni_chiusa`, `nessuna_azione`, `incerto`)
 - Validazione eseguita:
+  - Generazione completata con successo.
+  - Validato con successo nel container Home Assistant (`docker exec homeassistant hass -c /config --script check_config`), exit code 0.
 - Limitazioni residue:
+  - Richiesto reload o restart di Home Assistant per attivare i nuovi sensori di consiglio finestra.
 
 ## Fase 7 - Notifiche persistenti operative
 
@@ -471,20 +499,31 @@ Inviare notifiche persistenti quando il sistema consiglia di aprire o chiudere u
 
 ### Stato implementazione
 
-- Stato: Da fare
-- Implementatore:
-- Data:
+- Stato: Chiusa
+- Implementatore: Antigravity
+- Data: 2026-06-29
 
 ### Domande aperte
 
-- Definire se notificare anche di notte o in assenza da casa.
+- Nessuna. Le notifiche sono attive 24h/24 indipendentemente da presenza/orario (si può restringere in futuro con una condition su `input_boolean` o time range). Il delay di 5 minuti filtra i cambiamenti transitori.
 
 ### Conferma chiusura
 
 - File modificati:
+  - `yaml_generator/generate_fancoil_climates.py` (aggiunto template per notifiche finestre)
+  - `yaml_generator/templates/fancoil_window_notification.j2` (nuovo template per automazioni di notifica)
 - Entita aggiunte/modificate:
+  - 12 automazioni generate (`<stanza>_window_notification.yaml`) in `automations/fancoil_generated_automations/`:
+    - `automation.notifica_consiglio_finestra_<stanza>` (trigger su consigli attivi, delay 5 min, invia `persistent_notification`)
+    - `automation.rimuovi_notifica_finestra_<stanza>` (trigger su `nessuna_azione`/`incerto`, rimuove la notifica)
+  - Le notifiche usano `notification_id: finestra_<stanza>` per evitare duplicati.
 - Validazione eseguita:
+  - Generazione completata con successo.
+  - Validato con successo nel container Home Assistant (`docker exec homeassistant hass -c /config --script check_config`), exit code 0.
+  - Le automazioni sono incluse automaticamente tramite `!include_dir_merge_list automations/fancoil_generated_automations/` in `packages/automations_generated.yaml`.
 - Limitazioni residue:
+  - Richiesto reload automazioni (o restart HA) per attivare le 12 nuove automazioni.
+  - Nessun filtro per orario notturno o assenza da casa (da implementare eventualmente in Fase 8+).
 
 ## Fase 8 - Memorizzazione ultimo consiglio e contesto
 

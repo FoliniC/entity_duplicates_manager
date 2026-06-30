@@ -96,7 +96,7 @@ sensor:
   - platform: statistics
     name: statistics_umidita_bagno_variance
     state_characteristic: variance
-    entity_id: sensor.fancoil_bagno_humidity
+    entity_id: sensor.umidita_bagno_pilota
     unique_id: sensor.umidita_bagno_variance
     max_age:
       minutes: 5
@@ -104,7 +104,7 @@ sensor:
   - platform: statistics
     name: statistics_umidita_cucina_variance
     state_characteristic: variance
-    entity_id: sensor.th1a_humidity
+    entity_id: sensor.umidita_cucina_pilota
     unique_id: sensor.umidita_cucina_variance
     max_age:
       minutes: 5
@@ -112,7 +112,7 @@ sensor:
   - platform: statistics
     name: statistics_umidita_camera_grande_variance
     state_characteristic: variance
-    entity_id: sensor.th2b_humidity
+    entity_id: sensor.umidita_camera_grande_pilota
     unique_id: sensor.umidita_camera_grande_variance
     max_age:
       minutes: 5
@@ -120,7 +120,7 @@ sensor:
   - platform: statistics
     name: statistics_umidita_camera_variance
     state_characteristic: variance
-    entity_id: sensor.th3c_humidity
+    entity_id: sensor.umidita_camera_pilota
     unique_id: sensor.umidita_camera_variance
     max_age:
       minutes: 5
@@ -128,7 +128,7 @@ sensor:
   - platform: statistics
     name: statistics_umidita_sala_variance
     state_characteristic: variance
-    entity_id: sensor.th4d_humidity
+    entity_id: sensor.umidita_sala_pilota
     unique_id: sensor.umidita_sala_variance
     max_age:
       minutes: 5
@@ -136,10 +136,108 @@ sensor:
   - platform: statistics
     name: statistics_umidita_corridoio_variance
     state_characteristic: variance
-    entity_id: sensor.fancoil_corridoio_humidity
+    entity_id: sensor.umidita_corridoio_pilota
     unique_id: sensor.umidita_corridoio_variance
     max_age:
       minutes: 5
+
+  # Humidity Change Statistics Sensors (Short-term: 15 minutes)
+  - platform: statistics
+    name: statistics_umidita_bagno_change_breve
+    unique_id: statistics_umidita_bagno_change_breve
+    state_characteristic: change
+    entity_id: sensor.umidita_bagno_pilota
+    max_age:
+      minutes: 15
+
+  - platform: statistics
+    name: statistics_umidita_cucina_change_breve
+    unique_id: statistics_umidita_cucina_change_breve
+    state_characteristic: change
+    entity_id: sensor.umidita_cucina_pilota
+    max_age:
+      minutes: 15
+
+  - platform: statistics
+    name: statistics_umidita_camera_grande_change_breve
+    unique_id: statistics_umidita_camera_grande_change_breve
+    state_characteristic: change
+    entity_id: sensor.umidita_camera_grande_pilota
+    max_age:
+      minutes: 15
+
+  - platform: statistics
+    name: statistics_umidita_camera_change_breve
+    unique_id: statistics_umidita_camera_change_breve
+    state_characteristic: change
+    entity_id: sensor.umidita_camera_pilota
+    max_age:
+      minutes: 15
+
+  - platform: statistics
+    name: statistics_umidita_sala_change_breve
+    unique_id: statistics_umidita_sala_change_breve
+    state_characteristic: change
+    entity_id: sensor.umidita_sala_pilota
+    max_age:
+      minutes: 15
+
+  - platform: statistics
+    name: statistics_umidita_corridoio_change_breve
+    unique_id: statistics_umidita_corridoio_change_breve
+    state_characteristic: change
+    entity_id: sensor.umidita_corridoio_pilota
+    max_age:
+      minutes: 15
+
+  # Humidity Change Statistics Sensors (Medium-term: 60 minutes)
+  - platform: statistics
+    name: statistics_umidita_bagno_change_medio
+    unique_id: statistics_umidita_bagno_change_medio
+    state_characteristic: change
+    entity_id: sensor.umidita_bagno_pilota
+    max_age:
+      minutes: 60
+
+  - platform: statistics
+    name: statistics_umidita_cucina_change_medio
+    unique_id: statistics_umidita_cucina_change_medio
+    state_characteristic: change
+    entity_id: sensor.umidita_cucina_pilota
+    max_age:
+      minutes: 60
+
+  - platform: statistics
+    name: statistics_umidita_camera_grande_change_medio
+    unique_id: statistics_umidita_camera_grande_change_medio
+    state_characteristic: change
+    entity_id: sensor.umidita_camera_grande_pilota
+    max_age:
+      minutes: 60
+
+  - platform: statistics
+    name: statistics_umidita_camera_change_medio
+    unique_id: statistics_umidita_camera_change_medio
+    state_characteristic: change
+    entity_id: sensor.umidita_camera_pilota
+    max_age:
+      minutes: 60
+
+  - platform: statistics
+    name: statistics_umidita_sala_change_medio
+    unique_id: statistics_umidita_sala_change_medio
+    state_characteristic: change
+    entity_id: sensor.umidita_sala_pilota
+    max_age:
+      minutes: 60
+
+  - platform: statistics
+    name: statistics_umidita_corridoio_change_medio
+    unique_id: statistics_umidita_corridoio_change_medio
+    state_characteristic: change
+    entity_id: sensor.umidita_corridoio_pilota
+    max_age:
+      minutes: 60
 
   # InfluxDB
   - platform: influxdb
