@@ -18,9 +18,10 @@
   state: >
     {% set T = states('sensor.temperatura_%%id%%_reale_calcolata') | float(0) %}
     {% set RH = states('sensor.umidita_%%id%%_pilota') | float(0) %}
+    {% set P = states('sensor.castionetto_pressione') | float(1013.25) * 100 %}
     {% set psat = 610.78 * (2.718281828459 ** (17.27 * T / (T + 237.3))) %}
     {% set pvap = (RH / 100) * psat %}
-    {{ (622 * pvap / (101325 - pvap)) | round(2) }}
+    {{ (622 * pvap / (P - pvap)) | round(2) }}
   attributes:
     # Entita DIRETTE consumate dalla formula Omega (con valore)
     omega_temperature_id: sensor.temperatura_%%id%%_reale_calcolata
@@ -86,27 +87,3 @@
       {% else %} Accettabile
       {% endif %}
     {% else %} Inattivo {% endif %}
-
-# ---------------------------------------------------------------------------
-# Climate Advice (azioni consigliate: fancoil / finestra / chiusura)
-# ---------------------------------------------------------------------------
-- name: "Climate Advice %%friendly_name%%"
-  unique_id: climate_advice_%%id%%
-  state: >
-    {% set rh = states('sensor.umidita_%%id%%_pilota') | float(0) %}
-    {% set omega_int = states('sensor.omega_%%id%%') | float(0) %}
-    {% set omega_ext = states('sensor.omega_esterno') | float(0) %}
-    {% set variance = states('sensor.statistics_umidita_%%id%%_variance') | float(0) %}
-    {% set delta_omega = omega_int - omega_ext %}
-    {% set ns = namespace(advices=[]) %}
-    {% if rh > 65 %}{% set ns.advices = ns.advices + ['Accendi Fancoil (Deumidifica)'] %}{% endif %}
-    {% if delta_omega > 1.0 %}
-      {% if variance < 0.1 %}
-        {% set ns.advices = ns.advices + ['Puoi chiudere (Umidità ottimale)'] %}
-      {% else %}
-        {% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
-      {% endif %}
-    {% elif delta_omega < 0.2 and rh > 60 %}
-      {% set ns.advices = ns.advices + ['Tieni chiuso (Esterno più umido)'] %}
-    {% endif %}
-    {{ ns.advices | join(' | ') if ns.advices | length > 0 else 'Nessuna azione necessaria' }}

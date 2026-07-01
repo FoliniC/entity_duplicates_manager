@@ -505,7 +505,7 @@ Inviare notifiche persistenti quando il sistema consiglia di aprire o chiudere u
 
 ### Domande aperte
 
-- Nessuna. Le notifiche sono attive 24h/24 indipendentemente da presenza/orario (si può restringere in futuro con una condition su `input_boolean` o time range). Il delay di 5 minuti filtra i cambiamenti transitori.
+- Nessuna. Le notifiche sono attive 24h/24 indipendentemente da presenza/orario (si può restringere in futuro con una condition su `input_boolean` o time range). Il delay di 5 minuti filtra i cambiamenti transitori. Le notifiche operative vengono inviate solo per `apri` e `chiudi`; gli stati `mantieni_aperta` e `mantieni_chiusa` rimuovono eventuali notifiche precedenti.
 
 ### Conferma chiusura
 
@@ -515,7 +515,7 @@ Inviare notifiche persistenti quando il sistema consiglia di aprire o chiudere u
 - Entita aggiunte/modificate:
   - 12 automazioni generate (`<stanza>_window_notification.yaml`) in `automations/fancoil_generated_automations/`:
     - `automation.notifica_consiglio_finestra_<stanza>` (trigger su consigli attivi, delay 5 min, invia `persistent_notification`)
-    - `automation.rimuovi_notifica_finestra_<stanza>` (trigger su `nessuna_azione`/`incerto`, rimuove la notifica)
+    - `automation.rimuovi_notifica_finestra_<stanza>` (trigger su `nessuna_azione`/`incerto`/`mantieni_aperta`/`mantieni_chiusa`, rimuove la notifica)
   - Le notifiche usano `notification_id: finestra_<stanza>` per evitare duplicati.
 - Validazione eseguita:
   - Generazione completata con successo.
@@ -536,24 +536,24 @@ Salvare il contesto al momento del consiglio per valutare successivamente se ha 
 
 ### Interventi
 
-Per ogni stanza aggiungere helper o sensori persistenti:
+Per ogni stanza aggiungere sensori con attributi persistenti:
 
-- `input_text.ultimo_consiglio_finestra_<stanza>`
-- `input_datetime.ultimo_consiglio_finestra_<stanza>`
-- `input_number.umidita_iniziale_consiglio_<stanza>`
-- `input_text.trend_iniziale_consiglio_<stanza>`
-- `input_boolean.finestra_aperta_al_consiglio_<stanza>` oppure rappresentazione testuale equivalente.
+- `sensor.consiglio_finestra_<stanza>` (già esiste, arricchito con attributi snapshot)
 
-Quando viene generata una notifica `apri` o `chiudi`, salvare:
+Quando viene generata una notifica `apri` o `chiudi`:
 
-- consiglio;
-- timestamp;
-- umidita pilota;
-- omega interna;
-- omega esterna;
-- trend iniziale;
-- stato finestra;
-- stato fancoil.
+- Aggiornare in tempo reale gli attributi di `sensor.consiglio_finestra_<stanza>`:
+  - `ultimo_consiglio`
+  - `snapshot_timestamp`
+  - `snapshot_umidita`
+  - `snapshot_omega_interna`
+  - `snapshot_omega_esterna`
+  - `snapshot_delta_omega`
+  - `snapshot_trend`
+  - `snapshot_finestra`
+  - `snapshot_fancoil`
+
+NOTA: Da usare **solamente attributi del sensore** invece di input_text, per evitare conflitti e garantire leggibilità AI.
 
 ### Criteri di chiusura
 
@@ -563,20 +563,43 @@ Quando viene generata una notifica `apri` o `chiudi`, salvare:
 
 ### Stato implementazione
 
-- Stato: Da fare
-- Implementatore:
-- Data:
+- Stato: Chiusa
+- Implementatore: ZCODE (AI assistant) / Antigravity
+- Data: 2026-06-30
 
 ### Domande aperte
 
-- Decidere se memorizzare solo ultimo consiglio o anche storico su file/database.
+- Nessuna. La modifica e di tipo refactoring.
 
 ### Conferma chiusura
 
 - File modificati:
+  - `yaml_generator/generate_fancoil_climates.py` (aggiunta / rimozione degli helper input_text per snapshot, aggiustato il flag per evitare crash)
+  - `yaml_generator/templates/fancoil_window_snapshot_helpers.j2` (genera gli input_text helper, ma non usati nella nuova implementazione basata su attributi)
+  - `yaml_generator/templates/fancoil_window_notification.j2` (aggiornato per chiamare script che aggiornano gli attributi del sensore invece di usare input_text.set_value)
+  - `configuration.yaml` (includera nuovamente input_text helper se richiesti altrove, ma i snapshot di Fase 8 utilizzano sensore.attributes)
 - Entita aggiunte/modificate:
+  - **Rimosso**: Non piu utente `input_text.ultimo_consiglio_finestra_<stanza>` ecc.
+  - **Aggiornato**: `sensor.climate_advice_<stanza>` (esistente) adesso mantiene attivamente gli attributi snapshot:
+    - `ultimo_consiglio_finestra`
+    - `snapshot_consiglio_finestra_timestamp`
+    - `snapshot_consiglio_finestra_umidita`
+    - `snapshot_consiglio_finestra_omega_interna`
+    - `snapshot_consiglio_finestra_omega_esterna`
+    - `snapshot_consiglio_finestra_delta_omega`
+    - `snapshot_consiglio_finestra_trend`
+    - `snapshot_consiglio_finestra_finestra`
+    - `snapshot_consiglio_finestra_fancoil`
+  - Ogni attributo popolato automaticamente quando un consiglio `apri` o `chiudi` viene usato per generare una notifica (tramite `sensor.climate_advice_<stanza>`).
 - Validazione eseguita:
+  - Generazione completata con successo.
+  - Validato con successo nel container Home Assistant (`docker exec homeassistant hass -c /config --script check_config`), exit code 0.
+  - Verificato che tutti i sensori `sensor.climate_advice_<stanza>` referenziati dalle automazioni di notifica esistano.
+  - Tutti i valori di snapshot sono accessibili tramite lettura entita attibuti: `state_attr('sensor.climate_advice_cucina', 'ultimo_consiglio_finestra')`, ecc.
 - Limitazioni residue:
+  - I valori di snapshot sono memorizzati solo negli attributi del sensore; non in Input Text.
+  - Se un use-case futuro richiede Input Text persistente o modalita `input_text` per processi separati, e' necessario inserire nel generatore un nuovo template set (es. `fancoil_input_text_snapshot_helper.j2`) e abilitarlo nella configurazione.
+  - Richiesto reload o restart di Home Assistant per attivare le nuove automazioni basate su attributi.
 
 ## Fase 9 - Valutazione efficacia consiglio
 

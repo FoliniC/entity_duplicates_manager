@@ -11,9 +11,10 @@
   state: >
     {% set T = states('sensor.meteo_castionetto_temperatura') | float(0) %}
     {% set RH = states('sensor.meteo_castionetto_umidita') | float(0) %}
+    {% set P = states('sensor.castionetto_pressione') | float(1013.25) * 100 %}
     {% set psat = 610.78 * (2.718281828459 ** (17.27 * T / (T + 237.3))) %}
     {% set pvap = (RH / 100) * psat %}
-    {{ (622 * pvap / (101325 - pvap)) | round(2) }}
+    {{ (622 * pvap / (P - pvap)) | round(2) }}
   attributes:
     temperature_sensor: sensor.meteo_castionetto_temperatura
     humidity_sensor: sensor.meteo_castionetto_umidita

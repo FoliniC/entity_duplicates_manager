@@ -79,11 +79,15 @@ WINDOW_ADVICE_TEMPLATE_PATH = (
 WINDOW_NOTIFICATION_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "fancoil_window_notification.j2")
 )
+CLIMATE_ADVICE_TRIGGER_TEMPLATE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "climate_advice_triggered.j2")
+)
 
 # Outputs (generated)
 CLIMATE_OUTPUT_DIR = "yaml_generator/generated_climates"
 AUTOMATION_OUTPUT_DIR = "automations/fancoil_generated_automations"
 SENSORS_OUTPUT_DIR = "yaml_generator/managed_sensors"
+TRIGGER_SENSORS_OUTPUT_DIR = "yaml_generator/managed_trigger_sensors"
 CLIMATE_COMFORT_PER_ROOM_OUTPUT_FILE = os.path.join(
     SENSORS_OUTPUT_DIR, "climate_comfort_per_room.yaml"
 )
@@ -694,9 +698,17 @@ def main():
     # Fase 6 - Per-room window advice sensors (consiglio finestra)
     generate_from_template(
         WINDOW_ADVICE_TEMPLATE_PATH,
-        SENSORS_OUTPUT_DIR,
+        TRIGGER_SENSORS_OUTPUT_DIR,
         vars_map,
         "_window_advice",
+    )
+
+    # Trigger-based climate advice sensors with restored state/attributes.
+    generate_from_template(
+        CLIMATE_ADVICE_TRIGGER_TEMPLATE_PATH,
+        TRIGGER_SENSORS_OUTPUT_DIR,
+        vars_map,
+        "_climate_advice",
     )
 
     # Fase 7 - Per-room window notification automations
@@ -751,7 +763,6 @@ def main():
         vars_map,
         extra_context=None,
     )
-
     # Master climate (single file)
     master_ctx = build_master_context(vars_map)
     master_template = read_template(MASTER_CLIMATE_TEMPLATE_PATH)
@@ -790,6 +801,10 @@ def main():
         "- !include ev_charge_2025_triggers.yaml",
         "- !include luce_scale_template.yaml"
     ]
+    for key in vars_map.keys():
+        master_lines.append(f"- !include managed_trigger_sensors/{key}_climate_advice.yaml")
+    for key in vars_map.keys():
+        master_lines.append(f"- !include managed_trigger_sensors/{key}_window_advice.yaml")
     for key in vars_map.keys():
         master_lines.append(f"- !include managed_persistence/{key}_persistence.yaml")
     

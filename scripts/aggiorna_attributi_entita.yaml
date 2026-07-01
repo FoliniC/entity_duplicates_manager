@@ -1,0 +1,76 @@
+aggiorna_attributi_entita:
+  alias: Aggiorna attributi entita (snapshot functionality)
+  description: Update sensor entity attributes with window advice snapshot data
+  fields:
+    entity_id:
+      description: L'entità sensor da aggiornare (es. sensor.climate_advice_sala)
+      required: true
+      selector:
+        entity:
+          domain: sensor
+    attributes:
+      description: Dizionario degli attributi da impostare sull'entità sensor
+      required: true
+      selector:
+        object: {}
+  mode: restart
+  max: 10
+  
+  sequence:
+    # Valida l'entità è nel dominio sensor
+    - variables:
+        is_sensor: "{{ entity_id.startswith('sensor.') }}"
+        entity_name: "{{ entity_id.replace('sensor.', '') }}"
+        
+    - action: script.turn_on
+      target:
+        entity_id: script.halog2026_log_event
+      data:
+        level: info
+        message: "[Updater] Aggiornamento entità sensor {{ entity_id }} - {{ attributes | length }} attributi da impostare"
+        
+    # Aggiorna ogni attributo usando set_state per entity attributes
+    - repeat:
+        for:
+          item: "{{ attributes }}"
+        sequence:
+          - variables:
+              attr_name: "{{ item.key }}"
+              attr_value: "{{ item.value }}"
+              # Converti valori booleani in stringhe per Home Assistant
+              attr_value_serialized: >-
+                {% set bool_values = ['true', 'false', 'on', 'off'] %}
+                {% if attr_value in bool_values %}
+                  {{ attr_value }}
+                {% elif isinstance(attr_value, bool) %}
+                  {{ 'true' if attr_value else 'false' }}
+                {% else %}
+                  {{ attr_value }}
+                {% endif %}
+          - action: homeassistant.set_variable
+            target:
+              entity_id: "{{ entity_id }}"
+            data:
+              attribute: "{{ attr_name }}"
+              value: "{{ attr_value_serialized }}"
+          
+          - action: script.turn_on
+            target:
+              entity_id: script.halog2026_log_event
+            data:
+              level: debug
+              message: "[Updater] Aggiornato {{ entity_id }} attributo '{{ attr_name }}' = '{{ attr_value_serialized }}'"
+          
+          - delay:
+              seconds: 0.05
+              
+    # Log di completamento
+    - action: script.turn_on
+      target:
+        entity_id: script.halog2026_log_event
+      data:
+        level: info
+        message: "[Updater] Aggiornamento COMPLETATO per {{ entity_id }} - {{ attributes | length }} attributi impostati"
+        
+    # NOTA: L'evento di logging halog2026_log_event deve esistere in pyscript
+    # Se non esiste, usa: persistent_notification.create

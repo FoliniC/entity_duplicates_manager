@@ -15,8 +15,6 @@
       to:
         - "apri"
         - "chiudi"
-        - "mantieni_aperta"
-        - "mantieni_chiusa"
       for:
         minutes: 5
   condition: []
@@ -30,10 +28,6 @@
             🪟 Apri la finestra – %%friendly_name%%
           {% elif consiglio == 'chiudi' %}
             🔒 Chiudi la finestra – %%friendly_name%%
-          {% elif consiglio == 'mantieni_aperta' %}
-            ✅ Mantieni aperta – %%friendly_name%%
-          {% elif consiglio == 'mantieni_chiusa' %}
-            ✅ Mantieni chiusa – %%friendly_name%%
           {% else %}
             ℹ️ Consiglio finestra – %%friendly_name%%
           {% endif %}
@@ -62,6 +56,8 @@
       to:
         - "nessuna_azione"
         - "incerto"
+        - "mantieni_aperta"
+        - "mantieni_chiusa"
   condition: []
   action:
     - action: persistent_notification.dismiss

@@ -1,5 +1,5 @@
 rest:
-  - resource: "https://api.open-meteo.com/v1/forecast?latitude=46.178&longitude=9.982&current=temperature_2m,relative_humidity_2m,dew_point_2m,precipitation,rain,weather_code,is_day,shortwave_radiation,direct_radiation,diffuse_radiation,direct_normal_irradiance,sunshine_duration&hourly=precipitation_probability&daily=sunrise,sunset&timezone=Europe%2FRome&forecast_days=1&forecast_hours=24"
+  - resource: "https://api.open-meteo.com/v1/forecast?latitude=46.178&longitude=9.982&current=temperature_2m,relative_humidity_2m,dew_point_2m,precipitation,rain,weather_code,is_day,shortwave_radiation,direct_radiation,diffuse_radiation,direct_normal_irradiance,sunshine_duration,surface_pressure&hourly=precipitation_probability&daily=sunrise,sunset&timezone=Europe%2FRome&forecast_days=1&forecast_hours=24"
     scan_interval: 300
     sensor:
       - name: "Meteo Castionetto - Temperatura"
@@ -112,6 +112,14 @@ rest:
         value_template: "{{ value_json.current.sunshine_duration if value_json is defined and value_json.current is defined else none }}"
         availability: "{{ value_json is defined and value_json.current is defined }}"
         unit_of_measurement: "s"
+
+      - name: "Castionetto Pressione"
+        unique_id: castionetto_pressione
+        value_template: "{{ value_json.current.surface_pressure if value_json is defined and value_json.current is defined else none }}"
+        availability: "{{ value_json is defined and value_json.current is defined }}"
+        unit_of_measurement: "hPa"
+        device_class: pressure
+        icon: mdi:gauge
 
       - name: "Castionetto Prob. Pioggia Ora"
         unique_id: castionetto_prob_pioggia_ora

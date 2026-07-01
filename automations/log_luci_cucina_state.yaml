@@ -1,0 +1,71 @@
+- id: log_luci_cucina_state_change
+  alias: "Log Luce Cucina State Change"
+  description: "Traccia ogni cambio di stato di switch.luci_cucina_switch_2 e switch.luci_cucina_switch_3 per capire chi opera sulla luce"
+  mode: queued
+  max: 50
+  trigger:
+    - platform: state
+      entity_id:
+        - switch.luci_cucina_switch_2
+        - switch.luci_cucina_switch_3
+  condition:
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.state != trigger.from_state.state
+           and not (trigger.to_state.state in ['unavailable', 'unknown']
+                    and trigger.from_state.state in ['unavailable', 'unknown']) }}
+  action:
+    - variables:
+        to_state: "{{ trigger.to_state.state }}"
+        from_state: "{{ trigger.from_state.state }}"
+        ctx: "{{ trigger.to_state.context }}"
+        debug_entity: "{{ trigger.entity_id }}"
+        friendly_name: >-
+          {% set eid = trigger.entity_id %}
+          {% if 'luci_cucina_switch_2' in eid %}
+            luce bancone
+          {% elif 'luci_cucina_switch_3' in eid %}
+            luce tavolo
+          {% else %}
+            {{ eid }}
+          {% endif %}
+        user_id: "{{ trigger.to_state.context.user_id if trigger.to_state.context is defined else none }}"
+        parent_id: "{{ trigger.to_state.context.parent_id if trigger.to_state.context is defined else none }}"
+        souce: >
+          {% set ctx = trigger.to_state.context if trigger.to_state.context is defined else none %}
+          {{ ctx.source if ctx is not none and ctx.source is defined else '' }}
+        ts: "{{ trigger.to_state.last_changed | default(now()) }}"
+        user_name: >
+          {% if user_id is not none %}
+            {% set person = states.person | selectattr('attributes.user_id', 'eq', user_id) | first | default(none) %}
+            {{ person.attributes.friendly_name if person else 'ID:' ~ user_id[:8] }}
+          {% else %}
+            none
+          {% endif %}
+        anomalous: >
+          {{ from_state in ['unavailable', 'unknown'] or to_state in ['unavailable', 'unknown'] }}
+        reason: >
+          {% if anomalous %}
+            Stato anomalo (dropout Wi-Fi/cloud o riavvio dispositivo): {{ from_state }} -> {{ to_state }}
+          {% elif souce == 'BUTTON' or (user_id is none and parent_id is none and souce == '') %}
+            Fisico/RF (pulsante o telecomando Tuya)
+          {% elif user_id is not none %}
+            Interfaccia Web/App ({{ user_name }})
+          {% elif parent_id is not none %}
+            Sistema/Automazione (parent: {{ parent_id[:12] }})
+          {% elif souce != '' %}
+            Esterno (source={{ souce }})
+          {% else %}
+            Fisico/RF (pulsante o telecomando Tuya)
+          {% endif %}
+        action_word: >
+          {% if to_state == 'on' %}ACCESO
+          {% elif to_state == 'off' %}SPENTO
+          {% else %}{{ to_state | upper }}{% endif %}
+        level: "{{ 'WARNING' if anomalous else 'INFO' }}"
+    - event: balcone_log_event
+      event_data:
+        level: "{{ level }}"
+        action: "{{ action_word }}"
+        message: "Cucina {{ friendly_name }} {{ action_word }} (era {{ from_state }}) — Motivo: {{ reason }} [entity={{ debug_entity }} source={{ souce }} user_id={{ user_id }} parent_id={{ parent_id }}] @ {{ ts }}"
+        wait: 1

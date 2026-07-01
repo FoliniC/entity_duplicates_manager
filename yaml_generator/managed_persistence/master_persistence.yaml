@@ -1,7 +1,7 @@
 
 trigger:
   - platform: state
-    entity_id: input_select.fancoil_system_hvac_mode
+    entity_id: climate.climatizzazione_appartamento
     not_to:
       - "unknown"
       - "unavailable"
@@ -12,7 +12,7 @@ sensor:
   - name: "Fancoil System Saved HVAC Mode"
     unique_id: fancoil_system_saved_hvac_mode
     state: >-
-      {% set current = states('input_select.fancoil_system_hvac_mode') %}
+      {% set current = states('climate.climatizzazione_appartamento') %}
       {% if current in ['heat', 'cool', 'dry', 'fan_only'] %}
         {{ current }}
       {% else %}

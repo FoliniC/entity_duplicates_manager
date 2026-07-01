@@ -1,6 +1,0 @@
-- trigger:
-    - platform: state
-      entity_id: sun.sun
-  sensor:
-    - name: "Test Sensor"
-      state: "on"
