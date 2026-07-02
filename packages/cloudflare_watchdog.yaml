@@ -8,9 +8,6 @@ command_line:
       payload_off: "OFF"
       scan_interval: 60
 
-shell_command:
-  restart_cloudflare_tunnel: "ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null carlo@localhost 'docker restart cloudflare-tunnel'"
-
 template:
   - switch:
       - name: "Cloudflare Tunnel"

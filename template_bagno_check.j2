@@ -1,0 +1,43 @@
+{% set window = is_state('input_boolean.finestra_bagno_aperta', 'on') %}
+{% set consiglio = states('sensor.consiglio_finestra_bagno') %}
+{% set rh = states('sensor.umidita_bagno_pilota') | float(0) %}
+{% set omega_int = states('sensor.omega_bagno') | float(0) %}
+{% set omega_ext = states('sensor.omega_esterno') | float(0) %}
+{% set delta = (omega_int - omega_ext) | round(2) %}
+{% set trend = states('sensor.trend_umidita_bagno') %}
+{% set fancoil = is_state('switch.fancoil_bagno_switch_1', 'on') or is_state('switch.fancoil_bagno_switch_2', 'on') or is_state('switch.fancoil_bagno_switch_3', 'on') or is_state('switch.fancoil_bagno_switch_4', 'on') %}
+
+=== CURRENT BAGNO STATE ===
+finestra_bagno_aperta: {{ window }}
+consiglio_finestra: {{ consiglio }}
+rh_int: {{ rh }}%
+omega_int: {{ omega_int }} g/kg
+omega_ext: {{ omega_ext }} g/kg
+delta_omega: {{ delta }} g/kg
+trend_umidita: {{ trend }}
+fancoil_attivo: {{ fancoil }}
+
+=== LOGIC CHECK ===
+{% if not window %}
+  {% if delta >= 1.0 and rh > 55.0 %}EXPECTED: apri
+  {% elif delta < 0.2 %}EXPECTED: mantieni_chiusa
+  {% else %}EXPECTED: nessuna_azione{% endif %}
+{% else %}
+  {% if delta < 0.2 %}EXPECTED: chiudi
+  {% elif trend == 'in_salita' and delta < 0.5 %}EXPECTED: chiudi
+  {% elif rh <= 55.0 %}EXPECTED: chiudi
+  {% elif trend == 'in_calata' or delta >= 1.0 %}EXPECTED: mantieni_aperta
+  {% else %}EXPECTED: nessuna_azione{% endif %}
+{% endif %}
+
+=== ENTITY STATES ===
+input_boolean.finestra_bagno_aperta: {{ states('input_boolean.finestra_bagno_aperta') }}
+sensor.consiglio_finestra_bagno: {{ states('sensor.consiglio_finestra_bagno') }}
+sensor.umidita_bagno_pilota: {{ states('sensor.umidita_bagno_pilota') }}
+sensor.omega_bagno: {{ states('sensor.omega_bagno') }}
+sensor.omega_esterno: {{ states('sensor.omega_esterno') }}
+sensor.trend_umidita_bagno: {{ states('sensor.trend_umidita_bagno') }}
+switch.fancoil_bagno_switch_1: {{ states('switch.fancoil_bagno_switch_1') }}
+switch.fancoil_bagno_switch_2: {{ states('switch.fancoil_bagno_switch_2') }}
+switch.fancoil_bagno_switch_3: {{ states('switch.fancoil_bagno_switch_3') }}
+switch.fancoil_bagno_switch_4: {{ states('switch.fancoil_bagno_switch_4') }}

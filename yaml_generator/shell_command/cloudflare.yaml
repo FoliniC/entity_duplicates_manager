@@ -1,2 +1,3 @@
-stop_cloudflare: "ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no carlo@localhost 'docker stop cloudflare-tunnel'"
-start_cloudflare: "ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no carlo@localhost 'docker start cloudflare-tunnel'"
+stop_cloudflare: "docker stop cloudflare-tunnel"
+start_cloudflare: "docker start cloudflare-tunnel"
+restart_cloudflare_tunnel: "docker restart cloudflare-tunnel"

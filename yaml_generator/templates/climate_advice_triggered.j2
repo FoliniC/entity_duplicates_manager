@@ -22,6 +22,8 @@ sensor:
         {% if rh > 65 %}{% set ns.advices = ns.advices + ['Accendi Fancoil (Deumidifica)'] %}{% endif %}
         {% if cf == 'apri' %}
           {% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna secca)'] %}
+        {% elif cf == 'apri_se_riparata' %}
+          {% set ns.advices = ns.advices + ['Apri Finestra (Aria esterna molto secca - se riparata dalla pioggia)'] %}
         {% elif cf == 'chiudi' %}
           {% set ns.advices = ns.advices + ['Chiudi finestra'] %}
         {% elif cf == 'mantieni_aperta' %}

@@ -1,0 +1,25 @@
+{% set rooms = ['cucina', 'camera_grande', 'camera', 'corridoio', 'bagno', 'sala'] %}
+
+=== WINDOW STATUS & ADVICE HISTORY ===
+
+{% for room in rooms %}
+--- {{ room | upper }} ---
+finestra_aperta: {{ is_state('input_boolean.finestra_' ~ room ~ '_aperta', 'on') }}
+consiglio_finestra: {{ states('sensor.consiglio_finestra_' ~ room) }}
+climate_advice: {{ states('sensor.climate_advice_' ~ room) }}
+rh_int: {{ states('sensor.fancoil_' ~ room ~ '_humidity') }}%
+omega_int: {{ states('sensor.omega_' ~ room) }} g/kg
+omega_ext: {{ states('sensor.omega_esterno') }} g/kg
+delta_omega: {{ (states('sensor.omega_' ~ room) | float(0) - states('sensor.omega_esterno') | float(0)) | round(2) }} g/kg
+trend: {{ states('sensor.trend_umidita_' ~ room) }}
+temp: {{ states('sensor.temperatura_' ~ room ~ '_reale_calcolata') }}°C
+piove: {{ states('sensor.castionetto_precipitazione') | float(0) > 0.0 }}
+fancoil_attivo: {{ is_state('switch.fancoil_' ~ room ~ '_switch_1', 'on') or is_state('switch.fancoil_' ~ room ~ '_switch_2', 'on') or is_state('switch.fancoil_' ~ room ~ '_switch_3', 'on') or is_state('switch.fancoil_' ~ room ~ '_switch_4', 'on') }}
+{% endfor %}
+
+=== EXTERNAL CONDITIONS ===
+omega_esterno: {{ states('sensor.omega_esterno') }} g/kg
+punto_rugiada_esterno: {{ states('sensor.punto_di_rugiada_esterno') }}°C
+pioggia: {{ states('sensor.castionetto_precipitazione') }} mm
+temp_esterna: {{ states('sensor.sensore_clima_temp_current') }}°C
+rh_esterna: {{ states('sensor.sensore_clima_humidity_value') }}%

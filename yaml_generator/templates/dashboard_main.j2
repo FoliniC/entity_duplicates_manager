@@ -616,6 +616,24 @@ views:
                         --primary-text-color: var(--primary-color);
                         font-weight: bold;
                       }
+                - type: custom:mushroom-template-card
+                  primary: "📈 Grafici Esterni"
+                  icon: mdi:chart-line
+                  icon_color: var(--primary-color)
+                  tap_action:
+                    action: navigate
+                    navigation_path: "/riscaldamento-1/fancoil-grafici-esterni"
+                  card_mod:
+                    style: |
+                      ha-card {
+                        font-size: 1.1em !important;
+                        font-weight: bold !important;
+                        user-select: text !important;
+                        padding: 0px 8px !important;
+                        box-shadow: none;
+                        background: none;
+                        border: none;
+                      }
                 - type: grid
                   columns: 2
                   square: false
@@ -771,6 +789,14 @@ views:
                             --primary-text-color: var(--primary-color);
                             font-weight: bold;
                           }
+                    - type: custom:mushroom-template-card
+                      primary: "📈 Grafici Cucina"
+                      icon: mdi:chart-line
+                      icon_color: var(--primary-color)
+                      tap_action:
+                        action: navigate
+                        navigation_path: "/riscaldamento-1/fancoil-grafici-cucina"
+                      card_mod: *row_style
                     - type: entities
                       show_header_toggle: false
                       state_color: true
@@ -871,6 +897,14 @@ views:
                             --primary-text-color: var(--primary-color);
                             font-weight: bold;
                           }
+                    - type: custom:mushroom-template-card
+                      primary: "📈 Grafici Camera Grande"
+                      icon: mdi:chart-line
+                      icon_color: var(--primary-color)
+                      tap_action:
+                        action: navigate
+                        navigation_path: "/riscaldamento-1/fancoil-grafici-camera_grande"
+                      card_mod: *row_style
                     - type: entities
                       show_header_toggle: false
                       state_color: true
@@ -977,6 +1011,14 @@ views:
                             --primary-text-color: var(--primary-color);
                             font-weight: bold;
                           }
+                    - type: custom:mushroom-template-card
+                      primary: "📈 Grafici Camera"
+                      icon: mdi:chart-line
+                      icon_color: var(--primary-color)
+                      tap_action:
+                        action: navigate
+                        navigation_path: "/riscaldamento-1/fancoil-grafici-camera"
+                      card_mod: *row_style
                     - type: entities
                       show_header_toggle: false
                       state_color: true
@@ -1083,6 +1125,14 @@ views:
                             --primary-text-color: var(--primary-color);
                             font-weight: bold;
                           }
+                    - type: custom:mushroom-template-card
+                      primary: "📈 Grafici Corridoio"
+                      icon: mdi:chart-line
+                      icon_color: var(--primary-color)
+                      tap_action:
+                        action: navigate
+                        navigation_path: "/riscaldamento-1/fancoil-grafici-corridoio"
+                      card_mod: *row_style
                     - type: entities
                       show_header_toggle: false
                       state_color: true
@@ -1177,6 +1227,14 @@ views:
                             --primary-text-color: var(--primary-color);
                             font-weight: bold;
                           }
+                    - type: custom:mushroom-template-card
+                      primary: "📈 Grafici Bagno"
+                      icon: mdi:chart-line
+                      icon_color: var(--primary-color)
+                      tap_action:
+                        action: navigate
+                        navigation_path: "/riscaldamento-1/fancoil-grafici-bagno"
+                      card_mod: *row_style
                     - type: entities
                       show_header_toggle: false
                       state_color: true
@@ -1265,6 +1323,14 @@ views:
                             --primary-text-color: var(--primary-color);
                             font-weight: bold;
                           }
+                    - type: custom:mushroom-template-card
+                      primary: "📈 Grafici Sala"
+                      icon: mdi:chart-line
+                      icon_color: var(--primary-color)
+                      tap_action:
+                        action: navigate
+                        navigation_path: "/riscaldamento-1/fancoil-grafici-sala"
+                      card_mod: *row_style
                     - type: entities
                       show_header_toggle: false
                       state_color: true

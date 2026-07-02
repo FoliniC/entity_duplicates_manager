@@ -9,20 +9,22 @@
   unique_id: omega_esterno
   unit_of_measurement: "g/kg"
   state: >
-    {% set T = states('sensor.meteo_castionetto_temperatura') | float(0) %}
-    {% set RH = states('sensor.meteo_castionetto_umidita') | float(0) %}
+    {% set T = states('sensor.sensore_clima_temp_current') | float(0) %}
+    {% set RH = states('sensor.sensore_clima_humidity_value') | float(0) %}
     {% set P = states('sensor.castionetto_pressione') | float(1013.25) * 100 %}
     {% set psat = 610.78 * (2.718281828459 ** (17.27 * T / (T + 237.3))) %}
     {% set pvap = (RH / 100) * psat %}
     {{ (622 * pvap / (P - pvap)) | round(2) }}
   attributes:
-    temperature_sensor: sensor.meteo_castionetto_temperatura
-    humidity_sensor: sensor.meteo_castionetto_umidita
-    temperatura: "{{ states('sensor.meteo_castionetto_temperatura') | float(0) }}"
-    umidita: "{{ states('sensor.meteo_castionetto_umidita') | float(0) }}"
+    temperature_sensor: sensor.sensore_clima_temp_current
+    humidity_sensor: sensor.sensore_clima_humidity_value
+    temperatura: "{{ states('sensor.sensore_clima_temp_current') | float(0) }}"
+    umidita: "{{ states('sensor.sensore_clima_humidity_value') | float(0) }}"
 
 - name: "T_dew Esterno"
   unique_id: punto_di_rugiada_esterno
   unit_of_measurement: "°C"
   state: >
-    {{ states('sensor.meteo_castionetto_punto_di_rugiada') | float(0) }}
+    {% set T = states('sensor.sensore_clima_temp_current') | float(0) %}
+    {% set RH = states('sensor.sensore_clima_humidity_value') | float(0) %}
+    {{ (T - (100 - RH) / 5) | round(1) }}

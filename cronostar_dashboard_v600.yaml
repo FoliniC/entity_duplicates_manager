@@ -1,9 +1,9 @@
-title: CronoStar Admin v6.8.7
+title: CronoStar Admin v6.8.8
 views:
 - title: Admin
   cards:
   - type: markdown
-    content: '## CronoStar Admin v6.8.7'
+    content: '## CronoStar Admin v6.8.8'
   - type: custom:cronostar-card
     view_mode: admin
     global_prefix: cronostar_thermostat_appartamento_

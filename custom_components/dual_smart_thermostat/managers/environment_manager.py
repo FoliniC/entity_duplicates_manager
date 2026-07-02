@@ -364,86 +364,68 @@ class EnvironmentManager(StateManager):
         _LOGGER.debug("Setting HVAC mode for tolerance selection: %s", hvac_mode)
         self._hvac_mode = hvac_mode
 
-    def _get_active_tolerance_for_mode(self) -> tuple[float, float]:
-        """Get active cold and hot tolerance values for current HVAC mode.
+    def _get_active_tolerance_for_mode(
+        self, target_attr: str = "_target_temp"
+    ) -> tuple[float, float]:
+        """Get active (cold, hot) tolerance values for the current check.
 
-        Implements priority-based tolerance selection:
-          Priority 1: Mode-specific tolerance (heat_tolerance or cool_tolerance)
-          Priority 2: Legacy tolerances (cold_tolerance, hot_tolerance)
+        ``cold`` is used by ``is_too_cold`` (current temp below target) and
+        ``hot`` by ``is_too_hot`` (current temp above target). The cold/hot
+        legacy tolerances are *directional* (they always describe the
+        below/above-target side); the mode tolerances are the per-mode
+        hysteresis.
 
-        Returns:
-            tuple[float, float]: (cold_tolerance, hot_tolerance) to use for comparisons
-                Both values are always valid floats (never None)
-
-        Notes:
-            - For HEAT mode: Returns (heat_tol, heat_tol) if set, else legacy
-            - For COOL mode: Returns (cool_tol, cool_tol) if set, else legacy
-            - For HEAT_COOL: Checks current vs target temp to determine operation
-            - For FAN_ONLY: Uses cool_tolerance (fan behaves like cooling)
-            - For DRY/OFF: Returns legacy (no active tolerance checks)
-            - If _hvac_mode is None: Returns legacy (safe fallback)
+        Selection (issue #612):
+            - HEAT_COOL has two independent loops keyed by ``target_attr``:
+                * ``_target_temp_low`` (heater): start below low uses
+                  ``cold_tolerance``; stop above low uses ``heat_tolerance``
+                  (falls back to legacy hot tolerance when unset).
+                * ``_target_temp_high`` (cooler): start above high uses
+                  ``hot_tolerance``; stop below high uses ``cool_tolerance``
+                  (falls back to legacy cold tolerance when unset).
+            - HEAT: symmetric ``heat_tolerance`` if configured.
+            - COOL / FAN_ONLY: symmetric ``cool_tolerance`` if configured.
+            - Otherwise: legacy directional tolerances.
+        Both returned values are always valid floats (never None).
         """
-        # HEAT mode: Use heat_tolerance if configured
-        if self._hvac_mode == HVACMode.HEAT:
-            if self._heat_tolerance is not None:
-                _LOGGER.debug(
-                    "Using heat_tolerance for HEAT mode: %s", self._heat_tolerance
-                )
-                return (self._heat_tolerance, self._heat_tolerance)
-
-        # COOL mode: Use cool_tolerance if configured
-        elif self._hvac_mode == HVACMode.COOL:
-            if self._cool_tolerance is not None:
-                _LOGGER.debug(
-                    "Using cool_tolerance for COOL mode: %s", self._cool_tolerance
-                )
-                return (self._cool_tolerance, self._cool_tolerance)
-
-        # FAN_ONLY: Use cool_tolerance (fan behaves like cooling)
-        elif self._hvac_mode == HVACMode.FAN_ONLY:
-            if self._cool_tolerance is not None:
-                _LOGGER.debug(
-                    "Using cool_tolerance for FAN_ONLY mode: %s", self._cool_tolerance
-                )
-                return (self._cool_tolerance, self._cool_tolerance)
-
-        # HEAT_COOL (Auto): Determine operation from temperature
-        elif self._hvac_mode == HVACMode.HEAT_COOL:
-            if self._cur_temp is not None and self._target_temp is not None:
-                if self._cur_temp < self._target_temp:
-                    # Currently heating
-                    if self._heat_tolerance is not None:
-                        _LOGGER.debug(
-                            "Using heat_tolerance for HEAT_COOL mode (heating): %s",
-                            self._heat_tolerance,
-                        )
-                        return (self._heat_tolerance, self._heat_tolerance)
-                else:
-                    # Currently cooling
-                    if self._cool_tolerance is not None:
-                        _LOGGER.debug(
-                            "Using cool_tolerance for HEAT_COOL mode (cooling): %s",
-                            self._cool_tolerance,
-                        )
-                        return (self._cool_tolerance, self._cool_tolerance)
-
-        # Fallback: Use legacy tolerances (with defaults if not configured)
-        cold_tol = (
+        legacy_cold = (
             self._cold_tolerance
             if self._cold_tolerance is not None
             else DEFAULT_TOLERANCE
         )
-        hot_tol = (
+        legacy_hot = (
             self._hot_tolerance
             if self._hot_tolerance is not None
             else DEFAULT_TOLERANCE
         )
-        _LOGGER.debug(
-            "Using legacy tolerances (or defaults): cold=%s, hot=%s",
-            cold_tol,
-            hot_tol,
-        )
-        return (cold_tol, hot_tol)
+
+        if self._hvac_mode == HVACMode.HEAT_COOL:
+            if target_attr == "_target_temp_low":
+                hot = (
+                    self._heat_tolerance
+                    if self._heat_tolerance is not None
+                    else legacy_hot
+                )
+                return (legacy_cold, hot)
+            if target_attr == "_target_temp_high":
+                cold = (
+                    self._cool_tolerance
+                    if self._cool_tolerance is not None
+                    else legacy_cold
+                )
+                return (cold, legacy_hot)
+            return (legacy_cold, legacy_hot)
+
+        if self._hvac_mode == HVACMode.HEAT and self._heat_tolerance is not None:
+            return (self._heat_tolerance, self._heat_tolerance)
+
+        if (
+            self._hvac_mode in (HVACMode.COOL, HVACMode.FAN_ONLY)
+            and self._cool_tolerance is not None
+        ):
+            return (self._cool_tolerance, self._cool_tolerance)
+
+        return (legacy_cold, legacy_hot)
 
     def set_temperature_range_from_saved(self) -> None:
         self.target_temp_low = self.saved_target_temp_low
@@ -540,7 +522,7 @@ class EnvironmentManager(StateManager):
         if self._cur_temp is None or target_temp is None:
             return False
 
-        cold_tolerance, _ = self._get_active_tolerance_for_mode()
+        cold_tolerance, _ = self._get_active_tolerance_for_mode(target_attr)
 
         _LOGGER.debug(
             "is_too_cold - target temp attr: %s, Target temp: %s, current temp: %s, tolerance: %s",
@@ -564,7 +546,7 @@ class EnvironmentManager(StateManager):
         if active_temp is None or target_temp is None:
             return False
 
-        _, hot_tolerance = self._get_active_tolerance_for_mode()
+        _, hot_tolerance = self._get_active_tolerance_for_mode(target_attr)
 
         _LOGGER.debug(
             "is_too_hot - target temp attr: %s, Target temp: %s, "
@@ -862,20 +844,34 @@ class EnvironmentManager(StateManager):
             is_range_mode,
         )
 
-        # Use template-aware getters to evaluate templates (#538)
-        preset_temp = preset_env.get_temperature(self.hass)
-        preset_temp_low = preset_env.get_target_temp_low(self.hass)
-        preset_temp_high = preset_env.get_target_temp_high(self.hass)
-
         if is_range_mode:
             _LOGGER.debug(
                 "Setting temperatures from preset range mode, preset_env: %s",
                 preset_env.to_dict,
             )
 
-            if preset_env.has_temp_range():
-                self.target_temp_low = preset_temp_low
-                self.target_temp_high = preset_temp_high
+            # Getters evaluate templates and filter placeholder values (<= 0).
+            preset_temp_low = preset_env.get_target_temp_low(self.hass)
+            preset_temp_high = preset_env.get_target_temp_high(self.hass)
+
+            if preset_temp_low is not None or preset_temp_high is not None:
+                if preset_temp_low is not None:
+                    self.target_temp_low = preset_temp_low
+                if preset_temp_high is not None:
+                    self.target_temp_high = preset_temp_high
+            else:
+                # Single-temp preset applied while in range (heat/cool) mode.
+                # Without this fallback the preset is silently ignored and
+                # switching presets appears to do nothing (issue #592). Apply
+                # the single value to both setpoints so the change is honored.
+                preset_temp = preset_env.get_temperature(self.hass)
+                if preset_temp is not None:
+                    _LOGGER.debug(
+                        "Applying single-temp preset %s to both setpoints in range mode",
+                        preset_temp,
+                    )
+                    self.target_temp_low = preset_temp
+                    self.target_temp_high = preset_temp
 
         else:
             _LOGGER.debug(
@@ -883,32 +879,21 @@ class EnvironmentManager(StateManager):
                 preset_env.to_dict,
             )
 
-            if preset_env.has_temp():
+            preset_temp = preset_env.get_temperature(self.hass)
+
+            if preset_temp is not None:
                 _LOGGER.debug(
                     "Setting temperatures from preset target mode if target_temp set"
                 )
-
-                # we prioritize the target temp from preset if it is set
-                if preset_env.has_temp():
-                    self.target_temp = preset_temp
-                # only after that we check if the temp range is set
-                elif preset_env.has_temp_range():
-                    if hvac_mode == HVACMode.HEAT:
-                        _LOGGER.debug(
-                            "Setting temperatures from preset target mode if HVACMode.HEAT. Preset: %s",
-                            preset_temp_low,
-                        )
-                        self.target_temp = preset_temp_low
-                    elif hvac_mode in [HVACMode.COOL, HVACMode.FAN_ONLY]:
-                        _LOGGER.debug(
-                            "Setting temperatures from preset target mode if HVACMode.COOL, HVACMode.FAN_ONLY. Preset: %s",
-                            preset_temp_high,
-                        )
-                        self.target_temp = preset_temp_high
-
+                self.target_temp = preset_temp
                 return
 
-            if not preset_env.has_temp_range():
+            # Only needed past the single-temp early return; the getters may
+            # evaluate templates, so don't pay for them on the common path.
+            preset_temp_low = preset_env.get_target_temp_low(self.hass)
+            preset_temp_high = preset_env.get_target_temp_high(self.hass)
+
+            if preset_temp_low is None and preset_temp_high is None:
                 _LOGGER.debug(
                     "Setting temperatures from preset target mode when preset not in presets_range. Saved temp: %s",
                     self._saved_target_temp,
@@ -923,12 +908,15 @@ class EnvironmentManager(StateManager):
                 )
 
                 if hvac_mode == HVACMode.HEAT:
-                    _LOGGER.debug(
-                        "Setting temperatures from preset range mode if HVACMode.HEAT. Preset: %s",
-                        preset_temp_low,
-                    )
-                    self._target_temp = preset_temp_low
-                elif hvac_mode in [HVACMode.COOL, HVACMode.FAN_ONLY]:
+                    if preset_temp_low is not None:
+                        _LOGGER.debug(
+                            "Setting temperatures from preset range mode if HVACMode.HEAT. Preset: %s",
+                            preset_temp_low,
+                        )
+                        self._target_temp = preset_temp_low
+                elif hvac_mode in [HVACMode.COOL, HVACMode.FAN_ONLY] and (
+                    preset_temp_high is not None
+                ):
                     _LOGGER.debug(
                         "Setting temperatures from preset range mode if HVACMode.COOL, HVACMode.FAN_ONLY. Preset: %s, sved_target_temp: %s",
                         preset_temp_high,

@@ -5,10 +5,10 @@ fancoil_vars:
     filename: cucina
     unique_id: cucina
     ref_sensor: sensor.th1a_temperature
-    # Fase 4 - Sensore pilota umidità (Tuya prioritario, fancoil come fallback)
-    humidity_sensor: sensor.th1a_humidity
+    # Fase 4 - Sensore pilota umidità (Fancoil prioritario, Tuya TH come fallback)
+    humidity_sensor: sensor.fancoil_cucina_humidity
     humidity_fallback_sensors:
-      - sensor.fancoil_cucina_humidity
+      - sensor.th1a_humidity
   camera_grande:
     id: camera_grande
     friendly_name: Camera grande
@@ -16,10 +16,10 @@ fancoil_vars:
     unique_id: camera_grande
     ref_sensor: sensor.th2b_temperature
     knx_temp_sensor: sensor.temperatura_camera_grande
-    # Fase 4 - Sensore pilota umidità (Tuya prioritario, fancoil come fallback)
-    humidity_sensor: sensor.th2b_humidity
+    # Fase 4 - Sensore pilota umidità (Fancoil prioritario, Tuya TH come fallback)
+    humidity_sensor: sensor.fancoil_camera_grande_humidity
     humidity_fallback_sensors:
-      - sensor.fancoil_camera_grande_humidity
+      - sensor.th2b_humidity
   camera:
     id: camera
     friendly_name: Camera
@@ -27,10 +27,10 @@ fancoil_vars:
     unique_id: camera
     ref_sensor: sensor.th3c_temperature
     knx_temp_sensor: sensor.temperatura_camera
-    # Fase 4 - Sensore pilota umidità (Tuya prioritario, fancoil come fallback)
-    humidity_sensor: sensor.th3c_humidity
+    # Fase 4 - Sensore pilota umidità (Fancoil prioritario, Tuya TH come fallback)
+    humidity_sensor: sensor.fancoil_camera_humidity
     humidity_fallback_sensors:
-      - sensor.fancoil_camera_humidity
+      - sensor.th3c_humidity
   corridoio:
     id: corridoio
     friendly_name: Corridoio

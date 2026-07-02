@@ -5,8 +5,6 @@ from pathlib import Path
 from datetime import datetime
 from homeassistant.components.frontend import async_register_built_in_panel
 from homeassistant.core import HomeAssistant
-from homeassistant.components.lovelace import LOVELACE_DATA
-from homeassistant.components.lovelace.dashboard import LovelaceYAML
 from ..const import DOMAIN, STORAGE_DIR
 from ..utils.filename_builder import build_profile_filename
 from datetime import timedelta
@@ -15,7 +13,7 @@ from homeassistant.util import dt as dt_util
 _LOGGER = logging.getLogger(__name__)
 PANEL_URL_PATH = "cronostar-admin"
 DASHBOARD_YAML_FILENAME = "cronostar_dashboard_v600.yaml"
-CURRENT_VERSION = "v6.8.7"
+CURRENT_VERSION = "v6.8.8"
 
 def _is_real_datetime(obj) -> bool:
     """Strict check for datetime to avoid MagicMock interference."""
@@ -219,41 +217,17 @@ async def setup_dashboard(hass):
     _LOGGER.info("CRONOSTAR_SYSTEM: Starting setup_dashboard task")
     try:
         await write_dashboard_yaml(hass, DASHBOARD_YAML_FILENAME)
-        _LOGGER.info("✅ CronoStar: Dashboard YAML file written successfully.")
 
-        # 🚀 Registrazione programmatica del secondo YAML-mode dashboard nel registro Lovelace
-        url_path = "cronostar-admin-py"
-        dashboard_conf = {
-            "mode": "yaml",
-            "filename": DASHBOARD_YAML_FILENAME,
-            "title": "CronoStar Py",
-            "icon": "mdi:calendar-star",
-            "show_in_sidebar": True,
-            "require_admin": True
-        }
-
-        # Istanzio un LovelaceYAML puntato allo stesso file della dashboard YAML
-        lovelace_config = LovelaceYAML(hass, url_path, dashboard_conf)
-
-        # Registro nel dizionario interno di HA (come fa async_setup di lovelace)
-        lovelace_data = hass.data[LOVELACE_DATA]
-        if url_path not in lovelace_data.dashboards:
-            lovelace_data.dashboards[url_path] = lovelace_config
-            lovelace_data.yaml_dashboards[url_path] = dashboard_conf
-
-            # Registro il pannello nel frontend (stessa firma usata da _register_panel interno di HA)
-            async_register_built_in_panel(
-                hass,
-                component_name="lovelace",
-                sidebar_title=dashboard_conf["title"],
-                sidebar_icon=dashboard_conf["icon"],
-                frontend_url_path=url_path,
-                config={"mode": "yaml"},
-                require_admin=dashboard_conf["require_admin"],
-                show_in_sidebar=dashboard_conf["show_in_sidebar"],
-            )
-            _LOGGER.info("✅ CronoStar: Sidebar panel programmaticamente registrato su /%s.", url_path)
-        else:
-            _LOGGER.info("CronoStar: Panel /%s già registrato, skip.", url_path)
+        # 🚀 Registrazione Sidebar Panel
+        async_register_built_in_panel(
+            hass,
+            component_name="lovelace",
+            sidebar_title="CronoStar",
+            sidebar_icon="mdi:calendar-star",
+            url_path=PANEL_URL_PATH,
+            config={"mode": "yaml", "title": "CronoStar", "show_in_sidebar": True, "filename": DASHBOARD_YAML_FILENAME},
+            require_admin=True
+        )
+        _LOGGER.info("✅ CronoStar: Sidebar panel registered at /%s", PANEL_URL_PATH)
     except Exception as e:
         _LOGGER.error("Failed to setup dashboard panel: %s", e)

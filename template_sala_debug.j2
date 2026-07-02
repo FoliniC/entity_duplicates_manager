@@ -1,0 +1,41 @@
+{% set t_int = states('sensor.temperatura_sala_reale_calcolata') | float(none) %}
+{% set rh_int = states('sensor.fancoil_sala_humidity') | float(none) %}
+{% set omega_int = states('sensor.omega_sala') | float(none) %}
+{% set omega_ext = states('sensor.omega_esterno') | float(none) %}
+{% set trend = states('sensor.trend_umidita_sala') %}
+{% set finestra_aperta = is_state('input_boolean.finestra_sala_aperta', 'on') %}
+{% set piove = states('sensor.castionetto_precipitazione') | float(0) > 0.0 %}
+{% set dati_validi = t_int is not none and rh_int is not none and omega_int is not none and omega_ext is not none and trend not in ['unknown', 'unavailable', 'incerto'] %}
+{% set delta_omega = (omega_int - omega_ext) if omega_int is not none and omega_ext is not none else none %}
+
+=== INPUT VALUES ===
+t_int: {{ t_int }}°C
+rh_int: {{ rh_int }}%
+omega_int: {{ omega_int }} g/kg
+omega_ext: {{ omega_ext }} g/kg
+trend: {{ trend }}
+finestra_aperta: {{ finestra_aperta }}
+piove: {{ piove }}
+dati_validi: {{ dati_validi }}
+delta_omega: {{ delta_omega | round(2) }} g/kg
+
+=== DECISION LOGIC ===
+{% if not dati_validi %}
+RISULTATO: incerto (dati non validi)
+{% elif finestra_aperta %}
+  {% if piove %}RISULTATO: chiudi (pioggia)
+  {% elif delta_omega < 0.2 %}RISULTATO: chiudi (delta < 0.2)
+  {% elif trend == 'in_salita' and delta_omega < 0.5 %}RISULTATO: chiudi (trend salita + delta < 0.5)
+  {% elif rh_int <= 55.0 %}RISULTATO: chiudi (rh <= 55%)
+  {% elif trend == 'in_calata' or delta_omega >= 1.0 %}RISULTATO: mantieni_aperta
+  {% else %}RISULTATO: nessuna_azione{% endif %}
+{% else %}
+  {% if piove %}RISULTATO: mantieni_chiusa (pioggia)
+  {% elif delta_omega >= 1.0 and rh_int > 55.0 %}RISULTATO: apri ✓
+  {% elif delta_omega < 0.2 %}RISULTATO: mantieni_chiusa (delta < 0.2)
+  {% else %}RISULTATO: nessuna_azione{% endif %}
+{% endif %}
+
+=== ACTUAL ENTITY STATES ===
+consiglio_finestra_sala: {{ states('sensor.consiglio_finestra_sala') }}
+climate_advice_sala: {{ states('sensor.climate_advice_sala') }}

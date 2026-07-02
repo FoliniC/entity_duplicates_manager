@@ -5,6 +5,7 @@ import re
 import yaml
 import logging
 from datetime import datetime
+from jinja2 import Environment, FileSystemLoader
 
 # CONFIGURATION
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -79,9 +80,13 @@ WINDOW_ADVICE_TEMPLATE_PATH = (
 WINDOW_NOTIFICATION_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "fancoil_window_notification.j2")
 )
+WINDOW_LOGGER_TEMPLATE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_window_logger.j2")
+)
 CLIMATE_ADVICE_TRIGGER_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "climate_advice_triggered.j2")
 )
+DASHBOARD_GRAPHS_TEMPLATE_PATH = os.path.join(SCRIPT_DIR, "templates", "dashboard_graphs.j2")
 
 # Outputs (generated)
 CLIMATE_OUTPUT_DIR = "yaml_generator/generated_climates"
@@ -629,6 +634,50 @@ def generate_dashboard(vars_map):
     logger.info(f"Dashboard written to {DASHBOARD_OUTPUT_FILE} and {DASHBOARD_BACKUP_FILE}")
 
 
+# Create Jinja2 environment for graph template
+_jinja_env = Environment(loader=FileSystemLoader(TEMPLATE_DIR), autoescape=False)
+
+
+def generate_graph_views(vars_map):
+    """Generates the graph subviews for each room using Jinja2."""
+    logger.info("Generating graph views")
+    
+    graphs_tpl = _jinja_env.get_template("dashboard_graphs.j2")
+    graphs_external_tpl = _jinja_env.get_template("dashboard_graphs_external.j2")
+    
+    graph_views = []
+    
+    for key, context in vars_map.items():
+        # Ensure friendly_name is available
+        local_ctx = dict(context)
+        room_id = local_ctx.get("id", key)
+        friendly_name = local_ctx.get("friendly_name", room_id.replace("_", " ").title())
+        local_ctx["friendly_name"] = friendly_name
+        local_ctx["id"] = room_id
+        
+        # Render with Jinja2
+        rendered = graphs_tpl.render(**local_ctx)
+        
+        # Apply substitute_tags to handle %%key%% placeholders
+        common_graphs_ctx = get_common_context("dashboard_graphs.j2")
+        rendered = substitute_tags(rendered, common_graphs_ctx)
+        
+        graph_views.append(rendered)
+    
+    # Add external conditions graph view
+    common_external_ctx = get_common_context("dashboard_graphs_external.j2")
+    external_rendered = graphs_external_tpl.render()
+    external_rendered = substitute_tags(external_rendered, common_external_ctx)
+    graph_views.append(external_rendered)
+    
+    graph_views_section = "\n".join(graph_views)
+    
+    # Append graph views to the dashboard file
+    append_text_file(DASHBOARD_OUTPUT_FILE, graph_views_section + "\n")
+    append_text_file(DASHBOARD_BACKUP_FILE, graph_views_section + "\n")
+    logger.info(f"Graph views written to {DASHBOARD_OUTPUT_FILE} and {DASHBOARD_BACKUP_FILE}")
+
+
 def main():
     logger.info("Generate fancoil files started")
     # Ensure working directory is the homeassistant config directory so relative paths resolve correctly
@@ -717,6 +766,14 @@ def main():
         AUTOMATION_OUTPUT_DIR,
         vars_map,
         "_window_notification",
+    )
+
+    # Fase 8 - Per-room window logger (logs window state & advice changes)
+    generate_from_template(
+        WINDOW_LOGGER_TEMPLATE_PATH,
+        AUTOMATION_OUTPUT_DIR,
+        vars_map,
+        "_window_logger",
     )
 
     # Per-room restore automations
@@ -815,6 +872,9 @@ def main():
 
     # Dashboard generation
     generate_dashboard(vars_map)
+    
+    # Graph views generation
+    generate_graph_views(vars_map)
 
     logger.info("Generate fancoil files terminated")
 

@@ -29,15 +29,6 @@
 
   hvac_mode_template: >-
     {{ states('input_select.fancoil_system_hvac_mode') | default('off') }}
-  
-  # Forza la modalità corrente a essere quella memorizzata dal climate (persistenza su riavvio)
-  on_start:
-    - service: climate.set_hvac_mode
-      target:
-        entity_id: climate.climatizzazione_appartamento
-      data:
-        hvac_mode: "{{ states('climate.climatizzazione_appartamento') }}"
-        # Note: La chiamiamo sulla stessa entità, ma questo forza l'entità a mantenere il suo stato memorizzato
 
   target_temperature_template: >-
     {% set hvac_mode = states('input_select.fancoil_system_hvac_mode') %}
