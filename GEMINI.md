@@ -43,3 +43,28 @@ action:
 - Rete Locale: `/config/RETE_LOCALE.md`.
 - Alexa: `/config/alexa.md`.
 
+## 🔌 SSH verso l'Host da shell_command
+
+Il container Home Assistant **non ha il binary `docker`** nel suo filesystem.
+Qualsiasi `shell_command` che invoca `docker` direttamente fallirà con **return code 127** ("command not found").
+
+**Regola**: Usare sempre SSH verso l'host tramite la chiave dedicata per controllare i container Docker.
+
+- **Host IP**: `192.168.0.3`
+- **Utente**: `carlo`
+- **Chiave SSH**: `/config/.ssh/host_key`
+
+### Pattern corretto per shell_command:
+```yaml
+# ✅ CORRETTO — SSH verso l'host
+my_command: "ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no carlo@192.168.0.3 'docker start my-container'"
+
+# ❌ SBAGLIATO — docker non esiste nel container HA (return code 127)
+my_command: "docker start my-container"
+```
+
+### Test rapido di connettività SSH:
+```bash
+docker exec homeassistant ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no carlo@192.168.0.3 'docker ps'
+```
+

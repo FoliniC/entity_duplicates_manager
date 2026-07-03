@@ -9,22 +9,67 @@
   unique_id: omega_esterno
   unit_of_measurement: "g/kg"
   state: >
-    {% set T = states('sensor.sensore_clima_temp_current') | float(0) %}
-    {% set RH = states('sensor.sensore_clima_humidity_value') | float(0) %}
+    {% set T_clima = states('sensor.sensore_clima_temp_current') | float(none) %}
+    {% set RH_clima = states('sensor.sensore_clima_humidity_value') | float(none) %}
+    {% set T_meteo = states('sensor.meteo_castionetto_temperatura') | float(none) %}
+    {% set RH_meteo = states('sensor.meteo_castionetto_umidita') | float(none) %}
+    {% set T = T_clima if T_clima is not none and RH_clima is not none else T_meteo %}
+    {% set RH = RH_clima if T_clima is not none and RH_clima is not none else RH_meteo %}
     {% set P = states('sensor.castionetto_pressione') | float(1013.25) * 100 %}
     {% set psat = 610.78 * (2.718281828459 ** (17.27 * T / (T + 237.3))) %}
     {% set pvap = (RH / 100) * psat %}
     {{ (622 * pvap / (P - pvap)) | round(2) }}
+  availability: >
+    {{ (states('sensor.sensore_clima_temp_current') | float(none) is not none
+        and states('sensor.sensore_clima_humidity_value') | float(none) is not none)
+       or (states('sensor.meteo_castionetto_temperatura') | float(none) is not none
+        and states('sensor.meteo_castionetto_umidita') | float(none) is not none) }}
   attributes:
-    temperature_sensor: sensor.sensore_clima_temp_current
-    humidity_sensor: sensor.sensore_clima_humidity_value
-    temperatura: "{{ states('sensor.sensore_clima_temp_current') | float(0) }}"
-    umidita: "{{ states('sensor.sensore_clima_humidity_value') | float(0) }}"
+    source: >-
+      {% if states('sensor.sensore_clima_temp_current') | float(none) is not none
+         and states('sensor.sensore_clima_humidity_value') | float(none) is not none %}
+        clima_locale
+      {% else %}
+        meteo_locale
+      {% endif %}
+    temperature_sensor: >-
+      {% if states('sensor.sensore_clima_temp_current') | float(none) is not none
+         and states('sensor.sensore_clima_humidity_value') | float(none) is not none %}
+        sensor.sensore_clima_temp_current
+      {% else %}
+        sensor.meteo_castionetto_temperatura
+      {% endif %}
+    humidity_sensor: >-
+      {% if states('sensor.sensore_clima_temp_current') | float(none) is not none
+         and states('sensor.sensore_clima_humidity_value') | float(none) is not none %}
+        sensor.sensore_clima_humidity_value
+      {% else %}
+        sensor.meteo_castionetto_umidita
+      {% endif %}
+    temperatura: >-
+      {% set T_clima = states('sensor.sensore_clima_temp_current') | float(none) %}
+      {% set RH_clima = states('sensor.sensore_clima_humidity_value') | float(none) %}
+      {% set T_meteo = states('sensor.meteo_castionetto_temperatura') | float(none) %}
+      {{ T_clima | round(1) if T_clima is not none and RH_clima is not none else T_meteo | round(1) }}
+    umidita: >-
+      {% set T_clima = states('sensor.sensore_clima_temp_current') | float(none) %}
+      {% set RH_clima = states('sensor.sensore_clima_humidity_value') | float(none) %}
+      {% set RH_meteo = states('sensor.meteo_castionetto_umidita') | float(none) %}
+      {{ RH_clima | round(1) if T_clima is not none and RH_clima is not none else RH_meteo | round(1) }}
 
 - name: "T_dew Esterno"
   unique_id: punto_di_rugiada_esterno
   unit_of_measurement: "°C"
   state: >
-    {% set T = states('sensor.sensore_clima_temp_current') | float(0) %}
-    {% set RH = states('sensor.sensore_clima_humidity_value') | float(0) %}
+    {% set T_clima = states('sensor.sensore_clima_temp_current') | float(none) %}
+    {% set RH_clima = states('sensor.sensore_clima_humidity_value') | float(none) %}
+    {% set T_meteo = states('sensor.meteo_castionetto_temperatura') | float(none) %}
+    {% set RH_meteo = states('sensor.meteo_castionetto_umidita') | float(none) %}
+    {% set T = T_clima if T_clima is not none and RH_clima is not none else T_meteo %}
+    {% set RH = RH_clima if T_clima is not none and RH_clima is not none else RH_meteo %}
     {{ (T - (100 - RH) / 5) | round(1) }}
+  availability: >
+    {{ (states('sensor.sensore_clima_temp_current') | float(none) is not none
+        and states('sensor.sensore_clima_humidity_value') | float(none) is not none)
+       or (states('sensor.meteo_castionetto_temperatura') | float(none) is not none
+        and states('sensor.meteo_castionetto_umidita') | float(none) is not none) }}

@@ -60,3 +60,8 @@ fancoil_vars:
     # Fase 4 - Sensore pilota umidità (fancoil interno; th4d resta associato al "Locale"/Corridoio)
     humidity_sensor: sensor.fancoil_sala_humidity
     humidity_fallback_sensors: []
+    # Fase 13 - Soglie di verifica (opzionale, può essere sovrascritte da utente)
+    verifica_thresholds:
+      delta_omega_apertura: 1.5
+      delta_omega_chiusura: 0.3
+      confidence_penalty_active_fancoil: -25

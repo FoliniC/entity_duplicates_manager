@@ -1,5 +1,8 @@
-# File: yaml_generator/generate_fancoil_climates.py
-# MODIFIED to remove Pyscript persistence and use only trigger-based templates
+#!/usr/bin/env python3
+# Main generator script for fancoil climate control configurations
+# Generates Home Assistant automations, sensors, and configurations
+# from Jinja2 templates based on room definitions
+
 import os
 import re
 import yaml
@@ -83,10 +86,19 @@ WINDOW_NOTIFICATION_TEMPLATE_PATH = (
 WINDOW_LOGGER_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "fancoil_window_logger.j2")
 )
+WINDOW_EFFICIENCY_TEMPLATE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_window_efficiency.j2")
+)
+WINDOW_VERIFICATION_MODE_TEMPLATE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_verification_mode.j2")
+)
 CLIMATE_ADVICE_TRIGGER_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "climate_advice_triggered.j2")
 )
 DASHBOARD_GRAPHS_TEMPLATE_PATH = os.path.join(SCRIPT_DIR, "templates", "dashboard_graphs.j2")
+MANUAL_ADVICE_TEMPLATE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_manual_advice.j2")
+)
 
 # Outputs (generated)
 CLIMATE_OUTPUT_DIR = "yaml_generator/generated_climates"
@@ -108,8 +120,6 @@ MASTER_CLIMATE_OUTPUT_FILE = (
 )
 DASHBOARD_OUTPUT_FILE = "ui/riscaldamento.yaml"
 DASHBOARD_BACKUP_FILE = "yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml"
-
-
 # Setup logging
 os.makedirs(os.path.dirname(LOGGING_FILE), exist_ok=True)
 logging.basicConfig(
@@ -122,14 +132,12 @@ file_handler = logging.FileHandler(LOGGING_FILE)
 file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s: %(message)s"))
 logger.addHandler(file_handler)
 
-
 def ensure_dir(path: str):
     """Ensure the directory for the given file or directory path exists."""
     if os.path.splitext(path)[1]:
         os.makedirs(os.path.dirname(path), exist_ok=True)
     else:
         os.makedirs(path, exist_ok=True)
-
 
 def load_fancoil_vars(config_path):
     """Load room variables from YAML."""
@@ -166,7 +174,6 @@ def load_fancoil_vars(config_path):
     logger.info("Successfully loaded vars")
     return vars_map
 
-
 def substitute_tags(template_text: str, context: dict) -> str:
     """Replace every %%key%% with its context value. Signals error if spaces are found."""
     def replace_match(match):
@@ -185,7 +192,6 @@ def substitute_tags(template_text: str, context: dict) -> str:
     # Regex matching %%any_content%%
     return re.sub(r"%%(.*?)%%", replace_match, template_text)
 
-
 def resolve_output_name(context: dict, default_key: str, suffix: str) -> str:
     """Use context['filename'] as base name; otherwise default_key. Append suffix and '.yaml'."""
     raw = str(context.get("filename", default_key)).strip()
@@ -195,7 +201,6 @@ def resolve_output_name(context: dict, default_key: str, suffix: str) -> str:
         base = default_key
     base = re.sub(r"[^A-Za-z0-9_.-]+", "_", base)
     return f"{base}{suffix}.yaml"
-
 
 def read_template(path: str) -> str:
     try:
@@ -213,7 +218,6 @@ def read_template(path: str) -> str:
         logger.error(f"Error reading template file {path}: {e}")
         raise
 
-
 def clean_yaml_content(text: str) -> str:
     """Remove trailing whitespace from each line."""
     lines = text.split("\n")
@@ -223,7 +227,6 @@ def clean_yaml_content(text: str) -> str:
         line = line.rstrip()
         cleaned_lines.append(line)
     return "\n".join(cleaned_lines)
-
 
 def write_text_file(path: str, text: str):
     ensure_dir(path)
@@ -237,7 +240,6 @@ def write_text_file(path: str, text: str):
         logger.error(f"Failed to write {path}: {e}")
         raise
 
-
 def append_text_file(path: str, text: str):
     ensure_dir(path)
     try:
@@ -249,7 +251,6 @@ def append_text_file(path: str, text: str):
     except Exception as e:
         logger.error(f"Failed appending {path}: {e}")
         raise
-
 
 def build_delta_sensor_block(name, unique_id, unit, device_class, source_a, source_b):
     """Build a template sensor that reports abs delta and exposes signed/stability attributes."""
@@ -290,7 +291,6 @@ def build_delta_sensor_block(name, unique_id, unit, device_class, source_a, sour
       {{% else %}}
         unknown
       {{% endif %}}"""
-
 
 def generate_from_template(template_path, output_dir, vars_map, suffix):
     logger.info(f"Generating files from template: {template_path}")
@@ -377,7 +377,6 @@ def generate_from_template(template_path, output_dir, vars_map, suffix):
         out_path = os.path.join(output_dir, out_name)
         write_text_file(out_path, rendered)
 
-
 def generate_aggregated(template_path, output_file, vars_map):
     logger.info(f"Generating aggregated from {template_path} -> {output_file}")
     template_text = read_template(template_path)
@@ -388,7 +387,6 @@ def generate_aggregated(template_path, output_file, vars_map):
         pieces.append(substitute_tags(template_text, local_ctx).strip())
     result = "\n".join(pieces).strip() + "\n"
     write_text_file(output_file, result)
-
 
 def build_humidity_fallback_context(room_data):
     """Fase 4 - Build Jinja-ready strings for the humidity pilot/fallback template tags.
@@ -425,7 +423,6 @@ def build_humidity_fallback_context(room_data):
         "HUMIDITY_AVAIL_JINJA": avail_expr,
     }
 
-
 def build_master_context(vars_map):
     """Build dynamic context for master climate."""
     sensors_exprs = [
@@ -458,7 +455,6 @@ def build_master_context(vars_map):
         "climate_entities_list": climate_entities_list_str,
         "room_sensors_list": room_sensors_list_str,
     }
-
 
 def generate_master_and_rooms(
     master_template_path, room_template_path, output_file, vars_map, extra_context=None
@@ -498,7 +494,6 @@ def generate_master_and_rooms(
         append_text_file(
             output_file, substitute_tags(room_text, local_room_ctx).strip() + "\n"
         )
-
 
 # ------------------------ DASHBOARD GENERATION ------------------------
 def generate_dashboard(vars_map):
@@ -771,9 +766,17 @@ def main():
     # Fase 8 - Per-room window logger (logs window state & advice changes)
     generate_from_template(
         WINDOW_LOGGER_TEMPLATE_PATH,
-        AUTOMATION_OUTPUT_DIR,
+        TRIGGER_SENSORS_OUTPUT_DIR,
         vars_map,
         "_window_logger",
+    )
+
+    # Fase 9 - Per-room window advice efficiency evaluation (valutazione esito consiglio)
+    generate_from_template(
+        WINDOW_EFFICIENCY_TEMPLATE_PATH,
+        TRIGGER_SENSORS_OUTPUT_DIR,
+        vars_map,
+        "_window_efficiency",
     )
 
     # Per-room restore automations
@@ -782,6 +785,22 @@ def main():
         AUTOMATION_OUTPUT_DIR,
         vars_map,
         "_restore",
+    )
+
+    # Fase 13 - Per-room verification mode logging automations
+    generate_from_template(
+        WINDOW_VERIFICATION_MODE_TEMPLATE_PATH,
+        AUTOMATION_OUTPUT_DIR,
+        vars_map,
+        "_verification",
+    )
+
+    # Fase 13 - Manual advice sensors
+    generate_from_template(
+        MANUAL_ADVICE_TEMPLATE_PATH,
+        TRIGGER_SENSORS_OUTPUT_DIR,
+        vars_map,
+        "_manual_advice",
     )
 
     # Aggregated helpers
@@ -863,6 +882,10 @@ def main():
     for key in vars_map.keys():
         master_lines.append(f"- !include managed_trigger_sensors/{key}_window_advice.yaml")
     for key in vars_map.keys():
+        master_lines.append(f"- !include managed_trigger_sensors/{key}_window_logger.yaml")
+    for key in vars_map.keys():
+        master_lines.append(f"- !include managed_trigger_sensors/{key}_window_efficiency.yaml")
+    for key in vars_map.keys():
         master_lines.append(f"- !include managed_persistence/{key}_persistence.yaml")
     
     # TH Persistence (Tuya sensors)
@@ -877,7 +900,5 @@ def main():
     generate_graph_views(vars_map)
 
     logger.info("Generate fancoil files terminated")
-
-
 if __name__ == "__main__":
     main()

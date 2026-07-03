@@ -22,3 +22,22 @@
             - service: shell_command.start_cloudflare
               data: {}
   mode: single
+
+- id: cloudflare_avvio_ha
+  alias: "Cloudflare - Avvia tunnel all'avvio di HA"
+  description: "All'avvio di HA, avvia il tunnel Cloudflare se Carlo non è a casa."
+  trigger:
+    - platform: homeassistant
+      event: start
+  action:
+    - delay:
+        seconds: 30
+    - condition: template
+      value_template: "{{ states('person.carlo') not in ['home', 'Casa'] }}"
+    - service: shell_command.start_cloudflare
+      data: {}
+    - event: fancoil_log_event
+      event_data:
+        level: INFO
+        message: "Cloudflare tunnel avviato all'avvio di HA (person.carlo={{ states('person.carlo') }})"
+  mode: single

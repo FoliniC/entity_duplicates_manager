@@ -36,6 +36,9 @@ views:
                       - entity: input_boolean.fancoil_deumidificazione
                         name: Deumidificazione
                         icon: mdi:water-percent
+                      - entity: input_boolean.verifica_mode
+                        name: Verifica Mode
+                        icon: mdi:shield-check
                       - entity: input_select.fancoil_verbosity_level_master
                         name: Verbosity messaggi
                         icon: mdi:bug
@@ -805,6 +808,48 @@ views:
                           name: Finestra aperta
                           icon: mdi:window-open
                       card_mod: *row_style
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.verifica_mode
+                          state: "on"
+                      card:
+                        type: vertical-stack
+                        cards:
+                          - type: entities
+                            title: Verifica Cucina
+                            show_header_toggle: false
+                            state_color: true
+                            entities:
+                              - entity: sensor.analytics_tuning_cucina
+                                name: Analytics tuning
+                              - entity: sensor.consiglio_finestra_cucina
+                                name: Consiglio finestra
+                              - entity: sensor.previsione_finestra_cucina
+                                name: Previsione tempo utile
+                              - entity: sensor.trend_umidita_cucina
+                                name: Trend umidita
+                              - entity: sensor.log_attivita_manuali_cucina
+                                name: Log manuale
+                          - type: grid
+                            columns: 2
+                            square: false
+                            cards:
+                              - type: button
+                                name: Apri finestra
+                                icon: mdi:window-open-variant
+                                tap_action:
+                                  action: call-service
+                                  service: input_boolean.turn_on
+                                  target:
+                                    entity_id: input_boolean.finestra_cucina_aperta
+                              - type: button
+                                name: Chiudi finestra
+                                icon: mdi:window-closed-variant
+                                tap_action:
+                                  action: call-service
+                                  service: input_boolean.turn_off
+                                  target:
+                                    entity_id: input_boolean.finestra_cucina_aperta
                     - type: custom:mushroom-template-card
                       primary: "🌡️ Temperatura Fancoil {{ states('sensor.fancoil_cucina_temperature') }}°C"
                       entity: sensor.fancoil_cucina_temperature
@@ -913,6 +958,48 @@ views:
                           name: Finestra aperta
                           icon: mdi:window-open
                       card_mod: *row_style
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.verifica_mode
+                          state: "on"
+                      card:
+                        type: vertical-stack
+                        cards:
+                          - type: entities
+                            title: Verifica Camera Grande
+                            show_header_toggle: false
+                            state_color: true
+                            entities:
+                              - entity: sensor.analytics_tuning_camera_grande
+                                name: Analytics tuning
+                              - entity: sensor.consiglio_finestra_camera_grande
+                                name: Consiglio finestra
+                              - entity: sensor.previsione_finestra_camera_grande
+                                name: Previsione tempo utile
+                              - entity: sensor.trend_umidita_camera_grande
+                                name: Trend umidita
+                              - entity: sensor.log_attivita_manuali_camera_grande
+                                name: Log manuale
+                          - type: grid
+                            columns: 2
+                            square: false
+                            cards:
+                              - type: button
+                                name: Apri finestra
+                                icon: mdi:window-open-variant
+                                tap_action:
+                                  action: call-service
+                                  service: input_boolean.turn_on
+                                  target:
+                                    entity_id: input_boolean.finestra_camera_grande_aperta
+                              - type: button
+                                name: Chiudi finestra
+                                icon: mdi:window-closed-variant
+                                tap_action:
+                                  action: call-service
+                                  service: input_boolean.turn_off
+                                  target:
+                                    entity_id: input_boolean.finestra_camera_grande_aperta
                     - type: custom:mushroom-template-card
                       primary: "🌡️ Temperatura Fancoil {{ states('sensor.fancoil_camera_grande_temperature') }}°C"
                       entity: sensor.fancoil_camera_grande_temperature
@@ -1027,6 +1114,48 @@ views:
                           name: Finestra aperta
                           icon: mdi:window-open
                       card_mod: *row_style
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.verifica_mode
+                          state: "on"
+                      card:
+                        type: vertical-stack
+                        cards:
+                          - type: entities
+                            title: Verifica Camera
+                            show_header_toggle: false
+                            state_color: true
+                            entities:
+                              - entity: sensor.analytics_tuning_camera
+                                name: Analytics tuning
+                              - entity: sensor.consiglio_finestra_camera
+                                name: Consiglio finestra
+                              - entity: sensor.previsione_finestra_camera
+                                name: Previsione tempo utile
+                              - entity: sensor.trend_umidita_camera
+                                name: Trend umidita
+                              - entity: sensor.log_attivita_manuali_camera
+                                name: Log manuale
+                          - type: grid
+                            columns: 2
+                            square: false
+                            cards:
+                              - type: button
+                                name: Apri finestra
+                                icon: mdi:window-open-variant
+                                tap_action:
+                                  action: call-service
+                                  service: input_boolean.turn_on
+                                  target:
+                                    entity_id: input_boolean.finestra_camera_aperta
+                              - type: button
+                                name: Chiudi finestra
+                                icon: mdi:window-closed-variant
+                                tap_action:
+                                  action: call-service
+                                  service: input_boolean.turn_off
+                                  target:
+                                    entity_id: input_boolean.finestra_camera_aperta
                     - type: custom:mushroom-template-card
                       primary: "🌡️ Temperatura Fancoil {{ states('sensor.fancoil_camera_temperature') }}°C"
                       entity: sensor.fancoil_camera_temperature
@@ -1141,6 +1270,48 @@ views:
                           name: Finestra aperta
                           icon: mdi:window-open
                       card_mod: *row_style
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.verifica_mode
+                          state: "on"
+                      card:
+                        type: vertical-stack
+                        cards:
+                          - type: entities
+                            title: Verifica Corridoio
+                            show_header_toggle: false
+                            state_color: true
+                            entities:
+                              - entity: sensor.analytics_tuning_corridoio
+                                name: Analytics tuning
+                              - entity: sensor.consiglio_finestra_corridoio
+                                name: Consiglio finestra
+                              - entity: sensor.previsione_finestra_corridoio
+                                name: Previsione tempo utile
+                              - entity: sensor.trend_umidita_corridoio
+                                name: Trend umidita
+                              - entity: sensor.log_attivita_manuali_corridoio
+                                name: Log manuale
+                          - type: grid
+                            columns: 2
+                            square: false
+                            cards:
+                              - type: button
+                                name: Apri finestra
+                                icon: mdi:window-open-variant
+                                tap_action:
+                                  action: call-service
+                                  service: input_boolean.turn_on
+                                  target:
+                                    entity_id: input_boolean.finestra_corridoio_aperta
+                              - type: button
+                                name: Chiudi finestra
+                                icon: mdi:window-closed-variant
+                                tap_action:
+                                  action: call-service
+                                  service: input_boolean.turn_off
+                                  target:
+                                    entity_id: input_boolean.finestra_corridoio_aperta
                     - type: custom:mushroom-template-card
                       primary: "🌡️ Temperatura Fancoil {{ states('sensor.fancoil_corridoio_temperature') }}°C"
                       entity: sensor.fancoil_corridoio_temperature
@@ -1243,6 +1414,48 @@ views:
                           name: Finestra aperta
                           icon: mdi:window-open
                       card_mod: *row_style
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.verifica_mode
+                          state: "on"
+                      card:
+                        type: vertical-stack
+                        cards:
+                          - type: entities
+                            title: Verifica Bagno
+                            show_header_toggle: false
+                            state_color: true
+                            entities:
+                              - entity: sensor.analytics_tuning_bagno
+                                name: Analytics tuning
+                              - entity: sensor.consiglio_finestra_bagno
+                                name: Consiglio finestra
+                              - entity: sensor.previsione_finestra_bagno
+                                name: Previsione tempo utile
+                              - entity: sensor.trend_umidita_bagno
+                                name: Trend umidita
+                              - entity: sensor.log_attivita_manuali_bagno
+                                name: Log manuale
+                          - type: grid
+                            columns: 2
+                            square: false
+                            cards:
+                              - type: button
+                                name: Apri finestra
+                                icon: mdi:window-open-variant
+                                tap_action:
+                                  action: call-service
+                                  service: input_boolean.turn_on
+                                  target:
+                                    entity_id: input_boolean.finestra_bagno_aperta
+                              - type: button
+                                name: Chiudi finestra
+                                icon: mdi:window-closed-variant
+                                tap_action:
+                                  action: call-service
+                                  service: input_boolean.turn_off
+                                  target:
+                                    entity_id: input_boolean.finestra_bagno_aperta
                     - type: custom:mushroom-template-card
                       primary: "🌡️ Temperatura Fancoil {{ states('sensor.fancoil_bagno_temperature') }}°C"
                       entity: sensor.fancoil_bagno_temperature
@@ -1339,6 +1552,48 @@ views:
                           name: Finestra aperta
                           icon: mdi:window-open
                       card_mod: *row_style
+                    - type: conditional
+                      conditions:
+                        - entity: input_boolean.verifica_mode
+                          state: "on"
+                      card:
+                        type: vertical-stack
+                        cards:
+                          - type: entities
+                            title: Verifica Sala
+                            show_header_toggle: false
+                            state_color: true
+                            entities:
+                              - entity: sensor.analytics_tuning_sala
+                                name: Analytics tuning
+                              - entity: sensor.consiglio_finestra_sala
+                                name: Consiglio finestra
+                              - entity: sensor.previsione_finestra_sala
+                                name: Previsione tempo utile
+                              - entity: sensor.trend_umidita_sala
+                                name: Trend umidita
+                              - entity: sensor.log_attivita_manuali_sala
+                                name: Log manuale
+                          - type: grid
+                            columns: 2
+                            square: false
+                            cards:
+                              - type: button
+                                name: Apri finestra
+                                icon: mdi:window-open-variant
+                                tap_action:
+                                  action: call-service
+                                  service: input_boolean.turn_on
+                                  target:
+                                    entity_id: input_boolean.finestra_sala_aperta
+                              - type: button
+                                name: Chiudi finestra
+                                icon: mdi:window-closed-variant
+                                tap_action:
+                                  action: call-service
+                                  service: input_boolean.turn_off
+                                  target:
+                                    entity_id: input_boolean.finestra_sala_aperta
                     - type: custom:mushroom-template-card
                       primary: "🌡️ Temperatura Fancoil {{ states('sensor.fancoil_sala_temperature') }}°C"
                       entity: sensor.fancoil_sala_temperature

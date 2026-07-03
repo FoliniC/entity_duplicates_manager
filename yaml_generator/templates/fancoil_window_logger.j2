@@ -9,6 +9,36 @@ trigger:
     entity_id:
       - input_boolean.finestra_%%id%%_aperta
       - sensor.consiglio_finestra_%%id%%
+
+action:
+  - action: logbook.log
+    data:
+      name: "Finestra %%friendly_name%%"
+      message: >
+        {% set finestra = is_state('input_boolean.finestra_%%id%%_aperta', 'on') %}
+        {% set consiglio = states('sensor.consiglio_finestra_%%id%%') %}
+        {% set rh = states('sensor.umidita_%%id%%_pilota') | float(0) %}
+        {% set delta_omega = (states('sensor.omega_%%id%%') | float(0) - states('sensor.omega_esterno') | float(0)) | round(2) %}
+        {% set trend = states('sensor.trend_umidita_%%id%%') %}
+        {% set pred_h = state_attr('sensor.previsione_finestra_%%id%%', 'horizon_minutes') | default('') %}
+        {% set pred_rh = state_attr('sensor.previsione_finestra_%%id%%', 'predicted_humidity') | default('') %}
+        {% set pred_t = state_attr('sensor.previsione_finestra_%%id%%', 'predicted_temperature') | default('') %}
+        Finestra {{ 'APERTA' if finestra else 'CHIUSA' }} | Consiglio: {{ consiglio }} | RH={{ rh }}% | Δω={{ delta_omega }} | Trend={{ trend }} | Pred={{ pred_h }}min RH→{{ pred_rh }}% T→{{ pred_t }}°C
+  - event: fancoil_log_event
+    event_data:
+      level: INFO
+      message: >
+        {% set finestra = is_state('input_boolean.finestra_%%id%%_aperta', 'on') %}
+        {% set consiglio = states('sensor.consiglio_finestra_%%id%%') %}
+        {% set rh = states('sensor.umidita_%%id%%_pilota') | float(0) %}
+        {% set delta_omega = (states('sensor.omega_%%id%%') | float(0) - states('sensor.omega_esterno') | float(0)) | round(2) %}
+        {% set trend = states('sensor.trend_umidita_%%id%%') %}
+        {% set pred_h = state_attr('sensor.previsione_finestra_%%id%%', 'horizon_minutes') | default('') %}
+        {% set pred_rh = state_attr('sensor.previsione_finestra_%%id%%', 'predicted_humidity') | default('') %}
+        {% set pred_t = state_attr('sensor.previsione_finestra_%%id%%', 'predicted_temperature') | default('') %}
+        {% set pred_source = state_attr('sensor.previsione_finestra_%%id%%', 'external_source') | default('') %}
+        [%%friendly_name%%] WINDOW: Finestra {{ 'APERTA' if finestra else 'CHIUSA' }} | Consiglio: {{ consiglio }} | RH={{ rh }}% | Δω={{ delta_omega }} | Trend={{ trend }} | Prediction horizon={{ pred_h }}min source={{ pred_source }} RH_pred={{ pred_rh }}% T_pred={{ pred_t }}°C
+
 sensor:
   - name: "Finestra %%friendly_name%% Logger"
     unique_id: finestra_%%id%%_logger
@@ -30,29 +60,11 @@ sensor:
       delta_omega: "{{ (states('sensor.omega_%%id%%') | float(0) - states('sensor.omega_esterno') | float(0)) | round(2) }}"
       trend_umidita: "{{ states('sensor.trend_umidita_%%id%%') }}"
       temp_int: "{{ states('sensor.temperatura_%%id%%_reale_calcolata') | float(0) }}"
+      prediction_horizon: "{{ state_attr('sensor.previsione_finestra_%%id%%', 'horizon_minutes') | default('') }}"
+      prediction_text: "{{ state_attr('sensor.previsione_finestra_%%id%%', 'prediction_text') | default('') }}"
+      predicted_humidity: "{{ state_attr('sensor.previsione_finestra_%%id%%', 'predicted_humidity') | default('') }}"
+      predicted_temperature: "{{ state_attr('sensor.previsione_finestra_%%id%%', 'predicted_temperature') | default('') }}"
+      prediction_external_source: "{{ state_attr('sensor.previsione_finestra_%%id%%', 'external_source') | default('') }}"
       fancoil_attivo: "{{ is_state('switch.fancoil_%%id%%_switch_1', 'on') or is_state('switch.fancoil_%%id%%_switch_2', 'on') or is_state('switch.fancoil_%%id%%_switch_3', 'on') or is_state('switch.fancoil_%%id%%_switch_4', 'on') }}"
     availability: >
       {{ has_value('input_boolean.finestra_%%id%%_aperta') and has_value('sensor.consiglio_finestra_%%id%%') }}
-  - action: call_service
-    service: logbook.log
-    data:
-      name: "Finestra %%friendly_name%%"
-      message: >
-        {% set finestra = is_state('input_boolean.finestra_%%id%%_aperta', 'on') %}
-        {% set consiglio = states('sensor.consiglio_finestra_%%id%%') %}
-        {% set rh = states('sensor.umidita_%%id%%_pilota') | float(0) %}
-        {% set delta_omega = (states('sensor.omega_%%id%%') | float(0) - states('sensor.omega_esterno') | float(0)) | round(2) %}
-        {% set trend = states('sensor.trend_umidita_%%id%%') %}
-        Finestra {{ 'APERTA' if finestra else 'CHIUSA' }} | Consiglio: {{ consiglio }} | RH={{ rh }}% | Δω={{ delta_omega }} | Trend={{ trend }}
-    target: {}
-  - action: fancoil_log_event
-    data:
-      level: info
-      message: >
-        {% set finestra = is_state('input_boolean.finestra_%%id%%_aperta', 'on') %}
-        {% set consiglio = states('sensor.consiglio_finestra_%%id%%') %}
-        {% set rh = states('sensor.umidita_%%id%%_pilota') | float(0) %}
-        {% set delta_omega = (states('sensor.omega_%%id%%') | float(0) - states('sensor.omega_esterno') | float(0)) | round(2) %}
-        {% set trend = states('sensor.trend_umidita_%%id%%') %}
-        [%%friendly_name%%] WINDOW: Finestra {{ 'APERTA' if finestra else 'CHIUSA' }} | Consiglio: {{ consiglio }} | RH={{ rh }}% | Δω={{ delta_omega }} | Trend={{ trend }}
-    target: {}

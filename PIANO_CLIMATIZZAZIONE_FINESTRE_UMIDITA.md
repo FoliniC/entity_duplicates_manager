@@ -597,8 +597,8 @@ NOTA: Da usare **solamente attributi del sensore** invece di input_text, per evi
   - Verificato che tutti i sensori `sensor.climate_advice_<stanza>` referenziati dalle automazioni di notifica esistano.
   - Tutti i valori di snapshot sono accessibili tramite lettura entita attibuti: `state_attr('sensor.climate_advice_cucina', 'ultimo_consiglio_finestra')`, ecc.
 - Limitazioni residue:
-  - I valori di snapshot sono memorizzati solo negli attributi del sensore; non in Input Text.
-  - Se un use-case futuro richiede Input Text persistente o modalita `input_text` per processi separati, e' necessario inserire nel generatore un nuovo template set (es. `fancoil_input_text_snapshot_helper.j2`) e abilitarlo nella configurazione.
+  - **Scelta progettuale confermata**: I valori di snapshot sono memorizzati come attributi del sensore trigger-based `sensor.climate_advice_<stanza>`. Grazie a `RestoreEntity`, **stato e attributi persistono al riavvio di Home Assistant** (il sensore ripristina l'ultimo snapshot prima che arrivi un nuovo trigger). Non servono `input_text` né storage esterno per la persistenza.
+  - Il limite di 255 caratteri degli `input_text` è quindi irrilevante: gli attributi dei template sensor trigger-based non hanno quel vincolo e supportano stringhe lunghe (motivi, JSON, ecc.).
   - Richiesto reload o restart di Home Assistant per attivare le nuove automazioni basate su attributi.
 
 ## Fase 9 - Valutazione efficacia consiglio
@@ -649,20 +649,27 @@ Capire se il consiglio dato ha prodotto l'effetto voluto osservando l'andamento 
 
 ### Stato implementazione
 
-- Stato: Da fare
-- Implementatore:
-- Data:
+- Stato: Completato
+- Implementatore: Antigravity
+- Data: 2026-07-02
 
 ### Domande aperte
 
-- Definire esattamente quanto deve calare o rallentare l'umidita per considerare efficace il consiglio.
+- Nessuna. La logica di valutazione adotta criteri differenziati per apertura (calo RH di almeno 1.5% o trend in calata dopo 30m, 2% dopo 60m) e chiusura (stabilizzazione RH con aumento <= 0.3% o trend stabile/in calata dopo 30m, 0.4% dopo 60m), intercettando fancoil attivi ed escursioni anticipate.
 
 ### Conferma chiusura
 
 - File modificati:
+  - `yaml_generator/templates/fancoil_window_efficiency.j2` (Nuovo template di valutazione esito)
+  - `yaml_generator/templates/fancoil_window_logger.j2` (Corretto logger per girare sotto template)
+  - `yaml_generator/templates/fancoil_window_notification.j2` (Notifiche esito + integrazione in consiglio)
+  - `yaml_generator/generate_fancoil_climates.py` (Rigeneratore aggiornato con nuovi path e inclusione master)
 - Entita aggiunte/modificate:
+  - `sensor.esito_ultimo_consiglio_finestra_<stanza>` (cucina, camera_grande, camera, corridoio, bagno, sala)
+  - Automazioni notifica aggiornate per mostrare l'esito ed inviare persistent notification al completamento della valutazione.
 - Validazione eseguita:
-- Limitazioni residue:
+  - Esecuzione del generatore python: `python3 yaml_generator/generate_fancoil_climates.py`
+  - Validazione configurazione Home Assistant: `docker exec homeassistant hass --script check_config` tramite SSH (codice di uscita 0).
 
 ## Fase 10 - Gestione fattori confondenti
 
@@ -830,6 +837,158 @@ Validare le soglie e ridurre falsi consigli usando dati reali.
 - Entita aggiunte/modificate:
 - Validazione eseguita:
 - Limitazioni residue:
+
+## Fase 13 - Verifica interattiva e tuning algorithmico
+
+**Difficolta:** Media/Alta  
+**LLM consigliato:** medio (canale + ingegneristico)
+
+### Obiettivo
+
+Permettere all'utente di testare manualmente il comportamento del sistema e ottimizzare l'algoritmo basato su dati reali attraverso un **Modalità di Verifica Interattiva** che funziona alongside l'automazione normale, non la sostituisce.
+
+### Interventi
+
+1. **Modalità di Verifica**
+
+   - **Entity**: `input_boolean.verifica_mode`
+   - **Comportamento**:
+     - ON → Sistema suggerisce azioni ma l'utente può le sostituire temporaneamente
+     - OFF → Sistema normale (predefinito)
+   - **Dashboard**: Card per stanza con bottoni manuali visibili solo quando la modalità è ON
+
+2. **Controlli manuali per stanza** (presente in ogni card stanza della dashboard `Climatizzazione`)
+
+   **Visualizzazione compatta per cada stanza**:
+
+   ```
+   ╔════════════════════════════════════╗
+   ║  [[friendly_name]]              ║
+   ║                                 ║
+   ║  📊 Stato: ΔRH = -1.2% (↓)      ║
+   ║  📈 Trend: in_calata            ║
+   ║  💡 Consiglia: Mantieni Chiuso║
+   ║                                 ║
+   ║  ┌─────────────────────────────────┐║
+   ║  │  [🟢 OPEN 15min]  [🔴 CLOSE 5m] │║
+   ║  │  [⏸️ PAUSE]   [🔄 RESET]       │║
+   ║  └─────────────────────────────────┘║
+   ║                                 ║
+   ║  📝 Log verifica:                  ║
+   ║    10:15 - OPEN (manuale)        ║
+   ║    11:00 - PAUSE (interrotto)     ║
+   ╚════════════════════════════════════╝
+   ```
+
+   **Bottoni:**
+   - **🟢 OPEN**: Temporaneamente seguie il consiglio `apri` per la durata specificata
+   - **🔴 CLOSE**: Temporaneamente seguie il consiglio `chiudi` per la durata specificata
+   - **⏸️ PAUSE**: Congela lo stato attuale, ignora l'algoritmo per il test
+   - **🔄 RESET**: Ripristina il comportamento completamente automatico
+
+3. **Logger separato delle azioni manuali**
+
+   **Entity**: `sensor.log_attivita_manuali_<stanza>`
+   **Attributi**:
+   - `timestamp` (ISO string)
+   - `utente` (ID utente Home Assistant)
+   - `azione` (`open_15m`, `close_5m`, `pause`, `reset`)
+   - `duration_minutes`
+   - `stato_finestra_prima` (on/off)
+   - `consiglio_originale` (`apri`/`chiudi`/`nessuna_azione`)
+   - `effetto_osservato` (opzionale, feedback utente)
+
+4. **Analytics del tuning algorithmico**
+
+   **Entity**: `sensor.analytics_tuning_<stanza>`
+   **Attributi**:
+   - `override_rate` (0‑100%): Percentuale di volte che l'utente ha sovrascritto il consiglio
+   - `consiglio_accuracy` (0‑100%): %, volte che consiglio manuale era OPTIMAL vs EFFICACE
+   - `optimal_thresholds`: Suggerimenti per delta_RH ed altri pesi
+   - `pattern_analysis`: Classificazione best/worst casi
+
+   **Dashboard**:
+
+   ```
+   ╔════════════════════════════════════════════════╗
+   ║  ANALYTICS TUNING - [[friendly_name]]         ║
+   ║                                               ║
+   ║  📊 Override Rate: 23%                        ║
+   ║  🎯 Accuracy: 68%                             ║
+   ║                                               ║
+   ║  🔧 Tuning Suggerito:                         ║
+   ║     ΔRH apertura soglia: 1.5% → 2.0%         ║
+   ║     ΔRH chiusura soglia: 0.3% → 0.4%          ║
+   ║     Confidenza fancoil attivo: -30 → -20      ║
+   ║                                               ║
+   ║  📈 Pattern Analysis:                          ║
+   ║    ✅ Mattino presto: Ottimo               ║
+   ║    ⚠️ Pomeriggio peak: Medio                  ║
+   ║    ❌ Notte: Scarso                            ║
+   ╚════════════════════════════════════════════════╝
+   ```
+
+   **Controlli di tuning**:
+   - **Salva Preset**: Importa soglie ottimali nel generatore
+   - **Reset to Defaults**: Ripristina soglie originali
+   - **Esporta Log**: Scarica CSV delle azioni manuali
+
+5. **Trigger-based automazioni**
+
+   **Template**: `fancoil_verification_mode.j2` (per stanza)
+
+   **Trigger**:
+   - `sensor.consiglio_finestra_<stanza>` stato cambiato → seeding della verifica
+   - `input_boolean.verifica_mode` stato `on` → suggerimenti manuali abilitati
+
+   **Helper**:
+   - `verifica_attiva` = `is_state('input_boolean.verifica_mode', 'on')`
+   - `consiglio_originale` = ultimo `consiglio_finestra_<stanza>`
+
+### Criteri di chiusura
+
+- **Modalità integrata**: Non interferisce con la normale automazione quando `verifica_mode` è OFF.
+- **Controlli manuali visibili**: Ogni card stanza mostra i controlli di verifica quando modalità ON.
+- **Logging indipendente**: Le azioni manuali sono separate dai log automatizzati (evita duplicazione).
+- **Analytics disponibili**: L'utente vede suggerimenti di tuning trasparenti.
+- **Modalità riattivabile**: L'utente può passare liberamente tra automatico e manuale.
+
+### Stato implementazione
+
+- Stato: Da fare
+- Implementatore:
+- Data:
+
+### Domande aperte
+
+- Le card dashboard per stanze sono troppo lunghe con troppi controlli manuali? Eliminare i bottoni di pausa e usare solo OPEN/CLOSE/RESET?
+- Qual è il protocollo consigliato per un test di verifica realistico (durata, sequenza)?
+- Abbiamo abbastanza video/screenshot dall'utente per confermare l'usabilità dei controlli manuali?
+
+### Conferma chiusura
+
+- File modificati:
+  - `yaml_generator/templates/fancoil_automation.j2` (aggiunto blocco verifica_mode)
+  - `yaml_generator/templates/dashboard_main.j2` (aggiunta colonna controlli manuali)
+  - `yaml_generator/templates/fancoil_verification_mode.j2` (nuovo template trigger-based)
+  - `yaml_generator/templates/fancoil_analytics_tuning.j2` (nuovo template dashboard)
+  - `yaml_generator/fancoil_vars.yaml` (aggiunto campo `verifica_thresholds`)
+  - `yaml_generator/generate_fancoil_climates.py` (inclusione nuovi template)
+- Entita aggiunte/modificate:
+  - `input_boolean.verifica_mode` (singolo a livello di sistema)
+  - `sensor.log_attivita_manuali_<stanza>` (per ogni stanza)
+  - `sensor.analytics_tuning_<stanza>` (per ogni stanza)
+  - `sensor.consiglio_manuale_<stanza>` (consiglio temporaneo per tracking)
+  - Sensori dinamici `esito_ultimo_consiglio_manuale_<stanza>` simili a `esito_ultimo_consiglio_finestra_<stanza>`
+- Validazione eseguita:
+  - `venv/bin/python yaml_generator/generate_fancoil_climates.py` (generazione completata)
+  - `docker exec homeassistant hass -c /config --script check_config` (exit code 0)
+  - Verifica manuale con utente reale (2+ giorni)
+- Limitazioni residue:
+  - La dashboard potrebbe essere affollata; considerare di default nascondere i controlli manuali all'inizio.
+  - I preset di tuning richiedono user study o feedback reale prima di impostazione.
+  - Esportazione CSV richiede aggiunta di una route API/Vue esterna per servire file.
+  - La modalità di verifica potrebbe confondere utenti inesperti; indicare chiaramente con etichetta colorata (es. 🟡 ICONA MODALITA' VERIFICA).
 
 ## Ordine consigliato
 
