@@ -660,16 +660,21 @@ Capire se il consiglio dato ha prodotto l'effetto voluto osservando l'andamento 
 ### Conferma chiusura
 
 - File modificati:
-  - `yaml_generator/templates/fancoil_window_efficiency.j2` (Nuovo template di valutazione esito)
+  - `yaml_generator/templates/fancoil_window_efficiency.j2` (Nuovo template di valutazione esito con livello di validazione, cross-validation, metriche di qualità e fallback automatico)
   - `yaml_generator/templates/fancoil_window_logger.j2` (Corretto logger per girare sotto template)
   - `yaml_generator/templates/fancoil_window_notification.j2` (Notifiche esito + integrazione in consiglio)
   - `yaml_generator/generate_fancoil_climates.py` (Rigeneratore aggiornato con nuovi path e inclusione master)
 - Entita aggiunte/modificate:
-  - `sensor.esito_ultimo_consiglio_finestra_<stanza>` (cucina, camera_grande, camera, corridoio, bagno, sala)
+  - `sensor.esito_ultimo_consiglio_finestra_<stanza>` (cucina, camera_grande, camera, corridoio, bagno, sala) con attributi di qualità dati ed anomalies.
   - Automazioni notifica aggiornate per mostrare l'esito ed inviare persistent notification al completamento della valutazione.
+- Validazione ed Affidabilità Dati implementate:
+  - **Data Validation Layer**: Rifiuto di valori fuori scala (RH < 10% o > 100%) ed esito `non_valutabile` su variazioni fisicamente impossibili (salti improvvisi > 20% in 15m, > 30% in 30m, > 40% in 60m).
+  - **Fallback Logic**: Scelta automatica e a cascata del primo sensore disponibile tra primario e secondari configurati in `fancoil_vars.yaml`.
+  - **Cross-Validation**: Confronto tra sensori locali o, in alternativa, con il sensore di riferimento del Corridoio centrale (confronto attenuato in base a possibili attività umide rilevate).
+  - **Quality Metrics**: Attributi `qualita_dati`, `metrica_qualita`, `sensore_attivo` e `anomalie_rilevate` esposti su ciascuna stanza per totale trasparenza.
 - Validazione eseguita:
   - Esecuzione del generatore python: `python3 yaml_generator/generate_fancoil_climates.py`
-  - Validazione configurazione Home Assistant: `docker exec homeassistant hass --script check_config` tramite SSH (codice di uscita 0).
+  - Validazione configurazione Home Assistant: `docker exec homeassistant hass --script check_config` (codice di uscita 0).
 
 ## Fase 10 - Gestione fattori confondenti
 
@@ -837,6 +842,23 @@ Validare le soglie e ridurre falsi consigli usando dati reali.
 - Entita aggiunte/modificate:
 - Validazione eseguita:
 - Limitazioni residue:
+
+## Osservazione fisica: Dinamica convettiva serale (2026-07-03)
+
+Osservazione empirica rilevante alle ore 22:40:
+
+**Ovest (camera, bagno, camera grande)**: Le finestre non ricevono sole da ore. La superficie esterna della parete è più fredda → la brezza serale entra per convezione termica (aria esterna più calda risponde al gradiente termico della parete raffreddata). Questo genera un ricambio d'aria spontaneo anche senza vento.
+
+**Est (cucina, sala)**: Il lato est è ancora leggermente irraggiato dai riflessi e non ha la stessa convezione serale. Il ricambio è più passivo e dipende dal vento prevalente.
+
+Questo potrebbe spiegare il calo di umidità maggiore al bagno rispetto alla sala — non solo geometria, ma dinamica convettiva serale.
+
+**Implicazioni per l'algoritmo:**
+- Il consiglio "apri" sul lato ovest serale potrebbe sovrastimare il beneficio, perché il ricambio avviene anche senza intervento
+- Il consiglio "chiudi" sul lato est serale potrebbe essere più conservativo
+- Futura Fase 10/12: considerare esposizione parete + ora del giorno come fattore di confidenza (es. ridurre confidenza consiglio "apri" ovest post-tramonto, aumentare confidenza "chiudi" est serale se umidità non scende)
+
+---
 
 ## Fase 13 - Verifica interattiva e tuning algorithmico
 

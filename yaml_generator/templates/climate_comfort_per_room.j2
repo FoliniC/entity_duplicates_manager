@@ -16,18 +16,40 @@
   unique_id: omega_%%id%%
   unit_of_measurement: "g/kg"
   state: >
-    {% set T = states('sensor.temperatura_%%id%%_reale_calcolata') | float(0) %}
-    {% set RH = states('sensor.umidita_%%id%%_pilota') | float(0) %}
+    {% set t_primary = states('sensor.temperatura_%%id%%_reale_calcolata') | float(none) %}
+    {% set t_fallback = states('sensor.fancoil_%%id%%_temperature') | float(none) %}
+    {% set T = t_primary if t_primary is not none and t_primary != 0 else t_fallback %}
+    {% set rh_primary = states('sensor.umidita_%%id%%_pilota') | float(none) %}
+    {% set rh_fallback = states('sensor.fancoil_%%id%%_humidity') | float(none) %}
+    {% set RH = rh_primary if rh_primary is not none and rh_primary > 0 else rh_fallback %}
+    {% if T is none or RH is none %}
+      unavailable
+    {% else %}
     {% set P = states('sensor.castionetto_pressione') | float(1013.25) * 100 %}
     {% set psat = 610.78 * (2.718281828459 ** (17.27 * T / (T + 237.3))) %}
     {% set pvap = (RH / 100) * psat %}
     {{ (622 * pvap / (P - pvap)) | round(2) }}
+    {% endif %}
+  availability: >
+    {% set t_primary = states('sensor.temperatura_%%id%%_reale_calcolata') | float(none) %}
+    {% set t_fallback = states('sensor.fancoil_%%id%%_temperature') | float(none) %}
+    {% set T = t_primary if t_primary is not none and t_primary != 0 else t_fallback %}
+    {% set rh_primary = states('sensor.umidita_%%id%%_pilota') | float(none) %}
+    {% set rh_fallback = states('sensor.fancoil_%%id%%_humidity') | float(none) %}
+    {% set RH = rh_primary if rh_primary is not none and rh_primary > 0 else rh_fallback %}
+    {{ T is not none and RH is not none }}
   attributes:
     # Entita DIRETTE consumate dalla formula Omega (con valore)
     omega_temperature_id: sensor.temperatura_%%id%%_reale_calcolata
-    omega_temperature_value: "{{ states('sensor.temperatura_%%id%%_reale_calcolata') | float(0) }}"
+    omega_temperature_value: >-
+      {% set t_primary = states('sensor.temperatura_%%id%%_reale_calcolata') | float(none) %}
+      {% set t_fallback = states('sensor.fancoil_%%id%%_temperature') | float(none) %}
+      {{ t_primary if t_primary is not none and t_primary != 0 else t_fallback }}
     omega_humidity_id: sensor.umidita_%%id%%_pilota
-    omega_humidity_value: "{{ states('sensor.umidita_%%id%%_pilota') | float(0) }}"
+    omega_humidity_value: >-
+      {% set rh_primary = states('sensor.umidita_%%id%%_pilota') | float(none) %}
+      {% set rh_fallback = states('sensor.fancoil_%%id%%_humidity') | float(none) %}
+      {{ rh_primary if rh_primary is not none and rh_primary > 0 else rh_fallback }}
     # Device FISICO effettivamente in uso dietro le entita intermedie
     temperature_device_id: >
       {% set source = states('input_select.fancoil_%%id%%_temp_source') %}
@@ -61,9 +83,25 @@
   unique_id: punto_di_rugiada_%%id%%
   unit_of_measurement: "°C"
   state: >
-    {% set T = states('sensor.temperatura_%%id%%_reale_calcolata') | float(0) %}
-    {% set RH = states('sensor.umidita_%%id%%_pilota') | float(0) %}
+    {% set t_primary = states('sensor.temperatura_%%id%%_reale_calcolata') | float(none) %}
+    {% set t_fallback = states('sensor.fancoil_%%id%%_temperature') | float(none) %}
+    {% set T = t_primary if t_primary is not none and t_primary != 0 else t_fallback %}
+    {% set rh_primary = states('sensor.umidita_%%id%%_pilota') | float(none) %}
+    {% set rh_fallback = states('sensor.fancoil_%%id%%_humidity') | float(none) %}
+    {% set RH = rh_primary if rh_primary is not none and rh_primary > 0 else rh_fallback %}
+    {% if T is none or RH is none %}
+      unavailable
+    {% else %}
     {{ (T - (100 - RH) / 5) | round(1) }}
+    {% endif %}
+  availability: >
+    {% set t_primary = states('sensor.temperatura_%%id%%_reale_calcolata') | float(none) %}
+    {% set t_fallback = states('sensor.fancoil_%%id%%_temperature') | float(none) %}
+    {% set T = t_primary if t_primary is not none and t_primary != 0 else t_fallback %}
+    {% set rh_primary = states('sensor.umidita_%%id%%_pilota') | float(none) %}
+    {% set rh_fallback = states('sensor.fancoil_%%id%%_humidity') | float(none) %}
+    {% set RH = rh_primary if rh_primary is not none and rh_primary > 0 else rh_fallback %}
+    {{ T is not none and RH is not none }}
 
 # ---------------------------------------------------------------------------
 # Comfort Evaluation (Ottimale / Caldo-Umido / Fresco-Secco / Accettabile)
@@ -71,10 +109,15 @@
 - name: "Comfort Evaluation %%friendly_name%%"
   unique_id: comfort_evaluation_%%id%%
   state: >
-    {% set t = states('sensor.temperatura_%%id%%_reale_calcolata') | float(0) %}
-    {% set rh = states('sensor.umidita_%%id%%_pilota') | float(0) %}
+    {% set t_primary = states('sensor.temperatura_%%id%%_reale_calcolata') | float(none) %}
+    {% set t_fallback = states('sensor.fancoil_%%id%%_temperature') | float(none) %}
+    {% set t = t_primary if t_primary is not none and t_primary != 0 else t_fallback %}
+    {% set rh_primary = states('sensor.umidita_%%id%%_pilota') | float(none) %}
+    {% set rh_fallback = states('sensor.fancoil_%%id%%_humidity') | float(none) %}
+    {% set rh = rh_primary if rh_primary is not none and rh_primary > 0 else rh_fallback %}
     {% set mode = states('input_select.fancoil_system_hvac_mode') %}
-    {% if mode == 'cool' %}
+    {% if t is none or rh is none %} Non disponibile
+    {% elif mode == 'cool' %}
       {% if t >= 24 and t <= 26 and rh >= 50 and rh <= 60 %} Ottimale
       {% elif t > 26 or rh > 60 %} Caldo/Umido
       {% elif t < 24 or rh < 50 %} Fresco/Secco

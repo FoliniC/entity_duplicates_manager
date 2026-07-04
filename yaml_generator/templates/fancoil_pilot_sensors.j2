@@ -44,6 +44,62 @@
       {{ ns.source if ns.source != '' else 'none' }}
 
 # ---------------------------------------------------------------------------
+# Temperatura reale calcolata: implementa selezione sorgente da input_select
+# con fallback automatico al sensore interno fancoil.
+# Questo sensore sostituisce la logica che era duplicata in più template.
+# ---------------------------------------------------------------------------
+- name: "Temperatura %%friendly_name%% Reale Calcolata"
+  unique_id: temperatura_%%id%%_reale_calcolata
+  unit_of_measurement: "°C"
+  state_class: measurement
+  device_class: temperature
+  state: >
+    {% set source = states('input_select.fancoil_%%id%%_temp_source') %}
+    {% set internal = 'sensor.fancoil_%%id%%_temperature' %}
+    {% set stox = 'sensor.stox_fancoil_%%id%%_temperature' %}
+    {% set knx = 'sensor.temperatura_%%id%%' %}
+    {% set internal_val = states(internal) | float(-99) %}
+    {% set stox_val = states(stox) | float(-99) %}
+    {% set knx_val = states(knx) | float(-99) %}
+    {% set ns = namespace(val=none) %}
+    {% if source in [internal, 'Fancoil Internal', 'sensor.fancoil_%%id%%_temperature'] %}
+      {% if internal_val not in [-99, 0.0] %}
+        {% set ns.val = internal_val %}
+      {% endif %}
+    {% elif source in [stox, 'Stox Fancoil', 'sensor.stox_fancoil_%%id%%_temperature'] %}
+      {% if stox_val not in [-99, 0.0] %}
+        {% set ns.val = stox_val %}
+      {% elif internal_val not in [-99, 0.0] %}
+        {% set ns.val = internal_val %}
+      {% endif %}
+    {% elif source in [knx, 'KNX', 'sensor.temperatura_%%id%%'] %}
+      {% if knx_val not in [-99, 0.0] %}
+        {% set ns.val = knx_val %}
+      {% elif internal_val not in [-99, 0.0] %}
+        {% set ns.val = internal_val %}
+      {% endif %}
+    {% else %}
+      {% if internal_val not in [-99, 0.0] %}
+        {% set ns.val = internal_val %}
+      {% elif stox_val not in [-99, 0.0] %}
+        {% set ns.val = stox_val %}
+      {% elif knx_val not in [-99, 0.0] %}
+        {% set ns.val = knx_val %}
+      {% endif %}
+    {% endif %}
+    {{ ns.val if ns.val is not none else 'unavailable' }}
+  availability: >
+    {% set internal_val = states('sensor.fancoil_%%id%%_temperature') | float(-99) %}
+    {% set stox_val = states('sensor.stox_fancoil_%%id%%_temperature') | float(-99) %}
+    {% set knx_val = states('sensor.temperatura_%%id%%') | float(-99) %}
+    {{ (internal_val not in [-99, 0.0]) or (stox_val not in [-99, 0.0]) or (knx_val not in [-99, 0.0]) }}
+  attributes:
+    source_selector: "input_select.fancoil_%%id%%_temp_source"
+    internal_sensor: "sensor.fancoil_%%id%%_temperature"
+    stox_sensor: "sensor.stox_fancoil_%%id%%_temperature"
+    knx_sensor: "sensor.temperatura_%%id%%"
+
+# ---------------------------------------------------------------------------
 # Temperatura pilota: delega al sensore 'reale_calcolata' esistente, che gia
 # gestisce la selezione interattiva (input_select.fancoil_<id>_temp_source)
 # e il fallback automatico al sensore interno. Delegare evita di duplicare
@@ -55,9 +111,13 @@
   state_class: measurement
   device_class: temperature
   state: >
-    {% set val = states('sensor.temperatura_%%id%%_reale_calcolata') %}
-    {{ val if val not in ['unavailable', 'unknown', 'none', None, ''] else 'unavailable' }}
+    {% set primary = states('sensor.temperatura_%%id%%_reale_calcolata') | float(none) %}
+    {% set fallback = states('sensor.fancoil_%%id%%_temperature') | float(none) %}
+    {% set val = primary if primary is not none and primary != 0 else fallback %}
+    {{ val if val is not none else 'unavailable' }}
   availability: >
-    {{ has_value('sensor.temperatura_%%id%%_reale_calcolata') }}
+    {% set primary = states('sensor.temperatura_%%id%%_reale_calcolata') | float(none) %}
+    {% set fallback = states('sensor.fancoil_%%id%%_temperature') | float(none) %}
+    {{ (primary is not none and primary != 0) or fallback is not none }}
   attributes:
     source_sensor: sensor.temperatura_%%id%%_reale_calcolata

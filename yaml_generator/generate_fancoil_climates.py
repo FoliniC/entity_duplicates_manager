@@ -364,6 +364,10 @@ def generate_from_template(template_path, output_dir, vars_map, suffix):
             local_ctx["KNX_COHERENCE_BLOCK"] = ""
             local_ctx["KNX_COHERENCE_BLOCK_SENSOR"] = ""
 
+        # Add TH humidity sensor and external humidity sensor for cross-validation
+        local_ctx["TH_HUMIDITY_SENSOR"] = local_ctx.get("th_humidity_sensor", "")
+        local_ctx["EXTERNAL_HUMIDITY_SENSOR"] = local_ctx.get("external_humidity_sensor", "sensor.meteo_castionetto_umidita")
+        
         # Render
         final_ctx = {**local_ctx, **common_ctx}
         rendered = substitute_tags(template_text, final_ctx)

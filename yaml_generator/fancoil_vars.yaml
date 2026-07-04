@@ -9,6 +9,16 @@ fancoil_vars:
     humidity_sensor: sensor.fancoil_cucina_humidity
     humidity_fallback_sensors:
       - sensor.th1a_humidity
+    # Fase 13 - TH humidity sensor per cross-validation
+    th_humidity_sensor: sensor.th1a_humidity
+    # External humidity sensor for fallback
+    external_humidity_sensor: sensor.meteo_castionetto_umidita
+    # Fase 13 - Soglie di verifica (opzionale, può essere sovrascritte da utente)
+    verifica_thresholds:
+      delta_omega_apertura: 1.5
+      delta_omega_chiusura: 0.3
+      confidence_penalty_active_fancoil: -25
+
   camera_grande:
     id: camera_grande
     friendly_name: Camera grande
@@ -20,6 +30,16 @@ fancoil_vars:
     humidity_sensor: sensor.fancoil_camera_grande_humidity
     humidity_fallback_sensors:
       - sensor.th2b_humidity
+    # Fase 13 - TH humidity sensor per cross-validation
+    th_humidity_sensor: sensor.th2b_humidity
+    # External humidity sensor for fallback
+    external_humidity_sensor: sensor.meteo_castionetto_umidita
+    # Fase 13 - Soglie di verifica (opzionale, può essere sovrascritte da utente)
+    verifica_thresholds:
+      delta_omega_apertura: 1.5
+      delta_omega_chiusura: 0.3
+      confidence_penalty_active_fancoil: -25
+
   camera:
     id: camera
     friendly_name: Camera
@@ -31,6 +51,16 @@ fancoil_vars:
     humidity_sensor: sensor.fancoil_camera_humidity
     humidity_fallback_sensors:
       - sensor.th3c_humidity
+    # Fase 13 - TH humidity sensor per cross-validation
+    th_humidity_sensor: sensor.th3c_humidity
+    # External humidity sensor for fallback
+    external_humidity_sensor: sensor.meteo_castionetto_umidita
+    # Fase 13 - Soglie di verifica (opzionale, può essere sovrascritte da utente)
+    verifica_thresholds:
+      delta_omega_apertura: 1.5
+      delta_omega_chiusura: 0.3
+      confidence_penalty_active_fancoil: -25
+
   corridoio:
     id: corridoio
     friendly_name: Corridoio
@@ -40,6 +70,16 @@ fancoil_vars:
     # Fase 4 - Sensore pilota umidità (unico sensore disponibile: fancoil interno)
     humidity_sensor: sensor.fancoil_corridoio_humidity
     humidity_fallback_sensors: []
+    # Fase 13 - TH humidity sensor per cross-validation (non disponibile per corridoio)
+    th_humidity_sensor: ""
+    # External humidity sensor for fallback
+    external_humidity_sensor: sensor.meteo_castionetto_umidita
+    # Fase 13 - Soglie di verifica (opzionale, può essere sovrascritte da utente)
+    verifica_thresholds:
+      delta_omega_apertura: 1.5
+      delta_omega_chiusura: 0.3
+      confidence_penalty_active_fancoil: -25
+
   bagno:
     id: bagno
     friendly_name: Bagno
@@ -50,6 +90,16 @@ fancoil_vars:
     # Fase 4 - Sensore pilota umidità (unico sensore disponibile: fancoil interno)
     humidity_sensor: sensor.fancoil_bagno_humidity
     humidity_fallback_sensors: []
+    # Fase 13 - TH humidity sensor per cross-validation (non disponibile per bagno)
+    th_humidity_sensor: ""
+    # External humidity sensor for fallback
+    external_humidity_sensor: sensor.meteo_castionetto_umidita
+    # Fase 13 - Soglie di verifica (opzionale, può essere sovrascritte da utente)
+    verifica_thresholds:
+      delta_omega_apertura: 1.5
+      delta_omega_chiusura: 0.3
+      confidence_penalty_active_fancoil: -25
+
   sala:
     id: sala
     friendly_name: Sala
@@ -60,6 +110,10 @@ fancoil_vars:
     # Fase 4 - Sensore pilota umidità (fancoil interno; th4d resta associato al "Locale"/Corridoio)
     humidity_sensor: sensor.fancoil_sala_humidity
     humidity_fallback_sensors: []
+    # Fase 13 - TH humidity sensor per cross-validation (non disponibile per sala)
+    th_humidity_sensor: ""
+    # External humidity sensor for fallback
+    external_humidity_sensor: sensor.meteo_castionetto_umidita
     # Fase 13 - Soglie di verifica (opzionale, può essere sovrascritte da utente)
     verifica_thresholds:
       delta_omega_apertura: 1.5

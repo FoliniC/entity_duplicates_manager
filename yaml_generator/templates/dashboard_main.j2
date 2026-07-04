@@ -585,6 +585,93 @@ views:
     cards:
       - type: vertical-stack
         cards:
+          - type: custom:mushroom-template-card
+            primary: >-
+              {% set advs = [
+                states('sensor.consiglio_finestra_cucina'),
+                states('sensor.consiglio_finestra_camera_grande'),
+                states('sensor.consiglio_finestra_camera'),
+                states('sensor.consiglio_finestra_corridoio'),
+                states('sensor.consiglio_finestra_bagno'),
+                states('sensor.consiglio_finestra_sala')
+              ] %}
+              {% set active_advs = advs | select('in', ['apri', 'apri_se_riparata', 'chiudi']) | list %}
+              {% if active_advs | length > 0 %}
+                ATTENZIONE: {{ active_advs | length }} consigli da applicare!
+              {% else %}
+                Tutto OK - Nessun consiglio attivo
+              {% endif %}
+            secondary: >-
+              {% set rooms = [
+                ('Cucina', states('sensor.consiglio_finestra_cucina')),
+                ('Camera Grande', states('sensor.consiglio_finestra_camera_grande')),
+                ('Camera', states('sensor.consiglio_finestra_camera')),
+                ('Corridoio', states('sensor.consiglio_finestra_corridoio')),
+                ('Bagno', states('sensor.consiglio_finestra_bagno')),
+                ('Sala', states('sensor.consiglio_finestra_sala'))
+              ] %}
+              {% set active = rooms | selectattr(1, 'in', ['apri', 'apri_se_riparata', 'chiudi']) | list %}
+              {% if active | length > 0 %}
+                {% set parts = namespace(res=[]) %}
+                {% for r, val in active %}
+                  {% set parts.res = parts.res + [r ~ ' (' ~ val | upper ~ ')'] %}
+                {% endfor %}
+                Da applicare in: {{ parts.res | join(', ') }}
+              {% else %}
+                Tutte le stanze sono in condizioni ottimali.
+              {% endif %}
+            icon: >-
+              {% set advs = [
+                states('sensor.consiglio_finestra_cucina'),
+                states('sensor.consiglio_finestra_camera_grande'),
+                states('sensor.consiglio_finestra_camera'),
+                states('sensor.consiglio_finestra_corridoio'),
+                states('sensor.consiglio_finestra_bagno'),
+                states('sensor.consiglio_finestra_sala')
+              ] %}
+              {% set active_advs = advs | select('in', ['apri', 'apri_se_riparata', 'chiudi']) | list %}
+              {% if active_advs | length > 0 %}
+                mdi:window-open-variant
+              {% else %}
+                mdi:checkbox-marked-circle
+              {% endif %}
+            icon_color: >-
+              {% set advs = [
+                states('sensor.consiglio_finestra_cucina'),
+                states('sensor.consiglio_finestra_camera_grande'),
+                states('sensor.consiglio_finestra_camera'),
+                states('sensor.consiglio_finestra_corridoio'),
+                states('sensor.consiglio_finestra_bagno'),
+                states('sensor.consiglio_finestra_sala')
+              ] %}
+              {% set active_advs = advs | select('in', ['apri', 'apri_se_riparata', 'chiudi']) | list %}
+              {% if active_advs | length > 0 %}
+                red
+              {% else %}
+                green
+              {% endif %}
+            card_mod:
+              style: |
+                ha-card {
+                  {% set advs = [
+                    states('sensor.consiglio_finestra_cucina'),
+                    states('sensor.consiglio_finestra_camera_grande'),
+                    states('sensor.consiglio_finestra_camera'),
+                    states('sensor.consiglio_finestra_corridoio'),
+                    states('sensor.consiglio_finestra_bagno'),
+                    states('sensor.consiglio_finestra_sala')
+                  ] %}
+                  {% set active_advs = advs | select('in', ['apri', 'apri_se_riparata', 'chiudi']) | list %}
+                  {% if active_advs | length > 0 %}
+                    border: 2px solid var(--error-color) !important;
+                    background: rgba(var(--rgb-error-color), 0.1) !important;
+                  {% else %}
+                    border: 2px solid var(--success-color) !important;
+                    background: rgba(var(--rgb-success-color), 0.1) !important;
+                  {% endif %}
+                  border-radius: 12px !important;
+                  margin-bottom: 12px;
+                }
           - type: markdown
             content: >
               ## 🍃 Benessere Indoor
@@ -1672,7 +1759,8 @@ views:
               | Condizione | Consiglio |
               |---|---|
               | Piove (`precipitazione > 0 mm`) | `mantieni_chiusa` |
-              | δω ≥ 1.0 g/kg **e** umidità > 55% | `apri` |
+              | Impianto attivo, δω ≥ 2.5 g/kg, calo previsto ≥ 6 punti, umidità > 62% | `apri` per circa 5 minuti |
+              | Impianto non attivo, δω ≥ 1.5 g/kg, calo previsto ≥ 4 punti, umidità > 58% | `apri` per ricambio breve |
               | δω < 0.2 g/kg | `mantieni_chiusa` |
               | Altro | `nessuna_azione` |
 
@@ -1681,10 +1769,14 @@ views:
               | Condizione | Consiglio |
               |---|---|
               | Piove | `chiudi` |
+              | Trend `in_salita` | `chiudi` |
+              | Impianto attivo e apertura ≥ 8 minuti | `chiudi` |
+              | Impianto attivo e apertura ≥ 5 minuti senza beneficio forte | `chiudi` |
               | δω < 0.2 g/kg | `chiudi` |
-              | Trend `in_salita` e δω < 0.5 g/kg | `chiudi` |
-              | Trend `in_calata` **o** δω ≥ 1.0 g/kg | `mantieni_aperta` |
+              | Trend `in_calata`, beneficio importante e apertura breve | `mantieni_aperta` |
               | Altro | `nessuna_azione` |
+
+              > Con raffrescamento/riscaldamento attivo l'apertura finestra e` trattata come eccezione: solo se il calo umidita previsto e` importante e comunque per pochi minuti, per evitare dispersione del fresco/caldo del fancoil.
 
               > **Trend umidità** (`trend_umidita_<stanza>`):
               > - `in_salita`: variazione 15 min ≥ +0.5% (o +0.2% con 60 min ≥ +1.0%)
