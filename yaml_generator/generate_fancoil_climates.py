@@ -744,10 +744,34 @@ def main():
     )
 
     # Fase 6 - Per-room window advice sensors (consiglio finestra)
+    # Build trigger entities list based on has_window
+    window_advice_vars = {}
+    for key, context in vars_map.items():
+        local_ctx = dict(context)
+        room_id = local_ctx.get("id", key)
+        has_win = local_ctx.get("has_window", True)
+        local_ctx["has_window"] = has_win
+        local_ctx["HAS_WINDOW"] = "true" if has_win else "false"
+        
+        trigger_entities = [
+            f"sensor.temperatura_{room_id}_reale_calcolata",
+            f"sensor.umidita_{room_id}_pilota",
+            f"sensor.omega_{room_id}",
+            "sensor.omega_esterno",
+            f"sensor.previsione_finestra_{room_id}",
+            f"sensor.trend_umidita_{room_id}",
+        ]
+        if has_win:
+            trigger_entities.append(f"input_boolean.finestra_{room_id}_aperta")
+        trigger_entities.append("sensor.castionetto_precipitazione")
+        
+        local_ctx["TRIGGER_ENTITIES"] = "\n      - " + "\n      - ".join(trigger_entities)
+        window_advice_vars[key] = local_ctx
+    
     generate_from_template(
         WINDOW_ADVICE_TEMPLATE_PATH,
         TRIGGER_SENSORS_OUTPUT_DIR,
-        vars_map,
+        window_advice_vars,
         "_window_advice",
     )
 
@@ -776,10 +800,39 @@ def main():
     )
 
     # Fase 9 - Per-room window advice efficiency evaluation (valutazione esito consiglio)
+    # Build trigger entities based on has_window
+    window_efficiency_vars = {}
+    for key, context in vars_map.items():
+        local_ctx = dict(context)
+        room_id = local_ctx.get("id", key)
+        has_win = local_ctx.get("has_window", True)
+        local_ctx["has_window"] = has_win
+        local_ctx["HAS_WINDOW"] = "true" if has_win else "false"
+        
+        # Build trigger YAML for this room
+        triggers = [
+            {"platform": "state", "entity_id": f"sensor.consiglio_finestra_{room_id}", "id": "advice_changed"},
+        ]
+        if has_win:
+            triggers.append({"platform": "state", "entity_id": f"input_boolean.finestra_{room_id}_aperta", "id": "window_changed"})
+        triggers.append({"platform": "time_pattern", "minutes": "/1", "id": "time_tick"})
+        
+        # Convert triggers to YAML string
+        trigger_yaml = "\n".join(
+            f"  - platform: {t['platform']}"
+            + (f"\n    entity_id: {t['entity_id']}" if 'entity_id' in t else "")
+            + (f"\n    minutes: {t['minutes']}" if 'minutes' in t else "")
+            + f"\n    id: {t['id']}"
+            for t in triggers
+        )
+        local_ctx["TRIGGERS_YAML"] = trigger_yaml
+        
+        window_efficiency_vars[key] = local_ctx
+    
     generate_from_template(
         WINDOW_EFFICIENCY_TEMPLATE_PATH,
         TRIGGER_SENSORS_OUTPUT_DIR,
-        vars_map,
+        window_efficiency_vars,
         "_window_efficiency",
     )
 
@@ -791,13 +844,15 @@ def main():
         "_restore",
     )
 
-    # Fase 13 - Per-room verification mode logging automations
-    generate_from_template(
-        WINDOW_VERIFICATION_MODE_TEMPLATE_PATH,
-        AUTOMATION_OUTPUT_DIR,
-        vars_map,
-        "_verification",
-    )
+    # Fase 13 - Per-room verification mode logging automations (only for rooms with windows)
+    for key, context in vars_map.items():
+        if context.get("has_window", True):  # Default true, only skip if explicitly false
+            generate_from_template(
+                WINDOW_VERIFICATION_MODE_TEMPLATE_PATH,
+                AUTOMATION_OUTPUT_DIR,
+                {key: context},
+                "_verification",
+            )
 
     # Fase 13 - Manual advice sensors
     generate_from_template(
@@ -808,11 +863,13 @@ def main():
     )
 
     # Aggregated helpers
+    # Input booleans - skip rooms without windows for finestra_* input_booleans
+    filtered_vars_map = {k: v for k, v in vars_map.items() if v.get("has_window", True)}
     generate_master_and_rooms(
         MASTER_INPUT_BOOLEAN_TEMPLATE_PATH,
         ROOM_INPUT_BOOLEAN_TEMPLATE_PATH,
         INPUT_BOOLEAN_OUTPUT_FILE,
-        vars_map,
+        filtered_vars_map,
         extra_context=None,
     )
     generate_master_and_rooms(

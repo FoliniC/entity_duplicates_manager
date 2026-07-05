@@ -595,7 +595,7 @@ views:
                 states('sensor.consiglio_finestra_bagno'),
                 states('sensor.consiglio_finestra_sala')
               ] %}
-              {% set active_advs = advs | select('in', ['apri', 'apri_se_riparata', 'chiudi']) | list %}
+              {% set active_advs = advs | select('in', ['apri', 'apri_se_riparata', 'chiudi', 'apri_porte_ricambio', 'chiudi_porte']) | list %}
               {% if active_advs | length > 0 %}
                 ATTENZIONE: {{ active_advs | length }} consigli da applicare!
               {% else %}
@@ -610,7 +610,7 @@ views:
                 ('Bagno', states('sensor.consiglio_finestra_bagno')),
                 ('Sala', states('sensor.consiglio_finestra_sala'))
               ] %}
-              {% set active = rooms | selectattr(1, 'in', ['apri', 'apri_se_riparata', 'chiudi']) | list %}
+              {% set active = rooms | selectattr(1, 'in', ['apri', 'apri_se_riparata', 'chiudi', 'apri_porte_ricambio', 'chiudi_porte']) | list %}
               {% if active | length > 0 %}
                 {% set parts = namespace(res=[]) %}
                 {% for r, val in active %}
@@ -629,7 +629,7 @@ views:
                 states('sensor.consiglio_finestra_bagno'),
                 states('sensor.consiglio_finestra_sala')
               ] %}
-              {% set active_advs = advs | select('in', ['apri', 'apri_se_riparata', 'chiudi']) | list %}
+              {% set active_advs = advs | select('in', ['apri', 'apri_se_riparata', 'chiudi', 'apri_porte_ricambio', 'chiudi_porte']) | list %}
               {% if active_advs | length > 0 %}
                 mdi:window-open-variant
               {% else %}
@@ -644,7 +644,7 @@ views:
                 states('sensor.consiglio_finestra_bagno'),
                 states('sensor.consiglio_finestra_sala')
               ] %}
-              {% set active_advs = advs | select('in', ['apri', 'apri_se_riparata', 'chiudi']) | list %}
+              {% set active_advs = advs | select('in', ['apri', 'apri_se_riparata', 'chiudi', 'apri_porte_ricambio', 'chiudi_porte']) | list %}
               {% if active_advs | length > 0 %}
                 red
               {% else %}
@@ -661,7 +661,7 @@ views:
                     states('sensor.consiglio_finestra_bagno'),
                     states('sensor.consiglio_finestra_sala')
                   ] %}
-                  {% set active_advs = advs | select('in', ['apri', 'apri_se_riparata', 'chiudi']) | list %}
+                  {% set active_advs = advs | select('in', ['apri', 'apri_se_riparata', 'chiudi', 'apri_porte_ricambio', 'chiudi_porte']) | list %}
                   {% if active_advs | length > 0 %}
                     border: 2px solid var(--error-color) !important;
                     background: rgba(var(--rgb-error-color), 0.1) !important;
@@ -671,6 +671,10 @@ views:
                   {% endif %}
                   border-radius: 12px !important;
                   margin-bottom: 12px;
+                }
+                .primary, .secondary, .info {
+                  user-select: text !important;
+                  -webkit-user-select: text !important;
                 }
           - type: markdown
             content: >
@@ -1349,56 +1353,6 @@ views:
                         action: navigate
                         navigation_path: "/riscaldamento-1/fancoil-grafici-corridoio"
                       card_mod: *row_style
-                    - type: entities
-                      show_header_toggle: false
-                      state_color: true
-                      entities:
-                        - entity: input_boolean.finestra_corridoio_aperta
-                          name: Finestra aperta
-                          icon: mdi:window-open
-                      card_mod: *row_style
-                    - type: conditional
-                      conditions:
-                        - entity: input_boolean.verifica_mode
-                          state: "on"
-                      card:
-                        type: vertical-stack
-                        cards:
-                          - type: entities
-                            title: Verifica Corridoio
-                            show_header_toggle: false
-                            state_color: true
-                            entities:
-                              - entity: sensor.analytics_tuning_corridoio
-                                name: Analytics tuning
-                              - entity: sensor.consiglio_finestra_corridoio
-                                name: Consiglio finestra
-                              - entity: sensor.previsione_finestra_corridoio
-                                name: Previsione tempo utile
-                              - entity: sensor.trend_umidita_corridoio
-                                name: Trend umidita
-                              - entity: sensor.log_attivita_manuali_corridoio
-                                name: Log manuale
-                          - type: grid
-                            columns: 2
-                            square: false
-                            cards:
-                              - type: button
-                                name: Apri finestra
-                                icon: mdi:window-open-variant
-                                tap_action:
-                                  action: call-service
-                                  service: input_boolean.turn_on
-                                  target:
-                                    entity_id: input_boolean.finestra_corridoio_aperta
-                              - type: button
-                                name: Chiudi finestra
-                                icon: mdi:window-closed-variant
-                                tap_action:
-                                  action: call-service
-                                  service: input_boolean.turn_off
-                                  target:
-                                    entity_id: input_boolean.finestra_corridoio_aperta
                     - type: custom:mushroom-template-card
                       primary: "🌡️ Temperatura Fancoil {{ states('sensor.fancoil_corridoio_temperature') }}°C"
                       entity: sensor.fancoil_corridoio_temperature

@@ -83,8 +83,10 @@ sensor:
       {% set data_age_minutes = (current_time - last_update_time) / 60 %}
       {% set data_too_old = data_age_minutes > 60 %}
     {% else %}
+      {% set data_age_minutes = 999 %}
       {% set data_too_old = true %}
     {% endif %}
+    {% set trend_valid = trend not in ['incerto', 'unknown'] %}
     
     {# ---------------------------------------------------------------------------
        MAIN LOGIC: Evaluation Flow
@@ -259,9 +261,29 @@ sensor:
         {{ rh_external }}
       
       eta_dati_minuti: >-
-        {{ data_age_minutes | round(1 if data_age_minutes is not none else 0) }}
+        {% set current_time = now() | as_timestamp %}
+        {% set last_update = state_attr('sensor.umidita_%%id%%_pilota', 'last_updated') %}
+        {% if last_update %}
+          {% set last_update_time = as_timestamp(last_update) %}
+          {% set data_age_minutes = (current_time - last_update_time) / 60 %}
+          {% if data_age_minutes < 999 %}
+            {{ data_age_minutes | round(1) }}
+          {% else %}
+            999
+          {% endif %}
+        {% else %}
+          999
+        {% endif %}
       dati_troppo_vecchi: >-
-        {{ data_too_old }}
+        {% set current_time = now() | as_timestamp %}
+        {% set last_update = state_attr('sensor.umidita_%%id%%_pilota', 'last_updated') %}
+        {% if last_update %}
+          {% set last_update_time = as_timestamp(last_update) %}
+          {% set data_age_minutes = (current_time - last_update_time) / 60 %}
+          {{ data_age_minutes > 60 }}
+        {% else %}
+          true
+        {% endif %}
       trend_sensore: >-
         {{ trend }}
       trend_valido: >-
@@ -318,4 +340,5 @@ sensor:
       # TIME STAMP: Track when data was last updated
       # ---------------------------------------------------------------------------
       ultima_aggiornamento_dati: >-
-        {{ last_update }}
+        {% set last_update = state_attr('sensor.umidita_%%id%%_pilota', 'last_updated') %}
+        {% if last_update %}{{ last_update }}{% else %}N/A{% endif %}

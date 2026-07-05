@@ -70,6 +70,8 @@ fancoil_vars:
     # Fase 4 - Sensore pilota umidità (unico sensore disponibile: fancoil interno)
     humidity_sensor: sensor.fancoil_corridoio_humidity
     humidity_fallback_sensors: []
+    # Corridoio non ha finestre - solo porte verso altre stanze
+    has_window: false
     # Fase 13 - TH humidity sensor per cross-validation (non disponibile per corridoio)
     th_humidity_sensor: ""
     # External humidity sensor for fallback

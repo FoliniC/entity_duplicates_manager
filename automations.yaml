@@ -50,3 +50,24 @@
           option: Eco
     default: []
   mode: single
+- id: '1783200935292'
+  alias: Telecamera - Persona rilevata
+  description: Notifica persistente quando Agent DVR rileva una persona
+  triggers:
+  - webhook_id: movimento_camera1
+    allowed_methods:
+    - POST
+    - GET
+    local_only: true
+    trigger: webhook
+  conditions: []
+  actions:
+  - data:
+      title: "\U0001F6A8 Persona rilevata"
+      message: 'Persona rilevata dalla **Camera 1** alle {{ now().strftime(''%H:%M:%S'')
+        }} del {{ now().strftime(''%d/%m/%Y'') }}
+
+        '
+      notification_id: persona_camera1
+    action: persistent_notification.create
+  mode: single
