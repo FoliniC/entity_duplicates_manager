@@ -27,9 +27,9 @@ sensor:
       omega_int: "{{ states('sensor.omega_%%id%%') | float(none) }}"
       omega_ext: "{{ states('sensor.omega_esterno') | float(none) }}"
       trend: "{{ states('sensor.trend_umidita_%%id%%') }}"
-      finestra_aperta: "{{ is_state('input_boolean.finestra_%%id%%_aperta', 'on') if HAS_WINDOW == 'true' else false }}"
+      finestra_aperta: "{{ is_state('input_boolean.finestra_%%id%%_aperta', 'on') if has_window == true else false }}"
       minuti_aperta: >-
-        {% if HAS_WINDOW == 'true' %}
+        {% if has_window == true %}
           {% if is_state('input_boolean.finestra_%%id%%_aperta', 'on') %}
             {{ ((as_timestamp(now()) - as_timestamp(states.input_boolean.finestra_%%id%%_aperta.last_changed)) / 60) | round(0) }}
           {% else %}

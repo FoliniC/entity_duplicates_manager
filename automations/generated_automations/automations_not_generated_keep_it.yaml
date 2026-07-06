@@ -744,6 +744,8 @@
       entity_id: light.luce_scale
       state: "on"
   actions:
+    - variables:
+        we_turned_it_off: false
     - delay:
         minutes: 4
     - action: persistent_notification.create
@@ -766,6 +768,8 @@
         - action: light.turn_off
           target:
             entity_id: light.luce_scale
+        - variables:
+            we_turned_it_off: true
     - delay:
         seconds: 2
 
@@ -775,6 +779,8 @@
             - condition: state
               entity_id: light.luce_scale
               state: "off"
+            - condition: template
+              value_template: "{{ we_turned_it_off }}"
           sequence:
             - action: notify.mobile_app_redmi_note_13_pro_5g
               data:
@@ -782,6 +788,17 @@
                 message: "Luce scale spenta automaticamente dopo 4 minuti. Consumo: {{ states('sensor.luce_scale_switch_infos') }}W"
                 data:
                   tts_text: "Spenta la luce scale"
+        - conditions:
+            - condition: state
+              entity_id: light.luce_scale
+              state: "off"
+          sequence:
+            - action: notify.mobile_app_redmi_note_13_pro_5g
+              data:
+                title: "Luce Scale"
+                message: "Luce scale era già spenta (spenta da altra automazione). Consumo: {{ states('sensor.luce_scale_switch_infos') }}W"
+                data:
+                  tts_text: "La luce scale era già spenta"
       default:
         - action: notify.mobile_app_redmi_note_13_pro_5g
           data:
