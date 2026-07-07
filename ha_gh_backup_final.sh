@@ -1,6 +1,9 @@
 #!/bin/bash
 # Configurazione percorso
 CONFIG_DIR="/home/carlo/docker/homeassistant/config"
+HOST_COMPOSE_SOURCE="/home/carlo/docker/docker-compose.yml"
+HOST_BACKUP_DIR="$CONFIG_DIR/host_backup"
+HOST_COMPOSE_BACKUP="$HOST_BACKUP_DIR/docker-compose.yml"
 
 cd "$CONFIG_DIR" || exit 1
 
@@ -9,6 +12,27 @@ git remote set-url origin git@github.com:FoliniC/ha-config.git
 
 echo "=== BACKUP IN CORSO: $(date) ==="
 echo "Repository: $(pwd)"
+echo ""
+
+# FASE -1: SNAPSHOT CONFIG HOST
+# Il docker-compose principale vive fuori dal repository HA. Ne salviamo una
+# copia sanitizzata dentro il repo prima del git add, evitando token/password.
+if [ -f "$HOST_COMPOSE_SOURCE" ]; then
+    mkdir -p "$HOST_BACKUP_DIR"
+    sed -E \
+        -e 's/(TOKEN=).*/\1<redacted>/' \
+        -e 's/(AUTHTOKEN=).*/\1<redacted>/' \
+        -e 's/(PASSWORD=).*/\1<redacted>/' \
+        -e 's/(MYSQL_ROOT_PASSWORD=).*/\1<redacted>/' \
+        -e 's/(POSTGRES_PASSWORD=).*/\1<redacted>/' \
+        -e 's/(POSTGRESQL_PASSWORD=).*/\1<redacted>/' \
+        -e 's/(--token )[A-Za-z0-9._=-]+/\1<redacted>/' \
+        -e 's/(command: -u "[^;"]+;)[^;"]+/\1<redacted>/' \
+        "$HOST_COMPOSE_SOURCE" > "$HOST_COMPOSE_BACKUP"
+    echo "📦 Snapshot compose host aggiornato: $HOST_COMPOSE_BACKUP"
+else
+    echo "⚠️  Compose host non trovato: $HOST_COMPOSE_SOURCE"
+fi
 echo ""
 
 # FASE 0: VERIFICA STATO PRE-ESISTENTE

@@ -1,0 +1,269 @@
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: homeassistant
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+    dns:
+      - 127.0.0.1
+      - ::1
+    volumes:
+      - ./homeassistant/config/custom-cont-init.d:/custom-cont-init.d
+      - ./homeassistant/config:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+    tmpfs:
+      - /tmp
+    environment:
+      - TZ=Europe/Rome
+
+
+  mariadb:
+    image: mariadb:10.11
+    container_name: mariadb
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=<redacted>
+      - MYSQL_DATABASE=homeassistant
+      - MYSQL_USER=homeassistant
+      - MYSQL_PASSWORD=<redacted>
+    volumes:
+      - ./homeassistant/config/custom-cont-init.d:/custom-cont-init.d
+      - ./mariadb/db:/var/lib/mysql
+      - ./mariadb/conf/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+    ports:
+      - 3306:3306
+
+  mosquitto:
+    image: eclipse-mosquitto
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - 1883:1883
+      - 9001:9001
+    volumes:
+      - ./homeassistant/config/custom-cont-init.d:/custom-cont-init.d
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    tmpfs:
+      - /tmp
+    environment:
+      - TZ=Europe/Rome
+
+  influxdb:
+    image: influxdb:2.9
+    container_name: influxdb
+    restart: unless-stopped
+    ports:
+      - 8086:8086
+    volumes:
+      - ./homeassistant/config/custom-cont-init.d:/custom-cont-init.d
+      - ./influxdb/data:/var/lib/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=<redacted>
+      - DOCKER_INFLUXDB_INIT_ORG=ViaGrande50
+      - DOCKER_INFLUXDB_INIT_BUCKET=HAData
+      - INFLUXDB_STORAGE_CACHE_MAX_MEMORY_SIZE=6g
+      - INFLUXDB_STORAGE_SERIES_ID_SET_CACHE_SIZE=1g
+      - TZ=Europe/Rome
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - 3002:3000
+    volumes:
+      - ./homeassistant/config/custom-cont-init.d:/custom-cont-init.d
+      - ./grafana/data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=<redacted>
+      - TZ=Europe/Rome
+
+  npm:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: npm
+    restart: unless-stopped
+    ports:
+      - 80:80
+      - 81:81
+      - 443:443
+      - 8443:8443
+    volumes:
+      - ./homeassistant/config/custom-cont-init.d:/custom-cont-init.d
+      - ./npm/data:/data
+      - ./npm/letsencrypt:/etc/letsencrypt
+    environment:
+      - TZ=Europe/Rome
+
+  duckdns:
+    image: lscr.io/linuxserver/duckdns:latest
+    container_name: duckdns
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Rome
+      - SUBDOMAINS=folini
+      - TOKEN=<redacted>
+      - LOG_FILE=false
+    volumes:
+      - ./homeassistant/config/custom-cont-init.d:/custom-cont-init.d
+      - ./duckdns/config:/config
+
+  vscode:
+    image: lscr.io/linuxserver/code-server:latest
+    container_name: vscode
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Rome
+    volumes:
+      - ./homeassistant/config/custom-cont-init.d:/custom-cont-init.d
+      - ./homeassistant/config:/config/workspace
+    ports:
+      - 8444:8443
+
+  samba:
+    image: dperson/samba
+    container_name: samba
+    restart: unless-stopped
+    ports:
+      - 139:139
+      - 445:445
+    volumes:
+      - ./homeassistant/config/custom-cont-init.d:/custom-cont-init.d
+      - ./homeassistant/config:/config
+      - /home/carlo:/home_carlo
+    environment:
+      - USERID=1000
+      - GROUPID=1000
+    command: -u "carlo;<redacted>;1000" -s "config;/config;yes;no;no;carlo" -s "home;/home_carlo;yes;no;no;carlo"
+
+  adguard:
+    image: adguard/adguardhome
+    container_name: adguard
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./homeassistant/config/custom-cont-init.d:/custom-cont-init.d
+      - ./adguard/workdir:/opt/adguardhome/work
+      - ./adguard/confdir:/opt/adguardhome/conf
+    environment:
+      - TZ=Europe/Rome
+
+  whisper:
+    container_name: whisper
+    image: rhasspy/wyoming-whisper:latest
+    restart: unless-stopped
+    command: --model base --language it
+    ports:
+      - 10300:10300
+    volumes:
+      - ./homeassistant/config/custom-cont-init.d:/custom-cont-init.d
+      - ./wyoming/whisper:/data
+    environment:
+      - TZ=Europe/Rome
+
+  piper:
+    container_name: piper
+    image: rhasspy/wyoming-piper:latest
+    restart: unless-stopped
+    command: --voice it_IT-riccardo-x_low
+    ports:
+      - 10200:10200
+    volumes:
+      - ./homeassistant/config/custom-cont-init.d:/custom-cont-init.d
+      - ./wyoming/piper:/data
+    environment:
+      - TZ=Europe/Rome
+
+  guacd:
+    image: guacamole/guacd
+    container_name: guacd
+    restart: unless-stopped
+
+  guacamole-db:
+    image: postgres:15-alpine
+    container_name: guacamole-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=guacamole_db
+      - POSTGRES_USER=guacamole_user
+      - POSTGRES_PASSWORD=<redacted>
+    volumes:
+      - ./homeassistant/config/custom-cont-init.d:/custom-cont-init.d
+      - ./guacamole/init/initdb.sql:/docker-entrypoint-initdb.d/initdb.sql
+      - /home/carlo/guacamole/data:/var/lib/postgresql/data
+
+  guacamole:
+    image: guacamole/guacamole
+    container_name: guacamole
+    restart: unless-stopped
+    ports:
+      - 8080:8080
+    environment:
+      - GUACD_HOSTNAME=guacd
+      - POSTGRESQL_HOSTNAME=guacamole-db
+      - POSTGRESQL_DATABASE=guacamole_db
+      - POSTGRESQL_USERNAME=guacamole_user
+      - POSTGRESQL_PASSWORD=<redacted>
+      - GUACAMOLE_ALLOW_EMBEDDING=true
+      - GUACAMOLE_EMBED_MODE=true
+      - GUACAMOLE_FORCE_NEW_WINDOW=true
+    depends_on:
+      - guacd
+      - guacamole-db
+
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    restart: unless-stopped
+    network_mode: host
+    tmpfs:
+      - /var/cache/nginx:size=2G
+    volumes:
+      - ./homeassistant/config/custom-cont-init.d:/custom-cont-init.d
+      - ./nginx_proxy/nginx.conf:/etc/nginx/nginx.conf:ro
+
+  ngrok-agent:
+    image: ngrok/ngrok
+    container_name: ngrok-agent
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - NGROK_AUTHTOKEN=<redacted>
+    command: http 8123 --url=ab63656bc719-3413626670021870382.ngrok-free.app --log=stdout
+
+
+  ngrok-agent-rumenta:
+    image: ngrok/ngrok
+    container_name: ngrok-agent-rumenta
+    restart: unless-stopped
+    ports:
+      - 4041:4040
+    environment:
+      - NGROK_AUTHTOKEN=<redacted>
+    command: http 192.168.0.3:8123 --url=frenziedly-unrecruitable-marleigh.ngrok-free.dev --log=stdout
+
+  # Agent DVR - NVR per IP Camera
+  agentdvr:
+    image: doitandbedone/ispyagentdvr:latest
+    container_name: agentdvr
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./homeassistant/config/custom-cont-init.d:/custom-cont-init.d
+      - ./agentdvr/config:/config
+      - ./agentdvr/media:/media
+      - ./agentdvr/commands:/commands
+    environment:
+      - TZ=Europe/Rome
+      - PUID=1000
+      - PGID=1000

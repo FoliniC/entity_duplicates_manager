@@ -218,13 +218,20 @@ async def setup_dashboard(hass):
     try:
         await write_dashboard_yaml(hass, DASHBOARD_YAML_FILENAME)
 
-        # 🚀 Registrazione Sidebar Panel
+        # 🚀 Registrazione Sidebar Panel - remove existing first if present
+        from homeassistant.components.frontend import async_remove_panel
+        try:
+            async_remove_panel(hass, PANEL_URL_PATH)
+            _LOGGER.debug("Removed existing panel %s", PANEL_URL_PATH)
+        except Exception:
+            pass  # Panel didn't exist, that's fine
+
         async_register_built_in_panel(
             hass,
             component_name="lovelace",
             sidebar_title="CronoStar",
             sidebar_icon="mdi:calendar-star",
-            url_path=PANEL_URL_PATH,
+            frontend_url_path=PANEL_URL_PATH,
             config={"mode": "yaml", "title": "CronoStar", "show_in_sidebar": True, "filename": DASHBOARD_YAML_FILENAME},
             require_admin=True
         )

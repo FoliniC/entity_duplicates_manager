@@ -809,6 +809,10 @@ def main():
         local_ctx["has_window"] = has_win
         local_ctx["HAS_WINDOW"] = "true" if has_win else "false"
         
+        # Add TH humidity sensor and external humidity sensor for cross-validation (used in window_efficiency template)
+        local_ctx["TH_HUMIDITY_SENSOR"] = local_ctx.get("th_humidity_sensor", "")
+        local_ctx["EXTERNAL_HUMIDITY_SENSOR"] = local_ctx.get("external_humidity_sensor", "sensor.meteo_castionetto_umidita")
+        
         # Build trigger YAML for this room
         triggers = [
             {"platform": "state", "entity_id": f"sensor.consiglio_finestra_{room_id}", "id": "advice_changed"},

@@ -561,7 +561,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             )
 
         # Add sensors
-        async_add_entities(sensors, update_before_add=True)
+        async_add_entities(sensors)
 
     except Exception as e:
         LOGGER.error("Error setting up MG SAIC sensors: %s", e)

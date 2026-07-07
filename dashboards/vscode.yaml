@@ -1,5 +1,6 @@
 strategy:
   type: iframe
   url: "/vscode/"
+  aspect_ratio: "16/9"
   title: Visual Studio Code
   icon: mdi:microsoft-visual-studio-code

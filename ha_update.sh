@@ -9,7 +9,7 @@
 # CONFIGURAZIONE
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 DOCKER_DIR="/home/carlo/docker"
-HA_URL="http://localhost:8124"
+HA_URL="http://localhost:8123"
 # TOKEN PRESERVATO
 HA_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkZDQ0ZGFmMDk1MDk0ZmI3OGU5YmFiNDFlNTA1YTE4OCIsImlhdCI6MTc4MDY2MTc4MiwiZXhwIjoyMDk2MDIxNzgyfQ.FNSWdfYbUxxX7h0CZpfSCZ9GGos5NYJoN4t7H3P_Bt0"
 

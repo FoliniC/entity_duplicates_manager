@@ -112,6 +112,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             CONF_LANGUAGE: entry.options.get(CONF_LANGUAGE, "default"),
         }
         hass.data[DOMAIN]["global_config"] = global_config
+        # Register sidebar panel on global component setup
+        from .setup.dashboard import setup_dashboard
+        await setup_dashboard(hass)
+
         _LOGGER.info("✅ CronoStar: Global component entry set up. Config: %s", global_config)
         return True
 

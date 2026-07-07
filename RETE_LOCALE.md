@@ -77,6 +77,20 @@ Per diagnosticare rallentamenti e identificare dispositivi che saturano la banda
 2.  **Server HA (Integrazione Avanzata):**
     *   **Monitoraggio Qualità (Livello 1):** `helpers/network_quality.py` (ogni 60s). Misura **Packet Loss**, **Jitter** e **Latenza** tramite ping sequenziali.
     *   **Watchdog Tunnel Cloudflare (Livello 1.5):** `packages/cloudflare_watchdog.yaml`. Controlla ogni 60s la raggiungibilità dell'URL esterno (`https://home.vialeformica.org`). Se l'URL non risponde per oltre **5 minuti**, il sistema esegue automaticamente il riavvio del container `cloudflare-tunnel` tramite SSH sul server host.
+        - **Container atteso:** `cloudflare-tunnel` sul server Docker `192.168.0.3`.
+        - **Comandi HA:** `yaml_generator/shell_command/cloudflare.yaml` esegue `docker start|stop|restart cloudflare-tunnel` via SSH usando `/config/.ssh/host_key`.
+        - **Ricreazione se il container viene perso:** recuperare il token da Cloudflare Dashboard -> Zero Trust -> Networks -> Tunnels, oppure dal link diretto `https://dash.cloudflare.com/929828bf22cac620ccecfb4f126da3de/tunnels`. Selezionare il tunnel di `home.vialeformica.org` -> Overview -> Add a replica. Copiare il comando `cloudflared tunnel run --token ...` e usare solo il token.
+        - **Comando Docker di ripristino:**
+          ```bash
+          docker run -d \
+            --name cloudflare-tunnel \
+            --restart unless-stopped \
+            --network host \
+            cloudflare/cloudflared:latest \
+            tunnel --no-autoupdate run --token '<TOKEN_DA_CLOUDFLARE>'
+          ```
+        - **Verifica:** `docker logs --tail 120 cloudflare-tunnel` deve mostrare `Registered tunnel connection` e la config remota `home.vialeformica.org -> http://192.168.0.3:8123`. Da Home Assistant, `curl -I https://home.vialeformica.org` deve restituire `HTTP/2 200`.
+        - **Nota backup:** il backup Home Assistant contiene watchdog e shell command, ma non contiene i container Docker. Il backup GitHub genera una copia sanitizzata del compose host in `host_backup/docker-compose.yml`.
     *   **Velocità WAN (Livello 2):** `helpers/wan_traffic_realtime.py` (ogni 10s). Legge `/proc/net/dev` per la banda totale istantanea e calcola la **Saturazione %**.
     *   **Real-time Per-Device (Livello 3):** `helpers/realtime_per_device.py` (ogni 15s). Utilizza **nftables accounting** sul router per tracciare la banda dei dispositivi critici (Desktop, Alexa, HA).
     *   **Diagnosi Automatica:** Package `packages/network_diagnosis.yaml`. Un sensore template (`sensor.network_status_diagnosis`) incrocia i dati dei tre livelli per identificarle se eventuali rallentamenti sono causati dalla linea o dalla saturazione locale.

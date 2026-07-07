@@ -418,7 +418,7 @@ logger:
     system_log.external: error
     homeassistant.components.mqtt: error
     homeassistant.components.automation: error
-    custom_components.cronostar: error
+    custom_components.cronostar: info
     custom_components.azure_openai_sdk_conversation: error
     #homeassistant.core: error
     #homeassistant.components: error

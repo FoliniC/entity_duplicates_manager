@@ -42,6 +42,8 @@ action:
 - documentation: `/config/GITHUB_BACKUP.md`.
 - Rete Locale: `/config/RETE_LOCALE.md`.
 - Alexa: `/config/alexa.md`.
+- Ottimizzazione Telefono: `/config/OTTIMIZZAZIONE_TELEFONO.md`.
+
 
 ## 🔌 SSH verso l'Host da shell_command
 
@@ -68,3 +70,9 @@ my_command: "docker start my-container"
 docker exec homeassistant ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no carlo@192.168.0.3 'docker ps'
 ```
 
+## 🤖 Google Antigravity CLI (agy)
+- **Installazione / Aggiornamento**:
+  - Comando rapido da terminale: `agy update`
+  - In alternativa, eseguire lo script di aggiornamento locale: `/config/update_antigravity.sh` (rende automatica l'installazione delle dipendenze come `curl` e il download del binario ufficiale).
+  - Script ufficiale di installazione: `curl -fsSL https://antigravity.google/cli/install.sh | bash`
+- **Verifica versione**: `agy --version`
