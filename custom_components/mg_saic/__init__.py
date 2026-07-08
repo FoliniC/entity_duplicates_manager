@@ -42,8 +42,8 @@ async def _async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     try:
         # Wrap the whole setup in a timeout to avoid blocking the event loop
         # if the cloud services are unresponsive.
-        # Using 30 seconds to be faster than HA's default timeout (60s).
-        async with asyncio.timeout(30):
+        # Using 60 seconds to match HA's default timeout.
+        async with asyncio.timeout(60):
             await client.login()
 
             if not vin:

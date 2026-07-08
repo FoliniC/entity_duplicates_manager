@@ -16,11 +16,14 @@ class StorageManager:
         self.dir_path = hass.config.path("entity_duplicates_manager")
         self.path = os.path.join(self.dir_path, "config.json")
         
+        # Default config values
         self._config = {
             "max_suffix": 9,
             "exclusion_patterns": "switch_%, input_boolean.sel_%",
             "excluded_entities": []
         }
+        
+        # Config will be loaded later via async_load()
 
     async def async_load(self):
         """Load config from file asynchronously."""

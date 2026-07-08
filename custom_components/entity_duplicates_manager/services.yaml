@@ -26,3 +26,17 @@ delete_entity:
       required: true
       selector:
         entity:
+
+rename_entities_to_base:
+  name: Rename entities to base
+  description: Renames selected entities back to their base names by removing numeric suffixes (e.g., _2, _3).
+  fields:
+    entity_ids:
+      description: List of entity IDs to rename back to base names.
+      required: true
+      selector:
+        entities:
+          multiple: true
+          fields:
+            domain:
+              default: "sensor"

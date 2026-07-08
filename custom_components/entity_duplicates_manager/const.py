@@ -12,9 +12,7 @@ DEFAULT_EXCLUDE_PATTERN = "sensor.uptime*, group.*"
 SERVICE_SCAN = "scan_duplicates"
 SERVICE_FIX = "fix_entity"
 SERVICE_DELETE = "delete_entity"
+SERVICE_RENAME = "rename_entities_to_base"
 
 EVENT_SCAN_COMPLETE = f"{DOMAIN}_scan_complete"
-
-ATTR_ENTITY_ID = "entity_id"
-ATTR_NEW_ENTITY_ID = "new_entity_id"
-ATTR_DUPLICATES = "duplicates"
+EVENT_DELETE_COMPLETE = f"{DOMAIN}_delete_complete"

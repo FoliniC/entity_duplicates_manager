@@ -139,7 +139,7 @@ GENERIC_RESPONSE_EXTREME_TEMPERATURE = -128
 
 # Retry configuration
 RETRY_LIMIT = 5
-RETRY_BACKOFF_FACTOR = 15
+RETRY_BACKOFF_FACTOR = 5
 
 # Charging status codes indicating that the vehicle is charging
 CHARGING_STATUS_CODES = {1, 3, 10, 12}

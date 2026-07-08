@@ -9,8 +9,6 @@ from homeassistant.helpers import entity_registry as er
 from .const import EVENT_SCAN_COMPLETE
 
 _LOGGER = logging.getLogger(__name__)
-
-
 class DuplicatesScanner:
     """Class to scan for duplicate entities."""
 
@@ -116,6 +114,27 @@ class DuplicatesScanner:
 
         _LOGGER.info(f"Renaming {entity_id} to {new_entity_id} (New name: {new_name})")
         
+        # Check if target entity already exists
+        existing_entry = ent_reg.async_get(new_entity_id)
+        if existing_entry:
+            _LOGGER.warning(f"Target entity {new_entity_id} already exists. Purging statistics and removing base entity before promoting duplicate.")
+            # First, purge statistics for the base entity to avoid recorder migration conflicts
+            try:
+                await self.hass.services.async_call(
+                    "recorder", "purge_entities",
+                    {"entity_ids": [new_entity_id]},
+                    blocking=True
+                )
+                _LOGGER.info(f"Purged statistics for {new_entity_id}")
+            except Exception as e:
+                _LOGGER.warning(f"Could not purge statistics for {new_entity_id}: {e}")
+            
+            # Remove the base entity from registry
+            ent_reg.async_remove(new_entity_id)
+            # Also remove its state
+            self.hass.states.async_remove(new_entity_id)
+        
+        # Now rename the duplicate to the base name
         ent_reg.async_update_entity(
             entity_id, 
             new_entity_id=new_entity_id,

@@ -26,6 +26,7 @@ from .const import (
     GENERIC_RESPONSE_SOC_THRESHOLD,
     GENERIC_RESPONSE_STATUS_THRESHOLD,
     GENERIC_RESPONSE_TEMPERATURE,
+    GENERIC_RESPONSE_EXTREME_TEMPERATURE,
     LOGGER,
     RETRY_BACKOFF_FACTOR,
     RETRY_LIMIT,
@@ -779,47 +780,60 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
     def _is_generic_response_vehicle_status(self, status):
         """Check if the vehicle status response is generic."""
         try:
-            if (
-                hasattr(status, "basicVehicleStatus")
-                and status.basicVehicleStatus.fuelRange
-                == GENERIC_RESPONSE_STATUS_THRESHOLD
-                and status.basicVehicleStatus.fuelRangeElec
-                == GENERIC_RESPONSE_STATUS_THRESHOLD
-                and status.basicVehicleStatus.mileage
-                == GENERIC_RESPONSE_STATUS_THRESHOLD
-                or status.basicVehicleStatus.mileage
-                <= GENERIC_RESPONSE_STATUS_THRESHOLD
-                or status.basicVehicleStatus.interiorTemperature
-                == GENERIC_RESPONSE_TEMPERATURE
-                or status.basicVehicleStatus.exteriorTemperature
-                == GENERIC_RESPONSE_TEMPERATURE
-                # or status.basicVehicleStatus.exteriorTemperature
-                # == GENERIC_RESPONSE_EXTREME_TEMPERATURE
-            ):
+            if not hasattr(status, "basicVehicleStatus") or status.basicVehicleStatus is None:
+                LOGGER.debug("No basicVehicleStatus in response")
+                return True
+                
+            basic = status.basicVehicleStatus
+            
+            # Check if ALL critical values are zero/sentinel (truly generic placeholder)
+            # A real vehicle (even when off) should have SOME non-zero values like VIN, timestamp, etc.
+            # Only flag as generic if we have the classic placeholder pattern:
+            # - Both ranges = 0 AND mileage = 0 AND temperatures = -40
+            is_all_zero = (
+                getattr(basic, "fuelRange", -1) == 0
+                and getattr(basic, "fuelRangeElec", -1) == 0
+                and getattr(basic, "mileage", -1) == 0
+                and getattr(basic, "interiorTemperature", -100) == -40
+                and getattr(basic, "exteriorTemperature", -100) == -40
+            )
+            
+            # Also check for the extreme temperature sentinel
+            is_extreme_temp = (
+                getattr(basic, "interiorTemperature", -100) == GENERIC_RESPONSE_EXTREME_TEMPERATURE
+                or getattr(basic, "exteriorTemperature", -100) == GENERIC_RESPONSE_EXTREME_TEMPERATURE
+            )
+            
+            if is_all_zero or is_extreme_temp:
                 LOGGER.debug(
-                    "Generic Vehicle Status Data: %s", status.basicVehicleStatus
+                    "Generic Vehicle Status Data detected (all zeros or extreme temp): %s", basic
                 )
                 return True
+            
+            # If we have at least some valid data (e.g., mileage > 0, or valid temps), it's real
             return False
         except Exception as e:
-            LOGGER.error("Error. Generic Vehicle Status Data: %s", e)
-            raise
+            LOGGER.error("Error checking generic vehicle status: %s", e)
+            # Don't raise - treat as non-generic to avoid retry loops
+            return False
 
     def _is_generic_response_charging(self, charging_info):
         """Check if the charging response is generic."""
         try:
             chrgMgmtData = getattr(charging_info, "chrgMgmtData", None)
-            if chrgMgmtData:
-                if (
-                    chrgMgmtData.bmsPackSOCDsp is not None
-                    and chrgMgmtData.bmsPackSOCDsp > GENERIC_RESPONSE_SOC_THRESHOLD
-                ):
-                    LOGGER.debug("Generic Charging Data: %s", chrgMgmtData)
-                    return True
+            if chrgMgmtData is None:
+                return False
+            
+            # Only flag as generic if SOC is explicitly the sentinel value (1000+)
+            # Valid SOC is 0-100, so anything > 100 is definitely a placeholder
+            soc = getattr(chrgMgmtData, "bmsPackSOCDsp", None)
+            if soc is not None and soc > GENERIC_RESPONSE_SOC_THRESHOLD:
+                LOGGER.debug("Generic Charging Data: %s", chrgMgmtData)
+                return True
             return False
         except Exception as e:
-            LOGGER.error("Error. Generic Charging Data: %s", e)
-            raise
+            LOGGER.error("Error checking generic charging data: %s", e)
+            return False
 
     def _determine_vehicle_type(self, vehicle_info):
         """Determine the type of vehicle based on its information."""
