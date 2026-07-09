@@ -55,6 +55,17 @@
             "interval": 1,
             "backup_count": 100,
             "state_persistence": false
+        },
+        "cucina": {
+            "log_dir": "/config/logs/cucina",
+            "log_file": "cucina_events.log",
+            "archive": true,
+            "rotation_type": "both",
+            "max_bytes": 2097152,
+            "when": "midnight",
+            "interval": 1,
+            "backup_count": 100,
+            "state_persistence": false
         }
     }
 }

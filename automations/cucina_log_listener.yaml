@@ -1,0 +1,18 @@
+# HALog2026 — Cucina Log Listener
+# Invia eventi log cucina a HALog2026 tramite event bus
+
+- id: cucina_listener_eventi_log
+  alias: "Cucina: Listener Eventi Log"
+  description: "Invia eventi log luci cucina a HALog2026 tramite event bus"
+  initial_state: true
+  trigger:
+    - trigger: event
+      event_type: cucina_log_event
+  actions:
+    - event: halog2026_write_event
+      event_data:
+        subsystem: cucina
+        level: "{{ trigger.event.data.level | default('info') }}"
+        message: "{{ trigger.event.data.message | default('') }}"
+        action: "{{ trigger.event.data.action | default('nulla') }}"
+        wait: "{{ trigger.event.data.wait | default(0) }}"

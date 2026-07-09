@@ -1,14 +1,23 @@
+# Log Luci Cucina State Change
+# Traccia ogni cambio di stato di switch.luci_cucina_switch_1..4
+# Classifica il motivo (fisico/RF, UI, automazione, dropout Wi-Fi/cloud)
+
 - id: log_luci_cucina_state_change
-  alias: "Log Luce Cucina State Change"
-  description: "Traccia ogni cambio di stato di switch.luci_cucina_switch_2 e switch.luci_cucina_switch_3 per capire chi opera sulla luce"
+  alias: "Log Luci Cucina State Change"
+  description: "Traccia ogni cambio di stato dei 4 switch luci cucina per diagnosticare spegnimenti anomali"
   mode: queued
   max: 50
+  # coda
   trigger:
     - platform: state
       entity_id:
+        - switch.luci_cucina_switch_1
         - switch.luci_cucina_switch_2
         - switch.luci_cucina_switch_3
+        - switch.luci_cucina_switch_4
   condition:
+    # Logga OGNI cambio reale: on/off/unavailable/unknown
+    # Esclude solo: nessun cambio reale (from==to) e rumore unavailable<->unknown
     - condition: template
       value_template: >
         {{ trigger.to_state.state != trigger.from_state.state
@@ -18,20 +27,19 @@
     - variables:
         to_state: "{{ trigger.to_state.state }}"
         from_state: "{{ trigger.from_state.state }}"
-        ctx: "{{ trigger.to_state.context }}"
         debug_entity: "{{ trigger.entity_id }}"
         friendly_name: >-
           {% set eid = trigger.entity_id %}
-          {% if 'luci_cucina_switch_2' in eid %}
-            luce bancone
-          {% elif 'luci_cucina_switch_3' in eid %}
-            luce tavolo
-          {% else %}
-            {{ eid }}
-          {% endif %}
+          {% if 'luci_cucina_switch_1' in eid %}luce 1
+          {% elif 'luci_cucina_switch_2' in eid %}luce bancone
+          {% elif 'luci_cucina_switch_3' in eid %}luce tavolo
+          {% elif 'luci_cucina_switch_4' in eid %}luce 4
+          {% else %}{{ eid }}{% endif %}
         user_id: "{{ trigger.to_state.context.user_id if trigger.to_state.context is defined else none }}"
         parent_id: "{{ trigger.to_state.context.parent_id if trigger.to_state.context is defined else none }}"
-        souce: >
+        # NOTA: trigger.to_state.context è un oggetto Context, NON un dict.
+        # Non ha .get(); va accesso per attributo con guardia is_defined.
+        source: >
           {% set ctx = trigger.to_state.context if trigger.to_state.context is defined else none %}
           {{ ctx.source if ctx is not none and ctx.source is defined else '' }}
         ts: "{{ trigger.to_state.last_changed | default(now()) }}"
@@ -42,19 +50,20 @@
           {% else %}
             none
           {% endif %}
+        # Rileva transizioni anomale (dropout Wi-Fi/cloud o riavvio dispositivo)
         anomalous: >
           {{ from_state in ['unavailable', 'unknown'] or to_state in ['unavailable', 'unknown'] }}
         reason: >
           {% if anomalous %}
             Stato anomalo (dropout Wi-Fi/cloud o riavvio dispositivo): {{ from_state }} -> {{ to_state }}
-          {% elif souce == 'BUTTON' or (user_id is none and parent_id is none and souce == '') %}
+          {% elif source == 'BUTTON' or (user_id is none and parent_id is none and source == '') %}
             Fisico/RF (pulsante o telecomando Tuya)
           {% elif user_id is not none %}
             Interfaccia Web/App ({{ user_name }})
           {% elif parent_id is not none %}
             Sistema/Automazione (parent: {{ parent_id[:12] }})
-          {% elif souce != '' %}
-            Esterno (source={{ souce }})
+          {% elif source != '' %}
+            Esterno (source={{ source }})
           {% else %}
             Fisico/RF (pulsante o telecomando Tuya)
           {% endif %}
@@ -63,9 +72,28 @@
           {% elif to_state == 'off' %}SPENTO
           {% else %}{{ to_state | upper }}{% endif %}
         level: "{{ 'WARNING' if anomalous else 'INFO' }}"
-    - event: balcone_log_event
+    # 1) PRIMA il log (priorità assoluta)
+    - event: cucina_log_event
       event_data:
         level: "{{ level }}"
         action: "{{ action_word }}"
-        message: "Cucina {{ friendly_name }} {{ action_word }} (era {{ from_state }}) — Motivo: {{ reason }} [entity={{ debug_entity }} source={{ souce }} user_id={{ user_id }} parent_id={{ parent_id }}] @ {{ ts }}"
+        message: "Cucina {{ friendly_name }} {{ action_word }} (era {{ from_state }}) — Motivo: {{ reason }} [entity={{ debug_entity }} source={{ source }} user_id={{ user_id }} parent_id={{ parent_id }}] @ {{ ts }}"
         wait: 1
+    # 2) Notifica push (solo per on/off, non per unavailable/unknown)
+    - if:
+        - condition: template
+          value_template: "{{ to_state in ['on', 'off'] }}"
+      then:
+        - action: notify.send_message
+          target:
+            entity_id:
+              - notify.mobile_app_redmi_note_9s
+              - notify.mobile_app_redmi_note_13_pro_5g
+          data:
+            title: "💡 Cucina {{ friendly_name }} {{ action_word }}{% if anomalous %} ⚠️{% endif %}"
+            message: "Motivo: {{ reason }}"
+            data:
+              tag: cucina_{{ debug_entity.split('.')[-1] }}
+              importance: "{{ 'high' if (to_state == 'on' or anomalous) else 'normal' }}"
+              notification_icon: "mdi:lightbulb"
+      else: []
