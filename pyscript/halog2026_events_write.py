@@ -70,6 +70,7 @@ _LISTENERS: list[str] = [
     "automation.scale_listener_eventi_log",
     "automation.ev_listener_eventi_log",
     "automation.system_listener_eventi_log",
+    "automation.cucina_listener_eventi_log",
 ]
 
 # ── Private helper (sync, for internal calls within this file) ────────────────
@@ -258,12 +259,12 @@ async def halog2026_startup():
 
     # 4 — Double-Safety: simple attempt to activate listeners
     # (Boot manager will handle the main activation after registry loads)
-    # log.info("HALog2026: Attempting listener activation (Double-Safety fallback)")
-    # await task.sleep(5)  # Give registry more time to populate
+    log.info("HALog2026: Attempting listener activation (Double-Safety fallback)")
+    await task.sleep(5)  # Give registry more time to populate
     
-    # for listener in _LISTENERS:
-    #     try:
-    #         automation.turn_on(entity_id=listener)
-    #         log.info(f"HALog2026: Activated {listener}")
-    #     except Exception as e:
-    #         log.warning(f"HALog2026: Could not activate {listener}: {e}")
+    for listener in _LISTENERS:
+        try:
+            automation.turn_on(entity_id=listener)
+            log.info(f"HALog2026: Activated {listener}")
+        except Exception as e:
+            log.warning(f"HALog2026: Could not activate {listener}: {e}")

@@ -2,11 +2,13 @@
   unique_id: selected_vehicle_soc
   state: >
     {% if states('input_select.selected_vehicle') == 'MG4' %}
-      {{ states('sensor.mg_mg4_electric_state_of_charge') | float(0) }}
+      {% set soc = states('sensor.piazzale_mg_mg4_electric_state_of_charge') %}
+      {% if is_number(soc) %}{{ soc | float | round(1) }}{% else %}unavailable{% endif %}
     {% elif states('input_select.selected_vehicle') == 'BYD' %}
-      {{ states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) }}
+      {% set soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') %}
+      {% if is_number(soc) %}{{ soc | float | round(1) }}{% else %}unavailable{% endif %}
     {% else %}
-      0
+      unavailable
     {% endif %}
   unit_of_measurement: "%"
   device_class: battery

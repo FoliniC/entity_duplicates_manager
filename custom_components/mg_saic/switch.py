@@ -2,6 +2,9 @@
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
+from .api import CommandsLimitReachedException
+from .backends import Feature
 from .const import (
     DOMAIN,
     LOGGER,
@@ -24,65 +27,112 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     switches = []
 
-    # Extract vehicle configuration
-    vehicle_config = {
-        config.itemCode: config.itemValue
-        for config in vin_info.vehicleModelConfiguration
-    }
+    # Front Defrost Switch (backend-gated; not confirmed for all backends)
+    if coordinator.backend_supports(Feature.FRONT_DEFROST):
+        switches.append(
+            SAICMGFrontDefrostSwitch(coordinator, client, entry, vin_info, vin)
+        )
 
-    # Front Defrost Switch
-    switches.append(SAICMGFrontDefrostSwitch(coordinator, client, entry, vin_info, vin))
-
-    # Rear Window Defrost
-    switches.append(
-        SAICMGRearWindowDefrostSwitch(coordinator, client, entry, vin_info, vin)
-    )
+    # Rear Window Defrost (backend-gated)
+    if coordinator.backend_supports(Feature.REAR_WINDOW_HEAT):
+        switches.append(
+            SAICMGRearWindowDefrostSwitch(coordinator, client, entry, vin_info, vin)
+        )
 
     # Sunroof Switch
+    # NOTE: sunroof control and status are currently non-functional on tested
+    # models. On the MGS6 EV, the SAIC API reports sunroofStatus=0 permanently
+    # regardless of the physical roof position (confirmed by capture, 2026-07),
+    # and no working control command has been identified. The has_sunroof option
+    # is therefore off by default and effectively experimental — it is retained
+    # so existing users who enabled it keep their entities, and so it can be
+    # re-tested if MG adds sunroof support to the iSmart app in future.
     if coordinator.has_sunroof:
         switches.append(SAICMGSunroofSwitch(coordinator, client, entry, vin_info, vin))
     else:
         LOGGER.debug(f"Sunroof switch not created for VIN {vin}.")
 
-    # Heated Seats Switch (if applicable)
+    # Heated Seats Switches (if applicable)
+    # Front seats: switch turns the seat on at the level chosen in its Level
+    # select (defaulting to Low if the select is Off); off sends level 0.
+    # Rear seats: simple on/off (on sends the app's rear "on" level).
     if coordinator.has_heated_seats:
-        # Heated Seats Switch
+        # Front seats: always created when heated seats are enabled.
         switches.extend(
             [
-                SAICMGHeatedSeatsSwitch(
-                    coordinator,
-                    client,
-                    entry,
-                    vin_info,
-                    vin,
-                    "Front Left",
-                    "front_left",
+                SAICMGHeatedSeatSwitch(
+                    coordinator, client, entry, vin_info, vin,
+                    "Front Left", "front_left", "frontLeftSeatHeatLevel", "front",
                 ),
-                SAICMGHeatedSeatsSwitch(
-                    coordinator,
-                    client,
-                    entry,
-                    vin_info,
-                    vin,
-                    "Front Right",
-                    "front_right",
+                SAICMGHeatedSeatSwitch(
+                    coordinator, client, entry, vin_info, vin,
+                    "Front Right", "front_right", "frontRightSeatHeatLevel", "front",
                 ),
             ]
         )
+
+        # Rear seats: gated behind a SEPARATE user option, because the vehicle
+        # status cannot tell us whether rear heated seats are fitted — a car
+        # WITH rear heated seats reports secondRow*SeatHeatLevel = 0 when they
+        # are off, which is identical to a car without them (confirmed from
+        # MGS6 captures). So we cannot auto-detect and must let the user opt in.
+        # Also backend-gated: the India TAP backend does not support rear-seat
+        # control (its client raises for rear seats), so HEATED_SEATS_REAR is
+        # omitted from INDIA_FEATURES and this block is skipped for India.
+        if coordinator.has_rear_heated_seats and coordinator.backend_supports(
+            Feature.HEATED_SEATS_REAR
+        ):
+            switches.extend(
+                [
+                    SAICMGHeatedSeatSwitch(
+                        coordinator, client, entry, vin_info, vin,
+                        "Rear Left", "rear_left", "secondRowLeftSeatHeatLevel", "rear",
+                    ),
+                    SAICMGHeatedSeatSwitch(
+                        coordinator, client, entry, vin_info, vin,
+                        "Rear Right", "rear_right", "secondRowRightSeatHeatLevel", "rear",
+                    ),
+                ]
+            )
+        else:
+            LOGGER.debug(
+                f"Rear heated seat switches not created for VIN {vin} "
+                f"(has_rear_heated_seats="
+                f"{getattr(coordinator, 'has_rear_heated_seats', False)})."
+            )
     else:
         LOGGER.debug(f"Heated seats switch not created for VIN {vin}.")
 
-    # Charging Switches (for BEV and PHEV)
-    if coordinator.vehicle_type in ["BEV", "PHEV"]:
-        switches.append(SAICMGChargingSwitch(coordinator, client, entry, vin_info, vin))
+    # Heated Steering Wheel (if applicable; backend-gated)
+    if getattr(
+        coordinator, "has_steering_wheel_heat", False
+    ) and coordinator.backend_supports(Feature.STEERING_WHEEL_HEAT):
         switches.append(
-            SAICMGChargingPortLockSwitch(coordinator, client, entry, vin_info, vin)
+            SAICMGSteeringWheelHeatSwitch(coordinator, client, entry, vin_info, vin)
         )
 
+    # Charging Switches (for BEV and PHEV; each backend-gated per feature)
+    if coordinator.vehicle_type in ["BEV", "PHEV"]:
+        if coordinator.backend_supports(Feature.CHARGING_CONTROL):
+            switches.append(
+                SAICMGChargingSwitch(coordinator, client, entry, vin_info, vin)
+            )
+        if coordinator.backend_supports(Feature.CHARGING_PORT_LOCK):
+            switches.append(
+                SAICMGChargingPortLockSwitch(coordinator, client, entry, vin_info, vin)
+            )
+
         # Check if battery heating is supported
-        if coordinator.has_battery_heating:
+        if coordinator.has_battery_heating and coordinator.backend_supports(
+            Feature.BATTERY_HEATING
+        ):
             switches.append(
                 SAICMGBatteryHeatingSwitch(coordinator, client, entry, vin_info, vin)
+            )
+            switches.append(
+                SAICMGBatteryHeatingScheduleSwitch(
+                    coordinator, client, entry, vin_info, vin
+                )
             )
         else:
             LOGGER.debug(f"Battery heating switch not created for VIN {vin}.")
@@ -185,8 +235,11 @@ class SAICMGBatteryHeatingSwitch(CoordinatorEntity, SwitchEntity):
                 immediate_interval,
                 long_interval,
             )
+        except CommandsLimitReachedException:
+            await self.coordinator.notify_command_limit_reached(self._vin)
         except Exception as e:
             LOGGER.error("Error starting battery heating for VIN %s: %s", self._vin, e)
+            self.coordinator.record_command_error("Error starting battery heating", e)
 
     async def async_turn_off(self, **kwargs):
         """Stop battery heating."""
@@ -194,8 +247,107 @@ class SAICMGBatteryHeatingSwitch(CoordinatorEntity, SwitchEntity):
             await self._client.send_vehicle_charging_ptc_heat(self._vin, "stop")
             LOGGER.info("Battery heating stopped for VIN: %s", self._vin)
             await self.coordinator.async_request_refresh()
+        except CommandsLimitReachedException:
+            await self.coordinator.notify_command_limit_reached(self._vin)
         except Exception as e:
             LOGGER.error("Error stopping battery heating for VIN %s: %s", self._vin, e)
+            self.coordinator.record_command_error("Error stopping battery heating", e)
+
+
+class SAICMGBatteryHeatingScheduleSwitch(CoordinatorEntity, SwitchEntity):
+    """Switch to enable or disable the scheduled battery heating."""
+
+    def __init__(self, coordinator, client, entry, vin_info, vin):
+        """Initialize the Battery Heating Schedule switch entity."""
+        super().__init__(coordinator)
+        self._client = client
+        self._vin = vin
+        self._vin_info = vin_info
+        self._attr_name = (
+            f"{vin_info.brandName} {vin_info.modelName} Battery Heating Schedule"
+        )
+        self._attr_unique_id = f"{entry.entry_id}_{vin}_battery_heating_schedule_switch"
+        self._attr_icon = "mdi:calendar-clock"
+        self._device_info = create_device_info(coordinator, entry.entry_id)
+
+    @property
+    def device_info(self):
+        """Return device info"""
+        return self._device_info
+
+    @property
+    def is_on(self):
+        """Return true if a battery heating schedule is enabled."""
+        schedule = self.coordinator.data.get("battery_heating_schedule")
+        if schedule is not None:
+            return bool(getattr(schedule, "is_enabled", False))
+        return False
+
+    @property
+    def available(self):
+        """Return True if the switch entity is available."""
+        return (
+            self.coordinator.last_update_success
+            and self.coordinator.data.get("battery_heating_schedule") is not None
+        )
+
+    def _resolve_start_time(self):
+        """Determine the start time to send when enabling the schedule."""
+        pending = self.coordinator.battery_heating_pending_time
+        if pending is not None:
+            return pending
+        schedule = self.coordinator.data.get("battery_heating_schedule")
+        if schedule is not None and getattr(schedule, "startTime", 0):
+            try:
+                decoded = schedule.decode_start_time(dt_util.get_default_time_zone())
+                if decoded is not None:
+                    return decoded
+            except Exception:  # noqa: BLE001
+                pass
+        from .time import DEFAULT_BATTERY_HEATING_START
+
+        return DEFAULT_BATTERY_HEATING_START
+
+    async def async_turn_on(self, **kwargs):
+        """Enable the battery heating schedule."""
+        try:
+            start_time = self._resolve_start_time()
+            await self._client.enable_battery_heating_schedule(
+                self._vin, start_time, dt_util.get_default_time_zone()
+            )
+            LOGGER.info(
+                "Battery heating schedule enabled at %s for VIN: %s",
+                start_time,
+                self._vin,
+            )
+            await self.coordinator.async_request_refresh()
+        except CommandsLimitReachedException:
+            await self.coordinator.notify_command_limit_reached(self._vin)
+        except Exception as e:
+            LOGGER.error(
+                "Error enabling battery heating schedule for VIN %s: %s", self._vin, e
+            )
+            self.coordinator.record_command_error(
+                "Error enabling battery heating schedule", e
+            )
+
+    async def async_turn_off(self, **kwargs):
+        """Disable the battery heating schedule."""
+        try:
+            await self._client.disable_battery_heating_schedule(self._vin)
+            LOGGER.info(
+                "Battery heating schedule disabled for VIN: %s", self._vin
+            )
+            await self.coordinator.async_request_refresh()
+        except CommandsLimitReachedException:
+            await self.coordinator.notify_command_limit_reached(self._vin)
+        except Exception as e:
+            LOGGER.error(
+                "Error disabling battery heating schedule for VIN %s: %s", self._vin, e
+            )
+            self.coordinator.record_command_error(
+                "Error disabling battery heating schedule", e
+            )
 
 
 class SAICMGChargingPortLockSwitch(CoordinatorEntity, SwitchEntity):
@@ -243,8 +395,11 @@ class SAICMGChargingPortLockSwitch(CoordinatorEntity, SwitchEntity):
                 immediate_interval,
                 long_interval,
             )
+        except CommandsLimitReachedException:
+            await self.coordinator.notify_command_limit_reached(self._vin)
         except Exception as e:
             LOGGER.error("Error locking charging port for VIN %s: %s", self._vin, e)
+            self.coordinator.record_command_error("Error locking charging port", e)
 
     async def async_turn_off(self, **kwargs):
         """Unlock the charging port."""
@@ -252,8 +407,11 @@ class SAICMGChargingPortLockSwitch(CoordinatorEntity, SwitchEntity):
             await self._client.control_charging_port_lock(self._vin, unlock=True)
             LOGGER.info("Charging port unlocked for VIN: %s", self._vin)
             await self.coordinator.async_request_refresh()
+        except CommandsLimitReachedException:
+            await self.coordinator.notify_command_limit_reached(self._vin)
         except Exception as e:
             LOGGER.error("Error unlocking charging port for VIN %s: %s", self._vin, e)
+            self.coordinator.record_command_error("Error unlocking charging port", e)
 
 
 class SAICMGChargingSwitch(CoordinatorEntity, SwitchEntity):
@@ -307,8 +465,11 @@ class SAICMGChargingSwitch(CoordinatorEntity, SwitchEntity):
                 immediate_interval,
                 long_interval,
             )
+        except CommandsLimitReachedException:
+            await self.coordinator.notify_command_limit_reached(self._vin)
         except Exception as e:
             LOGGER.error("Error starting charging for VIN %s: %s", self._vin, e)
+            self.coordinator.record_command_error("Error starting charging", e)
 
     async def async_turn_off(self, **kwargs):
         """Stop charging."""
@@ -316,8 +477,11 @@ class SAICMGChargingSwitch(CoordinatorEntity, SwitchEntity):
             await self._client.send_vehicle_charging_control(self._vin, "stop")
             LOGGER.info("Charging stopped for VIN: %s", self._vin)
             await self.coordinator.async_request_refresh()
+        except CommandsLimitReachedException:
+            await self.coordinator.notify_command_limit_reached(self._vin)
         except Exception as e:
             LOGGER.error("Error stopping charging for VIN %s: %s", self._vin, e)
+            self.coordinator.record_command_error("Error stopping charging", e)
 
 
 class SAICMGFrontDefrostSwitch(CoordinatorEntity, SwitchEntity):
@@ -365,8 +529,11 @@ class SAICMGFrontDefrostSwitch(CoordinatorEntity, SwitchEntity):
                 immediate_interval,
                 long_interval,
             )
+        except CommandsLimitReachedException:
+            await self.coordinator.notify_command_limit_reached(self._vin)
         except Exception as e:
             LOGGER.error("Error starting front defrost for VIN %s: %s", self._vin, e)
+            self.coordinator.record_command_error("Error starting front defrost", e)
 
     async def async_turn_off(self, **kwargs):
         """Stop front defrost by stopping the AC."""
@@ -374,125 +541,173 @@ class SAICMGFrontDefrostSwitch(CoordinatorEntity, SwitchEntity):
             await self._client.stop_ac(self._vin)
             LOGGER.info("Front defrost stopped (AC stopped) for VIN: %s", self._vin)
             await self.coordinator.async_request_refresh()
+        except CommandsLimitReachedException:
+            await self.coordinator.notify_command_limit_reached(self._vin)
         except Exception as e:
             LOGGER.error("Error stopping front defrost for VIN %s: %s", self._vin, e)
+            self.coordinator.record_command_error("Error stopping front defrost", e)
 
 
-class SAICMGHeatedSeatsSwitch(SAICMGVehicleSwitch):
-    """Switch to control individual heated seats."""
+class SAICMGHeatedSeatSwitch(SAICMGVehicleSwitch):
+    """On/off switch for a single heated seat, sent independently.
 
-    def __init__(self, coordinator, client, entry, vin_info, vin, seat_name, seat_side):
-        """Initialize the Heated Seat switch."""
+    Front seats: turning on applies the level chosen in the seat's Level select
+    (SAICMGHeatedSeatLevelSelect), defaulting to Low (1) if the select is at
+    Off. Turning off sends level 0.
+    Rear seats: on sends the app's rear "on" level (REAR_SEAT_ON_LEVEL), off
+    sends 0. No level select is used for rear seats.
+
+    Each seat is sent via api.control_heated_seat (its own paramId), so toggling
+    one seat never disturbs another.
+    """
+
+    def __init__(
+        self, coordinator, client, entry, vin_info, vin,
+        seat_name, seat_key, status_attr, seat_class,
+    ):
         super().__init__(
-            coordinator,
-            client,
-            entry,
-            vin_info,
-            vin,
-            f"Heated Seat {seat_name}",
-            "mdi:car-seat-heater",
+            coordinator, client, entry, vin_info, vin,
+            f"Heated Seat {seat_name}", "mdi:car-seat-heater",
         )
-        self._seat_side = seat_side
+        self._seat_key = seat_key        # "front_left"/"front_right"/"rear_left"/"rear_right"
+        self._status_attr = status_attr
+        self._seat_class = seat_class    # "front" or "rear"
         self._attr_name = (
             f"{vin_info.brandName} {vin_info.modelName} Heated Seat {seat_name}"
         )
-        self._attr_unique_id = f"{entry.entry_id}_{vin}_heated_seat_{seat_side}"
+        self._attr_unique_id = f"{entry.entry_id}_{vin}_heated_seat_{seat_key}"
         self._attr_icon = "mdi:car-seat-heater"
         self._device_info = create_device_info(coordinator, entry.entry_id)
 
     @property
     def device_info(self):
-        """Return device info"""
         return self._device_info
 
     @property
     def is_on(self):
-        """Return true if heated seats are on."""
+        """Return true if this seat is heating (status level > 0)."""
         status = self.coordinator.data.get("status")
         if status:
             basic_status = getattr(status, "basicVehicleStatus", None)
             if basic_status:
-                seat_level = getattr(
-                    basic_status,
-                    f"{self._seat_side}SeatHeatLevel",
-                    0,
-                )
-                return seat_level > 0
+                return (getattr(basic_status, self._status_attr, 0) or 0) > 0
         return False
 
     @property
     def available(self):
-        """Return True if the switch entity is available."""
         return (
             self.coordinator.last_update_success
             and self.coordinator.data.get("status") is not None
         )
 
-    async def async_turn_on(self, **kwargs):
-        """Turn the heated seat on."""
+    def _on_level(self):
+        """Determine the level to send when turning this seat on."""
+        from .const import REAR_SEAT_ON_LEVEL
+
+        if self._seat_class == "rear":
+            return REAR_SEAT_ON_LEVEL
+        # Front: use the pending select level; default to Low (1) if Off/unset.
+        pending = self.coordinator.pending_seat_levels.get(self._seat_key)
+        if not pending:  # None or 0
+            pending = 1  # Low
+            # Reflect the default back into the select so the UI stays truthful.
+            self.coordinator.pending_seat_levels[self._seat_key] = 1
+        return pending
+
+    async def _apply(self, level):
         try:
-            immediate_interval = self.coordinator.after_action_delay
-            long_interval = self.coordinator.heated_seats_long_interval
-
-            # Fetch current levels to avoid overriding the opposite seat
-            status = self.coordinator.data.get("status", {})
-            basic_status = getattr(status, "basicVehicleStatus", {})
-            left_level = getattr(basic_status, "frontLeftSeatHeatLevel", 0)
-            right_level = getattr(basic_status, "frontRightSeatHeatLevel", 0)
-
-            if self._seat_side == "left":
-                await self._client.control_heated_seats(self._vin, 2, right_level)
-            elif self._seat_side == "right":
-                await self._client.control_heated_seats(self._vin, left_level, 2)
-
+            await self._client.control_heated_seat(self._vin, self._seat_key, level)
             LOGGER.info(
-                "Heated seat %s turned on for VIN: %s", self._seat_side, self._vin
+                "Heated seat %s set to level %d for VIN: %s",
+                self._seat_key, level, self._vin,
             )
             await self.coordinator.schedule_action_refresh(
                 self._vin,
-                immediate_interval,
-                long_interval,
+                self.coordinator.after_action_delay,
+                self.coordinator.heated_seats_long_interval,
             )
+        except CommandsLimitReachedException:
+            await self.coordinator.notify_command_limit_reached(self._vin)
         except Exception as e:
             LOGGER.error(
-                "Error turning on heated seat %s for VIN %s: %s",
-                self._seat_side,
-                self._vin,
-                e,
+                "Error setting heated seat %s for VIN %s: %s",
+                self._seat_key, self._vin, e,
             )
+            self.coordinator.record_command_error("Error controlling heated seat", e)
+
+    async def async_turn_on(self, **kwargs):
+        await self._apply(self._on_level())
+        self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs):
-        """Turn the heated seat off."""
+        # Clear any pending front-seat level so the select returns to Off too.
+        if self._seat_class == "front":
+            self.coordinator.pending_seat_levels[self._seat_key] = 0
+        await self._apply(0)
+        self.async_write_ha_state()
+
+
+class SAICMGSteeringWheelHeatSwitch(SAICMGVehicleSwitch):
+    """On/off switch for the heated steering wheel.
+
+    Uses a command captured from decrypted iSmart app traffic (rvcReqType=8,
+    paramId 24) that the saic client library does not expose. Gated behind the
+    has_steering_wheel_heat config option.
+    """
+
+    def __init__(self, coordinator, client, entry, vin_info, vin):
+        super().__init__(
+            coordinator, client, entry, vin_info, vin,
+            "Heated Steering Wheel", "mdi:steering",
+        )
+        self._attr_name = (
+            f"{vin_info.brandName} {vin_info.modelName} Heated Steering Wheel"
+        )
+        self._attr_unique_id = f"{entry.entry_id}_{vin}_heated_steering_wheel"
+        self._attr_icon = "mdi:steering"
+        self._device_info = create_device_info(coordinator, entry.entry_id)
+        # No reliable status field is known for steering wheel heat, so track
+        # the commanded state locally (the car auto-offs after ~10 min).
+        self._attr_is_on = False
+
+    @property
+    def device_info(self):
+        return self._device_info
+
+    @property
+    def is_on(self):
+        return self._attr_is_on
+
+    async def async_turn_on(self, **kwargs):
         try:
-            immediate_interval = self.coordinator.after_action_delay
-            long_interval = self.coordinator.heated_seats_long_interval
-
-            # Fetch current levels to avoid overriding the opposite seat
-            status = self.coordinator.data.get("status", {})
-            basic_status = getattr(status, "basicVehicleStatus", {})
-            left_level = getattr(basic_status, "frontLeftSeatHeatLevel", 0)
-            right_level = getattr(basic_status, "frontRightSeatHeatLevel", 0)
-
-            if self._seat_side == "left":
-                await self._client.control_heated_seats(self._vin, 0, right_level)
-            elif self._seat_side == "right":
-                await self._client.control_heated_seats(self._vin, left_level, 0)
-
-            LOGGER.info(
-                "Heated seat %s turned off for VIN: %s", self._seat_side, self._vin
-            )
+            await self._client.control_steering_wheel_heat(self._vin, True)
+            self._attr_is_on = True
+            self.async_write_ha_state()
             await self.coordinator.schedule_action_refresh(
                 self._vin,
-                immediate_interval,
-                long_interval,
+                self.coordinator.after_action_delay,
+                self.coordinator.heated_seats_long_interval,
             )
+        except CommandsLimitReachedException:
+            await self.coordinator.notify_command_limit_reached(self._vin)
         except Exception as e:
             LOGGER.error(
-                "Error turning off heated seat %s for VIN %s: %s",
-                self._seat_side,
-                self._vin,
-                e,
+                "Error turning on steering wheel heat for VIN %s: %s", self._vin, e
             )
+            self.coordinator.record_command_error("Error steering wheel heat", e)
+
+    async def async_turn_off(self, **kwargs):
+        try:
+            await self._client.control_steering_wheel_heat(self._vin, False)
+            self._attr_is_on = False
+            self.async_write_ha_state()
+        except CommandsLimitReachedException:
+            await self.coordinator.notify_command_limit_reached(self._vin)
+        except Exception as e:
+            LOGGER.error(
+                "Error turning off steering wheel heat for VIN %s: %s", self._vin, e
+            )
+            self.coordinator.record_command_error("Error steering wheel heat", e)
 
 
 class SAICMGRearWindowDefrostSwitch(CoordinatorEntity, SwitchEntity):
@@ -540,9 +755,14 @@ class SAICMGRearWindowDefrostSwitch(CoordinatorEntity, SwitchEntity):
                 immediate_interval,
                 long_interval,
             )
+        except CommandsLimitReachedException:
+            await self.coordinator.notify_command_limit_reached(self._vin)
         except Exception as e:
             LOGGER.error(
                 "Error turning on rear window defrost for VIN %s: %s", self._vin, e
+            )
+            self.coordinator.record_command_error(
+                "Error turning on rear window defrost", e
             )
 
     async def async_turn_off(self, **kwargs):
@@ -551,9 +771,14 @@ class SAICMGRearWindowDefrostSwitch(CoordinatorEntity, SwitchEntity):
             await self._client.control_rear_window_heat(self._vin, "stop")
             LOGGER.info("Rear window defrost turned off for VIN: %s", self._vin)
             await self.coordinator.async_request_refresh()
+        except CommandsLimitReachedException:
+            await self.coordinator.notify_command_limit_reached(self._vin)
         except Exception as e:
             LOGGER.error(
                 "Error turning off rear window defrost for VIN %s: %s", self._vin, e
+            )
+            self.coordinator.record_command_error(
+                "Error turning off rear window defrost", e
             )
 
 
@@ -598,8 +823,11 @@ class SAICMGSunroofSwitch(CoordinatorEntity, SwitchEntity):
                 immediate_interval,
                 long_interval,
             )
+        except CommandsLimitReachedException:
+            await self.coordinator.notify_command_limit_reached(self._vin)
         except Exception as e:
             LOGGER.error("Error opening sunroof for VIN %s: %s", self._vin, e)
+            self.coordinator.record_command_error("Error opening sunroof", e)
 
     async def async_turn_off(self, **kwargs):
         """Close the sunroof."""
@@ -607,5 +835,8 @@ class SAICMGSunroofSwitch(CoordinatorEntity, SwitchEntity):
             await self._client.control_sunroof(self._vin, "close")
             LOGGER.info("Sunroof closed for VIN: %s", self._vin)
             await self.coordinator.async_request_refresh()
+        except CommandsLimitReachedException:
+            await self.coordinator.notify_command_limit_reached(self._vin)
         except Exception as e:
             LOGGER.error("Error closing sunroof for VIN %s: %s", self._vin, e)
+            self.coordinator.record_command_error("Error closing sunroof", e)

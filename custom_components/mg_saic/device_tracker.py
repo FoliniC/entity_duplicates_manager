@@ -18,7 +18,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         tracker = SAICMGDeviceTracker(
             coordinator, entry, "gpsPosition", "GPS Location", data_type="status"
         )
-        async_add_entities([tracker])
+        async_add_entities([tracker], update_before_add=True)
 
     except Exception as e:
         LOGGER.error("Error setting up MG SAIC device tracker: %s", e)

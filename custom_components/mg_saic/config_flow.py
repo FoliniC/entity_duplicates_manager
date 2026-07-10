@@ -1,10 +1,18 @@
 # File: config_flow.py
 
+import logging
+from contextlib import suppress
+
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
+from .backends import REGION_INDIA, create_backend
+from .backends.india import IndiaBackendNotReadyError, hash_india_pin
 from .const import (
     AFTER_ACTION_UPDATE_INTERVAL_DELAY,
+    CONF_HAS_BATTERY_HEATING,
+    CONF_HAS_HEATED_SEATS,
+    CONF_HAS_SUNROOF,
     COUNTRY_CODES,
     DEFAULT_AC_LONG_INTERVAL,
     DEFAULT_ALARM_LONG_INTERVAL,
@@ -21,11 +29,15 @@ from .const import (
     DEFAULT_TARGET_SOC_LONG_INTERVAL,
     DOMAIN,
     LOGGER,
+    DEFAULT_TENANT_ID,
+    REGION_API_CODES,
     REGION_BASE_URIS,
     REGION_CHOICES,
+    REGION_CUSTOM,
     UPDATE_INTERVAL,
     UPDATE_INTERVAL_AFTER_SHUTDOWN,
     UPDATE_INTERVAL_CHARGING,
+    UPDATE_INTERVAL_DC_CHARGING,
     UPDATE_INTERVAL_GRACE_PERIOD,
     UPDATE_INTERVAL_POWERED,
 )
@@ -52,13 +64,20 @@ class SAICMGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self.password = None
         self.country_code = None
         self.region = None
+        self.custom_base_uri = None
+        self.custom_region_code = None
+        self.custom_tenant_id = None
+        self.india_pin_hash = None
         self.vin = None
         self.vehicles = []
         self.vehicle_type = None
 
         self.has_sunroof = False
         self.has_heated_seats = False
+        self.has_rear_heated_seats = False
         self.has_battery_heating = False
+        self.has_steering_wheel_heat = False
+        self.has_window_control = False
 
     async def async_step_user(self, user_input=None):
         errors = {}
@@ -88,6 +107,15 @@ class SAICMGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not username_is_email:
                 self.country_code = user_input["country_code"].replace("+", "")
                 self.username = self.username.replace(" ", "").replace("+", "")
+
+            if self.region == REGION_CUSTOM:
+                return await self.async_step_custom_region()
+
+            if self.region == REGION_INDIA:
+                # MG India runs a completely different backend (TAP protocol)
+                # and requires the iSmart command PIN — collect it before
+                # attempting login.
+                return await self.async_step_india_pin()
 
             try:
                 await self.fetch_vehicle_data(username_is_email)
@@ -119,6 +147,113 @@ class SAICMGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="login_data", data_schema=data_schema, errors=errors
         )
 
+    async def async_step_custom_region(self, user_input=None):
+        """Step for entering a custom SAIC API endpoint (base URI, region code, tenant ID).
+
+        For markets running on separate SAIC infrastructure that do not have a
+        built-in preset (see issue #217 for Thailand).
+        """
+        errors = {}
+        if user_input is not None:
+            self.custom_base_uri = user_input["base_uri"].strip()
+            if not self.custom_base_uri.endswith("/"):
+                self.custom_base_uri += "/"
+            self.custom_region_code = user_input["region_code"].strip().lower()
+            self.custom_tenant_id = user_input["tenant_id"].strip()
+
+            username_is_email = self.login_type == "email"
+            try:
+                await self.fetch_vehicle_data(username_is_email)
+                return await self.async_step_select_vehicle()
+            except Exception as e:
+                errors["base"] = "auth"
+                LOGGER.error(f"Failed to authenticate or fetch vehicle data: {e}")
+
+        data_schema = vol.Schema(
+            {
+                vol.Required(
+                    "base_uri",
+                    default=self.custom_base_uri
+                    or "https://gateway-mg-eu.soimt.com/api.app/v1/",
+                ): str,
+                vol.Required(
+                    "region_code", default=self.custom_region_code or "eu"
+                ): str,
+                vol.Required(
+                    "tenant_id", default=self.custom_tenant_id or DEFAULT_TENANT_ID
+                ): str,
+            }
+        )
+        return self.async_show_form(
+            step_id="custom_region", data_schema=data_schema, errors=errors
+        )
+
+    async def async_step_india_pin(self, user_input=None):
+        """India-specific step: the 4-digit iSmart command PIN.
+
+        MG India authorises remote commands with the same 4-digit PIN used in
+        the iSmart India app.  Only a derived hash is stored in the config
+        entry — never the raw PIN (see backends.india.hash_india_pin).
+        """
+        errors = {}
+        if user_input is not None:
+            try:
+                self.india_pin_hash = hash_india_pin(user_input["pin"])
+            except ValueError:
+                errors["pin"] = "invalid_pin"
+
+            if not errors:
+                try:
+                    await self.fetch_vehicle_data_india()
+                    return await self.async_step_select_vehicle()
+                except IndiaBackendNotReadyError:
+                    return self.async_abort(reason="india_backend_not_ready")
+                except Exception as e:
+                    errors["base"] = "auth"
+                    LOGGER.error(
+                        "Failed to authenticate or fetch vehicle data (India): %s",
+                        e,
+                    )
+
+        data_schema = vol.Schema(
+            {
+                vol.Required("pin"): str,
+            }
+        )
+        return self.async_show_form(
+            step_id="india_pin", data_schema=data_schema, errors=errors
+        )
+
+    async def fetch_vehicle_data_india(self):
+        """Authenticate against the MG India TAP backend and fetch vehicles.
+
+        Uses the same backend factory as runtime setup so the config flow
+        exercises exactly the code path the integration will use.
+
+        Backend contract: get_vehicle_info() returns a list of objects with a
+        `vin` attribute (matching the global client's vinList entries) or
+        plain VIN strings — both are accepted here.
+        """
+        backend = create_backend(
+            {
+                "region": REGION_INDIA,
+                "username": self.username,
+                "password": self.password,
+                "country_code": self.country_code,
+                "india_pin_hash": self.india_pin_hash,
+            }
+        )
+        try:
+            await backend.login()
+            vehicles = await backend.get_vehicle_info()
+            if not vehicles:
+                raise Exception("India vehicle list returned no vehicles")
+            self.vehicles = [getattr(v, "vin", v) for v in vehicles]
+            LOGGER.info("Fetched India vehicle data successfully.")
+        finally:
+            with suppress(Exception):
+                await backend.close()
+
     async def async_step_select_vehicle(self, user_input=None):
         errors = {}
         if user_input is not None:
@@ -128,10 +263,19 @@ class SAICMGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self.vin = selected_vin
             return await self.async_step_vehicle_capabilities()
 
+        # Filter out VINs that are already configured in HA so the user cannot
+        # accidentally add the same car twice.
+        already_configured = configured_vins(self.hass)
+        available_vehicles = [v for v in self.vehicles if v not in already_configured]
+
+        if not available_vehicles:
+            # Every VIN on this account is already set up — nothing to add.
+            return self.async_abort(reason="already_configured")
+
         # Add vehicle_type selection with fallback for user confirmation
         data_schema = vol.Schema(
             {
-                vol.Required("vin"): vol.In(self.vehicles),
+                vol.Required("vin"): vol.In(available_vehicles),
                 vol.Required("vehicle_type"): vol.In(["BEV", "PHEV", "HEV", "ICE"]),
             }
         )
@@ -146,7 +290,12 @@ class SAICMGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             self.has_sunroof = user_input["has_sunroof"]
             self.has_heated_seats = user_input["has_heated_seats"]
+            self.has_rear_heated_seats = user_input.get(
+                "has_rear_heated_seats", False
+            )
             self.has_battery_heating = user_input["has_battery_heating"]
+            self.has_steering_wheel_heat = user_input["has_steering_wheel_heat"]
+            self.has_window_control = user_input["has_window_control"]
 
             return self.async_create_entry(
                 title=f"MG SAIC - {self.vin}",
@@ -155,12 +304,19 @@ class SAICMGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     "password": self.password,
                     "country_code": self.country_code,
                     "region": self.region,
+                    "custom_base_uri": self.custom_base_uri,
+                    "region_code": self.custom_region_code,
+                    "tenant_id": self.custom_tenant_id,
+                    "india_pin_hash": self.india_pin_hash,
                     "vin": self.vin,
                     "login_type": self.login_type,
                     "vehicle_type": self.vehicle_type,
                     "has_sunroof": self.has_sunroof,
                     "has_heated_seats": self.has_heated_seats,
+                    "has_rear_heated_seats": self.has_rear_heated_seats,
                     "has_battery_heating": self.has_battery_heating,
+                    "has_steering_wheel_heat": self.has_steering_wheel_heat,
+                    "has_window_control": self.has_window_control,
                 },
             )
 
@@ -169,7 +325,16 @@ class SAICMGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required("has_sunroof", default=self.has_sunroof): bool,
                 vol.Required("has_heated_seats", default=self.has_heated_seats): bool,
                 vol.Required(
+                    "has_rear_heated_seats", default=self.has_rear_heated_seats
+                ): bool,
+                vol.Required(
                     "has_battery_heating", default=self.has_battery_heating
+                ): bool,
+                vol.Required(
+                    "has_steering_wheel_heat", default=self.has_steering_wheel_heat
+                ): bool,
+                vol.Required(
+                    "has_window_control", default=self.has_window_control
                 ): bool,
             }
         )
@@ -181,25 +346,35 @@ class SAICMGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def fetch_vehicle_data(self, username_is_email):
         """Authenticate and fetch vehicle data."""
 
-        # Get the base_url for the selected region
-        base_uri = REGION_BASE_URIS.get(self.region)
+        # Get the base_url for the selected region (a custom endpoint overrides)
+        base_uri = self.custom_base_uri or REGION_BASE_URIS.get(self.region)
         if not base_uri:
             raise ValueError(f"Base URL not defined for region: {self.region}")
+
+        region_code = self.custom_region_code or REGION_API_CODES.get(
+            self.region, "eu"
+        )
+        tenant_id = self.custom_tenant_id or DEFAULT_TENANT_ID
 
         config = SaicApiConfiguration(
             username=self.username,
             password=self.password,
             base_uri=base_uri,
+            region=region_code,
+            tenant_id=tenant_id,
             phone_country_code=self.country_code if not username_is_email else None,
             username_is_email=username_is_email,
         )
 
         LOGGER.debug(
-            "Logging in with Username: %s, Country Code: %s, Email: %s, Region: %s, Base URL: %s",
+            "Logging in with Username: %s, Country Code: %s, Email: %s, Region: %s "
+            "(code: %s), Tenant: %s, Base URL: %s",
             self.username,
             self.country_code,
             username_is_email,
             self.region,
+            region_code,
+            tenant_id,
             base_uri,
         )
 
@@ -264,10 +439,38 @@ class SAICMGOptionsFlowHandler(config_entries.OptionsFlow):
                     ),
                 ): bool,
                 vol.Optional(
+                    "has_rear_heated_seats",
+                    default=self.options.get(
+                        "has_rear_heated_seats",
+                        self.config_entry.data.get("has_rear_heated_seats", False),
+                    ),
+                ): bool,
+                vol.Optional(
                     "has_battery_heating",
                     default=self.options.get(
                         "has_battery_heating",
                         self.config_entry.data.get("has_battery_heating", False),
+                    ),
+                ): bool,
+                vol.Optional(
+                    "has_steering_wheel_heat",
+                    default=self.options.get(
+                        "has_steering_wheel_heat",
+                        self.config_entry.data.get("has_steering_wheel_heat", False),
+                    ),
+                ): bool,
+                vol.Optional(
+                    "has_window_control",
+                    default=self.options.get(
+                        "has_window_control",
+                        self.config_entry.data.get("has_window_control", False),
+                    ),
+                ): bool,
+                # Behaviour options
+                vol.Optional(
+                    "enable_shutdown_refresh_sequence",
+                    default=self.options.get(
+                        "enable_shutdown_refresh_sequence", True
                     ),
                 ): bool,
                 # Update Intervals in minutes
@@ -282,6 +485,13 @@ class SAICMGOptionsFlowHandler(config_entries.OptionsFlow):
                     default=self.options.get(
                         "charging_update_interval",
                         self.get_minutes(UPDATE_INTERVAL_CHARGING),
+                    ),
+                ): vol.All(vol.Coerce(int), vol.Range(min=1)),
+                vol.Optional(
+                    "dc_charging_update_interval",
+                    default=self.options.get(
+                        "dc_charging_update_interval",
+                        self.get_minutes(UPDATE_INTERVAL_DC_CHARGING),
                     ),
                 ): vol.All(vol.Coerce(int), vol.Range(min=1)),
                 vol.Optional(

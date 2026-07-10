@@ -2,10 +2,24 @@
 
 from datetime import datetime, timedelta, timezone
 import asyncio
+from contextlib import suppress
+from homeassistant.config_entries import ConfigEntryNotReady
 from homeassistant.helpers.event import async_track_point_in_utc_time
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util.dt import utcnow
-from .api import SAICMGAPIClient
+from .api import SAICMGAPIClient, CommandsLimitReachedException
+from .backends import Feature
+from .backends import backend_supports as _backend_supports
+from .logic import select_update_interval
+
+# After the car turns off, fire extra refreshes at these intervals (seconds)
+# to catch plug-in as quickly as possible.  The coordinator is still on its
+# powered-on poll cycle when shutdown occurs; without this we could wait the
+# full powered interval before detecting plug-in.
+# The sequence exits early as soon as is_charging is detected.
+# Sequence: 1 min, 3 min, 7 min, 15 min, 25 min → catches plug-in within ~1-25 min.
+POST_SHUTDOWN_REFRESH_SEQUENCE = [60, 120, 240, 480, 600]
+
 from .const import (
     AFTER_ACTION_UPDATE_INTERVAL_DELAY,
     CHARGING_STATUS_CODES,
@@ -22,19 +36,25 @@ from .const import (
     DEFAULT_SUNROOF_LONG_INTERVAL,
     DEFAULT_TAILGATE_LONG_INTERVAL,
     DEFAULT_TARGET_SOC_LONG_INTERVAL,
+    DEFAULT_VEHICLE_PROFILE,
     DOMAIN,
     GENERIC_RESPONSE_SOC_THRESHOLD,
     GENERIC_RESPONSE_STATUS_THRESHOLD,
     GENERIC_RESPONSE_TEMPERATURE,
-    GENERIC_RESPONSE_EXTREME_TEMPERATURE,
     LOGGER,
     RETRY_BACKOFF_FACTOR,
     RETRY_LIMIT,
+    STARTUP_API_TIMEOUT,
+    STARTUP_CHARGING_TIMEOUT,
+    STATUS_TIMESTAMP_FUTURE_TOLERANCE,
+    STATUS_TIMESTAMP_MAX_AGE,
     UPDATE_INTERVAL,
     UPDATE_INTERVAL_AFTER_SHUTDOWN,
     UPDATE_INTERVAL_CHARGING,
+    UPDATE_INTERVAL_DC_CHARGING,
     UPDATE_INTERVAL_GRACE_PERIOD,
     UPDATE_INTERVAL_POWERED,
+    VEHICLE_PROFILES,
 )
 
 
@@ -56,9 +76,29 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
 
         # State Variables
         self.is_charging = False
+        self.is_dc_charging = False
+        # Locally pending battery heating schedule start time, used by the
+        # time entity while the schedule switch is off.
+        self.battery_heating_pending_time = None
+        # Locally pending scheduled charging window, used by the time entities.
+        # Values are only sent to the vehicle when the Scheduled Charging Mode
+        # select is changed (mirrors the heated-seat level pattern to avoid
+        # spending a remote command on every time adjustment).
+        self.scheduled_charging_pending_start = None
+        self.scheduled_charging_pending_end = None
+        # Optimistic ventilation tracking. The vehicle has no reliable
+        # "is ventilating" status field (remoteClimateStatus=2 reports A/C, not
+        # ventilation, and is 0 when ventilating from cold), and the window
+        # status can't distinguish ventilated from fully open. So the
+        # Ventilation binary sensor reflects the last ventilate command sent
+        # FROM HOME ASSISTANT: set True on a ventilate press, cleared when an
+        # open/close command is sent, or when the windows report closed after
+        # having been seen open (i.e. ventilation ended). Ventilation triggered
+        # from the iSmart app is not reflected — a known, documented gap.
+        self.ventilation_active = False
+        self._ventilation_windows_seen_open = False
         self.is_powered_on = False
         self.is_initial_setup = False
-        self.in_grace_period = False
         self.after_shutdown_active = False
 
         # Activity Tracking
@@ -68,12 +108,80 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
 
         # Next Update Time
         self.next_update_time = None
+        self._action_refresh_task = None
+        self._action_refresh_generation = 0
+
+        # Account-level API lock — shared with all coordinators on the same
+        # account and the SAICMGAccountPoller.  Serialises concurrent API calls
+        # so that a message-poll and a data refresh on the same account never
+        # race each other and invalidate the session token.
+        # Injected by __init__.async_setup_entry after construction.
+        self._api_lock: asyncio.Lock | None = None
+
+        # Post-shutdown rapid refresh state
+        self._shutdown_refresh_task: asyncio.Task | None = None
+
+        # Track previous powered-on state so we detect the transition even
+        # when status_data is None (generic response during power-down)
+        self._prev_is_powered_on: bool = False
 
         # Initialize with default values
         self.vehicle_series = None
         self.min_temp = 16  # Default fallback
         self.max_temp = 28  # Default fallback
         self.temp_offset = 2  # Default fallback
+        self.known_battery_capacity_kwh = None  # Set once series is detected
+        # Climate control profile — set from VEHICLE_PROFILES on first data fetch.
+        # Defaults match original integration behaviour so unrecognised models
+        # continue to work as before.
+        self.climate_status_cool: set = {3}
+        self.climate_status_fan_only: set = {2}
+        self.fan_speed_low: int = 1
+        self.fan_speed_medium: int = 3
+        self.fan_speed_high: int = 5
+        self.temp_idx_inverted: bool = False
+        # Optional per-model {temperature: index} lookup (from VEHICLE_PROFILES).
+        # When present, takes priority over the linear formula in
+        # get_ac_temperature_idx. None means "use the formula".
+        self.temp_index_map: dict | None = None
+        # Climate control scheme (see VEHICLE_PROFILES in const.py):
+        #   "fan_speed"   — the classic model: HA exposes a Low/Med/High fan
+        #                   slider, and the selected fan value is sent with each
+        #                   AC command. This is the default for all models.
+        #   "mode_select" — for cars (e.g. IS31P / MG S9 PHEV) where the API's
+        #                   "fan_speed" byte is really a climate MODE selector,
+        #                   not a linear fan speed. HA instead exposes hvac_mode
+        #                   (off/fan_only/cool/heat) + preset_mode (Max Cool /
+        #                   Defrost), each mapping to a fixed mode value. No fan
+        #                   slider is shown for these models.
+        self.climate_control_scheme: str = "fan_speed"
+        # mode_select value map (only used when scheme == "mode_select").
+        # Maps each logical climate action to the integer sent via the API's
+        # fan_speed parameter. Defaults are the IS31P-confirmed values but are
+        # always overridden per-profile when the scheme is mode_select.
+        self.climate_mode_fan_only: int = 1   # HVACMode.FAN_ONLY
+        self.climate_mode_cool: int = 2       # HVACMode.COOL (auto fan, follows temp)
+        self.climate_mode_heat: int = 4       # HVACMode.HEAT
+        self.climate_mode_max_cool: int = 3   # preset "Max Cool" (fixed strong fan)
+        self.climate_mode_defrost: int = 5    # preset "Defrost"
+        # Reverse map: remoteClimateStatus values that mean "heating".
+        # (cool/fan_only reverse maps already exist as climate_status_cool /
+        # climate_status_fan_only above.)
+        self.climate_status_heat: set = set()
+        self.climate_status_defrost: set = set()
+        # Per-model feature flags — set from VEHICLE_PROFILES on first data fetch.
+        self.supports_target_soc: bool = True
+        self.reliable_fuel_range_elec: bool = True
+        self.charging_capacity_correction: float | None = None
+        self.supports_charging_current_limit: bool = True
+        self.model_year_override: str | None = None
+
+        # Reference to the command-error Event entity (event.py), set once it
+        # registers itself via register_command_error_event_entity. May be
+        # None if the entity hasn't loaded yet or was removed — callers must
+        # tolerate that, since the event entity is purely supplementary to
+        # the persistent notification path and must never block commands.
+        self._command_error_event_entity = None
 
         # Initialize update intervals from config_entry options, falling back to defaults if not set
         options = config_entry.options
@@ -92,9 +200,13 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             )
 
         # Base update intervals
-        self.update_interval = get_interval("update_interval", UPDATE_INTERVAL)
+        self.default_update_interval = get_interval("update_interval", UPDATE_INTERVAL)
+        self.update_interval = self.default_update_interval
         self.charging_update_interval = get_interval(
             "charging_update_interval", UPDATE_INTERVAL_CHARGING
+        )
+        self.dc_charging_update_interval = get_interval(
+            "dc_charging_update_interval", UPDATE_INTERVAL_DC_CHARGING
         )
         self.powered_update_interval = get_interval(
             "powered_update_interval", UPDATE_INTERVAL_POWERED
@@ -156,7 +268,7 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
 
         LOGGER.debug(
             f"Update intervals initialized: "
-            f"Default: {self.update_interval}, "
+            f"Default: {self.default_update_interval}, "
             f"Charging: {self.charging_update_interval}, "
             f"Powered: {self.powered_update_interval}, "
             f"After Shutdown: {self.after_shutdown_update_interval}, "
@@ -174,9 +286,159 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
         self.has_heated_seats = config_entry.options.get(
             "has_heated_seats", config_entry.data.get("has_heated_seats", False)
         )
+        self.has_rear_heated_seats = config_entry.options.get(
+            "has_rear_heated_seats",
+            config_entry.data.get("has_rear_heated_seats", False),
+        )
         self.has_battery_heating = config_entry.options.get(
             "has_battery_heating", config_entry.data.get("has_battery_heating", False)
         )
+        self.has_steering_wheel_heat = config_entry.options.get(
+            "has_steering_wheel_heat",
+            config_entry.data.get("has_steering_wheel_heat", False),
+        )
+        self.has_window_control = config_entry.options.get(
+            "has_window_control",
+            config_entry.data.get("has_window_control", False),
+        )
+        # Locally-selected front heated-seat levels, pending until the matching
+        # seat switch is turned on (see select.py / switch.py). Keyed by seat
+        # ("front_left"/"front_right") -> level int (0-3).
+        self.pending_seat_levels: dict = {}
+
+        # Whether the car has rear doors/windows — driven by the per-model
+        # VEHICLE_PROFILES entry (see const.py), not the SAIC API's own
+        # DOOR/WINDOW vehicleModelConfiguration bitmask. That API data proved
+        # unreliable: it reported WINDOW='0000' for 4-door/4-window cars
+        # (MG4, MGS5) exactly the same way it does for the 2-door Cyberster,
+        # which suppressed valid rear window entities for those cars.
+        # See issue #203. Default True until the profile is loaded on first
+        # data fetch, so pre-existing installations don't lose entities
+        # before _update_state runs.
+        self.has_rear_doors = True
+        self.has_rear_windows = True
+
+        # Post-shutdown refresh sequence — enabled by default, opt-out via options.
+        # When enabled, the coordinator fires a rapid series of refreshes after
+        # detecting engine-off or door-lock, to catch plug-in within 1-3 minutes
+        # without relying on SAIC's slow/unreliable poweroff notifications.
+        self.enable_shutdown_refresh_sequence = config_entry.options.get(
+            "enable_shutdown_refresh_sequence", True
+        )
+
+    # ── Account-level lock injection ─────────────────────────────────────────
+
+    def set_api_lock(self, lock: asyncio.Lock) -> None:
+        """Inject the shared account-level API lock.
+
+        Called by __init__.async_setup_entry immediately after the coordinator
+        is constructed, before async_setup() is awaited.  The lock is shared
+        with all other coordinators on the same (username, region) account and
+        with the SAICMGAccountPoller, ensuring that message-queue polls and
+        vehicle-data fetches never race each other.
+        """
+        self._api_lock = lock
+
+    def backend_supports(self, feature: Feature) -> bool:
+        """Return True if this vehicle's backend supports *feature*.
+
+        Backends (see backends/__init__.py) declare which command/data
+        families they implement AND have confirmed on a real car.  Entity
+        platforms combine this with the per-vehicle "if equipped" flags:
+        an entity exists only when the backend supports the feature and the
+        vehicle has it.  Clients that predate the backend split declare no
+        feature set and are treated as fully featured (global behaviour).
+        """
+        return _backend_supports(self.client, feature)
+
+    # ── Event-driven refresh (called by SAICMGAccountPoller) ─────────────────
+
+    async def async_trigger_refresh(self, reason: str = "message event") -> None:
+        """Immediately request a data refresh, triggered by an alarm message.
+
+        Called by SAICMGAccountPoller when it detects a significant event
+        (engine start, shutdown, charging) for this coordinator's VIN.
+        Uses async_request_refresh so HA's built-in deduplication prevents
+        a pile-up if multiple messages arrive in the same poll cycle.
+
+        Args:
+            reason: short human-readable description for log output.
+        """
+        LOGGER.info(
+            "Coordinator VIN %s: event-driven refresh requested — %s",
+            self.vin,
+            reason,
+        )
+        await self.async_request_refresh()
+
+    def hint_vehicle_started(self, started_at: datetime) -> None:
+        """Pre-apply powered-on state from a vehicle-start alarm message timestamp.
+
+        Called by SAICMGAccountPoller when it receives a type-323 (vehicle
+        start) message, *before* the confirming vehicle-status poll arrives.
+        This pre-sets:
+
+        - ``is_powered_on = True``
+        - ``last_powered_on_time = started_at``   (message timestamp, not poll time)
+        - Immediately switches ``update_interval`` to ``powered_update_interval``
+
+        so that the coordinator begins rapid polling right away rather than
+        waiting up to one full default interval (which could be hours for
+        users with long idle intervals).
+
+        The confirming poll in ``_update_state`` will still run normally —
+        if it sees ``powerMode=2`` it keeps the hint state; if it sees
+        ``powerMode`` as something else (e.g. the message was spurious), it
+        corrects the state as usual.
+
+        Guards:
+        - If ``is_powered_on`` is already ``True`` and ``last_powered_on_time``
+          is *newer* than ``started_at``, the hint is a no-op (a confirmed poll
+          already has more accurate data).
+        - If an action-interval sequence is active, ``_adjust_update_interval``
+          will skip the reschedule as usual.
+
+        Args:
+            started_at: timezone-aware datetime derived from the vehicle-start
+                        message.  Callers must ensure UTC-aware before passing.
+        """
+        # Guard: don't regress a more-recent confirmed power-on timestamp
+        if (
+            self.is_powered_on
+            and self.last_powered_on_time is not None
+            and self.last_powered_on_time >= started_at
+        ):
+            LOGGER.debug(
+                "hint_vehicle_started: VIN %s already powered on with newer "
+                "timestamp (%s >= %s) — no-op",
+                self.vin,
+                self.last_powered_on_time,
+                started_at,
+            )
+            return
+
+        LOGGER.info(
+            "hint_vehicle_started: VIN %s — pre-setting powered-on from "
+            "message timestamp %s (was: is_powered_on=%s, last_powered_on=%s)",
+            self.vin,
+            started_at,
+            self.is_powered_on,
+            self.last_powered_on_time,
+        )
+
+        self.is_powered_on = True
+        self.last_powered_on_time = started_at
+
+        # Immediately switch to the powered interval so the next scheduled
+        # poll fires at the rapid powered-on cadence, not the slow idle cadence.
+        # _adjust_update_interval is the single source of truth for interval
+        # selection and scheduling — call it rather than setting update_interval
+        # directly, so all action-interval / grace-period guards apply correctly.
+        self._adjust_update_interval()
+
+        # Notify listeners so the last_powered_on sensor updates immediately
+        # (before the poll confirms it), giving users an accurate start time.
+        self.async_update_listeners()
 
     # Update Options
     async def async_update_options(self, options):
@@ -198,9 +460,13 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             )
 
         # Update all update intervals
-        self.update_interval = get_interval("update_interval", UPDATE_INTERVAL)
+        self.default_update_interval = get_interval("update_interval", UPDATE_INTERVAL)
+        self.update_interval = self.default_update_interval
         self.charging_update_interval = get_interval(
             "charging_update_interval", UPDATE_INTERVAL_CHARGING
+        )
+        self.dc_charging_update_interval = get_interval(
+            "dc_charging_update_interval", UPDATE_INTERVAL_DC_CHARGING
         )
         self.powered_update_interval = get_interval(
             "powered_update_interval", UPDATE_INTERVAL_POWERED
@@ -261,13 +527,25 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
         # Update capabilities from options
         self.has_sunroof = options.get("has_sunroof", self.has_sunroof)
         self.has_heated_seats = options.get("has_heated_seats", self.has_heated_seats)
+        self.has_rear_heated_seats = options.get(
+            "has_rear_heated_seats", self.has_rear_heated_seats
+        )
         self.has_battery_heating = options.get(
             "has_battery_heating", self.has_battery_heating
+        )
+        self.has_steering_wheel_heat = options.get(
+            "has_steering_wheel_heat", self.has_steering_wheel_heat
+        )
+        self.has_window_control = options.get(
+            "has_window_control", self.has_window_control
+        )
+        self.enable_shutdown_refresh_sequence = options.get(
+            "enable_shutdown_refresh_sequence", self.enable_shutdown_refresh_sequence
         )
 
         LOGGER.debug(
             f"Update intervals updated via options: "
-            f"Default: {self.update_interval}, "
+            f"Default: {self.default_update_interval}, "
             f"Charging: {self.charging_update_interval}, "
             f"Powered: {self.powered_update_interval}, "
             f"After Shutdown: {self.after_shutdown_update_interval}, "
@@ -288,24 +566,11 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             f"Charging Current: {self.charging_current_long_interval}"
         )
 
-        # Reschedule the refresh with the new update interval
-        if not self.is_charging and not self.is_powered_on:
-            new_interval = self.update_interval
-            if self.update_interval != new_interval:
-                LOGGER.debug(
-                    f"Update interval reset to default: {self.update_interval}"
-                )
-                if self._unsub_refresh:
-                    self._unsub_refresh()
-                self._schedule_refresh()
-
-        # Reschedule the refresh immediately with the new update interval
-        if self._unsub_refresh:
-            self._unsub_refresh()
-
-        # Force recalculation of the next update time based on the new interval
-        self.next_update_time = utcnow() + self.update_interval
-        self._schedule_refresh()
+        if not getattr(self, "_action_interval_active", False):
+            self._adjust_update_interval()
+        else:
+            self.next_update_time = utcnow() + self.update_interval
+            self.async_update_listeners()
 
     async def async_setup(self):
         """Set up the coordinator."""
@@ -371,11 +636,20 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             self.last_powered_on_time = datetime.now(timezone.utc) - timedelta(hours=24)
 
         try:
-            await self.async_config_entry_first_refresh()
+            await asyncio.wait_for(
+                self.async_config_entry_first_refresh(),
+                timeout=STARTUP_API_TIMEOUT,
+            )
+        except asyncio.TimeoutError:
+            raise ConfigEntryNotReady(
+                f"MG SAIC API did not respond within {STARTUP_API_TIMEOUT}s at "
+                f"startup for VIN {vin} — HA will retry automatically in the background."
+            )
         except Exception as e:
-            LOGGER.error("First data update failed: %s", e)
-            # Proceed anyway, set data to empty dict
-            self.data = {}
+            raise ConfigEntryNotReady(
+                f"MG SAIC API unavailable at startup for VIN {vin}: {e} "
+                f"— HA will retry automatically in the background."
+            )
 
         if "info" in self.data and self.data["info"]:
             # Find the vehicle info matching the current VIN
@@ -393,24 +667,95 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             # Get vehicle series from API response
             self.vehicle_series = getattr(vin_info, "series", "").upper()
 
-            # Set temperature range based on vehicle series
-            if "EH32" in self.vehicle_series:
-                self.min_temp = 17
-                self.max_temp = 33
-                self.temp_offset = 3
-            else:  # For other models like MG5, ZS EV, etc.
-                self.min_temp = 16
-                self.max_temp = 28
-                self.temp_offset = 2
+            # Look up the per-model profile (temperature range/offset and
+            # known battery capacity) by matching the series against
+            # VEHICLE_PROFILES. Falls back to DEFAULT_VEHICLE_PROFILE for
+            # any series not yet profiled (e.g. MG5, ZS EV).
+            profile = DEFAULT_VEHICLE_PROFILE
+            matched_series_key = None
+            for series_key, series_profile in VEHICLE_PROFILES.items():
+                if series_key in self.vehicle_series:
+                    profile = series_profile
+                    matched_series_key = series_key
+                    break
+
+            self.min_temp = profile["min_temp"]
+            self.max_temp = profile["max_temp"]
+            self.temp_offset = profile["temp_offset"]
+            self.known_battery_capacity_kwh = profile["battery_capacity_kwh"]
+            self.climate_status_cool = profile.get("climate_status_cool", {3})
+            self.climate_status_fan_only = profile.get("climate_status_fan_only", {2})
+            self.fan_speed_low = profile.get("fan_speed_low", 1)
+            self.fan_speed_medium = profile.get("fan_speed_medium", 3)
+            self.fan_speed_high = profile.get("fan_speed_high", 5)
+            self.temp_idx_inverted = profile.get("temp_idx_inverted", False)
+            self.temp_index_map = profile.get("temp_index_map", None)
+            # Climate control scheme + mode_select value map (see const.py).
+            self.climate_control_scheme = profile.get("climate_control_scheme", "fan_speed")
+            self.climate_mode_fan_only = profile.get("climate_mode_fan_only", 1)
+            self.climate_mode_cool = profile.get("climate_mode_cool", 2)
+            self.climate_mode_heat = profile.get("climate_mode_heat", 4)
+            self.climate_mode_max_cool = profile.get("climate_mode_max_cool", 3)
+            self.climate_mode_defrost = profile.get("climate_mode_defrost", 5)
+            self.climate_status_heat = profile.get("climate_status_heat", set())
+            self.climate_status_defrost = profile.get("climate_status_defrost", set())
+            self.supports_target_soc = profile.get("supports_target_soc", True)
+            self.reliable_fuel_range_elec = profile.get("reliable_fuel_range_elec", True)
+            self.charging_capacity_correction = profile.get("charging_capacity_correction", None)
+            self.supports_charging_current_limit = profile.get("supports_charging_current_limit", True)
+            self.model_year_override = profile.get("model_year_override", None)
+            # Rear door/window presence — from the vehicle profile, not the
+            # API's DOOR/WINDOW bitmask (see issue #203; that bitmask data is
+            # unreliable for WINDOW across models). Defaults to True (has
+            # rear doors/windows) for any unprofiled or 4-door/4-window car.
+            self.has_rear_doors = profile.get("has_rear_doors", True)
+            self.has_rear_windows = profile.get("has_rear_windows", True)
 
             LOGGER.debug(
-                f"Vehicle series detected: {self.vehicle_series}. "
-                f"Temperature range: {self.min_temp}-{self.max_temp}°C, "
-                f"Offset: {self.temp_offset}"
+                "Vehicle series detected: %s (profile: %s). "
+                "Temperature range: %d-%d°C, Offset: %d, "
+                "Temp index inverted: %s, "
+                "Fan speeds: low=%d mid=%d high=%d, "
+                "Cool status codes: %s, "
+                "Climate scheme: %s, "
+                "Rear doors: %s, Rear windows: %s",
+                self.vehicle_series,
+                matched_series_key or "default/unprofiled",
+                self.min_temp,
+                self.max_temp,
+                self.temp_offset,
+                self.temp_idx_inverted,
+                self.fan_speed_low,
+                self.fan_speed_medium,
+                self.fan_speed_high,
+                self.climate_status_cool,
+                self.climate_control_scheme,
+                self.has_rear_doors,
+                self.has_rear_windows,
             )
+            if self.known_battery_capacity_kwh is not None:
+                LOGGER.debug(
+                    "Known battery capacity override for series %s: %.1f kWh "
+                    "(overrides unreliable API-reported value)",
+                    self.vehicle_series,
+                    self.known_battery_capacity_kwh,
+                )
+
+            # NOTE: rear door/window presence is no longer derived from the
+            # API's DOOR/WINDOW vehicleModelConfiguration bitmask. That data
+            # proved unreliable — MG4 and MGS5 (both 4-door, 4-window cars)
+            # report WINDOW='0000' identically to the 2-door Cyberster, which
+            # incorrectly suppressed valid rear window entities for them
+            # (issue #203). has_rear_doors/has_rear_windows are now set from
+            # the VEHICLE_PROFILES entry above instead (see EC32 for the
+            # Cyberster override).
+
         else:
             LOGGER.error(f"No 'info' data found for VIN: {vin}")
-            raise UpdateFailed("No 'info' data found for VIN.")
+            raise ConfigEntryNotReady(
+                f"No vehicle info returned by SAIC API for VIN {vin}. "
+                f"HA will retry automatically."
+            )
 
         # Update capabilities from options
         self.has_sunroof = self.config_entry.options.get(
@@ -419,65 +764,187 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
         self.has_heated_seats = self.config_entry.options.get(
             "has_heated_seats", self.has_heated_seats
         )
+        self.has_rear_heated_seats = self.config_entry.options.get(
+            "has_rear_heated_seats", self.has_rear_heated_seats
+        )
         self.has_battery_heating = self.config_entry.options.get(
             "has_battery_heating", self.has_battery_heating
+        )
+        self.has_steering_wheel_heat = self.config_entry.options.get(
+            "has_steering_wheel_heat", self.has_steering_wheel_heat
+        )
+        self.has_window_control = self.config_entry.options.get(
+            "has_window_control", self.has_window_control
         )
 
         self.is_initial_setup = False
 
+        # NOTE: set_alarm_switches and message-queue polling are no longer
+        # managed here.  Both are handled by __init__.async_setup_entry under
+        # the shared api_lock, and the SAICMGAccountPoller owns the poll loop
+        # for the whole account.  See __init__.py and message_poller.py.
+
         return True
 
     async def _async_update_data(self):
-        """Fetch data from the API."""
+        """Fetch data from the API.
+
+        All network calls are made while holding the account-level _api_lock.
+        This serialises concurrent fetches across coordinators sharing the same
+        SAIC account, preventing session token invalidation when two VINs try
+        to refresh simultaneously (the #147 startup race).
+
+        The lock is acquired once for the entire update cycle (info + status +
+        charging) rather than per-call, so the three sequential fetches for one
+        VIN are never interleaved with fetches for another VIN on the same
+        account.
+        """
         data = {}
 
-        # Fetch vehicle info with retries
-        data["info"] = (
-            await self._fetch_with_retries(
-                self.client.get_vehicle_info,
-                self._is_generic_response_vehicle_info,
-                "vehicle info",
+        # _api_lock is injected by __init__ before async_setup is called.
+        # Fall back to a no-op context if somehow not set (single-entry case
+        # where __init__ predates this change — belt-and-braces only).
+        lock = self._api_lock or asyncio.Lock()
+
+        async with lock:
+            # Fetch vehicle info with retries
+            data["info"] = (
+                await self._fetch_with_retries(
+                    self.client.get_vehicle_info,
+                    self._is_generic_response_vehicle_info,
+                    "vehicle info",
+                )
+                or []
             )
-            or []
-        )
 
-        if not data["info"]:
-            raise UpdateFailed("Cannot proceed without vehicle info.")
+            if not data["info"]:
+                raise UpdateFailed("Cannot proceed without vehicle info.")
 
-        vin = self.config_entry.data.get("vin")
-        filtered_info = [v for v in data["info"] if v.vin == vin]
-        if not filtered_info:
-            raise UpdateFailed(f"No data found for VIN: {vin}")
+            vin = self.config_entry.data.get("vin")
+            filtered_info = [v for v in data["info"] if v.vin == vin]
+            if not filtered_info:
+                raise UpdateFailed(f"No data found for VIN: {vin}")
 
-        # Overwrite info with the filtered result and store it in an attribute
-        data["info"] = filtered_info
-        self.vin_info = filtered_info[0]
+            # Overwrite info with the filtered result and store it in an attribute
+            data["info"] = filtered_info
+            self.vin_info = filtered_info[0]
 
-        if not filtered_info:
-            raise UpdateFailed(f"No data found for VIN: {vin}")
+            # Fetch vehicle status with retries.
+            # Pass self.vin explicitly — the client is shared across all VINs
+            # on the same account, so without an explicit vin it would always
+            # fetch status for whichever VIN the client was first constructed
+            # with, causing all cars on the account to show the same data.
+            vin = self.vin
+            try:
+                data["status"] = await self._fetch_with_retries(
+                    lambda: self.client.get_vehicle_status(vin),
+                    self._is_generic_response_vehicle_status,
+                    "vehicle status",
+                )
+                if data["status"] is not None and not self._is_status_timestamp_valid(
+                    data["status"]
+                ):
+                    # Timestamp failed the sanity check — discard the response.
+                    # Downstream sensors already retain their last known valid
+                    # values, so this degrades gracefully rather than showing
+                    # stale/wrong data as if it were current.
+                    data["status"] = None
+            except Exception as e:
+                # During first setup, a vehicle status failure must not prevent
+                # the integration from loading.
+                if self.is_initial_setup:
+                    LOGGER.warning(
+                        "Vehicle status unavailable during setup for VIN %s: %s — "
+                        "will retry on next scheduled update",
+                        self.vin,
+                        e,
+                    )
+                    data["status"] = None
+                else:
+                    raise
 
-        # Fetch vehicle status with retries
-        data["status"] = await self._fetch_with_retries(
-            self.client.get_vehicle_status,
-            self._is_generic_response_vehicle_status,
-            "vehicle status",
-        )
+            # Fetch charging info with retries.
+            # Same explicit-vin pattern as above.
+            # Backend-gated: only fetched where the backend supports charging
+            # data at all (e.g. MG India's platform has none — issue #169).
+            if self.vehicle_type in ["BEV", "PHEV"] and self.backend_supports(
+                Feature.CHARGING_DATA
+            ):
+                try:
+                    if self.is_initial_setup:
+                        # At startup, cap the charging fetch so a slow/degraded
+                        # charging endpoint (issue #216) can't consume the whole
+                        # STARTUP_API_TIMEOUT budget. Charging is non-essential
+                        # for load — info + status are enough. If it doesn't
+                        # return in time, proceed without it; it populates on the
+                        # next scheduled refresh.
+                        data["charging"] = await asyncio.wait_for(
+                            self._fetch_with_retries(
+                                lambda: self.client.get_charging_info(vin),
+                                self._is_generic_response_charging,
+                                "charging info",
+                            ),
+                            timeout=STARTUP_CHARGING_TIMEOUT,
+                        )
+                    else:
+                        data["charging"] = await self._fetch_with_retries(
+                            lambda: self.client.get_charging_info(vin),
+                            self._is_generic_response_charging,
+                            "charging info",
+                        )
+                except asyncio.TimeoutError:
+                    # Startup-only: charging took longer than STARTUP_CHARGING_TIMEOUT.
+                    LOGGER.warning(
+                        "Charging info did not return within %ss during setup for "
+                        "VIN %s — proceeding without it; will retry on next update",
+                        STARTUP_CHARGING_TIMEOUT,
+                        self.vin,
+                    )
+                    data["charging"] = None
+                except Exception as e:
+                    # During first setup, a charging info failure must not prevent
+                    # the integration from loading — entities will show unavailable
+                    # until the next successful poll.
+                    if self.is_initial_setup:
+                        LOGGER.warning(
+                            "Charging info unavailable during setup for VIN %s: %s — "
+                            "will retry on next scheduled update",
+                            self.vin,
+                            e,
+                        )
+                        data["charging"] = None
+                    else:
+                        raise
 
-        # Fetch charging info with retries
-        if self.vehicle_type in ["BEV", "PHEV"]:
-            data["charging"] = await self._fetch_with_retries(
-                self.client.get_charging_info,
-                self._is_generic_response_charging,
-                "charging info",
-            )
+            # Fetch the scheduled battery heating configuration (cheap GET).
+            # Non-fatal: on failure, retain the last known value so the
+            # schedule entities do not flap during SAIC API outages.
+            # Backend-gated alongside the vehicle-level flag.
+            if self.has_battery_heating and self.backend_supports(
+                Feature.BATTERY_HEATING
+            ):
+                try:
+                    data["battery_heating_schedule"] = await self.client.get_battery_heating_schedule(vin)
+                except Exception as e:
+                    previous = (self.data or {}).get("battery_heating_schedule")
+                    data["battery_heating_schedule"] = previous
+                    LOGGER.debug(
+                        "Battery heating schedule unavailable for VIN %s: %s — "
+                        "retaining previous value",
+                        self.vin,
+                        e,
+                    )
 
         # Determine charging status
         self.is_charging = False
+        self.is_dc_charging = False
         if data.get("charging") is not None:
             chrg_data = getattr(data["charging"], "chrgMgmtData", None)
             if chrg_data is not None:
                 bms_chrg_sts = getattr(chrg_data, "bmsChrgSts", None)
                 self.is_charging = bms_chrg_sts in CHARGING_STATUS_CODES
+                # bmsChrgSts 10 = DC charging, 11 = super offboard DC charging
+                self.is_dc_charging = bms_chrg_sts in {10, 11}
         else:
             LOGGER.debug("Charging data not available.")
 
@@ -507,7 +974,10 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
         data["capabilities"] = {
             "has_sunroof": self.has_sunroof,
             "has_heated_seats": self.has_heated_seats,
+            "has_rear_heated_seats": self.has_rear_heated_seats,
             "has_battery_heating": self.has_battery_heating,
+            "has_steering_wheel_heat": self.has_steering_wheel_heat,
+            "has_window_control": self.has_window_control,
         }
 
         return data
@@ -526,9 +996,15 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
                 LOGGER.warning("basicVehicleStatus is not available in Status Data.")
                 return
 
+            # Clear the optimistic ventilation flag if the windows have closed.
+            self._update_ventilation_from_status(basic_status)
+
             power_mode = getattr(basic_status, "powerMode", None)
 
             # Detect Power State
+            # Track previous state so we catch the transition even if a prior
+            # poll returned None (generic response during power-down window)
+            self._prev_is_powered_on = self.is_powered_on
             if power_mode in [2, 3]:
                 if not self.is_powered_on:
                     self.last_powered_on_time = datetime.now(timezone.utc)
@@ -536,6 +1012,14 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             else:
                 if self.is_powered_on:
                     self.last_powered_off_time = datetime.now(timezone.utc)
+                    LOGGER.info(
+                        "Vehicle powered off detected for VIN %s — "
+                        "%s post-shutdown refresh sequence",
+                        self.vin,
+                        "starting" if self.enable_shutdown_refresh_sequence else "skipping (disabled)",
+                    )
+                    if self.enable_shutdown_refresh_sequence:
+                        self._start_shutdown_refresh_sequence()
                 self.is_powered_on = False
 
             # Detect vehicle activity
@@ -549,6 +1033,27 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
                 self.is_charging = (
                     getattr(chrg_mgmt_data, "bmsChrgSts", None) in CHARGING_STATUS_CODES
                 )
+
+        # Missed-transition guard: if vehicle status was unavailable (None) but
+        # charging data confirms the car is now charging, we know the car must
+        # have powered off. Fire the shutdown sequence if we haven't already.
+        if (
+            not status_data
+            and self.is_charging
+            and self._prev_is_powered_on
+            and self.is_powered_on
+        ):
+            if self._shutdown_refresh_task is None or self._shutdown_refresh_task.done():
+                LOGGER.info(
+                    "Charging detected after status unavailable for VIN %s — "
+                    "inferring shutdown, %s post-shutdown refresh sequence",
+                    self.vin,
+                    "starting" if self.enable_shutdown_refresh_sequence else "skipping (disabled)",
+                )
+                self.last_powered_off_time = datetime.now(timezone.utc)
+                self.is_powered_on = False
+                if self.enable_shutdown_refresh_sequence:
+                    self._start_shutdown_refresh_sequence()
 
         # Update activity timestamp
         if recent_activity:
@@ -564,7 +1069,23 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
 
     # Chech Vehicle Activity
     def _detect_activity(self, basic_status, charging_data=None):
-        """Detect recent activity based on changes in vehicle status and charging."""
+        """Detect recent activity based on changes in vehicle status and charging.
+
+        Lock-to-locked transition (0 → 1) is treated as a special trigger:
+        when the car locks while not already charging, it almost certainly means
+        the occupants have just arrived home and may be about to plug in.  We
+        start the post-shutdown rapid refresh sequence immediately on lock so
+        that plug-in is detected within 1-3 minutes without waiting for SAIC's
+        slow poweroff message or the background poll timer.
+
+        This is strictly better than waiting for poweroff detection because:
+        - Lock is a real-time state change from the vehicle status API (no SAIC
+          message queue delay)
+        - Charging port must be opened before locking, so lock always follows
+          plug-in at home
+        - The sequence exits as soon as is_charging is True, so false triggers
+          (locking at a shop) just run a few extra polls then stop harmlessly
+        """
         activity_keys = [
             "lockStatus",
             "driverDoor",
@@ -578,6 +1099,7 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             "engineStatus",
         ]
         detected_activity = False
+        lock_just_engaged = False
 
         # Check for door, lock, and other physical activity
         for key in activity_keys:
@@ -590,6 +1112,9 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
                     last_value,
                     current_value,
                 )
+                # Detect the specific locked transition (unlocked → locked)
+                if key == "lockStatus" and last_value == 0 and current_value == 1:
+                    lock_just_engaged = True
                 setattr(self, f"_last_{key}", current_value)
                 detected_activity = True
 
@@ -617,6 +1142,29 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
                 )
                 self._last_charging_status = charging_status
                 detected_activity = True
+
+        # Lock-engaged trigger: start the post-shutdown rapid refresh sequence
+        # when the car locks while not already actively charging.
+        # This catches the "just arrived home, about to plug in" scenario without
+        # any dependency on the slow SAIC poweroff notification.
+        if (
+            lock_just_engaged
+            and not self.is_charging
+            and self.enable_shutdown_refresh_sequence
+        ):
+            if self._shutdown_refresh_task is None or self._shutdown_refresh_task.done():
+                LOGGER.info(
+                    "Lock engaged for VIN %s while not charging — "
+                    "starting post-shutdown refresh sequence to catch plug-in",
+                    self.vin,
+                )
+                self._start_shutdown_refresh_sequence()
+            else:
+                LOGGER.debug(
+                    "Lock engaged for VIN %s but shutdown sequence already running — "
+                    "not starting a second one",
+                    self.vin,
+                )
 
         # Log no activity detected
         if not detected_activity:
@@ -658,23 +1206,31 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
         )
 
         # Determine update interval based on state and recent activity
+        self.update_interval = select_update_interval(
+            is_powered_on=self.is_powered_on,
+            is_charging=self.is_charging,
+            is_dc_charging=self.is_dc_charging,
+            idle_duration=idle_duration,
+            activity_duration=activity_duration,
+            default_update_interval=self.default_update_interval,
+            powered_update_interval=self.powered_update_interval,
+            charging_update_interval=self.charging_update_interval,
+            dc_charging_update_interval=self.dc_charging_update_interval,
+            grace_period_update_interval=self.grace_period_update_interval,
+            after_shutdown_update_interval=self.after_shutdown_update_interval,
+        )
+
         if self.is_powered_on:
-            self.update_interval = self.powered_update_interval
             LOGGER.debug("Vehicle is powered on. Using powered update interval.")
+        elif self.is_dc_charging:
+            LOGGER.debug("Vehicle is DC charging. Using DC charging update interval.")
         elif self.is_charging:
-            self.update_interval = self.charging_update_interval
-            LOGGER.debug("Vehicle is charging. Using charging update interval.")
-        elif (
-            activity_duration <= self.grace_period_update_interval
-            or idle_duration <= self.grace_period_update_interval
-        ):
-            self.update_interval = self.grace_period_update_interval
+            LOGGER.debug("Vehicle is AC charging. Using charging update interval.")
+        elif self.update_interval == self.grace_period_update_interval:
             LOGGER.debug("Within grace period. Using grace period interval.")
-        elif idle_duration <= self.after_shutdown_update_interval:
-            self.update_interval = self.after_shutdown_update_interval
+        elif self.update_interval == self.after_shutdown_update_interval:
             LOGGER.debug("Within shutdown window. Using shutdown interval.")
         else:
-            self.update_interval = UPDATE_INTERVAL  # Use the default update interval
             LOGGER.debug("No recent activity. Using default update interval.")
 
         # Log and schedule the next refresh
@@ -683,12 +1239,33 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
 
     # Additional Update Intervals for Actions and Confirmation
     async def schedule_action_refresh(self, vin, immediate_interval, long_interval):
-        """Schedule immediate and long-interval updates after an action."""
-        # Prevent state-driven adjustments during action sequence
+        """Schedule non-blocking follow-up refreshes after an action."""
+        self._action_refresh_generation += 1
+        generation = self._action_refresh_generation
+
+        if self._action_refresh_task and not self._action_refresh_task.done():
+            self._action_refresh_task.cancel()
+
+        self._action_refresh_task = self.hass.async_create_task(
+            self._run_action_refresh_sequence(
+                vin,
+                immediate_interval,
+                long_interval,
+                generation,
+            )
+        )
+
+    async def _run_action_refresh_sequence(
+        self,
+        vin,
+        immediate_interval,
+        long_interval,
+        generation,
+    ):
+        """Run action follow-up refreshes in the background."""
         self._action_interval_active = True
 
         try:
-            # Apply the immediate interval
             self.update_interval = immediate_interval
             self.next_update_time = utcnow() + self.update_interval
             self.async_update_listeners()
@@ -699,10 +1276,8 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             )
             await self.async_request_refresh()
 
-            # Wait for the immediate interval
             await asyncio.sleep(immediate_interval.total_seconds())
 
-            # Apply the long interval
             self.update_interval = long_interval
             self.next_update_time = utcnow() + self.update_interval
             self.async_update_listeners()
@@ -713,13 +1288,222 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             )
             await self.async_request_refresh()
 
-            # Wait for the long interval
             await asyncio.sleep(long_interval.total_seconds())
-
+        except asyncio.CancelledError:
+            LOGGER.debug("Cancelled action refresh sequence for VIN: %s.", vin)
+            raise
         finally:
-            # Allow state-based adjustments again
-            self._action_interval_active = False
-            self._adjust_update_interval()
+            if generation == self._action_refresh_generation:
+                self._action_interval_active = False
+                self._action_refresh_task = None
+                self._adjust_update_interval()
+
+
+    # ── Post-shutdown rapid refresh sequence ─────────────────────────────────
+
+    def _start_shutdown_refresh_sequence(self) -> None:
+        """Kick off a background task that polls rapidly after engine-off.
+
+        Because the SAIC REST API has no dedicated shutdown alarm type, the
+        coordinator may not poll again for up to 15 minutes after the car
+        turns off (it was on the powered-on interval). This sequence fires
+        a series of extra refreshes at POST_SHUTDOWN_REFRESH_SEQUENCE intervals
+        so that plug-in events are detected within ~1-5 minutes.
+        """
+        # Cancel any existing shutdown refresh from a previous cycle
+        if self._shutdown_refresh_task and not self._shutdown_refresh_task.done():
+            self._shutdown_refresh_task.cancel()
+
+        self._shutdown_refresh_task = self.config_entry.async_create_background_task(
+            self.hass,
+            self._run_shutdown_refresh_sequence(),
+            f"mg_saic_shutdown_refresh_{self.vin}",
+        )
+
+    async def _run_shutdown_refresh_sequence(self) -> None:
+        """Run the post-shutdown refresh sequence."""
+        try:
+            for delay in POST_SHUTDOWN_REFRESH_SEQUENCE:
+                await asyncio.sleep(delay)
+                LOGGER.info(
+                    "Post-shutdown refresh for VIN %s (delay was %ds)",
+                    self.vin,
+                    delay,
+                )
+                await self.async_request_refresh()
+                # If the car is now charging, the coordinator interval will have
+                # already switched to charging interval — we can stop early.
+                if self.is_charging:
+                    LOGGER.info(
+                        "Charging detected for VIN %s — ending post-shutdown sequence",
+                        self.vin,
+                    )
+                    break
+        except asyncio.CancelledError:
+            LOGGER.debug(
+                "Post-shutdown refresh sequence cancelled for VIN %s", self.vin
+            )
+            raise
+        finally:
+            self._shutdown_refresh_task = None
+
+    def register_command_error_event_entity(self, entity) -> None:
+        """Register (or deregister, with entity=None) the command-error Event
+        entity so the coordinator can fire events through it.
+
+        Called by SAICMGCommandErrorEvent.async_added_to_hass /
+        async_will_remove_from_hass — entities never need to call this
+        directly.
+        """
+        self._command_error_event_entity = entity
+
+    async def notify_command_limit_reached(
+        self, vin: str, source: str | None = None
+    ) -> None:
+        """Fire a persistent notification when the remote command limit is reached.
+
+        The SAIC API returns return code 8 when the vehicle has received too many
+        remote commands without a physical key start to reset the counter. This
+        notification surfaces that clearly in the HA UI rather than silently
+        failing or only logging to the error log.
+
+        Also fires a command_limit_reached event via the command-error Event
+        entity (if registered), giving a queryable Logbook history of every
+        time this has happened, alongside the actionable notification.
+
+        Args:
+            vin: the vehicle's VIN.
+            source: optional short identifier of which command triggered the
+                limit (e.g. "climate.set_hvac_mode"), included in the event
+                data for diagnostics. Existing callers that don't pass this
+                still work — it simply falls back to a generic label.
+        """
+        # Include the vehicle's brand/model name alongside the VIN so the
+        # notification is identifiable at a glance in multi-vehicle setups,
+        # not just by VIN. Falls back gracefully if vin_info isn't available
+        # for any reason (e.g. very early in setup).
+        vin_info = getattr(self, "vin_info", None)
+        if vin_info is not None:
+            vehicle_label = (
+                f"{vin_info.brandName} {vin_info.modelName} (VIN: {vin})"
+            )
+        else:
+            vehicle_label = f"VIN: {vin}"
+
+        await self.hass.services.async_call(
+            "persistent_notification",
+            "create",
+            {
+                "title": "MG SAIC: Remote Command Limit Reached",
+                "message": (
+                    f"The vehicle {vehicle_label} has reached the maximum number "
+                    "of remote commands allowed without a physical key start.\n\n"
+                    "**To reset:** Start the vehicle with the physical key, then "
+                    "remote commands will work again."
+                ),
+                "notification_id": f"mg_saic_command_limit_{vin}",
+            },
+        )
+        LOGGER.warning(
+            "Persistent notification fired: remote command limit reached for %s",
+            vehicle_label,
+        )
+
+        if self._command_error_event_entity is not None:
+            self._command_error_event_entity.record_command_limit_reached(
+                source or "unknown command"
+            )
+
+    def set_ventilation_active(self, active: bool) -> None:
+        """Set/clear the optimistic ventilation flag (called by window buttons)."""
+        self.ventilation_active = active
+        # Reset the "seen open" latch each time we (re)assert or clear state.
+        self._ventilation_windows_seen_open = False
+        LOGGER.debug(
+            "Ventilation flag set to %s for VIN %s", active, getattr(self, "vin", "?")
+        )
+
+    def _update_ventilation_from_status(self, basic_status) -> None:
+        """Clear the ventilation flag when the windows report closed.
+
+        Only clears after the windows have been observed open at least once
+        since the ventilate command, so the brief window between pressing
+        ventilate and the car actioning it (windows still reading closed)
+        does not immediately switch the sensor back off.
+        """
+        if not self.ventilation_active or basic_status is None:
+            return
+        from .const import WINDOW_STATUS_FIELDS
+
+        any_open = any(
+            getattr(basic_status, field, 0) == 1 for field in WINDOW_STATUS_FIELDS
+        )
+        all_closed = all(
+            getattr(basic_status, field, 0) in (0, None)
+            for field in WINDOW_STATUS_FIELDS
+        )
+        if any_open:
+            self._ventilation_windows_seen_open = True
+        elif all_closed and self._ventilation_windows_seen_open:
+            LOGGER.debug(
+                "Windows reported closed after ventilation for VIN %s; "
+                "clearing ventilation flag.",
+                getattr(self, "vin", "?"),
+            )
+            self.ventilation_active = False
+            self._ventilation_windows_seen_open = False
+
+    def record_command_error(self, source: str, error: Exception | str) -> None:
+        """Record a generic command failure via the command-error Event entity.
+
+        This is a lightweight, fire-and-forget complement to the existing
+        LOGGER.error calls already present in every entity's except block —
+        it does not replace logging, it adds a queryable Logbook entry so
+        users without debug logging enabled can see command failures too.
+
+        Safe to call even if the event entity hasn't loaded yet (no-op in
+        that case) — never raises, so it can't break the calling command's
+        own error handling.
+
+        Args:
+            source: short identifier of what failed, e.g.
+                "climate.set_hvac_mode" or "switch.sunroof.turn_on".
+            error: the exception or error message that occurred.
+        """
+        if self._command_error_event_entity is None:
+            return
+        try:
+            self._command_error_event_entity.record_command_error(
+                source, str(error)
+            )
+        except Exception as e:
+            # The event entity is supplementary — never let a failure here
+            # mask the original error or break the calling command.
+            LOGGER.debug("Could not record command error event: %s", e)
+
+    async def async_shutdown(self):
+        """Release coordinator resources when the entry is unloaded.
+
+        Note: the SAICMGAccountPoller is NOT stopped here.  It is managed by
+        __init__.async_unload_entry, which stops the poller only when the last
+        coordinator for that account is unloaded.
+        """
+        if self._shutdown_refresh_task and not self._shutdown_refresh_task.done():
+            self._shutdown_refresh_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._shutdown_refresh_task
+
+        self._action_refresh_generation += 1
+
+        if self._action_refresh_task and not self._action_refresh_task.done():
+            self._action_refresh_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._action_refresh_task
+        self._action_refresh_task = None
+
+        if self._unsub_refresh:
+            self._unsub_refresh()
+            self._unsub_refresh = None
 
     def _schedule_refresh(self):
         """Schedule the next refresh and update listeners."""
@@ -746,7 +1530,15 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
         await self.async_refresh()
 
     async def _fetch_with_retries(self, fetch_func, is_generic_func, data_name):
-        """Fetch data with retries and handle generic responses."""
+        """Fetch data with retries and handle generic responses.
+
+        On a 401 (token expired/invalidated), re-login immediately and retry
+        without waiting for the full RETRY_BACKOFF_FACTOR delay.  This handles
+        the race where the message poller re-auths and invalidates the
+        coordinator's token a fraction of a second before an event-driven
+        refresh fires — previously this caused a 15-second delay and noisy
+        ERROR log entries on every engine-start event for two-car accounts.
+        """
         retries = 0
         while retries < RETRY_LIMIT:
             try:
@@ -760,6 +1552,29 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
                 return data
             except (UpdateFailed, GenericResponseException, Exception) as e:
                 retries += 1
+                exc_str = str(e)
+
+                # 401 means our token was invalidated — re-login immediately
+                # rather than waiting RETRY_BACKOFF_FACTOR seconds.  This is
+                # the common case when the poller re-auths concurrently.
+                if "401" in exc_str:
+                    LOGGER.debug(
+                        "401 on %s fetch for VIN %s — re-logging in before retry "
+                        "(attempt %d/%d)",
+                        data_name,
+                        self.vin,
+                        retries,
+                        RETRY_LIMIT,
+                    )
+                    try:
+                        await self.client.login()
+                    except Exception as login_exc:
+                        LOGGER.warning(
+                            "Re-login failed for VIN %s: %s", self.vin, login_exc
+                        )
+                    # No sleep — retry immediately after re-auth
+                    continue
+
                 delay = RETRY_BACKOFF_FACTOR
                 LOGGER.warning(
                     "Error fetching %s: %s. Retrying in %s seconds... (Attempt %d/%d)",
@@ -778,62 +1593,111 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
         return False  # Vehicle info doesn't have known generic responses
 
     def _is_generic_response_vehicle_status(self, status):
-        """Check if the vehicle status response is generic."""
+        """Check if the vehicle status response is generic.
+
+        A response is considered generic (placeholder/incomplete) when:
+        - All three of fuelRange, fuelRangeElec, and mileage are zero, OR
+        - Temperature fields return the sentinel value (-40)
+
+        Previously this method had an operator precedence bug where
+        `or mileage <= 0` was evaluated independently of the `and` chain,
+        causing any response with mileage=0 (legitimate during charging) to
+        be incorrectly flagged as generic. Fixed by wrapping the all-zero
+        condition in explicit parentheses.
+        """
         try:
-            if not hasattr(status, "basicVehicleStatus") or status.basicVehicleStatus is None:
-                LOGGER.debug("No basicVehicleStatus in response")
-                return True
-                
+            if not hasattr(status, "basicVehicleStatus"):
+                return False
             basic = status.basicVehicleStatus
-            
-            # Check if ALL critical values are zero/sentinel (truly generic placeholder)
-            # A real vehicle (even when off) should have SOME non-zero values like VIN, timestamp, etc.
-            # Only flag as generic if we have the classic placeholder pattern:
-            # - Both ranges = 0 AND mileage = 0 AND temperatures = -40
-            is_all_zero = (
-                getattr(basic, "fuelRange", -1) == 0
-                and getattr(basic, "fuelRangeElec", -1) == 0
-                and getattr(basic, "mileage", -1) == 0
-                and getattr(basic, "interiorTemperature", -100) == -40
-                and getattr(basic, "exteriorTemperature", -100) == -40
+            # All three placeholder fields are zero — classic deep-sleep response
+            all_zero = (
+                basic.fuelRange == GENERIC_RESPONSE_STATUS_THRESHOLD
+                and basic.fuelRangeElec == GENERIC_RESPONSE_STATUS_THRESHOLD
+                and basic.mileage == GENERIC_RESPONSE_STATUS_THRESHOLD
             )
-            
-            # Also check for the extreme temperature sentinel
-            is_extreme_temp = (
-                getattr(basic, "interiorTemperature", -100) == GENERIC_RESPONSE_EXTREME_TEMPERATURE
-                or getattr(basic, "exteriorTemperature", -100) == GENERIC_RESPONSE_EXTREME_TEMPERATURE
+            # Temperature sentinel values
+            bad_temp = (
+                basic.interiorTemperature == GENERIC_RESPONSE_TEMPERATURE
+                or basic.exteriorTemperature == GENERIC_RESPONSE_TEMPERATURE
             )
-            
-            if is_all_zero or is_extreme_temp:
+            if all_zero or bad_temp:
                 LOGGER.debug(
-                    "Generic Vehicle Status Data detected (all zeros or extreme temp): %s", basic
+                    "Generic Vehicle Status Data: %s", basic
                 )
                 return True
-            
-            # If we have at least some valid data (e.g., mileage > 0, or valid temps), it's real
             return False
         except Exception as e:
-            LOGGER.error("Error checking generic vehicle status: %s", e)
-            # Don't raise - treat as non-generic to avoid retry loops
+            LOGGER.error("Error. Generic Vehicle Status Data: %s", e)
+            raise
+
+    def _is_status_timestamp_valid(self, status) -> bool:
+        """Sanity-check the statusTime field on a vehicle status response.
+
+        The SAIC API occasionally returns a response with a bogus or stale
+        statusTime — for example far in the past (a cached/stuck response)
+        or in the future (clock skew on the backend). Trusting such a
+        response could confuse the activity-detection and interval-adjustment
+        logic, which relies on knowing how fresh the data actually is.
+
+        Returns True if the timestamp looks sane (or is absent, since not
+        all responses are guaranteed to include it), False if it should be
+        treated as untrustworthy.
+        """
+        status_time = getattr(status, "statusTime", None)
+        if status_time is None:
+            # Field not present on this response — nothing to validate against,
+            # don't reject the response just because it's missing.
+            return True
+
+        try:
+            status_dt = datetime.fromtimestamp(status_time, tz=timezone.utc)
+        except (ValueError, OSError, OverflowError) as e:
+            LOGGER.warning(
+                "Vehicle status statusTime %s could not be parsed: %s — "
+                "treating response as untrustworthy.",
+                status_time,
+                e,
+            )
             return False
+
+        now = datetime.now(timezone.utc)
+
+        if status_dt > now + STATUS_TIMESTAMP_FUTURE_TOLERANCE:
+            LOGGER.warning(
+                "Vehicle status statusTime %s is %s in the future — "
+                "treating response as untrustworthy.",
+                status_dt,
+                status_dt - now,
+            )
+            return False
+
+        if status_dt < now - STATUS_TIMESTAMP_MAX_AGE:
+            LOGGER.warning(
+                "Vehicle status statusTime %s is %s old (older than the "
+                "%s sanity limit) — treating response as untrustworthy.",
+                status_dt,
+                now - status_dt,
+                STATUS_TIMESTAMP_MAX_AGE,
+            )
+            return False
+
+        return True
 
     def _is_generic_response_charging(self, charging_info):
         """Check if the charging response is generic."""
         try:
             chrgMgmtData = getattr(charging_info, "chrgMgmtData", None)
-            if chrgMgmtData is None:
-                return False
-            
-            # Only flag as generic if SOC is explicitly the sentinel value (1000+)
-            # Valid SOC is 0-100, so anything > 100 is definitely a placeholder
-            soc = getattr(chrgMgmtData, "bmsPackSOCDsp", None)
-            if soc is not None and soc > GENERIC_RESPONSE_SOC_THRESHOLD:
-                LOGGER.debug("Generic Charging Data: %s", chrgMgmtData)
-                return True
+            if chrgMgmtData:
+                if (
+                    chrgMgmtData.bmsPackSOCDsp is not None
+                    and chrgMgmtData.bmsPackSOCDsp > GENERIC_RESPONSE_SOC_THRESHOLD
+                ):
+                    LOGGER.debug("Generic Charging Data: %s", chrgMgmtData)
+                    return True
             return False
         except Exception as e:
-            LOGGER.error("Error checking generic charging data: %s", e)
-            return False
+            LOGGER.error("Error. Generic Charging Data: %s", e)
+            raise
 
     def _determine_vehicle_type(self, vehicle_info):
         """Determine the type of vehicle based on its information."""
@@ -899,20 +1763,48 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
 
     # ---- AC Temperature Handling ----
     def get_ac_temperature_idx(self, desired_temp: int) -> int:
-        """Calculate the temperature index based on the desired temperature.
+        """Calculate the temperature index for the SAIC climate control API.
 
-        Args:
-            desired_temp (int): The desired target temperature in Celsius.
+        If the vehicle profile provides a temp_index_map (an explicit
+        {temperature: index} lookup), that takes priority — some models (e.g.
+        the MGS6 EV / MIS3E) have a non-linear mapping with special values at
+        the extremes that no simple formula reproduces. The map was built from
+        decrypted iSmart app traffic.
 
-        Returns:
-            int: The calculated temperature index.
+        Otherwise the index is computed from a linear formula, with direction
+        set by self.temp_idx_inverted (from VEHICLE_PROFILES):
 
+        Standard (temp_idx_inverted=False) — e.g. MG4, default/unknown models:
+            temperature_idx = temp_offset + (desired_temp - min_temp)
+            Low temp -> low index, high temp -> high index.
+
+        Inverted (temp_idx_inverted=True):
+            temperature_idx = max_idx - (desired_temp - min_temp)
+            Low temp -> high index.
         """
-
-        # Ensure desired_temp is within bounds
         desired_temp = int(max(self.min_temp, min(self.max_temp, desired_temp)))
 
-        temperature_idx = self.temp_offset + (desired_temp - self.min_temp)
+        # Prefer an explicit lookup map if the profile defines one.
+        if self.temp_index_map:
+            if desired_temp in self.temp_index_map:
+                idx = self.temp_index_map[desired_temp]
+            else:
+                # Nearest available temperature in the map (defensive; the map
+                # should cover the whole min..max range).
+                nearest = min(
+                    self.temp_index_map.keys(), key=lambda t: abs(t - desired_temp)
+                )
+                idx = self.temp_index_map[nearest]
+            LOGGER.debug(
+                "Temperature index (map): %s for desired_temp: %s°C", idx, desired_temp
+            )
+            return idx
+
+        if self.temp_idx_inverted:
+            max_idx = self.temp_offset + (self.max_temp - self.min_temp)
+            temperature_idx = max_idx - (desired_temp - self.min_temp)
+        else:
+            temperature_idx = self.temp_offset + (desired_temp - self.min_temp)
         LOGGER.debug(
             f"Calculated temperature index: {temperature_idx} for desired_temp: {desired_temp}°C"
         )

@@ -1,6 +1,8 @@
 # File: const.py
 
 import logging
+import voluptuous as vol
+from homeassistant.helpers import config_validation as cv
 from datetime import timedelta
 from enum import Enum
 from typing import Union
@@ -14,12 +16,47 @@ REGION_BASE_URIS = {
     "EU": "https://gateway-mg-eu.soimt.com/api.app/v1/",
     "China": "https://tap-cn.soimt.com/api.app/v1/",
     "Australia": "https://gateway-mg-au.soimt.com/api.app/v1/",
+    "Brazil": "https://gateway-mg-br.soimt.com/api.app/v1/",
     "Israel": "https://gateway-mg-il.soimt.com/api.app/v1/",
+    "Turkey": "https://gateway-mg-tr.soimt.com/api.app/v1/",
+    "India": "https://gateway-mg-in.soimt.com/api.app/v1/",
+    "Thailand": "https://gateway-mg-th.soimt.com/api.app/v1/",
     "Rest of World": "https://gateway-mg-eu.soimt.com/api.app/v1/",
 }
 
+# Region codes sent in the REGION request header (see saic-python-client-ng
+# SaicApiConfiguration).  These follow the upstream mqtt-gateway convention.
+REGION_API_CODES = {
+    "EU": "eu",
+    "China": "cn",
+    "Australia": "au",
+    "Brazil": "br",
+    "Israel": "il",
+    "Turkey": "tr",
+    "India": "in",
+    "Thailand": "th",
+    "Rest of World": "eu",
+}
+
+# Default tenant ID (EU production value; part of the request signature).
+DEFAULT_TENANT_ID = "459771"
+
+# Scheduled charging mode: display label <-> saic-ismart-client-ng
+# ScheduledChargingMode enum member name. Raw codes: 1 = until scheduled end
+# time, 2 = disabled, 3 = until target SOC (bmsReserCtrlDspCmd readback uses
+# the same codes; 0/None means no schedule reported).
+SCHEDULED_CHARGING_MODE_LABELS = {
+    "Disabled": "DISABLED",
+    "Until Target SOC": "UNTIL_CONFIGURED_SOC",
+    "Until Scheduled Time": "UNTIL_CONFIGURED_TIME",
+}
+
+# Config flow option for a user-supplied endpoint (base URI / region code /
+# tenant ID), for markets that run on separate SAIC infrastructure.
+REGION_CUSTOM = "Custom"
+
 # List of regions for selection in the config flow
-REGION_CHOICES = list(REGION_BASE_URIS.keys())
+REGION_CHOICES = list(REGION_BASE_URIS.keys()) + [REGION_CUSTOM]
 
 # Phone Login Country Codes
 COUNTRY_CODES = [
@@ -99,9 +136,289 @@ DATA_100_DECIMAL_CORRECTION = 0.01
 CHARGING_CURRENT_FACTOR = 0.05
 CHARGING_VOLTAGE_FACTOR = 0.25
 
+# Per-vehicle-series profiles.
+#
+# The SAIC API exposes some values (notably AC temperature index scale and
+# totalBatteryCapacity) inconsistently or unreliably across models, so these
+# are tracked here per series rather than trusted from the API response.
+# Series codes come from VinInfo.series (e.g. "EH32SP3", "MIS3E S") and are
+# matched as a substring, consistent with the existing detection pattern.
+#
+# Fields:
+#   min_temp / max_temp / temp_offset: AC temperature index mapping. See
+#       MGSAICDataUpdateCoordinator.get_ac_temperature_idx for usage.
+#   battery_capacity_kwh: known-good usable battery capacity in kWh, used to
+#       override the API's totalBatteryCapacity field when it is known to be
+#       inaccurate. None means "trust the API value" (no override).
+#
+# Sources: EH32 (MG4 Electric) values were already present in this codebase
+# prior to this table's introduction. MIS3E (MGS6 EV) values confirmed
+# against MG UK's official spec sheet and cross-referenced with EV Database,
+# electrive.com, and Carwow (77 kWh gross / 74.3 kWh usable, same across
+# single-motor Long Range and Dual Motor variants).
+VEHICLE_PROFILES = {
+    "EH32": {  # MG4 Electric
+        "min_temp": 17,
+        "max_temp": 33,
+        "temp_offset": 3,
+        "battery_capacity_kwh": None,
+        # remoteClimateStatus values that indicate AC is running in cooling mode.
+        # On MG4, status=3 is confirmed cooling and status=2 is fan-only blowing.
+        "climate_status_cool": {3},
+        "climate_status_fan_only": {2},
+        # Fan speed values for cooling mode (1=low, 2=med, 3=high).
+        # On MG4 values 4 and 5 trigger heating/defrost — avoid them.
+        "fan_speed_low": 1,
+        "fan_speed_medium": 3,
+        "fan_speed_high": 5,
+        # Temperature index direction: False = forward (low temp -> low idx)
+        "temp_idx_inverted": False,
+        # Whether the car supports setting a Target SOC via the SAIC API.
+        # True for most BEV/PHEV models; set False for models where the iSmart
+        # app does not expose this control (prevents an always-Unknown entity).
+        "supports_target_soc": True,
+        # Whether the fuelRangeElec field in basicVehicleStatus is reliable for
+        # this model.  When False the electric range sensor falls back to
+        # bmsEstdElecRng from chrgMgmtData (estimated range after full charge)
+        # instead of the per-second live value, which the API returns as -128.
+        "reliable_fuel_range_elec": True,
+    },
+    "MIS3E": {  # MGS6 EV (Long Range and Dual Motor)
+        "min_temp": 16,
+        "max_temp": 30,
+        "temp_offset": 2,  # retained for the fallback formula; index map takes priority
+        "battery_capacity_kwh": 74.3,
+        # Temperature index: NOT inverted. Confirmed by decrypting the iSmart
+        # app's own climate commands (2026-07-04):
+        #   16°C→1, 19°C→5, 22/23°C→9, 25°C→11, 28°C→14, 30°C→19
+        # The earlier "idx=14 at 16°C, inverted" note was an incorrect inference
+        # made before request decryption was available — the decrypted app
+        # traffic supersedes it. The middle of the range (17–28°C) is a clean
+        # idx = temp - 14; the two extremes are special values (16°C→1, 30°C→19),
+        # so a direct lookup map is used rather than a linear formula.
+        "temp_idx_inverted": False,
+        "temp_index_map": {
+            16: 1,
+            17: 3,
+            18: 4,
+            19: 5,
+            20: 6,
+            21: 7,
+            22: 8,
+            23: 9,
+            24: 10,
+            25: 11,
+            26: 12,
+            27: 13,
+            28: 14,
+            29: 16,   # interpolated (not directly captured)
+            30: 19,
+        },
+        "supports_target_soc": True,
+        "reliable_fuel_range_elec": True,
+        # The SAIC API incorrectly reports modelYear='2024' for the MGS6 EV.
+        # The MGS6 launched globally to dealerships in November 2025 — there is
+        # no 2024 model year variant.  Override to the correct value.
+        "model_year_override": "2025",
+        # --- mode_select climate scheme ---
+        # The MGS6's iSmart app exposes only temperature + AC on/off (no fan
+        # control at all — confirmed by the owner). Decrypted climate commands
+        # (rvcReqType=6) show paramId 19 as a MODE selector, not a fan speed:
+        #   2 = cool (auto fan, follows target temp)  — CONFIRMED
+        #   5 = defrost / front windscreen            — CONFIRMED (front demist)
+        #   0 = off                                   — CONFIRMED
+        # Heat / max-cool / fan-only were NOT observed via the app on this model
+        # (the app has no such controls), so those values are best-effort
+        # inherited defaults and may not do anything on the MGS6.
+        "climate_control_scheme": "mode_select",
+        "climate_mode_cool": 2,        # CONFIRMED (decrypted app traffic)
+        "climate_mode_defrost": 5,     # CONFIRMED (front windscreen button)
+        "climate_mode_fan_only": 1,    # unconfirmed on MGS6 (no app control)
+        "climate_mode_heat": 4,        # unconfirmed on MGS6 (no app control)
+        "climate_mode_max_cool": 3,    # unconfirmed on MGS6 (no app control)
+        "climate_status_cool": {2, 3},
+        "climate_status_fan_only": {1},
+        "climate_status_heat": {4},
+        "climate_status_defrost": {5},
+    },
+    "EC32": {  # MG Cyberster (2-door BEV roadster/convertible)
+        # The Cyberster has no rear doors or rear windows — see the
+        # has_rear_doors/has_rear_windows override at the bottom of this
+        # profile. Originally this was inferred automatically from the
+        # DOOR/WINDOW bitmask in vehicleModelConfiguration, but that field
+        # proved unreliable across other models (issue #203) so it's now an
+        # explicit profile flag instead.
+        #
+        # fuelRangeElec: the log shows -128 (sentinel value) when parked, same
+        # pattern as the HS PHEV.  Fall back to bmsEstdElecRng instead.
+        #
+        # Battery: API reports totalBatteryCapacity=725 → 72.5 kWh with ×0.1
+        # factor.  MG spec quotes 77 kWh gross / ~72.5 kWh usable — plausible,
+        # so no override needed.
+        "min_temp": 16,
+        "max_temp": 28,
+        "temp_offset": 2,
+        "battery_capacity_kwh": None,
+        "climate_status_cool": {3},
+        "climate_status_fan_only": {2},
+        "fan_speed_low": 1,
+        "fan_speed_medium": 3,
+        "fan_speed_high": 5,
+        "temp_idx_inverted": False,
+        "supports_target_soc": True,
+        "reliable_fuel_range_elec": False,
+        "supports_charging_current_limit": True,
+        # The Cyberster is a 2-door convertible with no rear doors or rear
+        # glass windows. Previously this was inferred from the API's own
+        # DOOR/WINDOW vehicleModelConfiguration bitmask, but that data proved
+        # unreliable: MG4 and MGS5 (genuine 4-door/4-window cars) report
+        # WINDOW='0000' identically to the Cyberster, which incorrectly
+        # suppressed their rear window entities (issue #203). This is now an
+        # explicit per-model override instead of trusting the API field.
+        "has_rear_doors": False,
+        "has_rear_windows": False,
+    },
+    "IS31P": {  # MG S9 PHEV (2025)
+        # Series string from API: 'IS31P L'
+        # Confirmed by eladrichi (issue #204), modelYear='2025', PHEV.
+        #
+        # IMPORTANT — this model uses the "mode_select" climate scheme, NOT a
+        # fan speed slider. Extensive testing by eladrichi (issue #204) plus
+        # independent analysis established that the API's "fan_speed" byte is
+        # actually a climate MODE selector: the car echoes it back verbatim as
+        # remoteClimateStatus, and each value selects a fixed operating mode,
+        # NOT a linear fan intensity. The car manages its own fan speed.
+        #
+        # Confirmed value → behaviour map (value sent == remoteClimateStatus):
+        #   1 → fan only, AC compressor off
+        #   2 → AC cooling, AUTO fan, follows the HA target temperature, main
+        #       vents. This is the sensible default "cool" mode.
+        #   3 → AC cooling, fixed strong fan (~6/11), main vents, temp forced
+        #       low. Exposed as the "Max Cool" preset (fast cool-down / boost).
+        #   4 → heat: max temp, ~3/11 fan, leg vents. Exposed as HVAC "heat".
+        #   5 → defrost: upper/windscreen vents. Exposed as "Defrost" preset.
+        #
+        # HA presents this as:
+        #   hvac_modes:   off / fan_only / cool / heat
+        #   preset_modes: Max Cool / Defrost
+        #   (no fan-speed slider — it would misrepresent a mode selector)
+        #
+        # Temperature index confirmed correct (temp_idx_inverted=False):
+        #   16°C → index 2, 22°C → index 8 (matches temp_offset=2 formula).
+        "min_temp": 16,
+        "max_temp": 28,
+        "temp_offset": 2,
+        "battery_capacity_kwh": None,
+        "temp_idx_inverted": False,
+        "supports_target_soc": True,
+        "reliable_fuel_range_elec": True,
+        "supports_charging_current_limit": True,
+        # --- mode_select climate scheme ---
+        "climate_control_scheme": "mode_select",
+        "climate_mode_fan_only": 1,
+        "climate_mode_cool": 2,
+        "climate_mode_heat": 4,
+        "climate_mode_max_cool": 3,
+        "climate_mode_defrost": 5,
+        # Reverse maps: remoteClimateStatus value → HA state.
+        #   cool covers both the auto-cool (2) and Max-Cool boost (3) values,
+        #   so a running boost still shows as "cool" in HA.
+        "climate_status_cool": {2, 3},
+        "climate_status_fan_only": {1},
+        "climate_status_heat": {4},
+        "climate_status_defrost": {5},
+    },
+    "AS33P": {  # MG HS PHEV (2025/2026 Super Hybrid)
+        # Series string from API: 'AS33P S'
+        # Battery capacity: API reports totalBatteryCapacity=725 (→ 72.5 kWh with
+        # ×0.1 factor), which is incorrect by a factor of ~3.  The HS PHEV has a
+        # 24.7 kWh usable PHEV battery; override here so the sensor shows correctly.
+        # lastChargeEndingPower similarly reports 724 (÷10 = 72.4 kWh) — the profile
+        # battery_capacity_kwh override covers totalBatteryCapacity; lastChargeEndingPower
+        # is corrected via PHEV_BATTERY_CAPACITY_CORRECTION_FACTOR in the profile.
+        "min_temp": 16,
+        "max_temp": 28,
+        "temp_offset": 2,
+        "battery_capacity_kwh": 24.7,
+        "climate_status_cool": {3},
+        "climate_status_fan_only": {2},
+        "fan_speed_low": 1,
+        "fan_speed_medium": 3,
+        "fan_speed_high": 5,
+        "temp_idx_inverted": False,
+        # iSmart app does not expose Target SOC control for the HS PHEV —
+        # bmsOnBdChrgTrgtSOCDspCmd is always 0 (unmapped) so the slider would
+        # permanently show Unknown.  Confirmed by Harry (issue #198, 2026 HS PHEV).
+        # Suppress both the slider and the status sensor for this model.
+        "supports_target_soc": False,
+        # iSmart app does not expose Charging Current Limit for the HS PHEV —
+        # attempting to set it returns a "Target SOC could not be found" error.
+        # Suppress both the status sensor and the select control for this model.
+        "supports_charging_current_limit": False,
+        # The API returns fuelRangeElec=-128 (sentinel) for this model when the car
+        # is parked — the live electric range field is not populated.  Fall back to
+        # bmsEstdElecRng (estimated range after full charge) from chrgMgmtData.
+        "reliable_fuel_range_elec": False,
+        # Correction factor for energy-based fields that the API reports inflated
+        # by approximately ×3 (totalBatteryCapacity, lastChargeEndingPower).
+        # 24.7 kWh / 72.5 kWh (API) ≈ 0.3407; applying ×0.1 factor then ×(1/3)
+        # is equivalent to using the raw value ÷ 30 rather than ÷ 10.
+        # This is stored as a divisor multiplier applied on top of the standard
+        # DATA_DECIMAL_CORRECTION — see SAICMGChargingSensor for usage.
+        "charging_capacity_correction": 1 / 3,
+    },
+}
+
+# Fallback profile used when the vehicle's series does not match any entry
+# in VEHICLE_PROFILES above (e.g. MG5, ZS EV, or any model not yet profiled).
+# Values match the original integration behaviour so existing users are unaffected.
+DEFAULT_VEHICLE_PROFILE = {
+    "min_temp": 16,
+    "max_temp": 28,
+    "temp_offset": 2,
+    "battery_capacity_kwh": None,
+    "climate_status_cool": {3},
+    "climate_status_fan_only": {2},
+    "fan_speed_low": 1,
+    "fan_speed_medium": 3,
+    "fan_speed_high": 5,
+    "temp_idx_inverted": False,
+    # Default: assume Target SOC is supported (safe for BEV/PHEV unless known otherwise).
+    "supports_target_soc": True,
+    # Default: assume Charging Current Limit is supported (correct for most BEV/PHEV).
+    "supports_charging_current_limit": True,
+    # Default: assume the fuelRangeElec field is reliable (correct for most BEVs).
+    "reliable_fuel_range_elec": True,
+    # Default: no capacity correction needed (API value is correct for most models).
+    "charging_capacity_correction": None,
+    # Default: no model year override (API value is correct for most models).
+    "model_year_override": None,
+    # Default: assume the car has rear doors and rear windows (true for the
+    # vast majority of models — 4-door cars). Only override to False for
+    # models confirmed to genuinely lack them, e.g. EC32 (Cyberster).
+    # See issue #203 for why this is a profile flag rather than read from
+    # the API's own DOOR/WINDOW vehicleModelConfiguration bitmask.
+    "has_rear_doors": True,
+    "has_rear_windows": True,
+    # Default climate control scheme: "fan_speed" — HA shows a Low/Med/High
+    # fan slider. Only override to "mode_select" for models where the API's
+    # fan_speed byte is really a mode selector (see IS31P). The mode_select
+    # value keys (climate_mode_*, climate_status_heat/defrost) are only read
+    # when the scheme is "mode_select", so they don't need to appear here.
+    "climate_control_scheme": "fan_speed",
+}
+
 # Base update intervals
-UPDATE_INTERVAL = timedelta(minutes=60)
-UPDATE_INTERVAL_CHARGING = timedelta(minutes=10)
+# UPDATE_INTERVAL is the idle/parked background refresh — a safety net to keep
+# data from going completely stale.  Now that the SAICMGAccountPoller triggers
+# an immediate refresh on engine-start, shutdown, and charging events, this
+# interval only matters when the car is genuinely sitting idle with nothing
+# happening.  30 minutes is a good balance: fresh enough to be useful, infrequent
+# enough not to drain the 12V battery or hit API rate limits.
+# Users can still override this lower via the integration options if they prefer.
+UPDATE_INTERVAL = timedelta(minutes=30)
+UPDATE_INTERVAL_CHARGING = timedelta(minutes=5)
+UPDATE_INTERVAL_DC_CHARGING = timedelta(minutes=5)
 UPDATE_INTERVAL_POWERED = timedelta(minutes=15)
 
 # Additional Update Intervals
@@ -129,7 +446,79 @@ DEFAULT_CHARGING_CURRENT_LONG_INTERVAL = timedelta(minutes=5)
 # Configuration Options
 CONF_HAS_SUNROOF = "has_sunroof"
 CONF_HAS_HEATED_SEATS = "has_heated_seats"
+CONF_HAS_REAR_HEATED_SEATS = "has_rear_heated_seats"
 CONF_HAS_BATTERY_HEATING = "has_battery_heating"
+CONF_HAS_STEERING_WHEEL_HEAT = "has_steering_wheel_heat"
+CONF_HAS_WINDOW_CONTROL = "has_window_control"
+
+# Window control (rvcReqType=3) WINDOW_OPEN_CLOSE (paramId 13) values.
+# Confirmed by decrypting iSmart app traffic on the MGS6 EV (MIS3E) and
+# cross-checking the resulting window status in the response. Command values:
+#   0 = close all four door windows
+#   1 = ventilate (crack all four open a few cm — the app's "Ventilation")
+#   2 = fully open all four door windows
+# (Verified against a timestamped capture where the ventilate button was pressed
+#  and the outgoing command carried paramId 13 = 1.)
+#
+# NOTE: the car's window *status* fields (driverWindow, passengerWindow,
+# rearLeftWindow, rearRightWindow) are binary (0=closed, 1=open) and do NOT
+# distinguish ventilated from fully open — both report as open (1). Confirmed
+# across multiple captures: no third window-position value was ever observed.
+#
+# These commands act on all four door windows together; the car does not accept
+# single-window control via this API. The sunroof (paramId 8) is always left
+# untouched (0).
+# Other models are unconfirmed; the same values are used on the assumption the
+# command set is shared, and users can report back if their car differs.
+WINDOW_ACTION_CLOSE = 0
+WINDOW_ACTION_VENTILATE = 1
+WINDOW_ACTION_OPEN = 2
+
+# Vehicle window status field names (basicVehicleStatus), each 0=closed / 1=open.
+WINDOW_STATUS_FIELDS = (
+    "driverWindow",
+    "passengerWindow",
+    "rearLeftWindow",
+    "rearRightWindow",
+)
+
+# remoteClimateStatus is a "remote climate mode" enum. Values seen in decrypted
+# MGS6 (MIS3E) captures:
+#   0 = off
+#   2 = remote climate active — this reports the A/C / HVAC
+#   6 = observed during a sunroof session (not fully mapped; TODO)
+#
+# IMPORTANT — ventilation is NOT reliably represented here. An earlier
+# assumption that remoteClimateStatus=2 covered ventilation was DISPROVEN by a
+# live log: ventilating from cold (no A/C running) left remoteClimateStatus=0
+# while the windows opened. The =2 seen in an earlier test was the A/C, which
+# had been started before ventilating. Combined with the fact that the window
+# status cannot distinguish "ventilated" from "fully open", there is no
+# reliable status field for "is ventilating". The Ventilation binary sensor
+# therefore uses OPTIMISTIC state tracked in the coordinator (see
+# coordinator.ventilation_active), reflecting the last ventilate command sent
+# from Home Assistant. Ventilation triggered from the iSmart app is not
+# reflected — a known, documented gap.
+REMOTE_CLIMATE_STATUS_OFF = 0
+REMOTE_CLIMATE_STATUS_ACTIVE = 2  # reports A/C / HVAC (NOT a ventilation flag)
+
+# Heated seat control (rvcReqType=5, HEATED_SEATS). Each seat is addressed by
+# its own paramId and sent independently (confirmed via decrypted MGS6 traffic).
+# Front seats: 0=off, 1=low, 2=medium, 3=high.
+# Rear seats:  on/off in the app, but the app sends level 3 for "on", 0 for off.
+HEATED_SEATS_REQ_TYPE_VALUE = "5"
+HEATED_SEAT_PARAM_IDS = {
+    "front_left": 17,
+    "front_right": 18,
+    "rear_left": 25,
+    "rear_right": 26,
+}
+REAR_SEAT_ON_LEVEL = 3  # value the app sends for rear-seat "on"
+
+# Heated steering wheel — NOT exposed by the saic client library. Captured from
+# decrypted MGS6 traffic: rvcReqType=8, paramId 24, value 1=on / 0=off.
+STEERING_WHEEL_HEAT_REQ_TYPE_VALUE = "8"
+STEERING_WHEEL_HEAT_PARAM_ID = 24
 
 # Generic response tresholds
 GENERIC_RESPONSE_SOC_THRESHOLD = 1000
@@ -137,12 +526,51 @@ GENERIC_RESPONSE_STATUS_THRESHOLD = 0
 GENERIC_RESPONSE_TEMPERATURE = -40
 GENERIC_RESPONSE_EXTREME_TEMPERATURE = -128
 
+# Sanity bounds for the API's statusTime field. A response whose timestamp
+# falls outside these bounds relative to "now" is treated as untrustworthy
+# and discarded (see SAICMGDataUpdateCoordinator._is_status_timestamp_valid).
+STATUS_TIMESTAMP_FUTURE_TOLERANCE = timedelta(minutes=5)
+STATUS_TIMESTAMP_MAX_AGE = timedelta(hours=24)
+
 # Retry configuration
 RETRY_LIMIT = 5
-RETRY_BACKOFF_FACTOR = 5
+RETRY_BACKOFF_FACTOR = 15
 
-# Charging status codes indicating that the vehicle is charging
-CHARGING_STATUS_CODES = {1, 3, 10, 12}
+# Maximum seconds to wait for the very first API fetch during HA startup.
+# If the SAIC server is unreachable and we exceed this, we raise
+# ConfigEntryNotReady so HA can finish booting and retry in the background
+# rather than blocking startup for up to RETRY_LIMIT × RETRY_BACKOFF_FACTOR
+# seconds (75 s) before failing.
+#
+# Set to 30 s (raised from 15 s). SAIC's API response times have increased over
+# time, and the previous 15 s ceiling frequently cancelled requests that would
+# have succeeded a few seconds later when SAIC was slow-but-alive (issue #216).
+# Because the integration is declared iot_class=cloud_polling and raises
+# ConfigEntryNotReady on timeout, waiting 30 s here only delays THIS entry
+# becoming ready — it does NOT block Home Assistant's overall startup or any
+# other integration. The only cost of the higher value is a slightly longer
+# give-up time per retry when SAIC is fully down, which happens in the
+# background and is never user-visible.
+# HA retries automatically with exponential backoff once ConfigEntryNotReady
+# is raised.
+STARTUP_API_TIMEOUT = 30
+
+# During initial setup only, cap the charging-info fetch to this many seconds.
+# Charging is the SAIC endpoint most prone to being slow/degraded (issue #216),
+# and it is NOT required for the integration to load — info + status are enough
+# (option 1). If charging doesn't return within this inner cap at startup, we
+# abandon just that fetch and let setup complete, leaving charging sensors to
+# populate on the next scheduled refresh. This keeps one slow endpoint from
+# eating the whole STARTUP_API_TIMEOUT budget. Routine (non-startup) refreshes
+# are unaffected and still use the normal retry logic.
+STARTUP_CHARGING_TIMEOUT = 12
+
+# Charging status codes indicating that the vehicle is actively using the
+# charging/discharging system.  Used by the coordinator to select the
+# charging update interval and keep the session alive.
+# 13 = V2X_DISCHARGING — included so V2X export sessions get the same
+# frequent refresh cadence as AC/DC charging sessions.
+CHARGING_STATUS_CODES = {1, 3, 10, 12, 13}
 
 # Charging Current Limit options
 CHARGING_CURRENT_OPTIONS = ["0A (Ignore)", "6A", "8A", "16A", "Max"]
@@ -153,11 +581,13 @@ PLATFORMS = [
     "button",
     "climate",
     "device_tracker",
+    "event",
     "lock",
     "number",
     "select",
     "sensor",
     "switch",
+    "time",
 ]
 
 

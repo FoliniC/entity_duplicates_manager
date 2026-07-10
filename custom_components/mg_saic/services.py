@@ -2,10 +2,10 @@
 
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
+from homeassistant.util import dt as dt_util
 import voluptuous as vol
 
-from .api import SAICMGAPIClient
-from .coordinator import SAICMGDataUpdateCoordinator
+from .backends import Feature, backend_supports
 from .const import (
     DOMAIN,
     LOGGER,
@@ -22,6 +22,8 @@ SERVICE_UNLOCK_VEHICLE = "unlock_vehicle"
 SERVICE_START_AC = "start_ac"
 SERVICE_STOP_AC = "stop_ac"
 SERVICE_OPEN_TAILGATE = "open_tailgate"
+SERVICE_SET_BATTERY_HEATING_SCHEDULE = "set_battery_heating_schedule"
+SERVICE_SET_SCHEDULED_CHARGING = "set_scheduled_charging"
 SERVICE_SET_CHARGING_CURRENT_LIMIT = "set_charging_current_limit"
 SERVICE_SET_TARGET_SOC = "set_target_soc"
 SERVICE_START_CLIMATE = "start_climate"
@@ -44,8 +46,8 @@ SERVICE_ACTION_SCHEMA = vol.Schema(
 SERVICE_CONTROL_HEATED_SEAT_SCHEMA = vol.Schema(
     {
         vol.Required("vin"): cv.string,
-        vol.Required("seat"): vol.In(["front_left", "front_right"]),
-        vol.Required("level"): vol.All(vol.Coerce(int), vol.Range(min=0, max=3)),
+        vol.Required("left_level"): vol.All(vol.Coerce(int), vol.Range(min=0, max=3)),
+        vol.Required("right_level"): vol.All(vol.Coerce(int), vol.Range(min=0, max=3)),
     }
 )
 
@@ -88,6 +90,25 @@ SERVICE_SET_TARGET_SOC_SCHEMA = vol.Schema(
     }
 )
 
+SERVICE_SET_BATTERY_HEATING_SCHEDULE_SCHEMA = vol.Schema(
+    {
+        vol.Required("vin"): cv.string,
+        vol.Required("enable"): cv.boolean,
+        vol.Optional("start_time"): cv.time,
+    }
+)
+
+SERVICE_SET_SCHEDULED_CHARGING_SCHEMA = vol.Schema(
+    {
+        vol.Required("vin"): cv.string,
+        vol.Required("mode"): vol.In(
+            ["disabled", "until_target_soc", "until_scheduled_time"]
+        ),
+        vol.Optional("start_time"): cv.time,
+        vol.Optional("end_time"): cv.time,
+    }
+)
+
 SERVICE_SUNROOF_SCHEMA = vol.Schema(
     {
         vol.Required("vin"): cv.string,
@@ -98,11 +119,41 @@ SERVICE_SUNROOF_SCHEMA = vol.Schema(
 SERVICE_VIN_SCHEMA = vol.Schema({vol.Required("vin"): cv.string})
 
 
-async def async_setup_services(
-    hass: HomeAssistant,
-    client: SAICMGAPIClient,
-    coordinator: SAICMGDataUpdateCoordinator,
-) -> None:
+def _get_vehicle_resources(hass: HomeAssistant, vin: str):
+    """Resolve the client and coordinator for a VIN."""
+    domain_data = hass.data.get(DOMAIN, {})
+    client = domain_data.get("clients_by_vin", {}).get(vin)
+    coordinator = domain_data.get("coordinators_by_vin", {}).get(vin)
+
+    if client is None or coordinator is None:
+        raise ValueError(f"No integration resources found for VIN {vin}")
+
+    return client, coordinator
+
+
+
+def _backend_allows(client, vin: str, feature: Feature, service: str) -> bool:
+    """Return True if *vin*'s backend supports *feature*, else log and refuse.
+
+    Service calls can target any configured VIN, including vehicles on
+    backends that do not implement the requested command family (e.g. MG
+    India has no charging control — issue #169).  Refusing here, before any
+    client call, guarantees an unsupported command can never reach a real
+    car through the services layer.
+    """
+    if backend_supports(client, feature):
+        return True
+    LOGGER.error(
+        "Service %s is not supported for VIN %s: this vehicle's backend "
+        "(region) does not implement '%s'.",
+        service,
+        vin,
+        feature.value,
+    )
+    return False
+
+
+async def async_setup_services(hass: HomeAssistant) -> None:
     """Set up services for the MG SAIC integration."""
 
     # Dynamically define SERVICE_START_CLIMATE_SCHEMA based on vehicle's temperature limits
@@ -120,8 +171,11 @@ async def async_setup_services(
         """Handle the lock_vehicle service call."""
         vin = call.data["vin"]
         try:
+            client, coordinator = _get_vehicle_resources(hass, vin)
+            if not _backend_allows(client, vin, Feature.LOCK, "lock_vehicle"):
+                return
             immediate_interval = coordinator.after_action_delay
-            long_interval = coordinator.ac_long_interval
+            long_interval = coordinator.lock_unlock_long_interval
 
             await client.lock_vehicle(vin)
             LOGGER.info("Vehicle locked successfully for VIN: %s", vin)
@@ -137,8 +191,19 @@ async def async_setup_services(
         """Handle the unlock_vehicle service call."""
         vin = call.data["vin"]
         try:
+            client, coordinator = _get_vehicle_resources(hass, vin)
+            if not _backend_allows(client, vin, Feature.LOCK, "unlock_vehicle"):
+                return
+            immediate_interval = coordinator.after_action_delay
+            long_interval = coordinator.lock_unlock_long_interval
+
             await client.unlock_vehicle(vin)
             LOGGER.info("Vehicle unlocked successfully for VIN: %s", vin)
+            await coordinator.schedule_action_refresh(
+                vin,
+                immediate_interval,
+                long_interval,
+            )
         except Exception as e:
             LOGGER.error("Error unlocking vehicle for VIN %s: %s", vin, e)
 
@@ -146,6 +211,9 @@ async def async_setup_services(
         """Handle the start_ac service call."""
         vin = call.data["vin"]
         try:
+            client, coordinator = _get_vehicle_resources(hass, vin)
+            if not _backend_allows(client, vin, Feature.CLIMATE, "start_ac"):
+                return
             immediate_interval = coordinator.after_action_delay
             long_interval = coordinator.ac_long_interval
 
@@ -186,6 +254,9 @@ async def async_setup_services(
         """Handle the stop_ac service call."""
         vin = call.data["vin"]
         try:
+            client, coordinator = _get_vehicle_resources(hass, vin)
+            if not _backend_allows(client, vin, Feature.CLIMATE, "stop_ac"):
+                return
             immediate_interval = coordinator.after_action_delay
             long_interval = coordinator.ac_long_interval
 
@@ -206,6 +277,9 @@ async def async_setup_services(
         fan_speed = call.data["fan_speed"]
         ac_on = call.data["ac_on"]
         try:
+            client, coordinator = _get_vehicle_resources(hass, vin)
+            if not _backend_allows(client, vin, Feature.CLIMATE, "start_climate"):
+                return
             min_temp = coordinator.min_temp
             max_temp = coordinator.max_temp
 
@@ -247,6 +321,9 @@ async def async_setup_services(
         """Handle the open_tailgate service call."""
         vin = call.data["vin"]
         try:
+            client, coordinator = _get_vehicle_resources(hass, vin)
+            if not _backend_allows(client, vin, Feature.TAILGATE, "open_tailgate"):
+                return
             immediate_interval = coordinator.after_action_delay
             long_interval = coordinator.tailgate_long_interval
 
@@ -264,6 +341,9 @@ async def async_setup_services(
         """Handle the trigger_alarm service call."""
         vin = call.data["vin"]
         try:
+            client, coordinator = _get_vehicle_resources(hass, vin)
+            if not _backend_allows(client, vin, Feature.FIND_MY_CAR, "trigger_alarm"):
+                return
             immediate_interval = coordinator.after_action_delay
             long_interval = coordinator.alarm_long_interval
             await client.trigger_alarm(vin)
@@ -280,6 +360,9 @@ async def async_setup_services(
         """Handle the start_charging service call."""
         vin = call.data["vin"]
         try:
+            client, coordinator = _get_vehicle_resources(hass, vin)
+            if not _backend_allows(client, vin, Feature.CHARGING_CONTROL, "start_charging"):
+                return
             immediate_interval = coordinator.after_action_delay
             long_interval = coordinator.charging_long_interval
 
@@ -298,6 +381,9 @@ async def async_setup_services(
         """Handle the stop_charging service call."""
         vin = call.data["vin"]
         try:
+            client, coordinator = _get_vehicle_resources(hass, vin)
+            if not _backend_allows(client, vin, Feature.CHARGING_CONTROL, "stop_charging"):
+                return
             immediate_interval = coordinator.after_action_delay
             long_interval = coordinator.charging_long_interval
 
@@ -316,6 +402,9 @@ async def async_setup_services(
         """Handle the start_battery_heating service call."""
         vin = call.data["vin"]
         try:
+            client, coordinator = _get_vehicle_resources(hass, vin)
+            if not _backend_allows(client, vin, Feature.BATTERY_HEATING, "start_battery_heating"):
+                return
             immediate_interval = coordinator.after_action_delay
             long_interval = coordinator.battery_heating_long_interval
 
@@ -334,6 +423,9 @@ async def async_setup_services(
         """Handle the stop_battery_heating service call."""
         vin = call.data["vin"]
         try:
+            client, coordinator = _get_vehicle_resources(hass, vin)
+            if not _backend_allows(client, vin, Feature.BATTERY_HEATING, "stop_battery_heating"):
+                return
             immediate_interval = coordinator.after_action_delay
             long_interval = coordinator.battery_heating_long_interval
 
@@ -348,11 +440,126 @@ async def async_setup_services(
         except Exception as e:
             LOGGER.error(f"Error stopping battery heating for VIN {vin}: {e}")
 
+    async def handle_set_battery_heating_schedule(call: ServiceCall) -> None:
+        """Handle the set_battery_heating_schedule service call."""
+        vin = call.data["vin"]
+        enable = call.data["enable"]
+        start_time = call.data.get("start_time")
+        try:
+            client, coordinator = _get_vehicle_resources(hass, vin)
+            if not _backend_allows(client, vin, Feature.BATTERY_HEATING, "set_battery_heating_schedule"):
+                return
+
+            if enable:
+                tz = dt_util.get_default_time_zone()
+                if start_time is None:
+                    # Fall back to the pending value from the time entity,
+                    # then the schedule last reported by the vehicle.
+                    start_time = coordinator.battery_heating_pending_time
+                    if start_time is None:
+                        schedule = coordinator.data.get("battery_heating_schedule")
+                        if schedule is not None and getattr(schedule, "startTime", 0):
+                            start_time = schedule.decode_start_time(tz)
+                if start_time is None:
+                    LOGGER.error(
+                        "Cannot enable battery heating schedule for VIN %s: "
+                        "no start_time provided and no previous schedule known.",
+                        vin,
+                    )
+                    return
+                coordinator.battery_heating_pending_time = start_time
+                LOGGER.debug(
+                    "Enabling battery heating schedule for VIN %s at %s",
+                    vin,
+                    start_time,
+                )
+                await client.enable_battery_heating_schedule(vin, start_time, tz)
+                LOGGER.info(
+                    "Battery heating schedule enabled at %s for VIN: %s",
+                    start_time,
+                    vin,
+                )
+            else:
+                LOGGER.debug("Disabling battery heating schedule for VIN %s", vin)
+                await client.disable_battery_heating_schedule(vin)
+                LOGGER.info("Battery heating schedule disabled for VIN: %s", vin)
+
+            await coordinator.async_request_refresh()
+        except Exception as e:
+            LOGGER.error(
+                "Error setting battery heating schedule for VIN %s: %s", vin, e
+            )
+
+    async def handle_set_scheduled_charging(call: ServiceCall) -> None:
+        """Handle the set_scheduled_charging service call."""
+        from saic_ismart_client_ng.api.vehicle_charging import ScheduledChargingMode
+
+        from .time import (
+            DEFAULT_SCHEDULED_CHARGING_END,
+            DEFAULT_SCHEDULED_CHARGING_START,
+            decode_scheduled_charging_field,
+        )
+
+        vin = call.data["vin"]
+        mode_key = call.data["mode"]
+        mode = {
+            "disabled": ScheduledChargingMode.DISABLED,
+            "until_target_soc": ScheduledChargingMode.UNTIL_CONFIGURED_SOC,
+            "until_scheduled_time": ScheduledChargingMode.UNTIL_CONFIGURED_TIME,
+        }[mode_key]
+
+        try:
+            client, coordinator = _get_vehicle_resources(hass, vin)
+            if not _backend_allows(client, vin, Feature.SCHEDULED_CHARGING, "set_scheduled_charging"):
+                return
+
+            charging_data = coordinator.data.get("charging")
+            chrg_mgmt_data = getattr(charging_data, "chrgMgmtData", None)
+
+            start_time = call.data.get("start_time")
+            if start_time is None:
+                start_time = coordinator.scheduled_charging_pending_start
+            if start_time is None:
+                start_time = decode_scheduled_charging_field(
+                    chrg_mgmt_data, "bmsReserStHourDspCmd", "bmsReserStMintueDspCmd"
+                )
+            if start_time is None:
+                start_time = DEFAULT_SCHEDULED_CHARGING_START
+
+            end_time = call.data.get("end_time")
+            if end_time is None:
+                end_time = coordinator.scheduled_charging_pending_end
+            if end_time is None:
+                end_time = decode_scheduled_charging_field(
+                    chrg_mgmt_data, "bmsReserSpHourDspCmd", "bmsReserSpMintueDspCmd"
+                )
+            if end_time is None:
+                end_time = DEFAULT_SCHEDULED_CHARGING_END
+
+            # Keep the time entities in sync with what was sent.
+            coordinator.scheduled_charging_pending_start = start_time
+            coordinator.scheduled_charging_pending_end = end_time
+
+            await client.set_scheduled_charging(vin, start_time, end_time, mode)
+            LOGGER.info(
+                "Scheduled charging set to %s (%s - %s) for VIN: %s",
+                mode_key,
+                start_time,
+                end_time,
+                vin,
+            )
+            await coordinator.async_request_refresh()
+        except Exception as e:
+            LOGGER.error("Error setting scheduled charging for VIN %s: %s", vin, e)
+
     async def handle_set_charging_current(call: ServiceCall):
         """Handle the service call to set charging current."""
         vin = call.data["vin"]
         current_limit = call.data["current_limit"]
         try:
+            client, coordinator = _get_vehicle_resources(hass, vin)
+            if not _backend_allows(client, vin, Feature.CURRENT_LIMIT, "set_charging_current"):
+                return
             immediate_interval = coordinator.after_action_delay
             long_interval = coordinator.charging_current_long_interval
 
@@ -416,6 +623,9 @@ async def async_setup_services(
         vin = call.data["vin"]
         target_soc = call.data["target_soc"]
         try:
+            client, coordinator = _get_vehicle_resources(hass, vin)
+            if not _backend_allows(client, vin, Feature.TARGET_SOC, "set_target_soc"):
+                return
             immediate_interval = coordinator.after_action_delay
             long_interval = coordinator.target_soc_long_interval
 
@@ -434,6 +644,9 @@ async def async_setup_services(
         vin = call.data["vin"]
         action = call.data["action"]
         try:
+            client, coordinator = _get_vehicle_resources(hass, vin)
+            if not _backend_allows(client, vin, Feature.REAR_WINDOW_HEAT, "control_rear_window_heat"):
+                return
             immediate_interval = coordinator.after_action_delay
             long_interval = coordinator.rear_window_heat_long_interval
 
@@ -450,9 +663,12 @@ async def async_setup_services(
     async def handle_control_heated_seats(call: ServiceCall) -> None:
         """Handle the control_heated_seats service call."""
         vin = call.data["vin"]
-        left_level = call.data.get("left_level", 0)
-        right_level = call.data.get("right_level", 0)
+        left_level = call.data["left_level"]
+        right_level = call.data["right_level"]
         try:
+            client, coordinator = _get_vehicle_resources(hass, vin)
+            if not _backend_allows(client, vin, Feature.HEATED_SEATS, "control_heated_seats"):
+                return
             immediate_interval = coordinator.after_action_delay
             long_interval = coordinator.heated_seats_long_interval
 
@@ -475,6 +691,9 @@ async def async_setup_services(
         """Handle the start_front_defrost service call."""
         vin = call.data["vin"]
         try:
+            client, coordinator = _get_vehicle_resources(hass, vin)
+            if not _backend_allows(client, vin, Feature.FRONT_DEFROST, "start_front_defrost"):
+                return
             immediate_interval = coordinator.after_action_delay
             long_interval = coordinator.front_defrost_long_interval
 
@@ -491,18 +710,20 @@ async def async_setup_services(
     async def handle_update_vehicle_data(call: ServiceCall) -> None:
         """Handle the update_vehicle_data service call."""
         vin = call.data["vin"]
-        coordinators_by_vin = hass.data[DOMAIN].get("coordinators_by_vin", {})
-        coordinator = coordinators_by_vin.get(vin)
-        if coordinator:
+        try:
+            _, coordinator = _get_vehicle_resources(hass, vin)
             await coordinator.async_request_refresh()
             LOGGER.info("Data update triggered for VIN: %s", vin)
-        else:
-            LOGGER.warning("Coordinator not found for VIN %s", vin)
+        except Exception as e:
+            LOGGER.warning("Coordinator not found for VIN %s: %s", vin, e)
 
     async def handle_control_sunroof(call: ServiceCall) -> None:
         vin = call.data["vin"]
         should_open = call.data["should_open"]
         try:
+            client, coordinator = _get_vehicle_resources(hass, vin)
+            if not _backend_allows(client, vin, Feature.SUNROOF, "control_sunroof"):
+                return
             immediate_interval = coordinator.after_action_delay
             long_interval = coordinator.sunroof_long_interval
 
@@ -520,6 +741,9 @@ async def async_setup_services(
         vin = call.data["vin"]
         unlock = call.data["unlock"]
         try:
+            client, coordinator = _get_vehicle_resources(hass, vin)
+            if not _backend_allows(client, vin, Feature.CHARGING_PORT_LOCK, "control_charging_port_lock"):
+                return
             immediate_interval = coordinator.after_action_delay
             long_interval = coordinator.charging_port_lock_long_interval
 
@@ -563,6 +787,18 @@ async def async_setup_services(
     )
     hass.services.async_register(
         DOMAIN, SERVICE_OPEN_TAILGATE, handle_open_tailgate, schema=SERVICE_VIN_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SET_BATTERY_HEATING_SCHEDULE,
+        handle_set_battery_heating_schedule,
+        schema=SERVICE_SET_BATTERY_HEATING_SCHEDULE_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SET_SCHEDULED_CHARGING,
+        handle_set_scheduled_charging,
+        schema=SERVICE_SET_SCHEDULED_CHARGING_SCHEMA,
     )
     hass.services.async_register(
         DOMAIN,

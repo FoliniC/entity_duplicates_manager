@@ -748,12 +748,11 @@ views:
     state_color: true
   - type: entities
     entities:
-    - entity: sensor.mg_eh32_x7_electric_range
-    - entity: sensor.mg_eh32_x7_fuel_level
-    - entity: sensor.mg_eh32_x7_fuel_range
-    - entity: sensor.mg_eh32_x7_state_of_charge
-    - entity: update.mg_saic_update
-    - entity: button.mg_eh32_x7_update_vehicle_data
+    - entity: sensor.piazzale_mg_mg4_electric_electric_range
+    - entity: sensor.piazzale_mg_mg4_electric_state_of_charge
+    - entity: sensor.piazzale_mg_mg4_electric_mileage
+    - entity: sensor.piazzale_mg_mg4_electric_charging_status
+    - entity: button.piazzale_mg_mg4_electric_update_vehicle_data
   - type: custom:charger-card
     entity: sensor.silla_prism_current_state
     brand: silla
@@ -977,12 +976,11 @@ views:
       heading: Gestione auto
     - type: entities
       entities:
-      - entity: sensor.mg_eh32_x7_electric_range
-      - entity: sensor.mg_eh32_x7_fuel_level
-      - entity: sensor.mg_eh32_x7_fuel_range
-      - entity: sensor.mg_eh32_x7_state_of_charge
-      - entity: update.mg_saic_update
-      - entity: button.mg_eh32_x7_update_vehicle_data
+      - entity: sensor.piazzale_mg_mg4_electric_electric_range
+      - entity: sensor.piazzale_mg_mg4_electric_state_of_charge
+      - entity: sensor.piazzale_mg_mg4_electric_mileage
+      - entity: sensor.piazzale_mg_mg4_electric_charging_status
+      - entity: button.piazzale_mg_mg4_electric_update_vehicle_data
       view_layout:
         grid-area: span 1 / span 1
     - type: entities
