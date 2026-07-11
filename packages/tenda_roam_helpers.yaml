@@ -1,0 +1,18 @@
+# Helpers per Tenda Roam Watchdog
+# ─────────────────────────────────────────────────────────────────────────────
+
+counter:
+  tenda_roam_failures:
+    name: "Tenda Roam Failures Counter"
+    initial: 0
+    step: 1
+    minimum: 0
+    maximum: 100
+    icon: "mdi:counter"
+
+input_datetime:
+  tenda_roam_last_reset:
+    name: "Tenda Roam Last Reset"
+    has_date: true
+    has_time: true
+    icon: "mdi:clock-alert"

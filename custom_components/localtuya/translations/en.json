@@ -58,11 +58,11 @@
             },
             "init": {
                 "title": "Configuration",
-                "description": "Select an option to proceed.",
+                "description": "Select an option to proceed. Cloud API status is shown in logs.",
                 "menu_options": {
                     "add_device": "Add new device",
                     "edit_device": "Reconfigure existing device",
-                    "configure_cloud": "Manage Cloud API account",
+                    "configure_cloud": "⚙️ Manage Cloud API account",
                     "manage_network": "Manage Network Blocking (OpenWrt)"
                 }
             },
@@ -91,14 +91,14 @@
             },
             "configure_cloud": {
                 "title": "Manage Cloud API account",
-                "description": "Configure the credentials used to connect to the Tuya Cloud API.",
+                "description": "Configure credentials to enable cloud features: auto-configuration, model names, local key sync, device functions, and cloud fallback when local connection fails. Current status: cloud features are enabled when credentials are saved and 'Keep Cloud API disabled' is unchecked.",
                 "data": {
                     "region": "Data Center Region",
                     "client_id": "Client ID",
                     "client_secret": "Client Secret",
                     "user_id": "User ID",
                     "username": "Username",
-                    "no_cloud": "Disable Cloud API?"
+                    "no_cloud": "Keep Cloud API disabled (local-only mode)"
                 }
             },
             "confirm": {

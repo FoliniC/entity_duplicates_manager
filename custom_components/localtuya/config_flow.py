@@ -831,6 +831,14 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
 
         if not self.config_entry.data.get(CONF_NO_CLOUD, True):
             self.hass.async_create_task(self.cloud_data.async_get_devices_list())
+        else:
+            # Log a clear warning when cloud is disabled
+            _LOGGER.warning(
+                "⚠️ LOCAL-ONLY MODE: Cloud API is disabled (no_cloud=True). "
+                "Integration will use local discovery only. "
+                "To enable cloud features (auto-config, model names, local keys, device functions), "
+                "go to 'Configure Cloud' and enter your Tuya IoT credentials."
+            )
 
         return self.async_show_menu(step_id="init", menu_options=configure_menu)
 
@@ -909,6 +917,10 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
 
             return await self.async_step_configure_device()
 
+        # Force refresh cloud device list to pick up newly added devices
+        _LOGGER.debug("[ADD_DEVICE] Refreshing cloud device list...")
+        await self.cloud_data.async_get_devices_list(force_update=True)
+        
         self.discovered_devices = {}
         data = self.hass.data.get(DOMAIN)
 
@@ -929,6 +941,9 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         for entry in entries:
             for devID in entry.data[CONF_DEVICES].keys():
                 configured_Devices.append(devID)
+        
+        _LOGGER.debug(f"[ADD_DEVICE] Configured devices: {configured_Devices}")
+        _LOGGER.debug(f"[ADD_DEVICE] All merged devices: {list(allDevices.keys())}")
 
         for dev_id, dev in allDevices.items():
             if dev_id not in configured_Devices:
@@ -936,6 +951,10 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                     devices[dev_id] = "Sub Device"
                 else:
                     devices[dev_id] = dev.get(CONF_TUYA_IP, "")
+            else:
+                _LOGGER.debug(f"[ADD_DEVICE] Filtered out already configured: {dev_id}")
+
+        _LOGGER.debug(f"[ADD_DEVICE] Devices to show in dropdown: {devices}")
 
         return self.async_show_form(
             step_id="add_device",
@@ -1667,7 +1686,9 @@ async def discover_devices() -> tuple[dict[str, dict], dict[str, str]]:
     errors = {}
     discovered_devices = {}
     try:
+        _LOGGER.debug("[DISCOVERY] Starting local Tuya device discovery...")
         discovered_devices = await discover()
+        _LOGGER.debug(f"[DISCOVERY] Found local devices: {list(discovered_devices.keys())}")
     except OSError as ex:
         if ex.errno == errno.EADDRINUSE:
             errors["base"] = "address_in_use"
@@ -1683,6 +1704,8 @@ def devices_schema(
     discovered_devices, cloud_devices_list, add_custom_device=True, existed_devices={}
 ):
     """Create schema for devices step."""
+    _LOGGER.debug(f"[DEVICES_SCHEMA] Input devices: {discovered_devices}")
+    _LOGGER.debug(f"[DEVICES_SCHEMA] Cloud devices list: {list(cloud_devices_list.keys())}")
     known_devices = {}
     devices = {}
     for dev_id, dev_host in discovered_devices.items():
@@ -1693,8 +1716,9 @@ def devices_schema(
         elif dev_id in cloud_devices_list.keys():
             dev_name = cloud_devices_list[dev_id][CONF_NAME]
 
-            known_devices[f"{dev_name} ({dev_host})"] = dev_id
-            continue
+        _LOGGER.debug(f"[DEVICES_SCHEMA] Device {dev_id}: name={dev_name}, host={dev_host}")
+        known_devices[f"{dev_name} ({dev_host})"] = dev_id
+        continue
 
         devices[f"{dev_name} ({dev_host})"] = dev_id
 
@@ -1716,19 +1740,33 @@ def devices_schema(
 
 def mergeDevicesList(localList: dict, cloudList: dict, addSubDevices=True) -> dict:
     """Merge CloudDevices with Discovered LocalDevices (in specific ways)!"""
+    _LOGGER.debug(f"[MERGE] Local devices: {list(localList.keys())}")
+    _LOGGER.debug(f"[MERGE] Cloud devices: {list(cloudList.keys())}")
+    
     # try Get SubDevices.
     newList = localList.copy()
     for _devID, _devData in cloudList.items():
         try:
             is_online = _devData.get("online", None)
             sub_device = _devData.get(CONF_NODE_ID, False)
+            category = _devData.get(TUYA_CATEGORY, "")
+            name = _devData.get("name", "Unknown")
+            
+            _LOGGER.debug(f"[MERGE] Checking cloud device {_devID} ({name}): online={is_online}, sub={sub_device}, cat={category}, in_local={_devID in localList}")
+            
             # We skip offline devices and already merged devices.
-            if not is_online or _devID in localList:
+            if not is_online:
+                _LOGGER.debug(f"[MERGE] Skipping {_devID}: device is offline")
                 continue
+            if _devID in localList:
+                _LOGGER.debug(f"[MERGE] Skipping {_devID}: already in local list")
+                continue
+            
             # Make sure the device isn't already in localList.
             if addSubDevices and sub_device:
                 # infrared are ir remote sub-devices
-                if _devData.get(TUYA_CATEGORY, "").startswith("infrared"):
+                if category.startswith("infrared"):
+                    _LOGGER.debug(f"[MERGE] Skipping {_devID}: infrared sub-device")
                     continue
 
                 gateway = get_gateway_by_deviceid(_devID, cloudList)
@@ -1745,9 +1783,28 @@ def mergeDevicesList(localList: dict, cloudList: dict, addSubDevices=True) -> di
                         }
                     }
                     newList.update(dev_data)
+                    _LOGGER.debug(f"[MERGE] Added sub-device {_devID} via gateway {gateway.id}")
+            elif not sub_device:
+                # Standalone device (not a sub-device) that is online in cloud but not discovered locally
+                # This can happen with battery devices that broadcast rarely
+                # We add it using cloud info so it appears in the "Add device" dropdown
+                product_key = _devData.get("product_id") or _devData.get("product_key", "")
+                dev_data = {
+                    _devID: {
+                        CONF_TUYA_IP: "",  # Will be discovered when user selects it
+                        CONF_TUYA_GWID: _devID,
+                        CONF_TUYA_VERSION: "auto",
+                        CONF_NODE_ID: None,
+                        CONF_GATEWAY_ID: None,
+                        CONF_PRODUCT_KEY: product_key,
+                    }
+                }
+                newList.update(dev_data)
+                _LOGGER.debug(f"[MERGE] Added standalone cloud device {_devID} ({name}) for manual configuration")
         except Exception as ex:
             _LOGGER.debug(f"An error occurred while trying to pull sub-devices {ex}")
             continue
+    _LOGGER.debug(f"[MERGE] Final merged list: {list(newList.keys())}")
     return newList
 
 

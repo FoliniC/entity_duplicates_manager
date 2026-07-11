@@ -228,9 +228,20 @@ class TuyaCloudApi:
         if not resp["success"]:
             return f"Error {resp['code']}: {resp['msg']}"
 
+        # Debug: log all devices from cloud
+        self._logger.debug(f"[CLOUD] Raw device list response: {len(resp['result'])} devices")
+        for dev in resp["result"]:
+            dev_id = dev.get("id")
+            name = dev.get("name", "Unknown")
+            online = dev.get("online", None)
+            category = dev.get("category", "")
+            node_id = dev.get("node_id", None)
+            self._logger.debug(f"[CLOUD] Device: {dev_id} | {name} | online={online} | cat={category} | node_id={node_id}")
+
         self.device_list.update({dev["id"]: dev for dev in resp["result"]})
 
         self._last_devices_update = int(time.time())
+        self._logger.debug(f"[CLOUD] Updated device list. Total: {len(self.device_list)} devices")
         return "ok"
 
     async def async_get_devices_dps_query(self):

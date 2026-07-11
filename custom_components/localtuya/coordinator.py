@@ -535,7 +535,13 @@ class TuyaDevice(TuyaListener, ContextualLogger):
 
     async def _cloud_status_as_dps(self, force_update: bool = False) -> dict:
         """Return Tuya Cloud shadow values keyed by DP id."""
-        if self._entry.data.get(CONF_NO_CLOUD, True) or self.is_subdevice:
+        no_cloud = self._entry.data.get(CONF_NO_CLOUD, True)
+        if no_cloud or self.is_subdevice:
+            if no_cloud:
+                self.debug(
+                    "Cloud fallback skipped: LOCAL-ONLY MODE (no_cloud=True). "
+                    "Cloud API disabled or not configured. Set up cloud credentials in integration options to enable cloud fallback."
+                )
             return {}
         try:
             if float(self._device_config.protocol_version) < 3.4:
@@ -609,7 +615,12 @@ class TuyaDevice(TuyaListener, ContextualLogger):
     async def _update_local_key(self):
         """Retrieve updated local_key from Cloud API and update the config_entry."""
         if self._entry.data.get(CONF_NO_CLOUD, True):
-            return self.info("Ensure that localkey hasn't changed and it's correct")
+            self.info(
+                "Cannot update local_key: LOCAL-ONLY MODE (no_cloud=True). "
+                "Cloud API is disabled. If you want to use cloud features, "
+                "go to Settings > Devices & Services > LocalTuya > Configure > Cloud API and save your credentials."
+            )
+            return
 
         self.info(f"Trying to update local-key...")
         dev_id = self._device_config.id

@@ -84,7 +84,7 @@
         - condition: template
           value_template: "{{ to_state in ['on', 'off'] }}"
       then:
-        - action: notify.notify
+        - action: notify.send_message
           target:
             entity_id:
               - notify.mobile_app_redmi_note_9s

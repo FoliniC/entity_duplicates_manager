@@ -78,11 +78,11 @@
         "step": {
             "init": {
                 "title": "Configurazione LocalTuya",
-                "description": "Seleziona un'opzione.",
+                "description": "Seleziona un'opzione per procedere.",
                 "menu_options": {
                     "add_device": "Aggiungi nuovo dispositivo",
                     "edit_device": "Riconfigura dispositivo esistente",
-                    "configure_cloud": "Gestisci account Cloud",
+                    "configure_cloud": "⚙️ Gestisci account Cloud API",
                     "manage_network": "Gestisci blocco rete (OpenWrt)"
                 }
             },
@@ -91,6 +91,18 @@
                 "description": "Stato attuale: {status}. Scegli se bloccare o sbloccare l'accesso internet per i dispositivi Tuya configurati.",
                 "data": {
                     "action": "Azione"
+                }
+            },
+            "configure_cloud": {
+                "title": "Gestisci account Cloud API",
+                "description": "Configura le credenziali per abilitare le funzioni cloud: configurazione automatica, nomi modelli, sincronizzazione chiave locale, funzioni dispositivo e fallback cloud quando la connessione locale fallisce.",
+                "data": {
+                    "region": "Regione",
+                    "client_id": "ID client",
+                    "client_secret": "Segreto client",
+                    "user_id": "ID utente",
+                    "username": "Username",
+                    "no_cloud": "Mantieni Cloud API disabilitato (modalità solo locale)"
                 }
             }
         },

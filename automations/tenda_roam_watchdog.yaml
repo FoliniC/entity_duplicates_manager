@@ -1,0 +1,115 @@
+# Tenda Roam / Tuya Wake-up Failure Watchdog
+# ─────────────────────────────────────────────────────────────────────────────
+# Monitora i "Wake-up failed" di LocalTuya per luci-cucina (192.168.0.66)
+# e correla con sensor.network_status_diagnosis / packet loss / jitter.
+# Se rileva pattern di roaming (reconnect frequenti), notifica e logga.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- id: tenda_roam_watchdog
+  alias: "Tenda: Roam Watchdog (luci-cucina)"
+  description: "Rileva roaming Wi-Fi / wake-up failures su luci-cucina via log LocalTuya"
+  mode: queued
+  max: 10
+  trigger:
+    # Trigger su tutti i log_event WARNING/ERROR, filtriamo in condition
+    - platform: event
+      event_type: "log_event"
+  condition:
+    # Filtra solo i wake-up failed per luci-cucina (IP 192.168.0.66 / nome luci-cucina)
+    - condition: template
+      value_template: >
+        {{ trigger.event.data.level in ['WARNING', 'ERROR']
+           and 'Wake-up failed' in (trigger.event.data.message | string)
+           and ('192.168.0.66' in (trigger.event.data.message | string)
+                or 'luci-cucina' in (trigger.event.data.message | string)
+                or 'Luci cucina' in (trigger.event.data.message | string)) }}
+  action:
+    - variables:
+        # Timestamp evento
+        event_time: "{{ trigger.event.data.asctime | default(now().strftime('%Y-%m-%d %H:%M:%S')) }}"
+        # Conta failures nelle ultime 2 ore (usando counter persistente)
+        failure_count: >
+          {% set key = 'tenda_roam_failure_count' %}
+          {% set last_reset = state_attr('input_datetime.tenda_roam_last_reset', 'timestamp') | default(0) %}
+          {% set now_ts = now().timestamp() | int %}
+          {% if (now_ts - last_reset) > 7200 %}
+            1
+          {% else %}
+            {{ (states('counter.tenda_roam_failures') | int(0)) + 1 }}
+          {% endif %}
+        # Qualità rete attuale
+        net_diag: "{{ states('sensor.network_status_diagnosis') }}"
+        packet_loss: "{{ states('sensor.internet_packet_loss') | float(0) }}"
+        jitter: "{{ states('sensor.internet_jitter') | float(0) }}"
+        latency: "{{ states('sensor.internet_ping') | float(0) }}"
+        # Soglie
+        threshold_failures: 3
+        threshold_loss: 5
+        threshold_jitter: 50
+    # Incrementa counter
+    - service: counter.increment
+      target:
+        entity_id: counter.tenda_roam_failures
+    # Se prima failure dopo reset, aggiorna timestamp reset
+    - if:
+        - condition: template
+          value_template: "{{ (states('counter.tenda_roam_failures') | int(0)) == 1 }}"
+      then:
+        - service: input_datetime.set_datetime
+          target:
+            entity_id: input_datetime.tenda_roam_last_reset
+          data:
+            datetime: "{{ now().isoformat() }}"
+    # Log dettagliato su HALog2026 (system log)
+    - event: system_log_event
+      event_data:
+        level: WARNING
+        message: >
+          Tenda Roam Watchdog: Wake-up failure #{{
+          states('counter.tenda_roam_failures') }} per luci-cucina (192.168.0.66)
+          | NetDiag: {{ net_diag }} | Loss: {{ packet_loss }}% | Jitter: {{ jitter }}ms | Lat: {{ latency }}ms
+          | Msg: {{ trigger.event.data.message }}
+        action: "tenda_roam"
+    # Notifica se supera soglia O rete degradata
+    - if:
+        - condition: or
+          conditions:
+            - condition: template
+              value_template: "{{ failure_count | int >= threshold_failures }}"
+            - condition: template
+              value_template: "{{ packet_loss > threshold_loss or jitter > threshold_jitter }}"
+      then:
+        - event: system_log_event
+          event_data:
+            level: ERROR
+            message: >
+              🔴 TENDA ROAM ALERT: {{ failure_count }} wake-up failures in 2h per luci-cucina
+              | NetDiag: {{ net_diag }} | Loss: {{ packet_loss }}% | Jitter: {{ jitter }}ms
+              | AZIONE RICHIESTA: Disabilitare Fast Roaming / Band Steering su app Tenda
+            action: "tenda_roam_alert"
+        - service: notify.send_message
+          target:
+            entity_id:
+              - notify.mobile_app_redmi_note_9s
+              - notify.mobile_app_redmi_note_13_pro_5g
+          data:
+            title: "🔴 Tenda Roam Alert: luci-cucina"
+            message: >
+              {{ failure_count }} wake-up failures (reconnect) in 2h.
+              Rete: {{ net_diag }} | Loss: {{ packet_loss }}% | Jitter: {{ jitter }}ms
+              Il device Tuya sta facendo roaming tra Base e Satellite Tenda.
+              Fix: App Tenda → Impostazioni Mesh → Disabilita Fast Roaming & Band Steering
+            data:
+              tag: tenda_roam_alert
+              importance: high
+              notification_icon: "mdi:wifi-alert"
+        # Reset counter dopo alert per evitare spam
+        - service: counter.reset
+          target:
+            entity_id: counter.tenda_roam_failures
+        - service: input_datetime.set_datetime
+          target:
+            entity_id: input_datetime.tenda_roam_last_reset
+          data:
+            datetime: "{{ now().isoformat() }}"
+      else: []
