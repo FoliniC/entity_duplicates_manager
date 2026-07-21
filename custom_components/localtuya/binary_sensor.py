@@ -64,8 +64,7 @@ class LocalTuyaBinarySensor(LocalTuyaEntity, BinarySensorEntity):
 
         state = str(self.dp_value(self._dp_id)).lower()
         # users may set wrong on states, But we assume that must devices use this on states.
-        state_on = self._config.get(CONF_STATE_ON, "true,1,pir,on")
-        if state in state_on.lower().split(","):
+        if state in self._config[CONF_STATE_ON].lower().split(","):
             self._is_on = True
         else:
             self._is_on = False

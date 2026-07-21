@@ -17,31 +17,20 @@ from homeassistant.components.sensor import (
 from homeassistant.const import (
     CONF_DEVICE_CLASS,
     CONF_UNIT_OF_MEASUREMENT,
-    PERCENTAGE,
     Platform,
     STATE_UNKNOWN,
     UnitOfElectricCurrent,
     UnitOfElectricPotential,
-    UnitOfEnergy,
     UnitOfPower,
-    UnitOfTemperature,
 )
 from homeassistant.helpers import entity_registry as er
 
 from .entity import LocalTuyaEntity, async_setup_entry
-from .const import CONF_SCALING, CONF_STATE_CLASS
+from .const import CONF_SCALING, CONF_OFFSET, CONF_STATE_CLASS
 
 _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_PRECISION = 2
-
-DEFAULT_UNITS = {
-    SensorDeviceClass.TEMPERATURE: UnitOfTemperature.CELSIUS,
-    SensorDeviceClass.HUMIDITY: PERCENTAGE,
-    SensorDeviceClass.BATTERY: PERCENTAGE,
-    SensorDeviceClass.POWER: UnitOfPower.WATT,
-    SensorDeviceClass.ENERGY: UnitOfEnergy.KILO_WATT_HOUR,
-}
 
 ATTR_POWER = "power"
 ATTR_VOLTAGE = "voltage"
@@ -64,6 +53,9 @@ def flow_schema(dps):
         vol.Optional(CONF_SCALING): vol.All(
             vol.Coerce(float), vol.Range(min=-1000000.0, max=1000000.0)
         ),
+        vol.Optional(CONF_OFFSET): vol.All(
+            vol.Coerce(float), vol.Range(min=-1000000.0, max=1000000.0)
+        ),
     }
 
 
@@ -83,10 +75,6 @@ class LocalTuyaSensor(LocalTuyaEntity, SensorEntity):
 
         self._has_sub_entities = False
         self._attr_device_class = self._config.get(CONF_DEVICE_CLASS)
-        unit = self._config.get(CONF_UNIT_OF_MEASUREMENT)
-        if unit == "℃":
-            unit = "°C"
-        self._attr_native_unit_of_measurement = unit
 
     @property
     def native_value(self):
@@ -101,15 +89,11 @@ class LocalTuyaSensor(LocalTuyaEntity, SensorEntity):
     @property
     def native_unit_of_measurement(self):
         """Return the unit of measurement of this entity, if any."""
-        unit = getattr(
+        return getattr(
             self,
             "_attr_native_unit_of_measurement",
-            None,
-        ) or self._config.get(CONF_UNIT_OF_MEASUREMENT)
-
-        if unit is None and self.device_class:
-            return DEFAULT_UNITS.get(self.device_class)
-        return unit
+            self._config.get(CONF_UNIT_OF_MEASUREMENT),
+        )
 
     def status_updated(self):
         """Device status was updated."""
@@ -118,7 +102,9 @@ class LocalTuyaSensor(LocalTuyaEntity, SensorEntity):
 
         if self.is_base64(state):
             if not self._has_sub_entities:
-                self.hass.async_create_task(self.__create_sub_sensors())
+                self.hass.loop.call_soon_threadsafe(
+                    self.hass.async_create_task, self.__create_sub_sensors()
+                )
 
             if None not in (
                 sub_sensor := getattr(self, "_attr_sub_sensor", None),
@@ -172,14 +158,12 @@ class LocalTuyaSensor(LocalTuyaEntity, SensorEntity):
             setattr(sub_entity, "_attr_device_class", SensorDeviceClass(sensor))
             setattr(sub_entity, "_attr_state_class", SensorStateClass.MEASUREMENT)
             setattr(sub_entity, "_attr_native_unit_of_measurement", MAP_UOM[sensor])
-            if sub_entity._attr_native_unit_of_measurement == "℃":
-                sub_entity._attr_native_unit_of_measurement = "°C"
             sub_entities.append(sub_entity)
 
         # Sub entities shouldn't have add entities attr.
-        if sub_entities and self.component_add_entities:
+        if sub_entities and self.componet_add_entities:
             self._has_sub_entities = True
-            self.component_add_entities(sub_entities)
+            self.componet_add_entities(sub_entities)
             er.async_get(self.hass).async_update_entity(
                 self.entity_id, hidden_by=er.RegistryEntryHider.INTEGRATION
             )

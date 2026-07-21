@@ -44,7 +44,7 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-RECONNECT_INTERVAL = timedelta(seconds=5)
+RECONNECT_INTERVAL = timedelta(seconds=15)
 # Subdevice: Offline events before disconnecting the device, around 5 minutes
 MIN_OFFLINE_EVENTS = 5 * 60 // HEARTBEAT_INTERVAL
 
@@ -90,7 +90,6 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         # last_update_time: Sleep timer, a device that reports the status every x seconds then goes into sleep.
         self._last_update_time = time.monotonic() - 5
         self._pending_status: dict[str, dict[str, Any]] = {}
-        self._cloud_fallback_active = False
 
         self.is_closing = False
         self._task_connect: asyncio.Task | None = None
@@ -156,7 +155,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         """Set the entities associated with this device."""
         self._entities.extend(entities)
 
-    async def async_connect(self, _now=None, is_discovery=False) -> None:
+    async def async_connect(self, _now=None) -> None:
         """Connect to device if not already connected."""
         if self.is_closing or self.is_connecting:
             return
@@ -164,8 +163,8 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         if self.connected:
             return self._dispatch_status()
 
-        self._task_connect = asyncio.create_task(self._make_connection(is_discovery))
-        if not self.is_sleep or is_discovery:
+        self._task_connect = asyncio.create_task(self._make_connection())
+        if not self.is_sleep:
             await self._task_connect
 
     async def _connect_subdevices(self):
@@ -178,18 +177,10 @@ class TuyaDevice(TuyaListener, ContextualLogger):
                 break
             await subdevice.async_connect()
 
-    async def _make_connection(self, is_discovery=False):
+    async def _make_connection(self):
         """Subscribe localtuya entity events."""
-        is_battery = self._device_config.sleep_time > 0
         if self.is_sleep and not self._status:
             self.status_updated(RESTORE_STATES)
-
-        if is_battery and not is_discovery:
-            self.debug(
-                "Skipping active connection for battery device, waiting for broadcast"
-            )
-            self._task_connect = None
-            return
 
         name, host = self._device_config.name, self._device_config.host
         retry = 0
@@ -261,29 +252,11 @@ class TuyaDevice(TuyaListener, ContextualLogger):
                     # Reset the interface
                     await self._interface.reset(reset_dpids, cid=self._node_id)
 
-                self.debug("Retrieving initial state (v1.0.26 - Ultra Wake-up)")
-                try:
-                    await self._interface.heartbeat()
-                    await asyncio.sleep(0.5)
-                    await self._interface.update_dps()
-                    await asyncio.sleep(0.5)
-                    status = await self._interface.detect_available_dps(cid=self._node_id)
-                    if not status:
-                        status = await self._interface.status(cid=self._node_id)
-                except Exception as e:
-                    if not is_battery:
-                        self.warning(f"Wake-up failed for {host}: {e}")
-                    else:
-                        self.debug(f"Wake-up query failed for battery device {host} (expected): {e}")
-                    status = {}
-                if not status and (not is_battery or update_localkey):
-                    status = await self._cloud_status_as_dps(force_update=True)
-                    if status:
-                        self._cloud_fallback_active = True
-                        self.debug(
-                            "Using Tuya Cloud shadow fallback for state (%s DPS)",
-                            len(status),
-                        )
+                self.debug("Retrieving initial state")
+                status = await self._interface.status(cid=self._node_id)
+                if status is None:
+                    raise Exception("Failed to retrieve status")
+
                 self.status_updated(status)
             except (UnicodeDecodeError, DecodeError) as e:
                 self.exception(f"Handshake with {host} failed: due to {type(e)}: {e}")
@@ -325,10 +298,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
                     self.hass, signal, _new_entity_handler
                 )
 
-            scan_inv = int(self._device_config.scan_interval)
-            if self._cloud_fallback_active and scan_inv <= 0:
-                scan_inv = 60
-            if scan_inv > 0:
+            if (scan_inv := int(self._device_config.scan_interval)) > 0:
                 self._unsub_refresh = async_track_time_interval(
                     self.hass, self._async_refresh, timedelta(seconds=scan_inv)
                 )
@@ -354,28 +324,10 @@ class TuyaDevice(TuyaListener, ContextualLogger):
 
         # If not connected try to handle the errors.
         if not self.connected and not self.is_closing:
-            # Skip cloud fallback for battery devices unless we had a key error
-            if is_battery and not update_localkey:
-                self.debug("Skipping cloud fallback for battery device")
-                status = {}
-            else:
-                status = await self._cloud_status_as_dps(force_update=True)
-
-            if status:
-                self._cloud_fallback_active = True
-                self.debug(
-                    "Using Tuya Cloud shadow fallback while local connection is unavailable (%s DPS)",
-                    len(status),
-                )
-                self.status_updated(status)
-                if self._unsub_refresh is None:
-                    self._unsub_refresh = async_track_time_interval(
-                        self.hass, self._async_refresh, timedelta(seconds=60)
-                    )
             if update_localkey:
                 # Check if the cloud device info has changed!
                 await self._update_local_key()
-            if self._task_reconnect is None and not is_battery:
+            if self._task_reconnect is None:
                 self._task_reconnect = asyncio.create_task(self._async_reconnect())
 
         self._task_connect = None
@@ -473,14 +425,6 @@ class TuyaDevice(TuyaListener, ContextualLogger):
                 await self._interface.update_dps(cid=self._node_id)
             except TimeoutError:
                 pass
-        if self._cloud_fallback_active:
-            status = await self._cloud_status_as_dps(force_update=True)
-            if status:
-                self.debug(
-                    "Refreshing dps from Tuya Cloud shadow fallback: %s",
-                    list(status.keys()),
-                )
-                self.status_updated(status)
 
     async def _async_reconnect(self):
         """Task: continuously attempt to reconnect to the device."""
@@ -502,10 +446,6 @@ class TuyaDevice(TuyaListener, ContextualLogger):
                     await asyncio.sleep(3)
                     continue
 
-                if self.is_sleep:
-                    await asyncio.sleep(RECONNECT_INTERVAL.total_seconds())
-                    continue
-
                 if not self._task_connect:
                     await self.async_connect()
                 if self._task_connect:
@@ -520,66 +460,18 @@ class TuyaDevice(TuyaListener, ContextualLogger):
                     break
 
                 attempts += 1
-                # Exponential backoff: start with RECONNECT_INTERVAL, increase by 1.5x each attempt, max 300s (5 min)
-                wait_time = min(RECONNECT_INTERVAL.total_seconds() * (1.5 ** min(attempts, 10)), 300)
-                if self.subdevice_state == SubdeviceState.ABSENT:
-                    wait_time *= 2
-                
-                self.debug(f"Reconnect attempt {attempts} failed, waiting {wait_time:.1f}s")
-                await asyncio.sleep(wait_time)
+                scale = (
+                    2
+                    if (self.subdevice_state == SubdeviceState.ABSENT)
+                    or (attempts > MIN_OFFLINE_EVENTS)
+                    else 1
+                )
+                await asyncio.sleep(scale * RECONNECT_INTERVAL.total_seconds())
             except asyncio.CancelledError as e:
                 self.debug(f"Reconnect task has been canceled: {e}", force=True)
                 break
 
         self._task_reconnect = None
-
-    async def _cloud_status_as_dps(self, force_update: bool = False) -> dict:
-        """Return Tuya Cloud shadow values keyed by DP id."""
-        no_cloud = self._entry.data.get(CONF_NO_CLOUD, True)
-        if no_cloud or self.is_subdevice:
-            if no_cloud:
-                self.debug(
-                    "Cloud fallback skipped: LOCAL-ONLY MODE (no_cloud=True). "
-                    "Cloud API disabled or not configured. Set up cloud credentials in integration options to enable cloud fallback."
-                )
-            return {}
-        try:
-            if float(self._device_config.protocol_version) < 3.4:
-                return {}
-        except (TypeError, ValueError):
-            return {}
-
-        cloud_api = self._hass_entry.cloud_data
-        dev_id = self._device_config.id
-
-        try:
-            if force_update or dev_id not in cloud_api.device_list:
-                await cloud_api.async_get_devices_list(force_update=True)
-
-            if dev_id not in cloud_api.device_list:
-                self.debug("Cloud fallback skipped: device not found in cloud list")
-                return {}
-
-            dps_data = await cloud_api.async_get_device_functions(
-                dev_id, force_update=force_update
-            )
-        except Exception as ex:  # pylint: disable=broad-except
-            self.debug("Cloud fallback failed for %s: %s", dev_id, ex, force=True)
-            return {}
-
-        if not isinstance(dps_data, dict):
-            return {}
-
-        status = {
-            str(dp_id): dp_data.get("value")
-            for dp_id, dp_data in dps_data.items()
-            if isinstance(dp_data, dict) and "value" in dp_data
-        }
-        if status:
-            self.debug(
-                "Cloud fallback retrieved %s DPS for %s", len(status), dev_id, force=True
-            )
-        return status
 
     async def _shutdown_entities(self, exc=""):
         """Shutdown device entities"""
@@ -602,25 +494,20 @@ class TuyaDevice(TuyaListener, ContextualLogger):
             return
 
         if self.is_subdevice:
-            self.debug(f"Sub-device disconnected due to: {exc}")
+            self.info(f"Sub-device disconnected due to: {exc}")
         elif hasattr(self, "low_power"):
             m, s = divmod((int(time.monotonic() - self._last_update_time)), 60)
             h, m = divmod(m, 60)
-            self.debug(f"The device is still out of reach since: {h}h:{m}m:{s}s")
+            self.info(f"The device is still out of reach since: {h}h:{m}m:{s}s")
         else:
-            self.debug(f"Disconnected due to: {exc}")
+            self.info(f"Disconnected due to: {exc}")
 
         self._task_shutdown_entities = None
 
     async def _update_local_key(self):
         """Retrieve updated local_key from Cloud API and update the config_entry."""
         if self._entry.data.get(CONF_NO_CLOUD, True):
-            self.info(
-                "Cannot update local_key: LOCAL-ONLY MODE (no_cloud=True). "
-                "Cloud API is disabled. If you want to use cloud features, "
-                "go to Settings > Devices & Services > LocalTuya > Configure > Cloud API and save your credentials."
-            )
-            return
+            return self.info("Ensure that localkey hasn't changed and it's correct")
 
         self.info(f"Trying to update local-key...")
         dev_id = self._device_config.id
@@ -743,7 +630,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         if self.is_closing:
             return
 
-        if self._task_reconnect is None and self._device_config.sleep_time == 0:
+        if self._task_reconnect is None:
             self._task_reconnect = asyncio.create_task(self._async_reconnect())
 
         if self._task_shutdown_entities is not None:

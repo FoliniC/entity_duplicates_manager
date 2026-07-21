@@ -42,6 +42,55 @@ Simulare la risposta cloud locale è difficile per i seguenti motivi:
 | 192.168.0.66 | Luci cucina | Alimentato | Online | Funziona LocalTuya |
 | 192.168.0.47 | Garage | Alimentato | Online | Handshake cloud fallito ma WiFi attivo |
 
+## 6. Ottimizzazione Wi-Fi e Roaming (Prevenzione "Wake-up failed" e "Heartbeat timeout")
+Per i dispositivi Tuya alimentati (es. `luci-cucina` ad IP `192.168.0.66`) e a batteria, un problema ricorrente è il continuo "roaming" (saltellamento) tra l'Access Point principale (OpenWrt) e i satelliti Mesh (Tenda MW5), oppure la perdita di connessione dovuta a segnale debole/interferenza. Questo comportamento innesca i log di errore "Wake-up failed", "invalid key size for AES" e **"Heartbeat failed due to timeout"**, evidenziato dai log LocalTuya:
+
+```
+[Luci cucina] Reconnect succeeded on attempt: 3
+[Luci cucina] Heartbeat failed due to timeout, disconnecting
+[Luci cucina] Disconnected due to: Connection lost
+```
+
+### Cause Identificate
+1. **Heartbeat timeout ricorrenti** (19:00:39 → 19:00:44 → 19:01:04): Il dispositivo perde pacchetti verso il Tenda Mesh, non risponde al keepalive di LocalTuya e viene disconnesso. Si riconnette dopo 10-20 secondi. Questo ciclo si ripete all'infinito, causando:
+   - Spegnimenti/accesioni fantasma della luce (ogni riconnessione può ri-sincronizzare i DPS)
+   - Log di sistema saturi di tentativi di riconnessione
+   - Instabilità generale del controllo luci
+2. **Segnale WiFi debole**: Il dispositivo potrebbe essere al limite della copertura del Tenda Mesh (specialmente se il satellite è più lontano della base).
+3. **Interferenza canale 1**: Il Tenda Mesh è configurato su canale 1 (2.4GHz). Se ci sono reti vicine sullo stesso canale, l'interferenza causa pacchetti persi.
+
+### Contromisure Adottate
+1. **Spostamento e Fissaggio dei Canali 2.4GHz**:
+   - **Router OpenWrt**: **Canale 149 (5GHz)** configurato - **NESSUN SSID 2.4GHz**. I dispositivi Tuya, operanti solo a 2.4GHz, non possono connettersi al router.
+   - **Tenda Mesh**: Configurato fisso sul **Canale 1** (2.4GHz).
+   - *Motivazione*: Forzando tutti i dispositivi Tuya 2.4GHz sul solo Tenda Mesh (canale 1), si elimina la possibilità di roaming spurio verso il router. Ma se il canale 1 è congestionato, il problema heartbeat persiste.
+
+2. **Forzatura del Collegamento (BSSID Binding / MAC Blacklisting)**:
+   - Il MAC del dispositivo `luci-cucina` (`50:8b:b9:44:d0:bb`) è inserito nella **Blacklist 2.4GHz** del router OpenWrt, impedendogli di tentare la connessione.
+   - Altri dispositivi Tuya critici nella stessa subnet (es. `d8:c3`, visto in fallimento auth su phy1-ap0 5GHz) dovrebbero essere aggiunti alla blacklist.
+
+3. **Heartbeat keepalive persistente**: Il modulo LocalTuya riprova automaticamente la connessione. **Non è una soluzione**, ma contiene il danno.
+
+### Contromisure da Valutare
+Se il problema heartbeat persiste nonostante i punti precedenti:
+
+1. **Cambiare canale 2.4GHz del Tenda Mesh (canale 6 o 11)**:
+   - Aprire l'app Tenda → Impostazioni Wi-Fi → 2.4GHz → Canale → Selezionare **6** o **11** (non automatico)
+   - *Perché*: Se il canale 1 è affollato (reti vicine, baby monitor, ecc.), lo spostamento riduce l'interferenza e stabilizza il segnale.
+2. **Aggiungere un AP 2.4GHz dedicato per IoT**:
+   - Un router secondario o un ESPHome in modalità AP, posizionato vicino al device problematico, con un SSID separato ("IoT_2G").
+3. **Abbassare la soglia di potenza del Tenda** per evitare che il satellite si connetta alla base da troppo lontano con segnale debole.
+4. **Verificare con app WiFi Analyzer** (da uno smartphone) la congestione del canale 1 nell'area cucina.
+
+### Log Utili
+```bash
+# Da HA: heartbeat timeout e riconnessioni
+tail -f /config/home-assistant.log | grep "Luci cucina"
+
+# Dal router OpenWrt: autenticazioni WiFi fallite
+ssh root@192.168.0.11 "logread -f" | grep "did not acknowledge"
+```
+
 ## 7. Conclusioni Finali e Raccomandazioni (15 Giugno 2026)
 
 L'analisi approfondita del comportamento dei sensori Tuya a batteria (serie TH) ha portato alle seguenti conclusioni definitive:

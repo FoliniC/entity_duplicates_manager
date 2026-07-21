@@ -252,13 +252,19 @@
                       "entity": "sensor.smart_meter_2026_a_pdc_power_a"
                     },
                     {
+                      "entity": "sensor.smart_meter_2026_a_pdc_power_b"
+                    },
+                    {
+                      "entity": "sensor.wifi_dual_meter_b_new_a_old_power_a"
+                    },
+                    {
+                      "entity": "sensor.wifi_dual_meter_b_new_a_old_power_b"
+                    },
+                    {
                       "entity": "sensor.byd_battery_box_premium_hv_state_of_charge"
                     },
                     {
                       "entity": "sensor.consumo_appartamento_template"
-                    },
-                    {
-                      "entity": "sensor.smart_meter_2026_a_pdc_power_a"
                     },
                     {
                       "entity": "sensor.lavastoviglie_wifi_digital_meter_lavastoviglie_potenza"

@@ -1,8 +1,6 @@
-# Log Luci Cucina State Change
-# Traccia ogni cambio di stato di switch.luci_cucina_switch_1..4
-# Classifica il motivo (fisico/RF, UI, automazione, dropout Wi-Fi/cloud)
-
 - id: log_luci_cucina_state_change
+  # Log Luci Cucina State Change - traccia ogni cambio di stato switch.1..4
+  # Classifica il motivo (fisico/RF, UI, automazione, dropout Wi-Fi/cloud)
   alias: "Log Luci Cucina State Change"
   description: "Traccia ogni cambio di stato dei 4 switch luci cucina per diagnosticare spegnimenti anomali"
   mode: queued
@@ -96,4 +94,4 @@
               tag: cucina_{{ debug_entity.split('.')[-1] }}
               importance: "{{ 'high' if (to_state == 'on' or anomalous) else 'normal' }}"
               notification_icon: "mdi:lightbulb"
-      else: []
+      # else: (non fare nulla se non on/off)

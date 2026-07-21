@@ -11,22 +11,19 @@
   mode: queued
   max: 10
   trigger:
-    # Trigger su tutti i log_event WARNING/ERROR, filtriamo in condition
-    - platform: event
-      event_type: "log_event"
+    # Monitora il sensore di log dei wake-up failures
+    - platform: state
+      entity_id: sensor.tenda_roam_wakeup_failures
   condition:
-    # Filtra solo i wake-up failed per luci-cucina (IP 192.168.0.66 / nome luci-cucina)
+    # Esegui solo se il conteggio delle failures aumenta (ignora reset o rotazioni log)
     - condition: template
       value_template: >
-        {{ trigger.event.data.level in ['WARNING', 'ERROR']
-           and 'Wake-up failed' in (trigger.event.data.message | string)
-           and ('192.168.0.66' in (trigger.event.data.message | string)
-                or 'luci-cucina' in (trigger.event.data.message | string)
-                or 'Luci cucina' in (trigger.event.data.message | string)) }}
+        {{ trigger.to_state is not none and trigger.from_state is not none
+           and trigger.to_state.state | int(0) > trigger.from_state.state | int(0) }}
   action:
     - variables:
         # Timestamp evento
-        event_time: "{{ trigger.event.data.asctime | default(now().strftime('%Y-%m-%d %H:%M:%S')) }}"
+        event_time: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
         # Conta failures nelle ultime 2 ore (usando counter persistente)
         failure_count: >
           {% set key = 'tenda_roam_failure_count' %}
@@ -46,6 +43,8 @@
         threshold_failures: 3
         threshold_loss: 5
         threshold_jitter: 50
+        # Messaggio di errore estratto
+        last_log_message: "{{ state_attr('sensor.tenda_roam_wakeup_failures', 'last_message') | default('Nessun dettaglio log disponibile') }}"
     # Incrementa counter
     - service: counter.increment
       target:
@@ -60,15 +59,15 @@
             entity_id: input_datetime.tenda_roam_last_reset
           data:
             datetime: "{{ now().isoformat() }}"
-    # Log dettagliato su HALog2026 (system log)
-    - event: system_log_event
+    # Log dettagliato su HALog2026 (cucina log)
+    - event: cucina_log_event
       event_data:
         level: WARNING
         message: >
           Tenda Roam Watchdog: Wake-up failure #{{
           states('counter.tenda_roam_failures') }} per luci-cucina (192.168.0.66)
           | NetDiag: {{ net_diag }} | Loss: {{ packet_loss }}% | Jitter: {{ jitter }}ms | Lat: {{ latency }}ms
-          | Msg: {{ trigger.event.data.message }}
+          | Msg: {{ last_log_message }}
         action: "tenda_roam"
     # Notifica se supera soglia O rete degradata
     - if:
@@ -79,7 +78,7 @@
             - condition: template
               value_template: "{{ packet_loss > threshold_loss or jitter > threshold_jitter }}"
       then:
-        - event: system_log_event
+        - event: cucina_log_event
           event_data:
             level: ERROR
             message: >

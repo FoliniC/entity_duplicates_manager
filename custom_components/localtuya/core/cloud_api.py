@@ -160,7 +160,6 @@ class TuyaCloudApi:
                     async with session.get(
                         full_url, headers=dict(default_par, **headers)
                     ) as resp:
-                        self._logger.debug("CLOUD API RESP - Status: %s - Body: %s", resp.status, await resp.text())
                         return await resp.json()
 
                 if method == "POST":
@@ -169,7 +168,6 @@ class TuyaCloudApi:
                         headers=dict(default_par, **headers),
                         data=json.dumps(body),
                     ) as resp:
-                        self._logger.debug("CLOUD API RESP - Status: %s - Body: %s", resp.status, await resp.text())
                         return await resp.json()
 
                 if method == "PUT":
@@ -178,7 +176,6 @@ class TuyaCloudApi:
                         headers=dict(default_par, **headers),
                         data=json.dumps(body),
                     ) as resp:
-                        self._logger.debug("CLOUD API RESP - Status: %s - Body: %s", resp.status, await resp.text())
                         return await resp.json()
             except (aiohttp.ClientConnectionError, TimeoutError) as ex:
                 self._logger.debug(f"Failed to send request to tuya cloud: {ex}")
@@ -228,20 +225,9 @@ class TuyaCloudApi:
         if not resp["success"]:
             return f"Error {resp['code']}: {resp['msg']}"
 
-        # Debug: log all devices from cloud
-        self._logger.debug(f"[CLOUD] Raw device list response: {len(resp['result'])} devices")
-        for dev in resp["result"]:
-            dev_id = dev.get("id")
-            name = dev.get("name", "Unknown")
-            online = dev.get("online", None)
-            category = dev.get("category", "")
-            node_id = dev.get("node_id", None)
-            self._logger.debug(f"[CLOUD] Device: {dev_id} | {name} | online={online} | cat={category} | node_id={node_id}")
-
         self.device_list.update({dev["id"]: dev for dev in resp["result"]})
 
         self._last_devices_update = int(time.time())
-        self._logger.debug(f"[CLOUD] Updated device list. Total: {len(self.device_list)} devices")
         return "ok"
 
     async def async_get_devices_dps_query(self):
@@ -300,18 +286,11 @@ class TuyaCloudApi:
 
         return resp["result"], "ok"
 
-    async def async_get_device_functions(
-        self, device_id, force_update: bool = False
-    ) -> dict[str, dict]:
+    async def async_get_device_functions(self, device_id) -> dict[str, dict]:
         """Pull Devices Properties and Specifications to devices_list"""
         cached = device_id in self.cached_device_list
-        if (
-            not force_update
-            and cached
-            and (dps_data := self.cached_device_list[device_id].get("dps_data"))
-        ):
-            if device_id in self.device_list:
-                self.device_list[device_id]["dps_data"] = dps_data
+        if cached and (dps_data := self.cached_device_list[device_id].get("dps_data")):
+            self.device_list[device_id]["dps_data"] = dps_data
             return dps_data
 
         device_data = {}
@@ -338,27 +317,13 @@ class TuyaCloudApi:
             model_data = json.loads(query_model[0]["model"])
             services = model_data.get("services", [{}])[0]
             properties = services.get("properties")
-            
-            def sanitize_unit(s):
-                if isinstance(s, str):
-                    return s.replace("℃", "°C")
-                return s
-
             for dp_data in properties if properties else {}:
-                # Sanitize the typeSpec string that contains the unit
-                type_spec = str(dp_data.get("typeSpec")).replace("'", '"')
-                try:
-                    ts_json = json.loads(type_spec)
-                    if "unit" in ts_json:
-                        ts_json["unit"] = sanitize_unit(ts_json["unit"])
-                    type_spec = json.dumps(ts_json)
-                except:
-                    pass
-                
                 refactored = {
                     "id": dp_data.get("abilityId"),
+                    # "code": dp_data.get("code"),
                     "accessMode": dp_data.get("accessMode"),
-                    "values": type_spec,
+                    # values: json.loads later
+                    "values": str(dp_data.get("typeSpec")).replace("'", '"'),
                 }
                 if str(dp_data["abilityId"]) in device_data:
                     device_data[str(dp_data["abilityId"])].update(refactored)
@@ -366,11 +331,11 @@ class TuyaCloudApi:
                     refactored["code"] = dp_data.get("code")
                     device_data[str(dp_data["abilityId"])] = refactored
 
-        if "28841002" in str(query_props[1]) and device_id in self.device_list:
+        if "28841002" in str(query_props[1]):
             # No permissions This affect auto configure feature.
             self.device_list[device_id]["localtuya_note"] = str(query_props[1])
 
-        if device_data and device_id in self.device_list:
+        if device_data:
             self.device_list[device_id]["dps_data"] = device_data
             self.cached_device_list.update({device_id: self.device_list[device_id]})
 

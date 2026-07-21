@@ -36,6 +36,7 @@ Documentazione della configurazione di rete per l'ambiente Home Assistant.
   - **Satellite 1 (Camera):** Collegamento mesh wireless.
   - **Satellite 2 (Balcone):** Collegamento mesh wireless.
 - **Funzione:** Estensione della copertura Wi-Fi per aree non raggiunte direttamente dal router.
+- **Canale 2.4GHz:** Fisso su **Canale 1** (evita roaming che destabilizza i dispositivi Tuya IoT). Vedi [`tuya_handshake.md`](./tuya_handshake.md#6-ottimizzazione-wi-fi-e-roaming-prevenzione-wake-up-failed-e-heartbeat-timeout) per heartbeat timeout e gestione canali.
 
 ### Dispositivi IoT (Amazon Echo)
 - **alexa-cucina**
@@ -45,7 +46,7 @@ Documentazione della configurazione di rete per l'ambiente Home Assistant.
   - **IP:** `192.168.0.89`
   - **MAC:** `68:f6:3b:99:6b:a3`
 
-## Analisi Impatto Mesh su Alexa
+## Analisi Impatto Mesh e Ottimizzazione Canali (Alexa & Tuya)
 L'integrazione del sistema Tenda Mesh5 e la gestione dei canali su OpenWrt hanno portato alla seguente configurazione ottimizzata:
 
 1.  **Backhaul Ethernet:** La base in cucina collegata via cavo garantisce prestazioni elevate per l'area giorno.
@@ -56,7 +57,10 @@ L'integrazione del sistema Tenda Mesh5 e la gestione dei canali su OpenWrt hanno
 3.  **Ottimizzazione alexa-cucina:**
     *   **Stato:** Agganciata alla base Tenda Mesh (cablata).
     *   **Configurazione:** Inserita in **Blacklist** su OpenWrt (sia 2.4GHz che 5GHz) per forzare il collegamento al sistema Mesh locale e prevenire instabilità dovute a "missing ACKs".
-4.  **Interferenza Canali:** Il router OpenWrt utilizza il **canale 149 (5GHz)** in modalità **VHT80** (fisso), mentre il Tenda Mesh opera sui canali bassi (es. 40), eliminando le sovrapposizioni.
+4.  **Interferenza Canali 5GHz:** Il router OpenWrt utilizza il **canale 149 (5GHz)** in modalità **VHT80** (fisso), mentre il Tenda Mesh opera sui canali bassi (es. 40), eliminando le sovrapposizioni.
+5.  **Interferenza Canali 2.4GHz & Stabilità Tuya:**
+    *   **Configurazione:** Il router OpenWrt è impostato sul **Canale 1 (2.4GHz)** fisso, mentre il sistema Tenda Mesh è impostato sul **Canale 11 (2.4GHz)** fisso per eliminare le sovrapposizioni di banda 2.4GHz.
+    *   **Mitigazione Roaming Tuya:** Il MAC address di `luci-cucina` (`192.168.0.66`) è stato inserito in **Blacklist** sulla 2.4GHz del router OpenWrt. Questo costringe il dispositivo Tuya ad agganciarsi unicamente alla base Tenda Mesh in cucina, prevenendo continue disconnessioni ("Wake-up failed"). Maggiori dettagli in [tuya_handshake.md](file:///home/carlo/docker/homeassistant/config/tuya_handshake.md#L45-L60).
 
 ## Note di Configurazione
 - Il server Debian (`192.168.0.3`) funge da centro di controllo sia per la domotica che per i servizi di rete critici (DNS/DHCP tramite AdGuard).

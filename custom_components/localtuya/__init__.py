@@ -47,9 +47,6 @@ from .discovery import TuyaDiscovery
 
 _LOGGER = logging.getLogger(__name__)
 
-# The integration is configured via config entries (UI). No YAML configuration.
-CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
-
 CONF_DP = "dp"
 CONF_VALUE = "value"
 
@@ -59,6 +56,14 @@ SERVICE_SET_DP_SCHEMA = vol.Schema(
         vol.Required(CONF_DEVICE_ID): cv.string,
         vol.Optional(CONF_DP): int,
         vol.Required(CONF_VALUE): object,
+    }
+)
+
+SERVICE_UPDATE_DPS = "update_dps"
+SERVICE_UPDATE_DPS_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_DEVICE_ID): cv.string,
+        vol.Optional("dps"): list,
     }
 )
 
@@ -100,6 +105,26 @@ async def async_setup(hass: HomeAssistant, config: dict):
             await device.set_dps(value)
         else:
             await device.set_dp(value, event.data[CONF_DP])
+
+    async def _handle_update_dps(event: ServiceCall):
+        """Handle update_dps service call - sends UPDATEDPS (0x12) command."""
+        dev_id = event.data[CONF_DEVICE_ID]
+        entry: ConfigEntry = async_config_entry_by_device_id(hass, dev_id)
+        if not entry or not entry.entry_id:
+            raise HomeAssistantError("unknown device id")
+
+        host = entry.data[CONF_DEVICES][dev_id].get(CONF_HOST)
+        if node_id := entry.data[CONF_DEVICES][dev_id].get(CONF_NODE_ID):
+            host = f"{host}_{node_id}"
+        device: TuyaDevice = hass.data[DOMAIN][entry.entry_id].devices[host]
+        if not device.connected:
+            raise HomeAssistantError("not connected to device")
+
+        dps = event.data.get("dps")
+        try:
+            await device._interface.update_dps(dps=dps, cid=device._node_id)
+        except TimeoutError:
+            pass
 
     def _device_discovered(device: dict):
         """Update address of device if it has changed."""
@@ -151,14 +176,6 @@ async def async_setup(hass: HomeAssistant, config: dict):
                 updated = True
                 new_data[CONF_DEVICES][dev_id][CONF_HOST] = device_ip
                 device_cache[device_id][dev_id] = device_ip
-            elif host == device_ip:
-                if dev_obj := hass_data.devices.get(device_ip):
-                    if not dev_obj.connected and dev_obj._device_config.sleep_time > 0:
-                        _LOGGER.debug(
-                            "Battery device %s discovered with same IP, triggering connection",
-                            device_id,
-                        )
-                        entry.async_create_task(hass, dev_obj.async_connect(is_discovery=True))
 
             if (p_key := dev_entry.get(CONF_PRODUCT_KEY)) and p_key != product_key:
                 updated = True
@@ -181,6 +198,13 @@ async def async_setup(hass: HomeAssistant, config: dict):
 
     hass.services.async_register(
         DOMAIN, SERVICE_SET_DP, _handle_set_dp, schema=SERVICE_SET_DP_SCHEMA
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_UPDATE_DPS,
+        _handle_update_dps,
+        schema=SERVICE_UPDATE_DPS_SCHEMA,
     )
 
     discovery = TuyaDiscovery(_device_discovered)
@@ -321,20 +345,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     no_cloud = entry.data.get(CONF_NO_CLOUD, True)
 
     if no_cloud:
-        # Clear indication that we're running in local-only mode
-        # This could be because user chose local-only OR credentials are not configured
-        cloud_status = "LOCAL-ONLY MODE (Cloud API disabled)"
-        _LOGGER.info(f"{cloud_status}")
-        
-        # Additional context to help users understand the mode
-        if entry.data.get(CONF_CLIENT_ID) or entry.data.get(CONF_CLIENT_SECRET):
-            # Credentials exist but cloud is disabled
-            _LOGGER.info(f"Cloud API credentials found but cloud access is disabled. Integration will work in local discovery mode only.")
-        else:
-            # No credentials at all
-            _LOGGER.info(f"Cloud API account not configured. Integration running in local discovery mode only.")
+        _LOGGER.info(f"Cloud API account not configured.")
     else:
-        _LOGGER.info(f"Cloud API account configured and enabled. Integration will use both local discovery and cloud services.")
         entry.async_create_background_task(
             hass, tuya_api.async_connect(), "localtuya-cloudAPI"
         )

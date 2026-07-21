@@ -40,6 +40,7 @@ from .const import (
     CONF_PASSIVE_ENTITY,
     CONF_RESTORE_ON_RECONNECT,
     CONF_SCALING,
+    CONF_OFFSET,
     DOMAIN,
     RESTORE_STATES,
     DeviceConfig,
@@ -96,8 +97,8 @@ async def async_setup_entry(
                         device,
                         dev_entry,
                         entity_config[CONF_ID],
-                        # we need add_entities_callback in-case we want to add sub-entities, such as electric sensor "phase_a"
-                        add_entities_callback=async_add_entities,
+                        # we need add_entites_callback in-case we want to add sub-entites, such as electric sensor "phase_a"
+                        add_entites_callback=async_add_entities,
                     )
                 )
     # Once the entities have been created, add to the TuyaDevice instance
@@ -145,8 +146,8 @@ class LocalTuyaEntity(RestoreEntity, pytuya.ContextualLogger):
         self._last_state = None
         self._stored_states: State | None = None
         self.hass = device.hass
-        self.component_add_entities: AddEntitiesCallback = kwargs.get(
-            "add_entities_callback"
+        self.componet_add_entities: AddEntitiesCallback = kwargs.get(
+            "add_entites_callback"
         )
         self._loaded = False
 
@@ -352,11 +353,16 @@ class LocalTuyaEntity(RestoreEntity, pytuya.ContextualLogger):
         """
         return 0
 
-    def scale(self, value):
+    def scale(self, value, scale_only=False):
         """Return the scaled factor of the value, else same value."""
         scale_factor = self._config.get(CONF_SCALING)
-        if scale_factor is not None and isinstance(value, (int, float)):
-            value = round(value * scale_factor, 2)
+        offset = self._config.get(CONF_OFFSET)
+        if isinstance(value, (int, float)):
+            if scale_factor is not None:
+                value = value * scale_factor
+            if not scale_only and offset is not None:
+                value = value + offset
+            value = round(value, 2)
 
         return value
 
