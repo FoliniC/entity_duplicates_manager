@@ -1,0 +1,80 @@
+# =============================================================================
+# INTERNET USAGE PERIODIC STATISTICS
+# Monitoraggio traffico internet da un giorno specifico (default: 23 del mese)
+# =============================================================================
+
+command_line:
+  - sensor:
+      name: Internet Usage Periodic
+      unique_id: internet_usage_periodic
+      command: "python3 /config/helpers/monthly_traffic_stats.py"
+      value_template: "{{ value_json.period_total_mb | default(0) }}"
+      json_attributes:
+        - period_by_device
+        - period_start_date
+      scan_interval: 300
+
+input_number:
+  internet_usage_start_day:
+    name: "Giorno inizio periodo traffico"
+    min: 1
+    max: 31
+    step: 1
+    initial: 23
+    mode: box
+    icon: mdi:calendar-start
+
+input_button:
+  reset_period_snapshot:
+    name: "Resetta Statistiche Periodo"
+    icon: mdi:calendar-refresh
+
+shell_command:
+  reset_period_snapshot: >
+    rm -f /config/temp/monthly_traffic_snapshot.json
+  save_usage_start_day: >
+    echo "{{ states('input_number.internet_usage_start_day') | int }}" > /config/temp/usage_start_day.txt
+
+automation:
+  - alias: "Save Internet Usage Start Day"
+    trigger:
+      - platform: state
+        entity_id: input_number.internet_usage_start_day
+      - platform: homeassistant
+        event: start
+    action:
+      - service: shell_command.save_usage_start_day
+
+  - alias: "Reset Period Snapshot"
+    trigger:
+      - platform: state
+        entity_id: input_button.reset_period_snapshot
+    action:
+      - service: shell_command.reset_period_snapshot
+      - service: homeassistant.update_entity
+        target:
+          entity_id:
+            - sensor.internet_usage_periodic
+            - sensor.internet_usage_period_total
+
+template:
+  - sensor:
+      - name: "Internet Usage Period Total"
+        unique_id: internet_usage_period_total
+        state: "{{ states('sensor.internet_usage_periodic') | float(0) }}"
+        unit_of_measurement: "MB"
+        icon: mdi:web
+        state_class: total
+
+      - name: "Internet Usage Period By Device"
+        unique_id: internet_usage_period_by_device
+        state: "{{ states('sensor.internet_usage_period_total') | float(0) }}"
+        unit_of_measurement: "MB"
+        attributes:
+          period_start_date: "{{ state_attr('sensor.internet_usage_periodic', 'period_start_date') | default('N/A') }}"
+          period_by_device: "{{ state_attr('sensor.internet_usage_periodic', 'period_by_device') | default([], true) }}"
+        state_class: total
+
+      - name: "Internet Usage Period Start Date"
+        unique_id: internet_usage_period_start_date
+        state: "{{ state_attr('sensor.internet_usage_periodic', 'period_start_date') | default('N/A', true) }}"

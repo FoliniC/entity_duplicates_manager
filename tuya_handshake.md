@@ -66,8 +66,8 @@ Per i dispositivi Tuya alimentati (es. `luci-cucina` ad IP `192.168.0.66`) e a b
    - *Motivazione*: Forzando tutti i dispositivi Tuya 2.4GHz sul solo Tenda Mesh (canale 1), si elimina la possibilità di roaming spurio verso il router. Ma se il canale 1 è congestionato, il problema heartbeat persiste.
 
 2. **Forzatura del Collegamento (BSSID Binding / MAC Blacklisting)**:
-   - Il MAC del dispositivo `luci-cucina` (`50:8b:b9:44:d0:bb`) è inserito nella **Blacklist 2.4GHz** del router OpenWrt, impedendogli di tentare la connessione.
-   - Altri dispositivi Tuya critici nella stessa subnet (es. `d8:c3`, visto in fallimento auth su phy1-ap0 5GHz) dovrebbero essere aggiunti alla blacklist.
+   - Il MAC del dispositivo `luci-cucina` (`50:8b:b9:44:d0:bb`, IP `192.168.0.66`) e' stato rimosso dalla **Blacklist 2.4GHz** del router OpenWrt. Il dispositivo puo' tentare l'associazione anche all'AP OpenWrt.
+   - La blacklist OpenWrt resta disponibile solo come contromisura da riapplicare se il roaming dovesse causare nuovamente heartbeat timeout.
 
 3. **Heartbeat keepalive persistente**: Il modulo LocalTuya riprova automaticamente la connessione. **Non è una soluzione**, ma contiene il danno.
 

@@ -205,6 +205,59 @@ views:
                     modify: x.total_rx_mb
                 sort_by: Totale (MB)-
 
+              # --- STATISTICA PERIODO PERSONALIZZATO ---
+              - type: markdown
+                content: "## 📅 Utilizzo Periodico (dal {{ states('sensor.internet_usage_period_start_date') | default('23') }})"
+                card_mod:
+                  style: |
+                    ha-card { user-select: text !important; }
+
+              - type: entities
+                title: "⚙️ Impostazioni Periodo"
+                entities:
+                  - entity: input_number.internet_usage_start_day
+                    name: "Giorno inizio (default: 23)"
+                card_mod:
+                  style: |
+                    ha-card { user-select: text !important; }
+
+              - type: sensor
+                entity: sensor.internet_usage_period_total
+                name: "Totale Periodo (MB)"
+                icon: mdi:web
+                card_mod:
+                  style: |
+                    ha-card { user-select: text !important; background: rgba(30, 136, 229, 0.05); }
+
+              - type: custom:flex-table-card
+                entities:
+                  - entity: sensor.internet_usage_periodic
+                card_mod:
+                  style: "ha-card { user-select: text !important; }"
+                columns:
+                  - name: Dispositivo
+                    data: period_by_device
+                    modify: x.name
+                  - name: Consumo (MB)
+                    data: period_by_device
+                    modify: x.period_rx_mb
+                sort_by: Consumo (MB)-
+
+              - type: button
+                name: "Resetta Statistiche Periodo"
+                icon: mdi:calendar-refresh
+                tap_action:
+                  action: perform-action
+                  perform_action: input_button.press
+                  target:
+                    entity_id: input_button.reset_period_snapshot
+                card_mod:
+                  style: |
+                    ha-card {
+                      background: rgba(255, 165, 0, 0.1) !important;
+                      border: 1px solid orange;
+                    }
+
           # --- COLONNA 2 (Destra) ---
           - type: vertical-stack
             cards:
@@ -597,4 +650,3 @@ views:
                         background: rgba(198, 40, 40, 0.08);
                         border: 1px solid #c62828;
                       }
-

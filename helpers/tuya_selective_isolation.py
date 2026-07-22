@@ -24,6 +24,9 @@ CACHE_FILE = CONFIG_DIR / "temp" / "tuya_selective_isolation_cloud_ips.json"
 TABLE = "tuya_block"
 CHAIN = "forward"
 SELECTIVE_MARKER = "tuya-selective"
+POWERED_CLOUD_ALLOW_IPS = [
+    "192.168.0.66",  # luci-cucina: powered Tuya device that needs cloud handshake
+]
 
 TUYA_DOMAINS = [
     "m2.tuyaeu.com",
@@ -223,6 +226,7 @@ def ensure_base() -> None:
     nft(f"add table inet {TABLE}", check=False)
     nft(f"add set inet {TABLE} battery_ips '{{ type ipv4_addr ; }}'", check=False)
     nft(f"add set inet {TABLE} allowed_tuya_cloud '{{ type ipv4_addr ; }}'", check=False)
+    nft(f"add set inet {TABLE} blocked_devices '{{ type ipv4_addr ; }}'", check=False)
     nft(
         f"add chain inet {TABLE} {CHAIN} "
         "'{ type filter hook forward priority -10 ; policy accept ; }'",
@@ -246,7 +250,14 @@ def add_ips_to_set(name: str, ips: list[str]) -> None:
 
 def install_selective_rules() -> None:
     delete_rules_matching(SELECTIVE_MARKER)
+    delete_rules_matching("tuya-block-device")
+    delete_rules_matching("tuya-allow-device-cloud")
     rules = [
+        (
+            f"insert rule inet {TABLE} {CHAIN} "
+            "ip saddr @blocked_devices ip daddr @allowed_tuya_cloud "
+            f'tcp dport {{ 443, 8883, 8886 }} counter accept comment "{SELECTIVE_MARKER}-powered-cloud"'
+        ),
         (
             f"insert rule inet {TABLE} {CHAIN} "
             f"ip saddr @battery_ips "
@@ -278,6 +289,7 @@ def status(args: argparse.Namespace) -> int:
     devices = load_tuya_devices()
     battery = [device for device in devices if device.is_battery_sensor]
     blocked = parse_set_ips(list_set("blocked_ips"))
+    powered = parse_set_ips(list_set("blocked_devices"))
     chain = list_chain()
     domains = list(dict.fromkeys([*TUYA_DOMAINS, *args.domain]))
     resolved = resolve_domains(domains)
@@ -288,6 +300,13 @@ def status(args: argparse.Namespace) -> int:
         full_accept = f"ip saddr {device.host} accept" in chain
         suffix = ", full-accept rule present" if full_accept else ""
         print(f"- {device.host:15} {device.name} ({marker}{suffix})")
+
+    print("\nPowered Tuya devices with selective cloud access:")
+    for ip in POWERED_CLOUD_ALLOW_IPS:
+        marker = "in-policy" if ip in powered else "not-in-policy"
+        allow_rule = f"ip saddr @blocked_devices ip daddr @allowed_tuya_cloud tcp dport {{ 443, 8883, 8886 }}" in chain
+        suffix = ", allow rule present" if allow_rule else ""
+        print(f"- {ip:15} ({marker}{suffix})")
 
     print("\nResolved Tuya cloud endpoints via AdGuard:")
     for domain, ips in resolved.items():
@@ -315,12 +334,14 @@ def apply(args: argparse.Namespace) -> int:
     replace_set("battery_ips", battery_ips)
     replace_set("allowed_tuya_cloud", cloud_ips)
     add_ips_to_set("blocked_ips", battery_ips)
+    add_ips_to_set("blocked_devices", POWERED_CLOUD_ALLOW_IPS)
     removed_accepts: list[int] = []
     if args.strict_battery:
         removed_accepts = delete_plain_accepts_for_ips(battery_ips)
     install_selective_rules()
 
     print(f"Battery sensors in policy: {', '.join(battery_ips)}")
+    print(f"Powered Tuya devices with cloud access: {', '.join(POWERED_CLOUD_ALLOW_IPS)}")
     print(f"Allowed Tuya cloud IPs: {', '.join(cloud_ips)}")
     if removed_accepts:
         print(f"Removed full-accept rules for battery sensors: {removed_accepts}")

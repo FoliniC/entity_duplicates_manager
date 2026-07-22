@@ -32,11 +32,11 @@ def fetch_stats():
     ]
     try:
         raw_output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode('utf-8')
-        clean_output = ""
-        for line in raw_output.splitlines():
-            if not line.startswith("Warning:"):
-                clean_output += line
-        return json.loads(clean_output)
+        json_start = raw_output.find("{")
+        json_end = raw_output.rfind("}")
+        if json_start == -1 or json_end == -1 or json_end < json_start:
+            raise ValueError("Router command did not return JSON")
+        return json.loads(raw_output[json_start:json_end + 1])
     except Exception as e:
         return {"error": str(e)}
 
@@ -123,18 +123,16 @@ def main():
         rx_speed = (rx_delta * 8) / (time_delta * 1024) # kbps
         tx_speed = (tx_delta * 8) / (time_delta * 1024) # kbps
         
-        # Only include if there is some traffic or it's a known device
-        if rx_speed > 0.1 or tx_speed > 0.1 or ip in MANUAL_NAMES:
-            processed.append({
-                "ip": ip,
-                "name": get_hostname(ip, name_cache),
-                "total_rx_mb": round(data["rx"] / (1024*1024), 2),
-                "total_tx_mb": round(data["tx"] / (1024*1024), 2),
-                "rx_kbps": round(rx_speed, 2),
-                "tx_kbps": round(tx_speed, 2)
-            })
+        processed.append({
+            "ip": ip,
+            "name": get_hostname(ip, name_cache),
+            "total_rx_mb": round(data["rx"] / (1024*1024), 2),
+            "total_tx_mb": round(data["tx"] / (1024*1024), 2),
+            "rx_kbps": round(rx_speed, 2),
+            "tx_kbps": round(tx_speed, 2)
+        })
 
-    processed.sort(key=lambda x: x["rx_kbps"] + x["tx_kbps"], reverse=True)
+    processed.sort(key=lambda x: x["total_rx_mb"], reverse=True)
 
     output = {
         "top_consumers": processed[:50], # Increase to top 50
