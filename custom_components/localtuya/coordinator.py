@@ -44,7 +44,7 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-RECONNECT_INTERVAL = timedelta(seconds=15)
+RECONNECT_INTERVAL = timedelta(seconds=5)
 # Subdevice: Offline events before disconnecting the device, around 5 minutes
 MIN_OFFLINE_EVENTS = 5 * 60 // HEARTBEAT_INTERVAL
 
