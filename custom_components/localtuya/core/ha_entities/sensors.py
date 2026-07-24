@@ -586,6 +586,13 @@ SENSORS: dict[str, tuple[LocalTuyaEntity, ...]] = {
             state_class=SensorStateClass.TOTAL_INCREASING,
             custom_configs=localtuya_sensor(UnitOfEnergy.KILO_WATT_HOUR, 0.001),
         ),
+        LocalTuyaEntity(
+            id=DPCode.TEMP_VALUE,
+            name="Temperature",
+            device_class=SensorDeviceClass.TEMPERATURE,
+            state_class=SensorStateClass.MEASUREMENT,
+            custom_configs=localtuya_sensor(UnitOfTemperature.CELSIUS),
+        ),
     ),
     # Luminance Sensor
     # https://developer.tuya.com/en/docs/iot/categoryldcg?id=Kaiuz3n7u69l8
@@ -1215,7 +1222,7 @@ SENSORS: dict[str, tuple[LocalTuyaEntity, ...]] = {
         ## PHASE X Are probably encrypted values. since it duplicated it probably raw dict data.
         LocalTuyaEntity(
             id=DPCode.PHASE_A,
-            name="Phase A",
+            name="Phase C Current",
             entity_category=EntityCategory.DIAGNOSTIC,
         ),
         LocalTuyaEntity(
@@ -1333,6 +1340,13 @@ SENSORS: dict[str, tuple[LocalTuyaEntity, ...]] = {
             name="Direction C",
             icon="mdi:arrow-up-down",
             entity_category=EntityCategory.DIAGNOSTIC,
+        ),
+        LocalTuyaEntity(
+            id=DPCode.TEMP_VALUE,
+            name="Temperature",
+            device_class=SensorDeviceClass.TEMPERATURE,
+            state_class=SensorStateClass.MEASUREMENT,
+            custom_configs=localtuya_sensor(UnitOfTemperature.CELSIUS),
         ),
     ),
     # Robot Vacuum

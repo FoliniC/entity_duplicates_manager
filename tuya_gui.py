@@ -346,10 +346,11 @@ def _build_cloud_conf() -> dict | None:
 
 def _lan_mac_for_ip(ip: str) -> str | None:
     """Best-effort MAC lookup for a local IPv4 address.
-
+    
     Order:
-    1) /proc/net/arp  (fast, no extra deps)
-    2) ``ip neigh show <ip>``  (requires iproute2)
+    1) Query router via SSH (most reliable for containerized HA)
+    2) /proc/net/arp  (fast, no extra deps)
+    3) ``ip neigh show <ip>``  (requires iproute2)
     """
     if not ip or not isinstance(ip, str):
         return None
@@ -357,7 +358,29 @@ def _lan_mac_for_ip(ip: str) -> str | None:
     if not ip:
         return None
 
-    # 1) ARP cache
+    # 1) Query router via SSH - this is the most reliable method for containerized HA
+    try:
+        router_key = "/config/.ssh/router_key"
+        router_ip = "192.168.0.11"
+        # Check ARP table on router
+        cmd = [
+            "ssh",
+            "-i", router_key,
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "UserKnownHostsFile=/dev/null",
+            f"root@{router_ip}",
+            f"ip neigh show {ip}"
+        ]
+        out = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL, timeout=5).strip()
+        if "lladdr" in out:
+            mac = out.split("lladdr", 1)[1].strip().split()[0]
+            mac_n = _extract_mac(mac)
+            if mac_n and mac_n != "00:00:00:00:00:00":
+                return mac_n
+    except Exception:
+        pass
+
+    # 2) ARP cache (fallback)
     try:
         with open("/proc/net/arp", "r", encoding="utf-8") as f:
             lines = f.read().splitlines()
@@ -371,7 +394,7 @@ def _lan_mac_for_ip(ip: str) -> str | None:
     except Exception:
         pass
 
-    # 2) ip neigh
+    # 3) ip neigh (fallback)
     try:
         out = subprocess.check_output(
             ["ip", "neigh", "show", ip], text=True, stderr=subprocess.DEVNULL
@@ -782,6 +805,10 @@ HTML_TEMPLATE = """
             <select id="sort" onchange="updateSort(this.value)">
                 <option value="name">Name</option><option value="ip">IP</option><option value="usage">Usage</option>
             </select>
+            <div style="margin:10px 0;">
+                <label>Search</label>
+                <input type="text" id="deviceSearch" placeholder="Filter devices..." style="width:100%; padding:8px; margin-top:5px; box-sizing:border-box;" oninput="filterDevices()">
+            </div>
             <div class="list" id="deviceList">Loading...</div>
         </div>
         <div class="main" id="details" style="display:none">
@@ -827,6 +854,10 @@ HTML_TEMPLATE = """
             <div style="display:flex; gap:8px; margin-bottom:8px;">
                 <button class="btn-cloud" style="flex:1" onclick="loadUnaddedDevices()">Refresh Unadded</button>
             </div>
+            <div style="margin:8px 0;">
+                <label>Search</label>
+                <input type="text" id="unaddedSearch" placeholder="Filter unadded devices..." style="width:100%; padding:8px; margin-top:5px; box-sizing:border-box;" oninput="filterUnaddedDevices()">
+            </div>
             <div class="list" id="unaddedList">Press "Refresh Unadded"</div>
         </div>
         <div class="main" id="unaddedDetails" style="display:none">
@@ -840,6 +871,59 @@ HTML_TEMPLATE = """
                 </table>
             </div>
             <div class="tech-logs" id="unaddedLogs">Ready.</div>
+        </div>
+    </div>
+
+    <!-- Custom Cloud Command Modal -->
+    <div id="customCommandModal" class="overlay hidden" style="z-index:1000; background:rgba(0,0,0,0.7);">
+        <div style="background:white; max-width:600px; margin:50px auto; padding:20px; border-radius:8px; position:relative;">
+            <button onclick="closeCustomCommandModal()" style="position:absolute; top:10px; right:15px; background:none; border:none; font-size:20px; cursor:pointer; color:#333; z-index:10;">&times;</button>
+            <h3 id="customCmdModalTitle">Custom Tuya Cloud Command</h3>
+            <p style="font-size:12px; color:#666;">Device: <span id="customCmdDeviceName"></span> (ID: <span id="customCmdDeviceId"></span>)</p>
+            <div style="margin:15px 0;">
+                <label>Preset API Calls</label>
+                <select id="customCmdPreset" style="width:100%; padding:8px; margin-top:5px;" onchange="applyPreset(this.value)">
+                    <option value="">-- Select a preset --</option>
+                    <optgroup label="Device Info">
+                        <option value="GET|/v1.0/devices/{device_id}">Get Device Info</option>
+                        <option value="GET|/v1.0/devices/{device_id}/status">Get Device Status</option>
+                        <option value="GET|/v1.0/devices/{device_id}/functions">Get Device Functions</option>
+                        <option value="GET|/v1.0/iot-03/devices/factory-infos?device_ids={device_id}">Get Factory Info (SN, MAC, UUID)</option>
+                    </optgroup>
+                    <optgroup label="Commands">
+                        <option value='POST|/v1.0/devices/{device_id}/commands|{"commands":[{"code":"switch_1","value":true}]}'>Turn ON (switch_1)</option>
+                        <option value='POST|/v1.0/devices/{device_id}/commands|{"commands":[{"code":"switch_1","value":false}]}'>Turn OFF (switch_1)</option>
+                    </optgroup>
+                    <optgroup label="Device Management">
+                        <option value="GET|/v1.0/expand/devices/{device_id}">Expand Device Details (requires subscription)</option>
+                    </optgroup>
+                </select>
+            </div>
+            <div style="margin:15px 0;">
+                <label>HTTP Method</label>
+                <select id="customCmdMethod" style="width:100%; padding:8px; margin-top:5px;">
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                    <option value="DELETE">DELETE</option>
+                </select>
+            </div>
+            <div style="margin:15px 0;">
+                <label>API Path</label>
+                <input type="text" id="customCmdPath" placeholder="/v1.0/expand/devices/{device_id}" style="width:100%; padding:8px; margin-top:5px; box-sizing:border-box;">
+            </div>
+            <div style="margin:15px 0;">
+                <label>Request Body (JSON, for POST/PUT)</label>
+                <textarea id="customCmdBody" rows="5" placeholder='{"commands": [{"code": "switch_1", "value": true}]}' style="width:100%; padding:8px; margin-top:5px; box-sizing:border-box; font-family:monospace; font-size:12px;"></textarea>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn-send" style="flex:1" onclick="sendCustomCloudCommand()">Send Command</button>
+                <button class="btn-refresh" style="flex:1" onclick="closeCustomCommandModal()">Cancel</button>
+            </div>
+            <div style="margin-top:15px;">
+                <label>Response</label>
+                <div id="customCmdResponse" style="background:#f5f5f5; padding:10px; border-radius:4px; font-family:monospace; font-size:11px; max-height:200px; overflow:auto; white-space:pre-wrap;"></div>
+            </div>
         </div>
     </div>
     <script>
@@ -914,6 +998,7 @@ HTML_TEMPLATE = """
                         <div class="item ${selectedId===k?'active':''}" onclick="select(${JSON.stringify(k)})">
                             <strong>${devices[k].friendly_name || k}</strong><br>
                             <small>local: ${(devices[k].local_ip || devices[k].host || 'no local ip')} | cloud: ${(devices[k].cloud_ip || 'no cloud ip')} | mac: ${(devices[k].match_mac || devices[k].mac || '-') }</small>
+                            <button style="float:right; margin-top:-20px; padding:4px 8px; font-size:10px; background:#6f42c1; color:white; border:none; border-radius:3px; cursor:pointer;" onclick="event.stopPropagation(); openCustomCommandModal('${k}')">☁ Custom CMD</button>
                         </div>
                     `).join('');
                 }
@@ -1079,6 +1164,81 @@ HTML_TEMPLATE = """
             finally { overlay.classList.add('hidden'); }
         }
 
+        // Custom Cloud Command Modal Functions
+        function openCustomCommandModal(deviceId) {
+            if(!deviceId && !selectedId) return;
+            const id = deviceId || selectedId;
+            const d = devices[id];
+            document.getElementById('customCmdDeviceName').innerText = d.friendly_name || id;
+            document.getElementById('customCmdDeviceId').innerText = id;
+            document.getElementById('customCmdPreset').value = '';
+            document.getElementById('customCmdPath').value = `/v1.0/expand/devices/${id}`;
+            document.getElementById('customCmdBody').value = JSON.stringify({
+  "commands": [
+    {"code": "switch_1", "value": true}
+  ]
+}, null, 2);
+            document.getElementById('customCmdResponse').innerText = '';
+            document.getElementById('customCommandModal').classList.remove('hidden');
+        }
+
+        function applyPreset(value) {
+            if (!value) return;
+            const parts = value.split('|');
+            const method = parts[0];
+            const path = parts[1];
+            const body = parts[2] || '';
+            
+            document.getElementById('customCmdMethod').value = method;
+            document.getElementById('customCmdPath').value = path.replace('{device_id}', document.getElementById('customCmdDeviceId').innerText);
+            document.getElementById('customCmdBody').value = body;
+        }
+
+        function closeCustomCommandModal() {
+            document.getElementById('customCommandModal').classList.add('hidden');
+        }
+
+        async function sendCustomCloudCommand() {
+            const deviceId = document.getElementById('customCmdDeviceId').innerText;
+            if(!deviceId) return;
+            const method = document.getElementById('customCmdMethod').value;
+            const path = document.getElementById('customCmdPath').value;
+            const bodyText = document.getElementById('customCmdBody').value;
+            const responseDiv = document.getElementById('customCmdResponse');
+            
+            if (!path) {
+                alert('API path is required');
+                return;
+            }
+
+            // Clear response area immediately
+            responseDiv.innerText = '';
+            
+            responseDiv.innerText = 'Sending...';
+            
+            let body = null;
+            if (bodyText && (method === 'POST' || method === 'PUT')) {
+                try {
+                    body = JSON.parse(bodyText);
+                } catch(e) {
+                    responseDiv.innerText = 'Invalid JSON in body: ' + e.message;
+                    return;
+                }
+            }
+
+            try {
+                const r = await fetch(`/api/device/${deviceId}/custom_cloud_request`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ method, path, body })
+                });
+                const data = await r.json();
+                responseDiv.innerText = JSON.stringify(data, null, 2);
+            } catch(e) {
+                responseDiv.innerText = 'Error: ' + e.message;
+            }
+        }
+
         async function discoverByIp() {
             const ipInput = document.getElementById('manualDeviceIp');
             const ip = ipInput.value.trim();
@@ -1230,6 +1390,7 @@ HTML_TEMPLATE = """
                         <strong>${name}${isDup?'<span class="badge badge-warn">DUPLICATE NAME</span>':''}</strong><br>
                         <small>${d.product_name || d.category || '-'} | local: ${localIp} | cloud: ${cloudIp} | mac: ${mac}</small>
                         ${isDup?`<br><small style="color:#856404">${dupNote}</small>`:''}
+                        <button style="float:right; margin-top:-20px; padding:4px 8px; font-size:10px; background:#6f42c1; color:white; border:none; border-radius:3px; cursor:pointer;" onclick="event.stopPropagation(); openCustomCommandModal('${k}')">☁ Custom CMD</button>
                     </div>`;
                 }).join('');
             } catch(e) {
@@ -1276,6 +1437,28 @@ HTML_TEMPLATE = """
                 overlay.classList.add('hidden');
             }
         }
+        // Filter unadded devices
+        function filterUnaddedDevices() {
+            const input = document.getElementById('unaddedSearch');
+            const filter = input.value.toLowerCase();
+            const items = document.querySelectorAll('#unaddedList .item');
+            items.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = text.includes(filter) ? '' : 'none';
+            });
+        }
+
+        // Filter managed devices
+        function filterDevices() {
+            const input = document.getElementById('deviceSearch');
+            const filter = input.value.toLowerCase();
+            const items = document.querySelectorAll('#deviceList .item');
+            items.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = text.includes(filter) ? '' : 'none';
+            });
+        }
+
         init();
     </script>
 </body>
@@ -2316,6 +2499,73 @@ def api_cloud_check(dev_id: str):
     future = asyncio.run_coroutine_threadsafe(_run(), loop)
     try:
         return jsonify(future.result(timeout=20))
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+
+# ---------------------------------------------------------------------------
+# /api/device/<dev_id>/custom_cloud_request  — custom Tuya Cloud API requests
+# ---------------------------------------------------------------------------
+@app.route("/api/device/<dev_id>/custom_cloud_request", methods=["POST"])
+def api_custom_cloud_request(dev_id: str):
+    """Send a custom request to Tuya Cloud API.
+    
+    Expected JSON body:
+    {
+        "method": "GET|POST|PUT|DELETE",
+        "path": "/v1.0/expand/devices/{device_id}",
+        "body": {}  # optional for POST/PUT
+    }
+    """
+    if TuyaCloudApi is None:
+        return jsonify({"error": "LocalTuya cloud dependencies unavailable"}), 503
+    
+    ha_config = get_ha_config()
+    cloud_conf = None
+    for entry in ha_config.get("data", {}).get("entries", []):
+        if entry.get("domain") == "localtuya":
+            cloud_conf = entry.get("data")
+            break
+    if not cloud_conf:
+        return jsonify({"error": "No cloud config"}), 404
+    
+    req = request.json or {}
+    method = req.get("method", "GET").upper()
+    path = req.get("path", "")
+    body = req.get("body")
+    
+    if not path:
+        return jsonify({"error": "path is required"}), 400
+    
+    async def _run():
+        h = ListHandler()
+        cl_logger = logging.getLogger("cloud_api")
+        cl_logger.addHandler(h)
+        cl_logger.setLevel(logging.DEBUG)
+        try:
+            api = TuyaCloudApi(
+                cloud_conf["region"],
+                cloud_conf["client_id"],
+                cloud_conf["client_secret"],
+                cloud_conf["user_id"],
+            )
+            await api.async_connect()
+            
+            # Use the internal async_make_request method
+            result = await api.async_make_request(method, path, body)
+            
+            return {
+                "result": result,
+                "tech_logs": "\\n".join(h.records),
+            }
+        except Exception as e:
+            return {"error": str(e), "tech_logs": "\\n".join(h.records)}
+        finally:
+            cl_logger.removeHandler(h)
+
+    future = asyncio.run_coroutine_threadsafe(_run(), loop)
+    try:
+        return jsonify(future.result(timeout=30))
     except Exception as e:
         return jsonify({"error": str(e)})
 

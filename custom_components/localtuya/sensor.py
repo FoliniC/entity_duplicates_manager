@@ -161,9 +161,9 @@ class LocalTuyaSensor(LocalTuyaEntity, SensorEntity):
             sub_entities.append(sub_entity)
 
         # Sub entities shouldn't have add entities attr.
-        if sub_entities and self.componet_add_entities:
+        if sub_entities and self.component_add_entities:
             self._has_sub_entities = True
-            self.componet_add_entities(sub_entities)
+            self.component_add_entities(sub_entities)
             er.async_get(self.hass).async_update_entity(
                 self.entity_id, hidden_by=er.RegistryEntryHider.INTEGRATION
             )

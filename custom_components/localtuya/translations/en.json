@@ -5,6 +5,8 @@
             "device_updated": "Device configuration has been updated."
         },
         "error": {
+            "auto_configure_progress": "Discovering entities automatically...",
+            "connecting": "Connecting to device and detecting DPS. Please wait...",
             "authentication_failed": "Failed to authenticate.\n{msg}",
             "cannot_connect": "Cannot connect to device. Confirm the IP Address is correct then try again.",
             "device_list_failed": "Failed to retrieve device list.\n{msg}",
@@ -37,6 +39,8 @@
             "no_entities": "Cannot remove all entities from a device.\nIf you want to delete a device: Browse to `Devices & services` menu, search for your device in `Devices` tab, click the 3 dots in the `Device info` frame, and press the `Delete` button."
         },
         "error": {
+            "auto_configure_progress": "Discovering entities automatically...",
+            "connecting": "Connecting to device and detecting DPS. Please wait...",
             "authentication_failed": "Failed to authenticate.\n{msg}",
             "cannot_connect": "Cannot connect to device. Confirm the IP Address is correct then try again.",
             "device_list_failed": "Failed to retrieve device list.\n{msg}",
@@ -58,7 +62,8 @@
                 "menu_options": {
                     "add_device": "Add new device",
                     "edit_device": "Reconfigure existing device",
-                    "configure_cloud": "Manage Cloud API account"
+                    "configure_cloud": "Manage Cloud API account",
+                    "manage_network": "Manage device network"
                 }
             },
             "add_device": {
@@ -88,6 +93,16 @@
                     "no_cloud": "Disable Cloud API?"
                 }
             },
+            "manage_network": {
+                "title": "Manage device network",
+                "description": "Block or unblock internet access for all configured Tuya devices.\n\nCloud status: {cloud_status}",
+                "data": {
+                    "action": {
+                        "block": "Block Internet Access",
+                        "unblock": "Unblock Internet Access"
+                    }
+                }
+            },
             "confirm": {
                 "title": "Confirmation",
                 "description": "{message}"
@@ -109,23 +124,61 @@
                     "manual_dps_strings": "(Optional) Manual DPS's, if not detected automatically (separated by commas)",
                     "reset_dpids": "(Optional) DPIDs to send in RESET command, if device does not respond to status requests after turning on (separated by commas)",
                     "device_sleep_time": "(Optional) Device sleep time in seconds: If the device reports its state, then it goes into sleep",
-                    "export_config": "Save entity configuration as template"
+                    "export_config": "Save entity configuration as template",
+                    "mac_retrieval": "Retrieve MAC address from Tuya Cloud",
+                    "local_ip": "Local IP",
+                    "cloud_ip": "Cloud IP",
+                    "mac": "MAC Address",
+                    "cloud_mac": "Cloud MAC",
+                    "cloud_product_name": "Cloud Product Name",
+                    "cloud_category": "Cloud Category",
+                    "cloud_model": "Cloud Model",
+                    "cloud_uuid": "Cloud UUID",
+                    "cloud_online": "Cloud Online",
+                    "cloud_category": "Cloud Category",
+                    "cloud_product_id": "Cloud Product ID",
+                    "cloud_product_name": "Cloud Product Name",
+                    "cloud_status": "Cloud Status",
+                    "cloud_model": "Cloud Model",
+                    "cloud_uuid": "Cloud UUID",
+                    "cloud_online": "Cloud Online",
+                    "cloud_category": "Cloud Category",
+                    "cloud_product_id": "Cloud Product ID",
+                    "cloud_product_name": "Cloud Product Name",
+                    "cloud_status": "Cloud Status",
+                    "cloud_model": "Cloud Model",
+                    "cloud_uuid": "Cloud UUID",
+                    "cloud_online": "Cloud Online",
+                    "cloud_category": "Cloud Category",
+                    "cloud_product_id": "Cloud Product ID",
+                    "cloud_product_name": "Cloud Product Name",
+                    "cloud_status": "Cloud Status",
+                    "cloud_model": "Cloud Model",
+                    "cloud_uuid": "Cloud UUID",
+                    "cloud_online": "Cloud Online",
+                    "cloud_category": "Cloud Category",
+                    "cloud_product_id": "Cloud Product ID",
+                    "cloud_product_name": "Cloud Product Name",
+                    "cloud_status": "Cloud Status",
+                    "cloud_model": "Cloud Model",
+                    "cloud_uuid": "Cloud UUID",
+                    "cloud_online": "Cloud Online"
                 }
             },
             "device_setup_method": {
                 "title": "Configure device entities",
                 "description": "LocalTuya will try to discover the rest of the configuration automatically. However, if this does not work for your device or you would like to tweak settings, choose the `manual` option.",
                 "menu_options": {
-                    "auto_configure_device":"Discover device entities automatically",
+                    "auto_configure_device": "Discover device entities automatically",
                     "pick_entity_type": "Configure device entities manually",
-                    "choose_template":"Use saved template"
+                    "choose_template": "Use saved template"
                 }
             },
             "auto_configure_device": {
                 "title": "Auto configure",
                 "description": "An error occurred: {err_msg}. If reason isn't showing, check logs.",
                 "menu_options": {
-                    "device_setup_method":"Return to Setup method"
+                    "device_setup_method": "Return to Setup method"
                 }
             },
             "pick_entity_type": {
@@ -134,12 +187,12 @@
                 "data": {
                     "platform_to_add": "Choose entity",
                     "no_additional_entities": "Finish configuring entities",
-                    "use_template" : "Import template file"
+                    "use_template": "Import template file"
                 }
             },
-            "choose_template":{
+            "choose_template": {
                 "title": "Import template file",
-                "description": "Template files are located in the `templates` directory ([More Info](https://github.com/xZetsubou/hass-localtuya/discussions/13)).",
+                "description": "Template files are located in the `templates` directory.",
                 "data": {
                     "templates": "Choose template"
                 }
@@ -164,7 +217,6 @@
                     "device_class": "(Optional) Device Class",
                     "state_class": "(Optional) State Class",
                     "scaling": "(Optional) Scaling Factor",
-                    "offset": "(Optional) Offset",
                     "state_on": "On Values (optionally comma-separated)",
                     "state_off": "Off Value",
                     "powergo_dp": "Power DP (usually 25 or 2)",
@@ -182,7 +234,7 @@
                     "clean_area_dp": "Clean Area DP (usually 32)",
                     "clean_record_dp": "Clean Record DP (usually 34)",
                     "locate_dp": "Locate DP (usually 31)",
-                    "pause_dp":"Pause DP",
+                    "pause_dp": "Pause DP",
                     "paused_state": "Pause state (pause, paused, etc)",
                     "stop_status": "Stop status",
                     "brightness": "Brightness (only for white color)",
@@ -203,7 +255,7 @@
                     "fan_speed_min": "minimum fan speed integer",
                     "fan_speed_max": "maximum fan speed integer",
                     "fan_speed_ordered_list": "Fan speed list (overrides speed min/max), separate entries by comma ','",
-                    "fan_direction":"Fan Direction DP",
+                    "fan_direction": "Fan Direction DP",
                     "fan_direction_forward": "Forward DP string",
                     "fan_direction_reverse": "Reverse DP string",
                     "fan_dps_type": "DP value type",
@@ -240,13 +292,13 @@
                     "min_humidity": "Set the minimum supported humidity",
                     "max_humidity": "Set the maximum supported humidity",
                     "alarm_supported_states": "States supported by the device",
-                    "receive_dp":"Receiving signals DP. (default is 202)",
-                    "key_study_dp":"(Optional) Key Study DP (usually 7)",
-                    "lock_state_dp":"(Optional) Lock state DP",
-                    "jammed_dp":"(Optional) Jam DP",
-                    "target_temperature_high_dp":"(Optional) Target Temperature High DP",
-                    "target_temperature_low_dp":"(Optional) Target Temperature Low DP",
-                    "color_mode_set":"Supported modes set (Leave as default if you aren't sure)",
+                    "receive_dp": "Receiving signals DP. (default is 202)",
+                    "key_study_dp": "(Optional) Key Study DP (usually 7)",
+                    "lock_state_dp": "(Optional) Lock state DP",
+                    "jammed_dp": "(Optional) Jam DP",
+                    "target_temperature_high_dp": "(Optional) Target Temperature High DP",
+                    "target_temperature_low_dp": "(Optional) Target Temperature Low DP",
+                    "color_mode_set": "Supported modes set (Leave as default if you aren't sure)",
                     "reset_timer": "(Optional) Interval timer to reset state to off",
                     "swing_mode_dp": "(Optional) Vertical swing DP",
                     "swing_modes": "(Optional) Available Vertical swing options",
@@ -254,18 +306,18 @@
                     "swing_horizontal_modes": "(Optional) Available horizontal swing options"
                 },
                 "data_description": {
-                    "hvac_mode_set":"Each line represents [ hvac_mode: device_value ] [Supported HVAC Modes](https://developers.home-assistant.io/docs/core/entity/climate/#hvac-modes)",
-                    "hvac_action_set":"Each line represents [ hvac_action: device_value ] [Supported HVAC Actions](https://developers.home-assistant.io/docs/core/entity/climate/#hvac-action)",
-                    "preset_set":"Each line represents [ device_value: friendly name ]",
-                    "scene_values":"Each line represents [ device_value: friendly name ]",
-                    "select_options":"Each line represents [ device_value: friendly name ]",
-                    "swing_modes":"Each line represents [ device_value: friendly name ]",
-                    "swing_horizontal_modes":"Each line represents [ device_value: friendly name ]",
-                    "alarm_supported_states":"Each line represents [ supported state: device value ] [Supported States](https://developers.home-assistant.io/docs/core/entity/alarm-control-panel/#states)",
-                    "humidifier_available_modes":"Each line represents [ device_value: friendly name ]",
-                    "fan_speed_list":"Each line represents [ device_value: friendly name ]",
-                    "device_class": "Find out more about [Device Classes](https://www.home-assistant.io/integrations/homeassistant/#device-class)",
-                    "state_class": "Find out more about [State Classes](https://developers.home-assistant.io/docs/core/entity/sensor/#available-state-classes)"
+                    "hvac_mode_set": "Each line represents [ hvac_mode: device_value ].",
+                    "hvac_action_set": "Each line represents [ hvac_action: device_value ].",
+                    "preset_set": "Each line represents [ device_value: friendly name ]",
+                    "scene_values": "Each line represents [ device_value: friendly name ]",
+                    "select_options": "Each line represents [ device_value: friendly name ]",
+                    "swing_modes": "Each line represents [ device_value: friendly name ]",
+                    "swing_horizontal_modes": "Each line represents [ device_value: friendly name ]",
+                    "alarm_supported_states": "Each line represents [ supported state: device value ].",
+                    "humidifier_available_modes": "Each line represents [ device_value: friendly name ]",
+                    "fan_speed_list": "Each line represents [ device_value: friendly name ]",
+                    "device_class": "Device class for this entity.",
+                    "state_class": "State class for this sensor entity."
                 }
             }
         }

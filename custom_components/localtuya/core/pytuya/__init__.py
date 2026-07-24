@@ -693,7 +693,7 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
     def clean_up_session(self):
         """Clean up session."""
         self.debug(f"Cleaning up session.")
-        self.local_key = self.real_local_key
+        self.real_local_key = self.local_key
 
         if self.heartbeater:
             self.heartbeater.cancel()
@@ -762,6 +762,8 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
             self.debug("3.4 or 3.5 device: negotiating a new session key")
             if not await self._negotiate_session_key():
                 return self.clean_up_session()
+                # v1.0.23 Fix: Force status update to warm up session
+                await self.detect_available_dps()
 
         self.debug(
             "Sending command %s (device type: %s) DPS: %s", command, self.dev_type, dps
@@ -912,8 +914,9 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
             elif not cid and "parent" in data:
                 self.dps_cache.update({"parent": data["parent"]})
 
-            if self.dev_type == "type_0a" and not cid:
-                return self.dps_cache.get("parent", {})
+            # v1.0.28 Fix: Force full DP scan for all device types
+            # if self.dev_type == "type_0a" and not cid:
+                # return self.dps_cache.get("parent", {})
 
         return self.dps_cache.get(cid or "parent", {})
 
@@ -1028,7 +1031,6 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
         self.local_key = self.real_local_key
         self.dispatcher.local_key = self.real_local_key
 
-        rkey = None
         try:
             rkey = await self.exchange_quick(
                 MessagePayload(CMDType.SESS_KEY_NEG_START, self.local_nonce), 2

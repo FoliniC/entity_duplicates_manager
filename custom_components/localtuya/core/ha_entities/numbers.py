@@ -909,14 +909,14 @@ NUMBERS: dict[str, tuple[LocalTuyaEntity, ...]] = {
         ),
         LocalTuyaEntity(
             id=DPCode.ENERGY_B_CALIBRATION_FWD,
-            name="Energy B Calibrations",
+            name="Energy A Calibrations",
             custom_configs=localtuya_numbers(800, 1200),
             icon="mdi:lightning-bolt-outline",
             entity_category=EntityCategory.CONFIG,
         ),
         LocalTuyaEntity(
             id=DPCode.ENERGY_C_CALIBRATION_FWD,
-            name="Energy C Calibrations",
+            name="Energy A Calibrations",
             custom_configs=localtuya_numbers(800, 1200),
             icon="mdi:lightning-bolt-outline",
             entity_category=EntityCategory.CONFIG,

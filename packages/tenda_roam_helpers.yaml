@@ -5,7 +5,7 @@ command_line:
   - sensor:
       name: Tenda Roam Wakeup Failures
       unique_id: tenda_roam_wakeup_failures
-      command: 'LOG_FILE="/config/home-assistant.log"; if [ -f "$LOG_FILE" ]; then cnt=$(grep -c "Wake-up failed for 192.168.0.66" "$LOG_FILE" || echo 0); msg=$(grep "Wake-up failed for 192.168.0.66" "$LOG_FILE" | tail -n 1 | sed "s/\"/\\\\\"/g"); else cnt=0; msg=""; fi; echo "{\"count\": $cnt, \"last_message\": \"$msg\"}"'
+      command: "python3 /config/helpers/tenda_roam_wakeup_failures.py"
       value_template: "{{ value_json.count }}"
       json_attributes:
         - last_message

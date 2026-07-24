@@ -37,10 +37,10 @@ from .const import (
     CONF_DEFAULT_VALUE,
     CONF_ID,
     CONF_NODE_ID,
+    CONF_OFFSET,
     CONF_PASSIVE_ENTITY,
     CONF_RESTORE_ON_RECONNECT,
     CONF_SCALING,
-    CONF_OFFSET,
     DOMAIN,
     RESTORE_STATES,
     DeviceConfig,
@@ -97,8 +97,8 @@ async def async_setup_entry(
                         device,
                         dev_entry,
                         entity_config[CONF_ID],
-                        # we need add_entites_callback in-case we want to add sub-entites, such as electric sensor "phase_a"
-                        add_entites_callback=async_add_entities,
+                        # we need add_entities_callback in-case we want to add sub-entities, such as electric sensor "phase_a"
+                        add_entities_callback=async_add_entities,
                     )
                 )
     # Once the entities have been created, add to the TuyaDevice instance
@@ -146,8 +146,8 @@ class LocalTuyaEntity(RestoreEntity, pytuya.ContextualLogger):
         self._last_state = None
         self._stored_states: State | None = None
         self.hass = device.hass
-        self.componet_add_entities: AddEntitiesCallback = kwargs.get(
-            "add_entites_callback"
+        self.component_add_entities: AddEntitiesCallback = kwargs.get(
+            "add_entities_callback"
         )
         self._loaded = False
 
@@ -212,7 +212,7 @@ class LocalTuyaEntity(RestoreEntity, pytuya.ContextualLogger):
         self.debug(f"Entity {self.name} - Additional attributes: {attributes}")
         return attributes
 
-    @property
+@property
     def device_info(self):
         """Return device information for the device registry."""
         device_config = self._device_config
@@ -224,6 +224,36 @@ class LocalTuyaEntity(RestoreEntity, pytuya.ContextualLogger):
             model=f"{device_config.model} ({device_config.id})",
             sw_version=device_config.protocol_version,
         )
+        # Add MAC address if available
+        device_dict = device_config.device_config if hasattr(device_config, 'device_config') else {}
+        mac = device_dict.get('mac') or device_dict.get('cloud_mac')
+        if mac:
+            device_info["connections"] = {("mac", mac)}
+        # Add local IP
+        if hasattr(device_config, 'host') and device_config.host:
+            device_info["configuration_url"] = f"http://{device_config.host}"
+        # Add cloud info
+        if hasattr(device_config, 'cloud_ip') and device_config.cloud_ip:
+            device_info["suggested_area"] = f"Cloud IP: {device_config.cloud_ip}"
+        # Add cloud MAC if available
+        cloud_mac = device_dict.get('cloud_mac')
+        if cloud_mac:
+            device_info["connections"] = {("mac", cloud_mac)}
+        # Add cloud product info
+        if device_dict.get('cloud_product_name'):
+            device_info["model"] = f"{device_config.model} ({device_config.id}) - {device_dict.get('cloud_product_name')}"
+        # Add cloud status
+        cloud_online = device_dict.get('cloud_online')
+        if cloud_online is not None:
+            device_info["suggested_area"] = f"Cloud: {'Online' if cloud_online else 'Offline'}"
+        # Add cloud MAC if available
+        cloud_mac = device_dict.get('cloud_mac')
+        if cloud_mac:
+            device_info["connections"] = {("mac", cloud_mac)}
+        # Add local IP as suggested area
+        if hasattr(device_config, 'host') and device_config.host:
+            device_info["suggested_area"] = f"Local IP: {device_config.host}"
+
         if self._device.is_subdevice and self._device.id != self._device.gateway.id:
             device_info[ATTR_VIA_DEVICE] = (DOMAIN, f"local_{self._device.gateway.id}")
         return device_info

@@ -551,7 +551,7 @@ class LocalTuyaLight(LocalTuyaEntity, LightEntity):
                     states[self._config.get(CONF_SCENE)] = scene
             elif effect in self._modes.as_list():
                 color_mode = effect
-            elif effect == SCENE_MUSIC:
+            elif effect == self._modes.music:
                 color_mode = self._modes.music
 
         if ATTR_BRIGHTNESS in kwargs and (

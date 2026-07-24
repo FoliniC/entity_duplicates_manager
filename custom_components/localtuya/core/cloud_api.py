@@ -120,7 +120,11 @@ class TuyaCloudApi:
 
         payload += method + "\n"
         # Content-SHA256
-        payload += hashlib.sha256(bytes((body or "").encode("utf-8"))).hexdigest()
+        if body is not None:
+            body_str = json.dumps(body)
+        else:
+            body_str = ""
+        payload += hashlib.sha256(body_str.encode("utf-8")).hexdigest()
         payload += (
             "\n"
             + "".join(
@@ -160,22 +164,25 @@ class TuyaCloudApi:
                     async with session.get(
                         full_url, headers=dict(default_par, **headers)
                     ) as resp:
+                        self._logger.debug("CLOUD API RESP - Status: %s - Body: %s", resp.status, await resp.text())
                         return await resp.json()
 
                 if method == "POST":
                     async with session.post(
                         full_url,
-                        headers=dict(default_par, **headers),
+                        headers=dict(default_par, **headers, **{"Content-Type": "application/json"}),
                         data=json.dumps(body),
                     ) as resp:
+                        self._logger.debug("CLOUD API RESP - Status: %s - Body: %s", resp.status, await resp.text())
                         return await resp.json()
 
                 if method == "PUT":
                     async with session.put(
                         full_url,
-                        headers=dict(default_par, **headers),
+                        headers=dict(default_par, **headers, **{"Content-Type": "application/json"}),
                         data=json.dumps(body),
                     ) as resp:
+                        self._logger.debug("CLOUD API RESP - Status: %s - Body: %s", resp.status, await resp.text())
                         return await resp.json()
             except (aiohttp.ClientConnectionError, TimeoutError) as ex:
                 self._logger.debug(f"Failed to send request to tuya cloud: {ex}")
@@ -224,6 +231,12 @@ class TuyaCloudApi:
 
         if not resp["success"]:
             return f"Error {resp['code']}: {resp['msg']}"
+
+        # DEBUG: Log full cloud response
+        self._logger.error(f"[CLOUD-DEBUG] Full device list response: {resp['result']}")
+        self._logger.error(f"[CLOUD-DEBUG] Number of devices from cloud: {len(resp['result'])}")
+        for dev in resp['result']:
+            self._logger.error(f"[CLOUD-DEBUG] Device: id={dev.get('id')}, name={dev.get('name')}, online={dev.get('online')}, category={dev.get('category')}, product_id={dev.get('product_id')}, product_name={dev.get('product_name')}")
 
         self.device_list.update({dev["id"]: dev for dev in resp["result"]})
 
@@ -340,6 +353,31 @@ class TuyaCloudApi:
             self.cached_device_list.update({device_id: self.device_list[device_id]})
 
         return device_data
+
+    async def async_get_device_factory_info(self, device_id) -> dict | None:
+        """Get factory info (MAC, SN, UUID) for a device."""
+        if not (
+            resp := await self.async_make_request(
+                "GET", url=f"/v1.0/iot-03/devices/factory-infos?device_ids={device_id}"
+            )
+        ):
+            self._logger.debug(f"Failed to get factory info for {device_id}")
+            return None
+
+        if not resp.get("success"):
+            self._logger.debug(f"Failed to get factory info for {device_id}: {resp}")
+            return None
+
+        result = resp.get("result", [])
+        if not result:
+            return None
+
+        device_info = result[0]
+        return {
+            "mac": device_info.get("mac"),
+            "sn": device_info.get("sn"),
+            "uuid": device_info.get("uuid"),
+        }
 
     async def async_connect(self):
         """Connect to cloudAPI"""
