@@ -522,6 +522,8 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         await cloud_api.async_get_devices_list(force_update=True)
 
         cloud_devs = cloud_api.device_list
+        # Retrieve MAC addresses for all devices if enabled globally
+        await self._retrieve_mac_for_all_devices()
         if dev_id in cloud_devs:
             cloud_localkey = cloud_devs[dev_id].get(CONF_LOCAL_KEY)
             if not cloud_localkey or self.local_key == cloud_localkey:
@@ -558,7 +560,13 @@ class TuyaDevice(TuyaListener, ContextualLogger):
 
     async def _retrieve_mac_address(self, dev_id: str):
         """Retrieve MAC address from Tuya Cloud Factory Info API."""
+        # Check global config entry setting
         if not self._entry.data.get(CONF_MAC_RETRIEVAL, False):
+            return
+
+        # Check if MAC is already retrieved for this device
+        device_config = self._entry.data.get(CONF_DEVICES, {}).get(dev_id, {})
+        if device_config.get(CONF_MAC):
             return
 
         try:
@@ -574,6 +582,48 @@ class TuyaDevice(TuyaListener, ContextualLogger):
                     self.info(f"MAC address retrieved: {mac}")
         except Exception as e:
             self.info(f"Failed to retrieve MAC address: {e}")
+
+    async def _retrieve_mac_for_all_devices(self):
+        """Retrieve MAC addresses for all devices that don't have one yet."""
+        # Check global config entry setting
+        if not self._entry.data.get(CONF_MAC_RETRIEVAL, False):
+            return
+
+        try:
+            cloud_api = self._hass_entry.cloud_data
+            devices = self._entry.data.get(CONF_DEVICES, {})
+            
+            # Find devices without MAC
+            devices_without_mac = [
+                dev_id for dev_id, dev_config in devices.items()
+                if not dev_config.get(CONF_MAC)
+            ]
+            
+            if not devices_without_mac:
+                return
+            
+            # Get factory info for all devices at once
+            device_ids = ",".join(devices_without_mac)
+            factory_info = await cloud_api.async_get_device_factory_info(device_ids)
+            
+            if factory_info and "result" in factory_info and factory_info["result"]:
+                new_data = self._entry.data.copy()
+                updated = False
+                
+                for device_info in factory_info["result"]:
+                    dev_id = device_info.get("id") or device_info.get("device_id")
+                    mac = device_info.get("mac")
+                    
+                    if dev_id and mac and mac != "00:00:00:00:00:00" and dev_id in new_data[CONF_DEVICES]:
+                        new_data[CONF_DEVICES][dev_id][CONF_MAC] = mac
+                        updated = True
+                        self.info(f"MAC address retrieved for {dev_id}: {mac}")
+                
+                if updated:
+                    new_data[ATTR_UPDATED_AT] = str(int(time.time() * 1000))
+                    self.hass.config_entries.async_update_entry(self._entry, data=new_data)
+        except Exception as e:
+            self.info(f"Failed to retrieve MAC addresses: {e}")
 
     def filter_subdevices(self):
         """Remove closed subdevices that are closed."""

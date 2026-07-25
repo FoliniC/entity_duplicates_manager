@@ -175,6 +175,13 @@ async def async_setup(hass: HomeAssistant, config: dict):
         DOMAIN, SERVICE_SET_DP, _handle_set_dp, schema=SERVICE_SET_DP_SCHEMA
     )
 
+    hass.services.async_register(
+        DOMAIN, "refresh_mac", _handle_refresh_mac,
+        schema=vol.Schema({
+            vol.Required(CONF_DEVICE_ID): cv.string,
+        })
+    )
+
     discovery = TuyaDiscovery(_device_discovered)
     try:
         await discovery.start()
@@ -397,6 +404,17 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def update_listener(hass: HomeAssistant, config_entry: ConfigEntry):
     """Update listener."""
+    # Check if MAC retrieval was enabled and trigger it for all devices
+    old_data = config_entry.data
+    # The entry has already been updated with new data at this point
+    # We can check if mac_retrieval was enabled
+    if config_entry.data.get(CONF_MAC_RETRIEVAL, False):
+        hass_data = hass.data[DOMAIN].get(config_entry.entry_id)
+        if hass_data:
+            for device in hass_data.devices.values():
+                if hasattr(device, '_retrieve_mac_for_all_devices'):
+                    await device._retrieve_mac_for_all_devices()
+    
     await hass.config_entries.async_reload(config_entry.entry_id)
 
 
@@ -496,6 +514,59 @@ def _run_async_listen(hass: HomeAssistant, entry: ConfigEntry):
     return hass.bus.async_listen(
         dr.EVENT_DEVICE_REGISTRY_UPDATED, device_state_changed, _event_filter
     )
+
+
+async def _handle_refresh_mac(call: ServiceCall) -> None:
+    """Handle the refresh_mac service call to manually trigger MAC address retrieval."""
+    device_id = call.data[CONF_DEVICE_ID]
+    _LOGGER.debug("Manual MAC refresh requested for device %s", device_id)
+
+    # Find the config entry for this device
+    entry = async_config_entry_by_device_id(hass, device_id)
+    if not entry:
+        _LOGGER.error("Device %s not found in any LocalTuya config entry", device_id)
+        raise HomeAssistantError(f"Device {device_id} not found in LocalTuya integration")
+
+    # Get the coordinator data
+    hass_data = hass.data[DOMAIN].get(entry.entry_id)
+    if not hass_data:
+        _LOGGER.error("LocalTuya data not found for entry %s", entry.entry_id)
+        raise HomeAssistantError(f"LocalTuya data not found for entry {entry.entry_id}")
+
+    # Get the device config
+    device_config = entry.data.get(CONF_DEVICES, {}).get(device_id)
+    if not device_config:
+        _LOGGER.error("Device %s not found in config entry %s", device_id, entry.entry_id)
+        raise HomeAssistantError(f"Device {device_id} not found in config entry {entry.entry_id}")
+
+    # Check if MAC retrieval is enabled at config entry level
+    if not entry.data.get(CONF_MAC_RETRIEVAL, False):
+        _LOGGER.warning("MAC retrieval not enabled in LocalTuya configuration")
+        raise HomeAssistantError("MAC retrieval not enabled. Enable 'Retrieve MAC address from Tuya Cloud' in LocalTuya cloud configuration.")
+
+    # Get the device from hass_data
+    host = device_config.get(CONF_HOST)
+    if not host:
+        _LOGGER.error("Device %s has no host configured", device_id)
+        raise HomeAssistantError(f"Device {device_id} has no host configured")
+
+    # Find the device in the coordinator
+    device = None
+    for key, dev in hass.data[DOMAIN][entry.entry_id].devices.items():
+        if dev._device_config.id == device_id:
+            device = dev
+            break
+
+    if not device:
+        _LOGGER.error("Device %s not found in coordinator", device_id)
+        raise HomeAssistantError(f"Device {device_id} not found in coordinator")
+
+    # Trigger MAC retrieval
+    _LOGGER.info("Manual MAC address retrieval triggered for device %s", device_id)
+    await device._retrieve_mac_address(device._device_config.id)
+
+    # Reload the config entry to refresh the UI
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 def _device_id_by_identifiers(identifiers: set[tuple[str, str]]):

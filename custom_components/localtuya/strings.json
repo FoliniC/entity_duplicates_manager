@@ -47,27 +47,8 @@
                     "cloud_model": "Cloud Model",
                     "cloud_uuid": "Cloud UUID",
                     "cloud_online": "Cloud Online",
-                    "cloud_category": "Cloud Category",
                     "cloud_product_id": "Cloud Product ID",
-                    "cloud_product_name": "Cloud Product Name",
-                    "cloud_status": "Cloud Status",
-                    "cloud_model": "Cloud Model",
-                    "cloud_uuid": "Cloud UUID",
-                    "cloud_online": "Cloud Online",
-                    "cloud_category": "Cloud Category",
-                    "cloud_product_id": "Cloud Product ID",
-                    "cloud_product_name": "Cloud Product Name",
-                    "cloud_status": "Cloud Status",
-                    "cloud_model": "Cloud Model",
-                    "cloud_uuid": "Cloud UUID",
-                    "cloud_online": "Cloud Online",
-                    "cloud_category": "Cloud Category",
-                    "cloud_product_id": "Cloud Product ID",
-                    "cloud_product_name": "Cloud Product Name",
-                    "cloud_status": "Cloud Status",
-                    "cloud_model": "Cloud Model",
-                    "cloud_uuid": "Cloud UUID",
-                    "cloud_online": "Cloud Online"
+                    "cloud_status": "Cloud Status"
                 }
             },
             "connecting": {
@@ -86,6 +67,37 @@
                     "edit_device": "Edit a device",
                     "configure_cloud": "Manage Cloud API account",
                     "manage_network": "Manage device network"
+                }
+            },
+            "configure_device": {
+                "title": "Configuring device connectivity (FIXED)",
+                "description": "Validating connection...",
+                "data": {
+                    "friendly_name": "Device Name",
+                    "host": "IP Address",
+                    "device_id": "Device ID",
+                    "local_key": "Local Key",
+                    "protocol_version": "Protocol Version",
+                    "enable_debug": "Enable debug",
+                    "scan_interval": "Scan interval (seconds)",
+                    "manual_dps_strings": "Manual DPS strings",
+                    "reset_dpids": "Reset DPIDs",
+                    "device_sleep_time": "Device sleep time",
+                    "node_id": "Node ID (Sub-device)",
+                    "local_ip": "Local IP",
+                    "cloud_ip": "Cloud IP",
+                    "mac": "MAC Address",
+                    "cloud_mac": "Cloud MAC",
+                    "cloud_product_name": "Cloud Product Name",
+                    "cloud_category": "Cloud Category",
+                    "cloud_model": "Cloud Model",
+                    "cloud_uuid": "Cloud UUID",
+                    "cloud_online": "Cloud Online",
+                    "cloud_product_id": "Cloud Product ID",
+                    "cloud_status": "Cloud Status"
+                },
+                "actions": {
+                    "retrieve_mac_now": "Retrieve MAC Now"
                 }
             }
         }

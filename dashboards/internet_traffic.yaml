@@ -503,13 +503,37 @@ views:
                 card_mod:
                   style: "ha-card { margin: 4px 0; border: none; background: none; }"
 
-              # Toggle principale
+              # Toggle principale - 3 bottoni: normale, server, intranet
               - type: horizontal-stack
                 cards:
                   - type: button
-                    name: "ATTIVA TETHERING"
-                    icon: mdi:usb-port
+                    name: "🔄 Normale"
+                    icon: mdi:router-wireless
                     tap_action:
+                      action: perform-action
+                      perform_action: shell_command.usb_tether_restore
+                    card_mod:
+                      style: |
+                        ha-card {
+                          {% if not is_state('sensor.usb_tether_status', 'active') %}
+                            background: #2e7d32 !important;
+                          {% else %}
+                            background: #455a64 !important;
+                          {% endif %}
+                          --mdc-theme-primary: white;
+                        }
+
+                  - type: button
+                    name: "📱 Server"
+                    icon: mdi:server
+                    tap_action:
+                      action: perform-action
+                      perform_action: input_select.select_option
+                      target:
+                        entity_id: input_select.usb_tether_mode
+                      data:
+                        option: server
+                    hold_action:
                       action: perform-action
                       perform_action: switch.turn_on
                       target:
@@ -517,28 +541,54 @@ views:
                     card_mod:
                       style: |
                         ha-card {
-                          {% if is_state('switch.usb_tether', 'on') %}
-                            background: #2e7d32 !important;
-                            --mdc-theme-primary: white;
-                          {% else %}
+                          {% set m = state_attr('sensor.usb_tether_status', 'mode') | default('') %}
+                          {% if is_state('sensor.usb_tether_status', 'active') and (m == 'server' or m == '' or m == none) %}
                             background: #1e88e5 !important;
-                            --mdc-theme-primary: white;
+                          {% else %}
+                            background: #455a64 !important;
                           {% endif %}
+                          --mdc-theme-primary: white;
                         }
+
                   - type: button
-                    name: "RIPRISTINA ORA"
-                    icon: mdi:restore
+                    name: "🌐 Intranet"
+                    icon: mdi:wan
                     tap_action:
                       action: perform-action
-                      perform_action: switch.turn_off
+                      perform_action: input_select.select_option
+                      target:
+                        entity_id: input_select.usb_tether_mode
+                      data:
+                        option: intranet
+                    hold_action:
+                      action: perform-action
+                      perform_action: switch.turn_on
                       target:
                         entity_id: switch.usb_tether
                     card_mod:
                       style: |
                         ha-card {
-                          background: #c62828 !important;
+                          {% if is_state('sensor.usb_tether_status', 'active') and state_attr('sensor.usb_tether_status', 'mode') == 'intranet' %}
+                            background: #e65100 !important;
+                          {% else %}
+                            background: #455a64 !important;
+                          {% endif %}
                           --mdc-theme-primary: white;
                         }
+
+              # Bottone ripristino rapido (sempre visibile)
+              - type: button
+                name: "⛔ RIPRISTINA TUTTO (Normale)"
+                icon: mdi:restore
+                tap_action:
+                  action: perform-action
+                  perform_action: shell_command.usb_tether_restore
+                card_mod:
+                  style: |
+                    ha-card {
+                      background: #c62828 !important;
+                      --mdc-theme-primary: white;
+                    }
 
               # Configurazione durata
               - type: entities
@@ -561,6 +611,8 @@ views:
                 entities:
                   - entity: sensor.usb_tether_descrizione
                     name: "Stato"
+                  - entity: input_select.usb_tether_mode
+                    name: "Modalità"
                   - entity: sensor.usb_tether_status
                     name: "Interfaccia telefono"
                     attribute: phone_if
@@ -607,25 +659,68 @@ views:
                 content: >
                   ## 📋 Come usarlo
 
-                  1. Sul telefono: attiva **Tethering USB** (Impostazioni → Rete).
-                  2. Collega il telefono via **cavo USB** al server Debian.
-                  3. Qui: premi **ATTIVA TETHERING**.
-                  4. Dal tuo accesso SSH / VS Code sul server, lancia:
-                     ```
-                     sudo apt update && sudo apt upgrade
-                     ```
-                     *(il traffico esce dal telefono)*
-                  5. Al termine: premi **RIPRISTINA ORA**, oppure aspetta il
-                     countdown (ripristino automatico garantito).
 
-                  ---
+                  **Seleziona modalità:**
 
-                  **Cosa continua a funzionare** durante il tethering: Cloudflare,
-                  AdGuard (DNS/DHCP), Home Assistant. Il DNS upstream esce dal telefono
-                  (overhead trascurabile); il DHCP è traffico LAN locale.
 
-                  **Sicurezza**: lo swap di route è *non persistente*. Un riavvio del
-                  server o lo scadere del timer riportano tutto alla normalità.
+                  | Bottone | Cosa fa |
+                  |---|---|
+                  | 🔄 Normale | Ripristina tutto: server torna via router, WAN router riattivata |
+                  | 📱 Server | Solo il server usa USB tethering (LAN resta via router) |
+                  | 🌐 Intranet | TUTTA la LAN passa via server (WAN router disattivata) |
+
+
+                  **Tap** = seleziona modalità, **Tieni premuto** = attiva.
+
+
+                  1. Sul telefono: attiva **Tethering USB**.
+                  2. Collega il cavo USB al server.
+                  3. Seleziona modalità e tieni premuto per attivare.
+                  4. Per disattivare: premi **Normale**.
+                card_mod:
+                  style: "ha-card { user-select: text !important; }"
+
+              # Grafico di rete
+              - type: markdown
+                content: >
+                  ## Architettura di Rete
+
+
+                  ```
+                      +------------------------------------+
+                      |             INTERNET                |
+                      +----+----------------------+---------+
+                           |                      |
+                       +---v----+            +----v----+
+                       | Router |WAN fallback| Telefono|
+                       |OpenWrt |<---------->|   USB   |
+                       |192.168.0.11 metric 30| (giga) |
+                       +---+----+            +----^----+
+                           | LAN (192.168.0.0/24)   |
+                           |                         |
+                       +---v-------+            +----v----+
+                       | Server    |            | USB     |
+                       | HA + AdG  |<-----------+ Tether  |
+                       |192.168.0.3|            |10.22..45|
+                       +---+-------+            +---------+
+                           |
+                           |
+                       +---v-------+
+                       | LAN       |
+                       | Desktop   |
+                       | Alexa ... |
+                       +-----------+
+                  ```
+
+
+                  **Flusso traffico (modalita'):**
+
+
+                  | Modalita | Percorso |
+                  |---|---|
+                  | Normale | LAN -> Router -> WAN (usb0) |
+                  | Server | Server -> USB telefono; LAN -> Router -> WAN |
+                  | Intranet | LAN -> Router -> Server -> USB telefono -> Internet |
                 card_mod:
                   style: "ha-card { user-select: text !important; }"
 

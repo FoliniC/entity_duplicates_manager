@@ -44,7 +44,11 @@ async def async_setup_entry(
     sensors = []
     for sensor in SENSOR_ENTITIES:
         sensor_def = cast(dict[str, Any], sensor)
-        if coordinator.api.data[sensor_def["key"]] is not None:
+        # .get(): a key can be legitimately absent from api.data — the production
+        # validity gate withholds the calculated energy sensors until the device
+        # reports valid production data (energia_prodotta >= energia_immessa).
+        # Direct subscripting crashed the whole platform setup in that state.
+        if coordinator.api.data.get(sensor_def["key"]) is not None:
             sensors.append(
                 SinapsiAlfaSensor(
                     coordinator,
@@ -188,8 +192,13 @@ class SinapsiAlfaSensor(CoordinatorEntity[SinapsiAlfaCoordinator], RestoreSensor
         meter reset and double-count:
 
         - Guard 1 (lifetime sensors, normal operation): when a live HA state exists,
-          a value below it is discarded. Daily F1-F6 sensors are excluded so their
-          legitimate midnight reset is allowed through.
+          a value below it is replaced by that state's value (hold-last-good). Daily
+          F1-F6 sensors are excluded so their legitimate midnight reset is allowed
+          through. Holding — rather than returning None — matters twice over:
+          publishing None flips the state to "unknown", which disables this guard on
+          the very next poll (no live state → a persistently decreased value would
+          get through), and it lets RestoreSensor snapshot a non-numeric value,
+          losing the cold-restart baseline Guard 2 depends on.
         - Guard 2 (all accumulating sensors, post-cold-restart): while no live state
           exists yet, a value below the restored baseline is discarded — covering the
           device warm-up window after an HA restart.
@@ -209,20 +218,26 @@ class SinapsiAlfaSensor(CoordinatorEntity[SinapsiAlfaCoordinator], RestoreSensor
             )
 
             # Guard 1: lifetime sensors must never decrease during normal operation.
+            # Hold the last published value instead of returning None: any decrease
+            # reaching the recorder — even a float artifact billionths below the
+            # stored state — is treated as a meter reset and over-counts, while an
+            # "unknown" gap disables this guard on the next poll and breaks the
+            # RestoreSensor baseline.
             if self._is_lifetime_sensor and has_live_state:
                 try:
-                    if value < float(current_state.state):
-                        log_debug(
-                            _LOGGER,
-                            "native_value",
-                            "Discarding decreased lifetime value",
-                            sensor=self._key,
-                            value=value,
-                            current=current_state.state,
-                        )
-                        return None
-                except (ValueError, TypeError):
-                    pass  # Current state not numeric — allow through.
+                    current_value = float(current_state.state)
+                except ValueError, TypeError:
+                    current_value = None  # Current state not numeric — allow through.
+                if current_value is not None and value < current_value:
+                    log_debug(
+                        _LOGGER,
+                        "native_value",
+                        "Holding last value over decreased lifetime value",
+                        sensor=self._key,
+                        value=value,
+                        current=current_state.state,
+                    )
+                    return current_value
 
             # Guard 2: after a cold restart, block values below the restored baseline.
             if (

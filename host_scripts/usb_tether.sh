@@ -6,6 +6,9 @@
 # verso un telefono collegato in USB tethering, mantenendo intatta la LAN.
 # Pensato per aggiornamenti software (apt) pagati con i giga del cellulare.
 #
+# Estensione: abilita NAT/forwarding per traffico router (192.168.0.11) via server
+# quando il tethering è attivo. Il router usa la route metric 30 come fallback.
+#
 # Modello di sicurezza:
 #   - Lo swap di route e' NON persistente (modifica runtime, niente config NM).
 #   - Lo stato vive in /run (tmpfs): al reboot tutto torna normale (auto-heal).
@@ -14,7 +17,7 @@
 #
 # Uso (via sudo):
 #   usb_tether.sh detect               -> stampa IFACE|GW o riga vuota
-#   usb_tether.sh activate <max_min>   -> attiva route + watcher (default 30')
+#   usb_tether.sh activate <max_min> [intranet|server] -> attiva route + watcher (default 30')
 #   usb_tether.sh restore              -> ripristina (idempotente, sicura a idle)
 #   usb_tether.sh status               -> JSON stato (active/idle/error)
 #   usb_tether.sh _watch <expire_at>   -> interno: loop del watcher
@@ -27,7 +30,9 @@ STATE_FILE="/run/usb_tether_state"
 PID_FILE="/run/usb_tether_watcher.pid"
 LAN_NET="192.168.0.0/24"
 LAN_IF="enp2s0"                       # interfaccia LAN del server
-# Pattern di interfacce da ESCLUDERE nella ricerca del telefono.
+ROUTER_IP="192.168.0.11"              # IP router OpenWrt (sorgente traffico da NATare)
+ROUTER_SSH_KEY="/home/carlo/docker/homeassistant/config/.ssh/router_key"
+ROUTER_ROUTE_METRIC=30                # metric della route sul router (dopo wan=10, wwan=20)
 # Pattern di interfacce da ESCLUDERE nella ricerca del telefono.
 # Le veth hanno suffisso @ifN (es. vethabc123@if2) che va gestito.
 EXCLUDE_RE='^(lo|docker[0-9]*|br-[a-f0-9]+|veth[a-f0-9]+(@.*)?|zt[a-z0-9]+|tun[0-9]*|enp2s0|sit[0-9]*|ip6tnl[0-9]*|wlan[0-9]+)$'
@@ -42,6 +47,82 @@ json_escape() {
     s="${s//\\/\\\\}"
     s="${s//\"/\\\"}"
     printf '%s' "$s"
+}
+
+# --- SSH Router ---
+# Esegue comando SSH sul router OpenWrt (non interattivo, timeout breve).
+router_ssh() {
+    ssh -i "$ROUTER_SSH_KEY" \
+        -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+        -o ConnectTimeout=5 -o BatchMode=yes \
+        root@"$ROUTER_IP" "$@" 2>/dev/null
+}
+
+# Aggiunge/rimuove la route di default sul router via server (metric 30).
+router_add_fallback_route() {
+    router_ssh "ip route replace default via 192.168.0.3 dev br-lan metric $ROUTER_ROUTE_METRIC" \
+        && echo "Route fallback aggiunta sul router (metric $ROUTER_ROUTE_METRIC)." \
+        || echo "WARN: impossibile aggiungere route fallback sul router." >&2
+}
+
+router_del_fallback_route() {
+    router_ssh "ip route del default via 192.168.0.3 dev br-lan metric $ROUTER_ROUTE_METRIC 2>/dev/null; true" \
+        && echo "Route fallback rimossa dal router." \
+        || echo "WARN: impossibile rimuovere route fallback dal router (forse gia assente)." >&2
+}
+
+# Toglie/ripristina la WAN primaria del router (usb0) per forzare tutto il traffico via server.
+router_wan_down() {
+    router_ssh "ip route del default via 10.175.108.144 dev usb0 metric 10 2>/dev/null; true" \
+        && echo "WAN router disattivata (route usb0 rimossa)." \
+        || echo "WARN: WAN router gia assente o errore." >&2
+}
+
+router_wan_up() {
+    router_ssh "ip route replace default via 10.175.108.144 dev usb0 metric 10 2>/dev/null; true" \
+        && echo "WAN router riattivata (route usb0 ripristinata)." \
+        || echo "WARN: impossibile ripristinare WAN router." >&2
+}
+
+# --- NAT/Forwarding per traffico LAN router -> telefono ---
+# Abilita IP forwarding e MASQUERADE per tutto il traffico LAN (192.168.0.0/24)
+# che arriva al server e deve uscire dall'interfaccia telefono.
+# NOTA: il router NON fa NAT su br-lan (interfaccia LAN), quindi i pacchetti
+# arrivano al server con IP originale dei dispositivi (es. 192.168.0.8).
+# MASQUERADE copre tutto il subnet LAN, non solo l'IP del router.
+enable_nat_router() {
+    local phone_if="$1"
+    # 1) Abilita forwarding (idempotente).
+    sysctl -w net.ipv4.ip_forward=1 >/dev/null
+    # 2) MASQUERADE per TUTTO il traffico LAN diretto al telefono.
+    #    Usa commento per renderla identificabile/rimovibile.
+    iptables -t nat -C POSTROUTING -s "$LAN_NET" -o "$phone_if" \
+        -m comment --comment "usb_tether_router_nat" -j MASQUERADE 2>/dev/null \
+        || iptables -t nat -A POSTROUTING -s "$LAN_NET" -o "$phone_if" \
+            -m comment --comment "usb_tether_router_nat" -j MASQUERADE
+    # 3) Forwarding esplicito per tutto il subnet LAN (policy default potrebbe essere DROP).
+    iptables -C FORWARD -s "$LAN_NET" -o "$phone_if" \
+        -m comment --comment "usb_tether_router_fwd" -j ACCEPT 2>/dev/null \
+        || iptables -A FORWARD -s "$LAN_NET" -o "$phone_if" \
+            -m comment --comment "usb_tether_router_fwd" -j ACCEPT
+    iptables -C FORWARD -d "$LAN_NET" -i "$phone_if" \
+        -m comment --comment "usb_tether_router_fwd" -j ACCEPT 2>/dev/null \
+        || iptables -A FORWARD -d "$LAN_NET" -i "$phone_if" \
+            -m comment --comment "usb_tether_router_fwd" -j ACCEPT
+    # 4) Aggiungi default route sul router via server (metric alta = fallback).
+    router_add_fallback_route
+    echo "NAT/forwarding per LAN abilitato su $phone_if."
+}
+
+disable_nat_router() {
+    local phone_if="$1"
+    # 1) Rimuovi regole iptables (per commento, indipendente da interfaccia attuale).
+    iptables -t nat -D POSTROUTING -m comment --comment "usb_tether_router_nat" -j MASQUERADE 2>/dev/null || true
+    iptables -D FORWARD -m comment --comment "usb_tether_router_fwd" -j ACCEPT 2>/dev/null || true
+    # 2) Rimuovi route default sul router via server.
+    router_del_fallback_route
+    # 3) Non disabilitiamo ip_forward globalmente (potrebbe servire ad altro).
+    echo "NAT/forwarding per router disabilitato."
 }
 
 # Restituisce il gateway di default attuale (metrica minore, escluso telefono).
@@ -191,8 +272,10 @@ cmd_detect() {
 
 # --- activate ---------------------------------------------------------------
 # Salva stato, aggiunge default route (metric 50) e lancia il watcher.
+# Se il secondo argomento e' "intranet", disabilita anche la WAN del router
+# per dirottare tutto il traffico LAN via server.
 cmd_activate() {
-    local max_min="${1:-30}"
+    local max_min="${1:-30}" mode="${2:-server}"
     # Validazione durata.
     case "$max_min" in
         ''|*[!0-9]*) max_min=30 ;;
@@ -200,12 +283,12 @@ cmd_activate() {
     [ "$max_min" -lt 1 ] 2>/dev/null && max_min=1
     [ "$max_min" -gt 480 ] 2>/dev/null && max_min=480
 
-    # Già attivo? Rifiuta (evita doppi swap). Ha senso solo se lo stato e' coerente.
+    # Gia' attivo? Rifiuta (evita doppi swap). Ha senso solo se lo stato e' coerente.
     if [ -f "$STATE_FILE" ]; then
         local cur_state
         cur_state=$(grep -E '^state=' "$STATE_FILE" 2>/dev/null | cut -d= -f2-)
         if [ "$cur_state" = "active" ]; then
-            echo "GIÀ ATTIVO: usa 'restore' prima di riattivare." >&2
+            echo "GIA ATTIVO: usa 'restore' prima di riattivare." >&2
             return 1
         fi
     fi
@@ -229,7 +312,7 @@ cmd_activate() {
     now=$(now_epoch)
     expire=$((now + max_min * 60))
 
-    # Aggiungi la default route via telefono con metrica PIÙ BASSA (vince).
+    # Aggiungi la default route via telefono con metrica PIU BASSA (vince).
     # Non tocchiamo la route LAN esistente: resta a metric 100.
     if ! ip route add default via "$gw" dev "$iface" metric 50 2>/dev/null; then
         # Se esiste gia' una route identica, sostituiscila.
@@ -239,9 +322,22 @@ cmd_activate() {
         }
     fi
 
-    # Salva stato.
+    # Abilita NAT/forwarding per traffico router -> telefono.
+    enable_nat_router "$iface"
+
+    # Se modalita' "intranet", disabilita anche la WAN del router,
+    # cosi' tutto il traffico LAN passa forzatamente via server.
+    local intranet_mode="false"
+    if [ "$mode" = "intranet" ]; then
+        router_wan_down
+        intranet_mode="true"
+        echo "Modalita' INTRANET: WAN router disattivata, traffico LAN forzato via $iface."
+    fi
+
+    # Salva stato (include la modalita' per ripristino corretto).
     {
         echo "state=active"
+        echo "mode=$mode"
         echo "phone_if=$iface"
         echo "phone_gw=$gw"
         echo "lan_gw=$lan_gw"
@@ -258,7 +354,7 @@ cmd_activate() {
     setsid bash "$0" _watch "$expire" >/dev/null 2>&1 < /dev/null &
     echo $! > "$PID_FILE"
 
-    echo "OK attivato: $iface via $gw per ${max_min} min (LAN via $lan_gw preservata)."
+    echo "OK attivato: $iface via $gw per ${max_min} min (modalita $mode)."
     return 0
 }
 
@@ -295,6 +391,12 @@ cmd_restore() {
         tear_down_iface "$phone_if"
     fi
 
+    # Disabilita NAT/forwarding per traffico router.
+    disable_nat_router "$phone_if"
+
+    # Ripristina la WAN del router (sempre, per sicurezza).
+    router_wan_up
+
     rm -f "$STATE_FILE"
     echo "OK ripristinato: default route tornata alla LAN."
     return 0
@@ -321,12 +423,13 @@ cmd_watch() {
 # --- status -----------------------------------------------------------------
 # Stampa JSON con stato + attributi. E' la fonte di verita' per HA.
 cmd_status() {
-    local state="idle" phone_if="" phone_gw="" lan_gw="" active_since="" remaining_min=0 auto_expire="false" message="Inattivo"
+    local state="idle" mode="server" phone_if="" phone_gw="" lan_gw="" active_since="" remaining_min=0 auto_expire="false" message="Inattivo"
     local now
     now=$(now_epoch)
 
     if [ -f "$STATE_FILE" ]; then
         state=$(grep -E '^state=' "$STATE_FILE" | cut -d= -f2-)
+        mode=$(grep -E '^mode=' "$STATE_FILE" | cut -d= -f2-)
         phone_if=$(grep -E '^phone_if=' "$STATE_FILE" | cut -d= -f2-)
         phone_gw=$(grep -E '^phone_gw=' "$STATE_FILE" | cut -d= -f2-)
         lan_gw=$(grep -E '^lan_gw=' "$STATE_FILE" | cut -d= -f2-)
@@ -357,7 +460,7 @@ cmd_status() {
     fi
 
     cat <<EOF
-{"state":"$state","phone_if":"$(json_escape "$phone_if")","phone_gw":"$(json_escape "$phone_gw")","lan_gw":"$(json_escape "$lan_gw")","active_since":"$(json_escape "$since_human")","remaining_min":$remaining_min,"auto_expire":$auto_expire,"message":"$(json_escape "$message")"}
+{"state":"$state","mode":"$mode","phone_if":"$(json_escape "$phone_if")","phone_gw":"$(json_escape "$phone_gw")","lan_gw":"$(json_escape "$lan_gw")","active_since":"$(json_escape "$since_human")","remaining_min":$remaining_min,"auto_expire":$auto_expire,"message":"$(json_escape "$message")"}
 EOF
 }
 
@@ -430,7 +533,7 @@ case "${1:-status}" in
     diagnose) cmd_diagnose ;;
     _watch)   shift; cmd_watch "$@" ;;
     *)
-        echo "Uso: $0 {detect|activate [max_min]|restore|status|diagnose}" >&2
+        echo "Uso: $0 {detect|activate [max_min] [intranet|server]|restore|status|diagnose}" >&2
         exit 64
         ;;
 esac

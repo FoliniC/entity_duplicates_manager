@@ -79,6 +79,7 @@ from .const import (
     CONF_TUYA_IP,
     CONF_TUYA_VERSION,
     CONF_USER_ID,
+    CONF_MAC,
     DATA_DISCOVERY,
     DEFAULT_CATEGORIES,
     DOMAIN,
@@ -389,6 +390,7 @@ CLOUD_CONFIGURE_SCHEMA = vol.Schema(
         vol.Optional(CONF_USER_ID): cv.string,
         vol.Optional(CONF_USERNAME, default=DOMAIN): cv.string,
         vol.Required(CONF_NO_CLOUD, default=False): bool,
+        vol.Optional(CONF_MAC_RETRIEVAL, default=False): bool,
     }
 )
 
@@ -407,7 +409,6 @@ DEVICE_SCHEMA = vol.Schema(
         vol.Optional(CONF_RESET_DPIDS): str,
         vol.Optional(CONF_DEVICE_SLEEP_TIME): int,
         vol.Optional(CONF_NODE_ID, default=None): vol.Any(None, cv.string),
-        vol.Optional(CONF_MAC_RETRIEVAL, default=False): bool,
         # Read-only info fields
         vol.Optional("local_ip"): cv.string,
         vol.Optional("cloud_ip"): cv.string,
@@ -491,7 +492,7 @@ class LocaltuyaConfigFlow(ConfigFlow, domain=DOMAIN):
             return self.async_show_progress_done(next_step_id="device_setup_method")
 
         except Exception as ex:
-            _LOGGER.error(f"[TUYA-DEBUG] Validation task failed: {ex}")
+            _LOGGER.debug(f"[TUYA-DEBUG] Validation task failed: {ex}")
             if hasattr(self, "_validate_task"):
                 delattr(self, "_validate_task")
             return self.async_show_form(
@@ -530,7 +531,7 @@ class LocaltuyaConfigFlow(ConfigFlow, domain=DOMAIN):
                 delattr(self, "_auto_config_task")
             return res
         except Exception as e:
-            _LOGGER.error(f"Auto-discovery task failed: {e}")
+            _LOGGER.warning(f"Auto-discovery task failed: {e}")
             if hasattr(self, "_auto_config_task"):
                 delattr(self, "_auto_config_task")
             return self.async_abort(reason="unknown")
@@ -548,7 +549,7 @@ class LocaltuyaConfigFlow(ConfigFlow, domain=DOMAIN):
         try:
             cloud_funcs = await self.cloud_data.async_get_device_functions(dev_id)
         except Exception as ex:
-            _LOGGER.error("[AUTO-CONFIG] Failed to fetch cloud functions for %s: %s", dev_id, ex)
+            _LOGGER.warning("[AUTO-CONFIG] Failed to fetch cloud functions for %s: %s", dev_id, ex)
             cloud_funcs = {}
 
         if cloud_funcs:
@@ -620,7 +621,7 @@ class LocaltuyaConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
                 return self.async_abort(reason="no_entities")
         except Exception as e:
-            _LOGGER.error(f"Auto-discovery logic error: {e}")
+            _LOGGER.warning(f"Auto-discovery logic error: {e}")
             raise e
 
     def __init__(self):
@@ -629,8 +630,8 @@ class LocaltuyaConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input=None):
         """Handle the initial step."""
-        _LOGGER.error(f"[TRACER] async_step_user called. Input: {_redact_log_input(user_input)}")
-        _LOGGER.error(f"[TRACER] Current language: {self.hass.config.language}")
+        _LOGGER.debug("async_step_user called")
+        _LOGGER.debug(f"Current language: {self.hass.config.language}")
         errors = {}
         placeholders = {}
         if user_input is not None:
@@ -738,7 +739,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             return self.async_show_progress_done(next_step_id="device_setup_method")
 
         except Exception as ex:
-            _LOGGER.error(f"[TUYA-DEBUG] Validation task failed: {ex}")
+            _LOGGER.debug(f"[TUYA-DEBUG] Validation task failed: {ex}")
             if hasattr(self, "_validate_task"):
                 delattr(self, "_validate_task")
             return self.async_show_form(
@@ -777,7 +778,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 delattr(self, "_auto_config_task")
             return res
         except Exception as e:
-            _LOGGER.error(f"Auto-discovery task failed: {e}")
+            _LOGGER.warning(f"Auto-discovery task failed: {e}")
             if hasattr(self, "_auto_config_task"):
                 delattr(self, "_auto_config_task")
             return self.async_abort(reason="unknown")
@@ -796,7 +797,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         try:
             cloud_funcs = await self.cloud_data.async_get_device_functions(dev_id)
         except Exception as ex:
-            _LOGGER.error("[AUTO-CONFIG] Failed to fetch cloud functions for %s: %s", dev_id, ex)
+            _LOGGER.warning("[AUTO-CONFIG] Failed to fetch cloud functions for %s: %s", dev_id, ex)
             cloud_funcs = {}
 
         if cloud_funcs:
@@ -851,7 +852,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             else:
                 return self.async_abort(reason="no_entities")
         except Exception as e:
-            _LOGGER.error(f"Auto-discovery logic error: {e}")
+            _LOGGER.warning(f"Auto-discovery logic error: {e}")
             raise e
 
     @property
@@ -859,7 +860,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         return self.localtuya_data.cloud_data
 
     async def async_step_init(self, user_input=None):
-        _LOGGER.error(f"[TRACER] async_step_init called. Input: {_redact_log_input(user_input)}")
+        _LOGGER.debug("async_step_init called")
         """Manage basic options."""
         configure_menu = CONFIGURE_MENU.copy()
         # Remove Reconfigure existing device option if there is no existed devices.
@@ -872,7 +873,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         return self.async_show_menu(step_id="init", menu_options=configure_menu)
 
     async def async_step_configure_cloud(self, user_input=None):
-        _LOGGER.error(f"[TRACER] async_step_configure_cloud called. Input: {_redact_log_input(user_input)}")
+        _LOGGER.debug("async_step_configure_cloud called")
         """Handle the initial step."""
         errors = {}
         placeholders = {}
@@ -891,13 +892,23 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             if not res:
                 new_data = self.config_entry.data.copy()
                 new_data.update(user_input)
+                # Save mac_retrieval setting at config entry level
+                if CONF_MAC_RETRIEVAL in user_input:
+                    new_data[CONF_MAC_RETRIEVAL] = user_input[CONF_MAC_RETRIEVAL]
                 cloud_devs = cloud_api.device_list
                 for dev_id, dev in new_data[CONF_DEVICES].items():
                     if CONF_MODEL not in dev and dev_id in cloud_devs:
                         model = cloud_devs[dev_id].get(CONF_PRODUCT_NAME)
                         new_data[CONF_DEVICES][dev_id][CONF_MODEL] = model
 
-                return self._update_entry(new_data, new_title=username)
+                # Update entry first, then trigger MAC retrieval if enabled
+                self._update_entry(new_data, new_title=username)
+                
+                # Trigger MAC retrieval for all devices if enabled
+                if new_data.get(CONF_MAC_RETRIEVAL, False):
+                    await self._trigger_mac_retrieval(cloud_api, new_data)
+
+                return self.async_create_entry(title="", data={})
 
             errors["base"] = res["reason"]
             placeholders = {"msg": res["msg"]}
@@ -912,6 +923,42 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             errors=errors,
             description_placeholders=placeholders,
         )
+
+    async def _trigger_mac_retrieval(self, cloud_api, entry_data):
+        """Trigger MAC retrieval for all devices without MAC."""
+        if not entry_data.get(CONF_MAC_RETRIEVAL, False):
+            return
+
+        devices = entry_data.get(CONF_DEVICES, {})
+        devices_without_mac = [
+            dev_id for dev_id, dev_config in devices.items()
+            if not dev_config.get(CONF_MAC)
+        ]
+
+        if not devices_without_mac:
+            return
+
+        try:
+            # Call factory info API for all devices at once
+            device_ids = ",".join(devices_without_mac)
+            factory_info = await cloud_api.async_get_device_factory_info(device_ids)
+            
+            if factory_info and "result" in factory_info and factory_info["result"]:
+                new_data = entry_data.copy()
+                updated = False
+                for device_info in factory_info["result"]:
+                    dev_id = device_info.get("id") or device_info.get("device_id")
+                    mac = device_info.get("mac")
+                    if dev_id and mac and mac != "00:00:00:00:00:00" and dev_id in new_data[CONF_DEVICES]:
+                        new_data[CONF_DEVICES][dev_id][CONF_MAC] = mac
+                        updated = True
+                        _LOGGER.info(f"MAC address retrieved for {dev_id}: {mac}")
+                
+                if updated:
+                    new_data[ATTR_UPDATED_AT] = str(int(time.time() * 1000))
+                    self.hass.config_entries.async_update_entry(self.config_entry, data=new_data)
+        except Exception as e:
+            _LOGGER.warning(f"Failed to retrieve MAC addresses: {e}")
 
     async def async_step_manage_network(self, user_input=None):
         """Manage network blocking for Tuya devices."""
@@ -1000,7 +1047,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             return False, str(e)
 
     async def async_step_add_device(self, user_input=None):
-        _LOGGER.error(f"[TRACER] async_step_add_device called. Input: {_redact_log_input(user_input)}")
+        _LOGGER.debug("async_step_add_device called")
         """Handle adding a new device."""
         # Use cache if available or fallback to manual discovery
         self.editing_device = False
@@ -1118,24 +1165,74 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         return await self.async_step_configure_device()
 
     async def async_step_edit_device(self, user_input=None):
-        _LOGGER.error(f"[TRACER] async_step_edit_device called. Input: {_redact_log_input(user_input)}")
+        _LOGGER.debug("async_step_edit_device called, user_input=%s", user_input)
         """Handle editing a device."""
         self.editing_device = True
         # Use cache if available or fallback to manual discovery
         errors = {}
         if user_input is not None:
             self.selected_device = user_input[SELECTED_DEVICE]
+            _LOGGER.debug("Selected device for edit: %s", self.selected_device)
             dev_conf = self.config_entry.data[CONF_DEVICES][self.selected_device]
             self.dps_strings = dev_conf.get(CONF_DPS_STRINGS, gen_dps_strings())
             self.entities = dev_conf[CONF_ENTITIES]
+            # Ensure discovered_devices is populated for local IP lookup
+            if not self.discovered_devices:
+                data = self.hass.data.get(DOMAIN)
+                if data and DATA_DISCOVERY in data:
+                    self.discovered_devices = data[DATA_DISCOVERY].devices
+                    _LOGGER.debug("Using cached discovered_devices: %s", list(self.discovered_devices.keys()))
+                else:
+                    self.discovered_devices, _ = await discover_devices()
+                    _LOGGER.debug("Discovered devices via fresh discovery: %s", list(self.discovered_devices.keys()))
+            
+            # Auto-retrieve MAC if enabled and device doesn't have one
+            if self.config_entry.data.get(CONF_MAC_RETRIEVAL, False):
+                if not dev_conf.get(CONF_MAC):
+                    _LOGGER.info("Auto-retrieving MAC for device %s", self.selected_device)
+                    try:
+                        cloud_api = self.cloud_data
+                        factory_info = await cloud_api.async_get_device_factory_info(self.selected_device)
+                        if factory_info and factory_info.get("result"):
+                            mac = factory_info["result"][0].get("mac")
+                            if mac and mac != "00:00:00:00:00:00":
+                                new_data = self.config_entry.data.copy()
+                                new_data[CONF_DEVICES][self.selected_device][CONF_MAC] = mac
+                                new_data[ATTR_UPDATED_AT] = str(int(time.time() * 1000))
+                                self.hass.config_entries.async_update_entry(self.config_entry, data=new_data)
+                                _LOGGER.info("Auto-retrieved MAC address for %s: %s", self.selected_device, mac)
+                                # Refresh dev_conf with new MAC
+                                dev_conf = new_data[CONF_DEVICES][self.selected_device]
+                    except Exception as e:
+                        _LOGGER.warning("Failed to auto-retrieve MAC for %s: %s", self.selected_device, e)
+            
             return await self.async_step_configure_device()
 
+        # Build devices dict using actual discovery data for correct IP display
         devices = {}
+        # First, get the real discovered devices
+        discovery_data = self.hass.data.get(DOMAIN)
+        if discovery_data and DATA_DISCOVERY in discovery_data:
+            real_discovered = discovery_data[DATA_DISCOVERY].devices
+        else:
+            real_discovered, _ = await discover_devices()
+        
+        _LOGGER.debug("Real discovered devices: %s", {k: v.get(CONF_TUYA_IP) for k, v in real_discovered.items()})
+        
         for dev_id, configured_dev in self.config_entry.data[CONF_DEVICES].items():
             if configured_dev.get(CONF_NODE_ID, None):
                 devices[dev_id] = "Sub Device"
             else:
-                devices[dev_id] = configured_dev[CONF_HOST]
+                # Use discovered local IP if available, fallback to stored host
+                if dev_id in real_discovered and real_discovered[dev_id].get(CONF_TUYA_IP):
+                    display_host = real_discovered[dev_id][CONF_TUYA_IP]
+                    _LOGGER.debug("Device %s: using discovered local IP %s", dev_id, display_host)
+                else:
+                    display_host = configured_dev[CONF_HOST]
+                    _LOGGER.debug("Device %s: using stored host %s", dev_id, display_host)
+                devices[dev_id] = display_host
+
+        _LOGGER.debug("Final devices dict for edit_device schema: %s", devices)
 
         return self.async_show_form(
             step_id="edit_device",
@@ -1149,7 +1246,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         )
 
     async def async_step_confirm_cloud_dps(self, user_input=None):
-        _LOGGER.error(f"[TRACER] async_step_confirm_cloud_dps called. Input: {_redact_log_input(user_input)}")
+        _LOGGER.debug("async_step_confirm_cloud_dps called")
         """Step to confirm adding missing Cloud DPS."""
         if user_input is not None:
             if user_input.get("add_cloud_dps"):
@@ -1171,7 +1268,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         )
 
     async def async_step_configure_device(self, user_input=None):
-        _LOGGER.error(f"[TRACER] async_step_configure_device called. Input: {_redact_log_input(user_input)}")
+        _LOGGER.debug("async_step_configure_device called")
         """Handle input of basic info."""
         errors = {}
         placeholders = {}
@@ -1182,9 +1279,6 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 self.device_data = user_input.copy()
                 self.selected_device: str = dev_id or user_input.get(CONF_DEVICE_ID)
                 self.nodeID: str = self.nodeID or user_input.get(CONF_NODE_ID)
-                # Save mac_retrieval setting
-                if CONF_MAC_RETRIEVAL in user_input:
-                    self.device_data[CONF_MAC_RETRIEVAL] = user_input[CONF_MAC_RETRIEVAL]
                 if dev_id is not None:
                     if dev_id in cloud_devs:
                         self.device_data[CONF_MODEL] = cloud_devs[dev_id].get(
@@ -1209,6 +1303,34 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                             self.device_data[CONF_FRIENDLY_NAME],
                         )
                         return self.async_create_entry(title="", data={})
+
+                    # Handle "Retrieve MAC Now" button press
+                    if self.device_data.pop("retrieve_mac_now", False):
+                        _LOGGER.info("Manual MAC address retrieval triggered for device %s", dev_id)
+                        if self.config_entry.data.get(CONF_MAC_RETRIEVAL, False):
+                            cloud_api = self.cloud_data
+                            try:
+                                factory_info = await cloud_api.async_get_device_factory_info(dev_id)
+                                if factory_info and factory_info.get("result"):
+                                    mac = factory_info["result"][0].get("mac")
+                                    if mac and mac != "00:00:00:00:00:00":
+                                        new_data = self.config_entry.data.copy()
+                                        new_data[CONF_DEVICES][dev_id][CONF_MAC] = mac
+                                        new_data[ATTR_UPDATED_AT] = str(int(time.time() * 1000))
+                                        self.hass.config_entries.async_update_entry(self.config_entry, data=new_data)
+                                        _LOGGER.info("MAC address retrieved and saved: %s", mac)
+                                        
+                                        # Reload to refresh the form with MAC
+                                        return await self.async_step_configure_device()
+                                    else:
+                                        errors["base"] = "mac_not_found"
+                                else:
+                                    errors["base"] = "cloud_error"
+                            except Exception as e:
+                                _LOGGER.error("Error retrieving MAC address: %s", e)
+                                errors["base"] = "unknown"
+                        else:
+                            errors["base"] = "mac_retrieval_disabled"
 
                     # We will restore device details if it's already existed!
                     for res_conf in [CONF_GATEWAY_ID, CONF_MODEL, CONF_PRODUCT_KEY]:
@@ -1432,9 +1554,21 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 if cloud_devs[dev_id].get("status"):
                     defaults["cloud_status"] = cloud_devs[dev_id]["status"]
 
+            # Update local IP from discovery if available (fixes cloud IP showing instead of local)
+            if dev_id in self.discovered_devices:
+                device = self.discovered_devices.get(dev_id, {})
+                if device.get(CONF_TUYA_IP):
+                    defaults[CONF_HOST] = device.get(CONF_TUYA_IP)
+
             schema = schema_suggested_values(DEVICE_SCHEMA, **defaults)
 
             placeholders["for_device"] = ""
+
+        # Add "Retrieve MAC Now" button if MAC retrieval is enabled at config entry level
+        if self.config_entry.data.get(CONF_MAC_RETRIEVAL, False):
+            schema = schema.extend({
+                vol.Optional("retrieve_mac_now", default=False): bool,
+            })
 
         return self.async_show_form(
             step_id="configure_device",
@@ -1790,16 +1924,22 @@ def devices_schema(
     devices = {}
     for dev_id, dev_host in discovered_devices.items():
         dev_name = dev_id
+        # Handle both formats: dict with CONF_TUYA_IP (discovery) or string IP (edit mode)
+        if isinstance(dev_host, dict):
+            host_str = dev_host.get(CONF_TUYA_IP, "")
+        else:
+            host_str = str(dev_host)
+        
         # when editing devices get INFOS from stored!.
         if not add_custom_device and dev_id in existed_devices.keys():
             dev_name = existed_devices[dev_id].get(CONF_FRIENDLY_NAME, dev_id)
         elif dev_id in cloud_devices_list.keys():
             dev_name = cloud_devices_list[dev_id][CONF_NAME]
 
-            known_devices[f"{dev_name} ({dev_host})"] = dev_id
+            known_devices[f"{dev_name} ({host_str})"] = dev_id
             continue
 
-        devices[f"{dev_name} ({dev_host})"] = dev_id
+        devices[f"{dev_name} ({host_str})"] = dev_id
 
     known_devices = dict(sorted(known_devices.items()))
     devices = {**known_devices, **devices}
@@ -2009,6 +2149,8 @@ async def validate_input(entry_runtime: HassLocalTuyaData, data, cloud_dps=None,
     """Validate the user input allows us to connect."""
     logger = pytuya.ContextualLogger()
     logger.set_logger(_LOGGER, data[CONF_DEVICE_ID], True, data[CONF_FRIENDLY_NAME])
+    
+    _LOGGER.debug(f"[validate_input] Starting validation for device {data.get(CONF_DEVICE_ID)} at host {data.get(CONF_HOST)}")
 
     detected_dps = {}
     error = None

@@ -11,11 +11,15 @@
             "cannot_connect": "Cannot connect to device. Confirm the IP Address is correct then try again.",
             "device_list_failed": "Failed to retrieve device list.\n{msg}",
             "invalid_auth": "Failed to authenticate with device. Confirm the Device Id and Local Key are correct.",
-            "unknown": "An unknown error occurred.\n{ex}.",
+            "unknown": "Unknown error occurred.",
             "entity_already_configured": "This entity has already been configured.",
             "address_in_use": "TCP port 6668 (used for discovery) is already in use. Check no other integration is using it.",
             "discovery_failed": "Something failed when discovering devices. See log for details. If problem persists, create a new issue (including debug logs).",
-            "empty_dps": "Connection to device succeeded but no datapoints could be found. Please try set-up again. If problem persists, create a new issue (including debug logs)."
+            "empty_dps": "Connection to device succeeded but no datapoints could be found. Please try set-up again. If problem persists, create a new issue (including debug logs).",
+            "mac_not_found": "No valid MAC address found in Tuya Cloud response.",
+            "cloud_error": "Failed to retrieve MAC from Tuya Cloud.",
+            "mac_retrieval_disabled": "MAC retrieval is not enabled for this device.",
+            "no_device_selected": "No device selected for MAC retrieval."
         },
         "step": {
             "user": {
@@ -90,7 +94,8 @@
                     "client_secret": "Client Secret",
                     "user_id": "User ID",
                     "username": "Username",
-                    "no_cloud": "Disable Cloud API?"
+                    "no_cloud": "Disable Cloud API?",
+                    "mac_retrieval": "Retrieve MAC address from Tuya Cloud"
                 }
             },
             "manage_network": {
@@ -115,17 +120,13 @@
                     "host": "IP Address",
                     "device_id": "Device ID",
                     "local_key": "Local Key",
-                    "node_id": "(Optional) Sub-devices Node Id",
                     "protocol_version": "Protocol Version",
                     "enable_debug": "Enable debug (must be manually enabled in `configuration.yaml` too)",
-                    "scan_interval": "(Optional) Scan interval in seconds, if not scanning automatically",
-                    "entities": "Configured entities (uncheck to delete)",
-                    "add_entities": "Add new entity(s)",
-                    "manual_dps_strings": "(Optional) Manual DPS's, if not detected automatically (separated by commas)",
-                    "reset_dpids": "(Optional) DPIDs to send in RESET command, if device does not respond to status requests after turning on (separated by commas)",
-                    "device_sleep_time": "(Optional) Device sleep time in seconds: If the device reports its state, then it goes into sleep",
-                    "export_config": "Save entity configuration as template",
-                    "mac_retrieval": "Retrieve MAC address from Tuya Cloud",
+                    "scan_interval": "Scan interval (seconds)",
+                    "manual_dps_strings": "Manual DPS strings",
+                    "reset_dpids": "Reset DPIDs",
+                    "device_sleep_time": "Device sleep time",
+                    "node_id": "Node ID (Sub-device)",
                     "local_ip": "Local IP",
                     "cloud_ip": "Cloud IP",
                     "mac": "MAC Address",
@@ -135,34 +136,11 @@
                     "cloud_model": "Cloud Model",
                     "cloud_uuid": "Cloud UUID",
                     "cloud_online": "Cloud Online",
-                    "cloud_category": "Cloud Category",
                     "cloud_product_id": "Cloud Product ID",
-                    "cloud_product_name": "Cloud Product Name",
-                    "cloud_status": "Cloud Status",
-                    "cloud_model": "Cloud Model",
-                    "cloud_uuid": "Cloud UUID",
-                    "cloud_online": "Cloud Online",
-                    "cloud_category": "Cloud Category",
-                    "cloud_product_id": "Cloud Product ID",
-                    "cloud_product_name": "Cloud Product Name",
-                    "cloud_status": "Cloud Status",
-                    "cloud_model": "Cloud Model",
-                    "cloud_uuid": "Cloud UUID",
-                    "cloud_online": "Cloud Online",
-                    "cloud_category": "Cloud Category",
-                    "cloud_product_id": "Cloud Product ID",
-                    "cloud_product_name": "Cloud Product Name",
-                    "cloud_status": "Cloud Status",
-                    "cloud_model": "Cloud Model",
-                    "cloud_uuid": "Cloud UUID",
-                    "cloud_online": "Cloud Online",
-                    "cloud_category": "Cloud Category",
-                    "cloud_product_id": "Cloud Product ID",
-                    "cloud_product_name": "Cloud Product Name",
-                    "cloud_status": "Cloud Status",
-                    "cloud_model": "Cloud Model",
-                    "cloud_uuid": "Cloud UUID",
-                    "cloud_online": "Cloud Online"
+                    "cloud_status": "Cloud Status"
+                },
+                "actions": {
+                    "retrieve_mac_now": "Retrieve MAC Now"
                 }
             },
             "device_setup_method": {

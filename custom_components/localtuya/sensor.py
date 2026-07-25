@@ -19,9 +19,12 @@ from homeassistant.const import (
     CONF_UNIT_OF_MEASUREMENT,
     Platform,
     STATE_UNKNOWN,
+    PERCENTAGE,
     UnitOfElectricCurrent,
     UnitOfElectricPotential,
     UnitOfPower,
+    UnitOfPressure,
+    UnitOfTemperature,
 )
 from homeassistant.helpers import entity_registry as er
 
@@ -39,6 +42,13 @@ MAP_UOM = {
     ATTR_CURRENT: UnitOfElectricCurrent.AMPERE,
     ATTR_VOLTAGE: UnitOfElectricPotential.VOLT,
     ATTR_POWER: UnitOfPower.KILO_WATT,
+}
+
+# Default units for device classes when not explicitly configured
+DEVICE_CLASS_DEFAULT_UNITS = {
+    SensorDeviceClass.TEMPERATURE: UnitOfTemperature.CELSIUS,
+    SensorDeviceClass.HUMIDITY: PERCENTAGE,
+    SensorDeviceClass.PRESSURE: UnitOfPressure.HPA,
 }
 
 
@@ -89,11 +99,19 @@ class LocalTuyaSensor(LocalTuyaEntity, SensorEntity):
     @property
     def native_unit_of_measurement(self):
         """Return the unit of measurement of this entity, if any."""
-        return getattr(
+        # First check explicit attribute or config
+        unit = getattr(
             self,
             "_attr_native_unit_of_measurement",
             self._config.get(CONF_UNIT_OF_MEASUREMENT),
         )
+        # Treat empty string as None
+        if unit == "":
+            unit = None
+        # Fall back to default unit for device class if not explicitly set
+        if unit is None and self._attr_device_class:
+            unit = DEVICE_CLASS_DEFAULT_UNITS.get(self._attr_device_class)
+        return unit
 
     def status_updated(self):
         """Device status was updated."""

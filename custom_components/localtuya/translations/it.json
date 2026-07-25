@@ -11,7 +11,11 @@
             "authentication_failed": "Autenticazione fallita.\n{msg}",
             "cannot_connect": "Impossibile connettersi al dispositivo. Conferma che l'indirizzo IP sia corretto e riprova.",
             "invalid_auth": "Autenticazione fallita con il dispositivo. Conferma che l'ID dispositivo e la chiave locale siano corretti.",
-            "unknown": "Si è verificato un errore sconosciuto.\n{ex}."
+            "unknown": "Errore sconosciuto.",
+            "mac_not_found": "Nessun indirizzo MAC valido trovato nella risposta Tuya Cloud.",
+            "cloud_error": "Impossibile recuperare MAC da Tuya Cloud.",
+            "mac_retrieval_disabled": "Il recupero MAC non è abilitato per questo dispositivo.",
+            "no_device_selected": "Nessun dispositivo selezionato per il recupero MAC."
         },
         "step": {
             "user": {
@@ -49,27 +53,8 @@
                     "cloud_model": "Modello Cloud",
                     "cloud_uuid": "UUID Cloud",
                     "cloud_online": "Online Cloud",
-                    "cloud_category": "Categoria Cloud",
                     "cloud_product_id": "Product ID Cloud",
-                    "cloud_product_name": "Nome Prodotto Cloud",
-                    "cloud_status": "Stato Cloud",
-                    "cloud_model": "Modello Cloud",
-                    "cloud_uuid": "UUID Cloud",
-                    "cloud_online": "Online Cloud",
-                    "cloud_category": "Categoria Cloud",
-                    "cloud_product_id": "Product ID Cloud",
-                    "cloud_product_name": "Nome Prodotto Cloud",
-                    "cloud_status": "Stato Cloud",
-                    "cloud_model": "Modello Cloud",
-                    "cloud_uuid": "UUID Cloud",
-                    "cloud_online": "Online Cloud",
-                    "cloud_category": "Categoria Cloud",
-                    "cloud_product_id": "Product ID Cloud",
-                    "cloud_product_name": "Nome Prodotto Cloud",
-                    "cloud_status": "Stato Cloud",
-                    "cloud_model": "Modello Cloud",
-                    "cloud_uuid": "UUID Cloud",
-                    "cloud_online": "Online Cloud"
+                    "cloud_status": "Stato Cloud"
                 }
             },
             "connecting": {
@@ -125,6 +110,37 @@
                     "edit_device": "Riconfigura dispositivo esistente",
                     "configure_cloud": "Gestisci account Cloud",
                     "manage_network": "Gestisci rete dispositivi"
+                }
+            },
+            "configure_device": {
+                "title": "Connettività Dispositivo",
+                "description": "Configura i dettagli del dispositivo per consentire a LocalTuya di connettersi.",
+                "data": {
+                    "friendly_name": "Nome Dispositivo",
+                    "host": "Indirizzo IP",
+                    "device_id": "ID Dispositivo",
+                    "local_key": "Chiave Locale",
+                    "protocol_version": "Versione Protocollo",
+                    "enable_debug": "Abilita debug",
+                    "scan_interval": "Intervallo scansione (secondi)",
+                    "manual_dps_strings": "DPS stringhe manuali",
+                    "reset_dpids": "Reset DPIDs",
+                    "device_sleep_time": "Tempo sonno dispositivo",
+                    "node_id": "Node ID (Sotto-dispositivo)",
+                    "local_ip": "IP Locale",
+                    "cloud_ip": "IP Cloud",
+                    "mac": "Indirizzo MAC",
+                    "cloud_mac": "MAC Cloud",
+                    "cloud_product_name": "Nome Prodotto Cloud",
+                    "cloud_category": "Categoria Cloud",
+                    "cloud_model": "Modello Cloud",
+                    "cloud_uuid": "UUID Cloud",
+                    "cloud_online": "Online Cloud",
+                    "cloud_product_id": "Product ID Cloud",
+                    "cloud_status": "Stato Cloud"
+                },
+                "actions": {
+                    "retrieve_mac_now": "Recupera MAC Ora"
                 }
             }
         },

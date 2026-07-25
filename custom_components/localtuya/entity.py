@@ -212,7 +212,7 @@ class LocalTuyaEntity(RestoreEntity, pytuya.ContextualLogger):
         self.debug(f"Entity {self.name} - Additional attributes: {attributes}")
         return attributes
 
-@property
+    @property
     def device_info(self):
         """Return device information for the device registry."""
         device_config = self._device_config
