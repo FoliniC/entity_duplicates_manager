@@ -54,6 +54,7 @@ from .const import (
     CONF_ADD_DEVICE,
     CONF_CONFIGURE_CLOUD,
     CONF_DPS_STRINGS,
+    CONF_DOWNLOAD_CLOUD_INFO,
     CONF_EDIT_DEVICE,
     CONF_ENABLE_ADD_ENTITIES,
     CONF_ENABLE_DEBUG,
@@ -391,6 +392,7 @@ CLOUD_CONFIGURE_SCHEMA = vol.Schema(
         vol.Optional(CONF_USERNAME, default=DOMAIN): cv.string,
         vol.Required(CONF_NO_CLOUD, default=False): bool,
         vol.Optional(CONF_MAC_RETRIEVAL, default=False): bool,
+        vol.Optional(CONF_DOWNLOAD_CLOUD_INFO, default=False): bool,
     }
 )
 
@@ -895,18 +897,25 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 # Save mac_retrieval setting at config entry level
                 if CONF_MAC_RETRIEVAL in user_input:
                     new_data[CONF_MAC_RETRIEVAL] = user_input[CONF_MAC_RETRIEVAL]
+                # Save download_cloud_info setting
+                if CONF_DOWNLOAD_CLOUD_INFO in user_input:
+                    new_data[CONF_DOWNLOAD_CLOUD_INFO] = user_input[CONF_DOWNLOAD_CLOUD_INFO]
                 cloud_devs = cloud_api.device_list
                 for dev_id, dev in new_data[CONF_DEVICES].items():
                     if CONF_MODEL not in dev and dev_id in cloud_devs:
                         model = cloud_devs[dev_id].get(CONF_PRODUCT_NAME)
                         new_data[CONF_DEVICES][dev_id][CONF_MODEL] = model
 
-                # Update entry first, then trigger MAC retrieval if enabled
+                # Update entry first, then trigger MAC/cloud info retrieval if enabled
                 self._update_entry(new_data, new_title=username)
                 
                 # Trigger MAC retrieval for all devices if enabled
                 if new_data.get(CONF_MAC_RETRIEVAL, False):
                     await self._trigger_mac_retrieval(cloud_api, new_data)
+                
+                # Download all cloud info for all devices if enabled
+                if new_data.get(CONF_DOWNLOAD_CLOUD_INFO, False):
+                    await self._download_all_cloud_info(cloud_api, new_data)
 
                 return self.async_create_entry(title="", data={})
 
@@ -959,6 +968,79 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                     self.hass.config_entries.async_update_entry(self.config_entry, data=new_data)
         except Exception as e:
             _LOGGER.warning(f"Failed to retrieve MAC addresses: {e}")
+
+    async def _download_all_cloud_info(self, cloud_api, entry_data):
+        """Download all cloud info (MAC, IP, product name, etc.) for all devices."""
+        devices = entry_data.get(CONF_DEVICES, {})
+        if not devices:
+            return
+
+        try:
+            # Get all device IDs
+            device_ids = list(devices.keys())
+            _LOGGER.info(f"Downloading cloud info for {len(device_ids)} devices...")
+
+            # Get factory info (MAC) for all devices
+            device_ids_str = ",".join(device_ids)
+            factory_info = await cloud_api.async_get_device_factory_info(device_ids_str)
+            
+            # Get full device list from cloud for IP, product name, model, etc.
+            await cloud_api.async_get_devices_list(force_update=True)
+            cloud_devices = cloud_api.device_list
+
+            new_data = entry_data.copy()
+            updated = False
+
+            # Update from factory info (MAC)
+            if factory_info and "result" in factory_info and factory_info["result"]:
+                for device_info in factory_info["result"]:
+                    dev_id = device_info.get("id") or device_info.get("device_id")
+                    mac = device_info.get("mac")
+                    sn = device_info.get("sn")
+                    uuid = device_info.get("uuid")
+                    if dev_id and mac and mac != "00:00:00:00:00:00" and dev_id in new_data[CONF_DEVICES]:
+                        new_data[CONF_DEVICES][dev_id][CONF_MAC] = mac
+                        if sn:
+                            new_data[CONF_DEVICES][dev_id]["cloud_sn"] = sn
+                        if uuid:
+                            new_data[CONF_DEVICES][dev_id]["cloud_uuid"] = uuid
+                        updated = True
+                        _LOGGER.info(f"MAC address retrieved for {dev_id}: {mac}")
+
+            # Update from cloud device list (IP, product name, model, category, online status)
+            for dev_id, cloud_dev in cloud_devices.items():
+                if dev_id in new_data[CONF_DEVICES]:
+                    dev_data = new_data[CONF_DEVICES][dev_id]
+                    if cloud_dev.get("ip"):
+                        dev_data["cloud_ip"] = cloud_dev["ip"]
+                        updated = True
+                    if cloud_dev.get("product_name"):
+                        dev_data["cloud_product_name"] = cloud_dev["product_name"]
+                        updated = True
+                    if cloud_dev.get("model"):
+                        dev_data["cloud_model"] = cloud_dev["model"]
+                        updated = True
+                    if cloud_dev.get("category"):
+                        dev_data["cloud_category"] = cloud_dev["category"]
+                        updated = True
+                    if cloud_dev.get("online") is not None:
+                        dev_data["cloud_online"] = cloud_dev["online"]
+                        updated = True
+                    if cloud_dev.get("product_id"):
+                        dev_data["cloud_product_id"] = cloud_dev["product_id"]
+                        updated = True
+                    if cloud_dev.get("status"):
+                        dev_data["cloud_status"] = cloud_dev["status"]
+                        updated = True
+
+            if updated:
+                new_data[ATTR_UPDATED_AT] = str(int(time.time() * 1000))
+                self.hass.config_entries.async_update_entry(self.config_entry, data=new_data)
+                _LOGGER.info(f"Cloud info downloaded and updated for {len(devices)} devices")
+            else:
+                _LOGGER.warning("No cloud info updates were applied")
+        except Exception as e:
+            _LOGGER.warning(f"Failed to download all cloud info: {e}")
 
     async def async_step_manage_network(self, user_input=None):
         """Manage network blocking for Tuya devices."""
@@ -1290,7 +1372,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                         if gateway_id := device.get(CONF_GATEWAY_ID):
                             self.device_data[CONF_GATEWAY_ID] = gateway_id
 
-                # Handle Inputs on edit device mode.
+# Handle Inputs on edit device mode.
                 if self.editing_device:
                     dev_config: dict = self.config_entry.data[CONF_DEVICES].get(
                         dev_id, {}
@@ -1303,40 +1385,18 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                             self.device_data[CONF_FRIENDLY_NAME],
                         )
                         return self.async_create_entry(title="", data={})
-
-                    # Handle "Retrieve MAC Now" button press
-                    if self.device_data.pop("retrieve_mac_now", False):
-                        _LOGGER.info("Manual MAC address retrieval triggered for device %s", dev_id)
-                        if self.config_entry.data.get(CONF_MAC_RETRIEVAL, False):
-                            cloud_api = self.cloud_data
-                            try:
-                                factory_info = await cloud_api.async_get_device_factory_info(dev_id)
-                                if factory_info and factory_info.get("result"):
-                                    mac = factory_info["result"][0].get("mac")
-                                    if mac and mac != "00:00:00:00:00:00":
-                                        new_data = self.config_entry.data.copy()
-                                        new_data[CONF_DEVICES][dev_id][CONF_MAC] = mac
-                                        new_data[ATTR_UPDATED_AT] = str(int(time.time() * 1000))
-                                        self.hass.config_entries.async_update_entry(self.config_entry, data=new_data)
-                                        _LOGGER.info("MAC address retrieved and saved: %s", mac)
-                                        
-                                        # Reload to refresh the form with MAC
-                                        return await self.async_step_configure_device()
-                                    else:
-                                        errors["base"] = "mac_not_found"
-                                else:
-                                    errors["base"] = "cloud_error"
-                            except Exception as e:
-                                _LOGGER.error("Error retrieving MAC address: %s", e)
-                                errors["base"] = "unknown"
-                        else:
-                            errors["base"] = "mac_retrieval_disabled"
-
+                    
+                    
                     # We will restore device details if it's already existed!
                     for res_conf in [CONF_GATEWAY_ID, CONF_MODEL, CONF_PRODUCT_KEY]:
                         if dev_config.get(res_conf):
                             self.device_data[res_conf] = dev_config.get(res_conf)
-
+                    
+                    # Restore cloud info fields from existing device config
+                    for res_conf in ["cloud_ip", "cloud_product_name", "cloud_category", "cloud_model", "cloud_uuid", "cloud_online", "cloud_mac", "cloud_product_id", "cloud_status"]:
+                        if dev_config.get(res_conf):
+                            self.device_data[res_conf] = dev_config.get(res_conf)
+                    
                     self.dps_strings = merge_dps_manual_strings(
                         self.device_data.get(CONF_MANUAL_DPS, ""), self.dps_strings
                     )
@@ -1563,12 +1623,6 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             schema = schema_suggested_values(DEVICE_SCHEMA, **defaults)
 
             placeholders["for_device"] = ""
-
-        # Add "Retrieve MAC Now" button if MAC retrieval is enabled at config entry level
-        if self.config_entry.data.get(CONF_MAC_RETRIEVAL, False):
-            schema = schema.extend({
-                vol.Optional("retrieve_mac_now", default=False): bool,
-            })
 
         return self.async_show_form(
             step_id="configure_device",
@@ -2030,6 +2084,14 @@ def options_schema(entities):
             # col_to_select(entity_names, multi_select=True)
             vol.Required(CONF_ENABLE_ADD_ENTITIES, default=False): bool,
             vol.Optional(EXPORT_CONFIG, default=False): bool,
+            # Cloud info fields (read-only display)
+            vol.Optional("cloud_ip"): cv.string,
+            vol.Optional("cloud_product_name"): cv.string,
+            vol.Optional("cloud_category"): cv.string,
+            vol.Optional("cloud_model"): cv.string,
+            vol.Optional("cloud_uuid"): cv.string,
+            vol.Optional("cloud_online"): cv.string,
+            vol.Optional("cloud_mac"): cv.string,
         }
     )
 

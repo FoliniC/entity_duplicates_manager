@@ -1,16 +1,14 @@
 # ============================================================================
-# usb_tether.yaml - Controllo tethering USB per aggiornamenti del server
+# usb_tether.yaml - Controllo tethering USB
 # ----------------------------------------------------------------------------
-# Permette di instradare temporaneamente la default route del server Debian
-# verso un telefono in USB tethering, in modo che apt usi i giga del cellulare.
-# Lo swap di route e la safety-net (watcher) vivono sul server; HA legge lo
-# stato reale via SSH e comanda attivazione/ripristino.
+# Permette di instradare il traffico Internet verso un telefono in USB tethering.
+# Supporta due server host:
+#   - Debian 13 (192.168.0.3) via script bash usb_tether.sh
+#   - Windows 11 (192.168.0.8) via PowerShell usb_tether.ps1
 #
 # Modalità:
-#   - server: solo il server usa il tethering (LAN resta su router).
+#   - server: solo il server locale usa il tethering (LAN resta su router).
 #   - intranet: tutto il traffico LAN viene forzato via server (router WAN down).
-#
-# Fonte di verita': sensor.usb_tether_status (command_line, poll 30s).
 # ============================================================================
 
 # --- Helpers configurabili --------------------------------------------------
@@ -33,6 +31,14 @@ input_select:
       - "intranet"
     initial: "server"
 
+  usb_tether_host:
+    name: "Server tethering"
+    icon: mdi:server
+    options:
+      - "192.168.0.3 (Debian)"
+      - "192.168.0.8 (Windows)"
+    initial: "192.168.0.3 (Debian)"
+
 input_text:
   usb_tether_last_error:
     name: "Tethering USB - ultimo errore"
@@ -40,19 +46,15 @@ input_text:
     max: 255
     initial: ""
 
-# --- Sensore di stato (fonte di verita', poll 30s) --------------------------
+# --- Sensore di stato (poll 30s) -------------------------------------------
+# Il sensore interroga il server attualmente selezionato.
 command_line:
   - sensor:
       name: USB Tether Status
       unique_id: usb_tether_status
       command: >-
-        ssh -i /config/.ssh/host_key
-        -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
-        -o ControlMaster=auto -o ControlPath=/config/temp/ssh_mux_%h_%p_%r -o ControlPersist=60s
-        -o ConnectTimeout=5
-        carlo@localhost
-        'sudo -n /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh status'
-      value_template: "{{ value_json.state }}"
+        /bin/bash -c 'HOST="{{ states("input_select.usb_tether_host") }}"; if echo "$HOST" | grep -q "Windows"; then ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=5 carlo_2@192.168.0.8 "powershell -ExecutionPolicy Bypass -File C:\\Scripts\\usb_tether.ps1 -Action status" 2>&1; else ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=5 carlo@localhost "/home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh status" 2>&1; fi'
+      value_template: "{{ value_json.state | default('error') }}"
       command_timeout: 15
       json_attributes:
         - mode
@@ -85,22 +87,52 @@ template:
                   - condition: template
                     value_template: "{{ is_state('input_select.usb_tether_mode', 'intranet') }}"
                 sequence:
-                  - action: shell_command.usb_tether_activate_intranet
-                    data:
-                      max_min: "{{ states('input_number.usb_tether_max_duration') | int(30) }}"
+                  - choose:
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ 'Windows' in states('input_select.usb_tether_host') }}"
+                        sequence:
+                          - action: shell_command.usb_tether_activate_intranet_win
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ 'Debian' in states('input_select.usb_tether_host') }}"
+                        sequence:
+                          - action: shell_command.usb_tether_activate_intranet
+                            data:
+                              max_min: "{{ states('input_number.usb_tether_max_duration') | int(30) }}"
               - conditions:
                   - condition: template
                     value_template: "{{ is_state('input_select.usb_tether_mode', 'server') }}"
                 sequence:
-                  - action: shell_command.usb_tether_activate
-                    data:
-                      max_min: "{{ states('input_number.usb_tether_max_duration') | int(30) }}"
+                  - choose:
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ 'Windows' in states('input_select.usb_tether_host') }}"
+                        sequence:
+                          - action: shell_command.usb_tether_activate_win
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ 'Debian' in states('input_select.usb_tether_host') }}"
+                        sequence:
+                          - action: shell_command.usb_tether_activate
+                            data:
+                              max_min: "{{ states('input_number.usb_tether_max_duration') | int(30) }}"
           - delay: "00:00:02"
           - action: homeassistant.update_entity
             target:
               entity_id: sensor.usb_tether_status
         turn_off:
-          - action: shell_command.usb_tether_restore
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ 'Windows' in states('input_select.usb_tether_host') }}"
+                sequence:
+                  - action: shell_command.usb_tether_restore_win
+              - conditions:
+                  - condition: template
+                    value_template: "{{ 'Debian' in states('input_select.usb_tether_host') }}"
+                sequence:
+                  - action: shell_command.usb_tether_restore
           - delay: "00:00:02"
           - action: homeassistant.update_entity
             target:
@@ -113,58 +145,65 @@ template:
         icon: mdi:cellphone-information
         state: "{{ state_attr('sensor.usb_tether_status', 'message') }}"
         attributes:
-          mode: "{{ state_attr('sensor.usb_tether_status', 'mode') | default('idle') }}"
+          server: "{{ states('input_select.usb_tether_host') }}"
+          mode: "{{ state_attr('sensor.usb_tether_status', 'mode') | default('') }}"
           remaining_min: "{{ state_attr('sensor.usb_tether_status', 'remaining_min') | int(0) }}"
           auto_expire: "{{ state_attr('sensor.usb_tether_status', 'auto_expire') }}"
 
 # --- Comandi remoti ---------------------------------------------------------
-# Eseguono lo script host-side via SSH.
+# Debian 192.168.0.3 (server locale via SSH loopback)
 shell_command:
   usb_tether_activate: >-
     ssh -i /config/.ssh/host_key
     -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
-    -o ControlMaster=auto -o ControlPath=/config/temp/ssh_mux_%h_%p_%r -o ControlPersist=60s
-    -o ConnectTimeout=10
+    -o LogLevel=QUIET -o ConnectTimeout=10
     carlo@localhost
     'sudo -n /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh activate {{ max_min }}' 2>&1; true
 
   usb_tether_activate_intranet: >-
     ssh -i /config/.ssh/host_key
     -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
-    -o ControlMaster=auto -o ControlPath=/config/temp/ssh_mux_%h_%p_%r -o ControlPersist=60s
-    -o ConnectTimeout=10
+    -o LogLevel=QUIET -o ConnectTimeout=10
     carlo@localhost
     'sudo -n /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh activate {{ max_min }} intranet' 2>&1; true
 
   usb_tether_restore: >-
     ssh -i /config/.ssh/host_key
     -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
-    -o ControlMaster=auto -o ControlPath=/config/temp/ssh_mux_%h_%p_%r -o ControlPersist=60s
-    -o ConnectTimeout=10
+    -o LogLevel=QUIET -o ConnectTimeout=10
     carlo@localhost
     'sudo -n /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh restore' 2>&1; true
 
-  usb_tether_detect: >-
-    ssh -i /config/.ssh/host_key
-    -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
-    -o ControlMaster=auto -o ControlPath=/config/temp/ssh_mux_%h_%p_%r -o ControlPersist=60s
-    -o ConnectTimeout=10
-    carlo@localhost
-    'sudo -n /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh detect' 2>&1; true
+  # Windows 192.168.0.8 (via SSH remoto)
+  usb_tether_activate_win: >-
+    ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+    -o LogLevel=QUIET -o ConnectTimeout=10
+    carlo_2@192.168.0.8
+    'powershell -ExecutionPolicy Bypass -File C:\Scripts\usb_tether.ps1 -Action activate -MaxMinutes {{ states("input_number.usb_tether_max_duration") | int(30) }}' 2>&1; true
 
-  usb_tether_wan_up: >-
-    ssh -i /config/.ssh/host_key
-    -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
-    -o ControlMaster=auto -o ControlPath=/config/temp/ssh_mux_%h_%p_%r -o ControlPersist=60s
-    -o ConnectTimeout=10
-    carlo@localhost
-    'sudo -n /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh restore' 2>&1; true
+  usb_tether_activate_intranet_win: >-
+    ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+    -o LogLevel=QUIET -o ConnectTimeout=10
+    carlo_2@192.168.0.8
+    'powershell -ExecutionPolicy Bypass -File C:\Scripts\usb_tether.ps1 -Action activate -MaxMinutes {{ states("input_number.usb_tether_max_duration") | int(30) }}' 2>&1; true
 
-# --- Automazione: notifica al failback automatico --------------------------
+  usb_tether_restore_win: >-
+    ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+    -o LogLevel=QUIET -o ConnectTimeout=10
+    carlo_2@192.168.0.8
+    'powershell -ExecutionPolicy Bypass -File C:\Scripts\usb_tether.ps1 -Action restore' 2>&1; true
+
+  usb_tether_detect_win: >-
+    ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+    -o LogLevel=QUIET -o ConnectTimeout=10
+    carlo_2@192.168.0.8
+    'powershell -ExecutionPolicy Bypass -File C:\Scripts\usb_tether.ps1 -Action detect' 2>&1; true
+
+# --- Automazione: notifica al failback -------------------------------------
 automation:
   - alias: "USB Tether - notifica failback automatico"
     id: usb_tether_notifica_failback
-    description: "Avvisa quando il tethering si disattiva da solo (scadenza timer o watchdog)."
+    description: "Avvisa quando il tethering si disattiva da solo."
     trigger:
       - platform: state
         entity_id: sensor.usb_tether_status
@@ -178,7 +217,6 @@ automation:
         data:
           title: "Tethering USB disattivato"
           message: >-
-            Il tethering USB e' scaduto automaticamente alle {{ now().strftime('%H:%M:%S') }}.
-            La default route e' tornata alla LAN
-            ({{ state_attr('sensor.usb_tether_status', 'lan_gw') }}),
-            WAN router ripristinata se necessario.
+            Il tethering USB su {{ states('input_select.usb_tether_host') }}
+            e' scaduto automaticamente alle {{ now().strftime('%H:%M:%S') }}.
+            Route e WAN router ripristinate.

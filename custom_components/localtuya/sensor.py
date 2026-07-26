@@ -14,9 +14,13 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     CONF_DEVICE_CLASS,
+    CONF_DEVICES,
+    CONF_HOST,
     CONF_UNIT_OF_MEASUREMENT,
+    EntityCategory,
     Platform,
     STATE_UNKNOWN,
     PERCENTAGE,
@@ -27,9 +31,13 @@ from homeassistant.const import (
     UnitOfTemperature,
 )
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.device_registry import DeviceInfo
 
-from .entity import LocalTuyaEntity, async_setup_entry
-from .const import CONF_SCALING, CONF_OFFSET, CONF_STATE_CLASS
+from .coordinator import HassLocalTuyaData
+from .entity import LocalTuyaEntity
+from .entity import async_setup_entry as _entity_async_setup_entry
+from .const import CONF_NODE_ID, CONF_SCALING, CONF_OFFSET, CONF_STATE_CLASS
+from .const import DOMAIN as LOCALTUYA_DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,6 +58,52 @@ DEVICE_CLASS_DEFAULT_UNITS = {
     SensorDeviceClass.HUMIDITY: PERCENTAGE,
     SensorDeviceClass.PRESSURE: UnitOfPressure.HPA,
 }
+
+
+class LocalTuyaNetworkSensor(SensorEntity):
+    """Diagnostic sensor exposing a device's local or cloud IP address.
+
+    Home Assistant's device page only renders connections of type "mac",
+    "bluetooth" and "zigbee" (see ha-device-info-card.ts _getAddresses());
+    "ip" connections are stored in the registry but never shown. Exposing
+    the address as a regular diagnostic entity instead makes it visible
+    on the device page and usable in automations/templates/dashboards.
+    """
+
+    _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_should_poll = False
+
+    def __init__(
+        self,
+        entry: ConfigEntry,
+        dev_id: str,
+        value_key: str,
+        unique_key: str,
+        name: str,
+        icon: str,
+    ) -> None:
+        """Initialize the network diagnostic sensor."""
+        self._entry = entry
+        self._dev_id = dev_id
+        self._value_key = value_key
+        self._attr_name = name
+        self._attr_icon = icon
+        self._attr_unique_id = f"local_{dev_id}_{unique_key}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(LOCALTUYA_DOMAIN, f"local_{dev_id}")}
+        )
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the current value read live from the config entry."""
+        dev_conf = self._entry.data.get(CONF_DEVICES, {}).get(self._dev_id, {})
+        return dev_conf.get(self._value_key) or None
+
+    @property
+    def available(self) -> bool:
+        """Only show the entity while the underlying value is known."""
+        return self.native_value is not None
 
 
 def flow_schema(dps):
@@ -187,4 +241,79 @@ class LocalTuyaSensor(LocalTuyaEntity, SensorEntity):
             )
 
 
-async_setup_entry = partial(async_setup_entry, DOMAIN, LocalTuyaSensor, flow_schema)
+async def __create_sub_sensors(self):
+        """Create sub entities for voltage, current and power and hide this parent sensor."""
+        sub_entities = []
+
+        for sensor in (ATTR_CURRENT, ATTR_POWER, ATTR_VOLTAGE):
+            sub_entity = LocalTuyaSensor(
+                self._device, self._device_config.as_dict(), self._dp_id
+            )
+            setattr(sub_entity, "_attr_sub_sensor", sensor)
+            setattr(sub_entity, "_attr_unique_id", f"{self.unique_id}_{sensor}")
+            setattr(sub_entity, "_attr_name", f"{self.name} {sensor.capitalize()}")
+            setattr(sub_entity, "_attr_device_class", SensorDeviceClass(sensor))
+            setattr(sub_entity, "_attr_state_class", SensorStateClass.MEASUREMENT)
+            setattr(sub_entity, "_attr_native_unit_of_measurement", MAP_UOM[sensor])
+            sub_entities.append(sub_entity)
+
+        # Sub entities shouldn't have add entities attr.
+        if sub_entities and self.component_add_entities:
+            self._has_sub_entities = True
+            self.component_add_entities(sub_entities)
+            er.async_get(self.hass).async_update_entity(
+                self.entity_id, hidden_by=er.RegistryEntryHider.INTEGRATION
+            )
+
+
+async def async_setup_entry(
+    hass,
+    config_entry: ConfigEntry,
+    async_add_entities,
+):
+    """Set up LocalTuya sensors and diagnostic network sensors."""
+    # First, run the original setup for regular DP sensors
+    from .entity import async_setup_entry as _entity_async_setup_entry
+    
+    # Build the partial function manually with the first 3 args
+    original_setup = partial(_entity_async_setup_entry, DOMAIN, LocalTuyaSensor, flow_schema)
+    await original_setup(hass, config_entry, async_add_entities)
+
+    # Then add diagnostic network sensors for each device that has IP info
+    entry_data = config_entry.data
+    devices = entry_data.get(CONF_DEVICES, {})
+    network_entities = []
+
+    for dev_id, dev_conf in devices.items():
+        # Local IP (host)
+        if dev_conf.get(CONF_HOST):
+            network_entities.append(
+                LocalTuyaNetworkSensor(
+                    entry=config_entry,
+                    dev_id=dev_id,
+                    value_key=CONF_HOST,
+                    unique_key="local_ip",
+                    name="Local IP",
+                    icon="mdi:ip-network",
+                )
+            )
+        # Cloud IP
+        if dev_conf.get("cloud_ip"):
+            network_entities.append(
+                LocalTuyaNetworkSensor(
+                    entry=config_entry,
+                    dev_id=dev_id,
+                    value_key="cloud_ip",
+                    unique_key="cloud_ip",
+                    name="Cloud IP",
+                    icon="mdi:cloud-outline",
+                )
+            )
+
+    if network_entities:
+        async_add_entities(network_entities)
+
+
+# Export for HA's platform discovery
+# Note: we don't use partial here because HA will call this function directly
+# with the standard (hass, config_entry, async_add_entities) signature

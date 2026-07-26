@@ -33,6 +33,7 @@ from .coordinator import TuyaDevice, HassLocalTuyaData, TuyaCloudApi
 from .config_flow import ENTRIES_VERSION
 from .const import (
     ATTR_UPDATED_AT,
+    CONF_DOWNLOAD_CLOUD_INFO,
     CONF_GATEWAY_ID,
     CONF_NODE_ID,
     CONF_NO_CLOUD,
@@ -378,6 +379,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     entry.async_on_unload(entry.add_update_listener(update_listener))
 
+    # Initial cloud info download if enabled
+    if entry.data.get(CONF_DOWNLOAD_CLOUD_INFO, False):
+        entry.async_create_task(hass, _download_cloud_info_on_startup(hass, entry))
+
     async def _shutdown(event):
         """Clean up resources when shutting down."""
         await asyncio.gather(*[dev.close() for dev in connect_to_devices])
@@ -405,9 +410,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def update_listener(hass: HomeAssistant, config_entry: ConfigEntry):
     """Update listener."""
     # Check if MAC retrieval was enabled and trigger it for all devices
-    old_data = config_entry.data
-    # The entry has already been updated with new data at this point
-    # We can check if mac_retrieval was enabled
     if config_entry.data.get(CONF_MAC_RETRIEVAL, False):
         hass_data = hass.data[DOMAIN].get(config_entry.entry_id)
         if hass_data:
@@ -415,7 +417,89 @@ async def update_listener(hass: HomeAssistant, config_entry: ConfigEntry):
                 if hasattr(device, '_retrieve_mac_for_all_devices'):
                     await device._retrieve_mac_for_all_devices()
     
-    await hass.config_entries.async_reload(config_entry.entry_id)
+    # Check if cloud info download was enabled - only MAC retrieval to avoid 1106 permission errors
+    if config_entry.data.get(CONF_DOWNLOAD_CLOUD_INFO, False):
+        hass_data = hass.data[DOMAIN].get(config_entry.entry_id)
+        if hass_data and hass_data.cloud_data:
+            try:
+                _LOGGER.info("Downloading MAC addresses...")
+                # Get factory info for all devices
+                device_ids = list(config_entry.data.get(CONF_DEVICES, {}).keys())
+                # Get factory info for all devices (call one at a time like Tuya GUI does)
+            device_ids = list(config_entry.data.get(CONF_DEVICES, {}).keys())
+            for device_id in device_ids:
+                factory_info = await hass_data.cloud_data.async_get_device_factory_info(device_id)
+                if factory_info and "result" in factory_info and factory_info["result"]:
+                    for device_info in factory_info["result"]:
+                        dev_id = device_info.get("id") or device_info.get("device_id")
+                        mac = device_info.get("mac")
+                        sn = device_info.get("sn")
+                        uuid = device_info.get("uuid")
+                        if dev_id and mac and mac != "00:00:00:00:00:00" and dev_id in new_data.get(CONF_DEVICES, {}):
+                            new_data[CONF_DEVICES][dev_id][CONF_MAC] = mac
+                            if sn:
+                                new_data[CONF_DEVICES][dev_id]["cloud_sn"] = sn
+                            if uuid:
+                                new_data[CONF_DEVICES][dev_id]["cloud_uuid"] = uuid
+                            _LOGGER.info(f"MAC address retrieved for {dev_id}: {mac}")
+                            updated = True
+                    
+                    # Update the config entry
+                    new_data[ATTR_UPDATED_AT] = str(int(time.time() * 1000))
+                    hass.config_entries.async_update_entry(config_entry, data=new_data)
+                    _LOGGER.info("MAC addresses retrieved and updated for all devices")
+            except Exception as e:
+                _LOGGER.warning(f"Failed to download MAC addresses: {e}")
+        
+        await hass.config_entries.async_reload(config_entry.entry_id)
+
+
+async def _download_cloud_info_on_startup(hass: HomeAssistant, entry: ConfigEntry):
+    """Download MAC addresses on startup if enabled."""
+    hass_data = hass.data[DOMAIN].get(entry.entry_id)
+    if not hass_data or not hass_data.cloud_data:
+        return
+    
+    try:
+        _LOGGER.info("Downloading MAC addresses on startup...")
+        # Get factory info for all devices (MAC, SN, UUID)
+        device_ids = list(entry.data.get(CONF_DEVICES, {}).keys())
+        if not device_ids:
+            return
+            
+        device_ids_str = ",".join(device_ids)
+        factory_info = await hass_data.cloud_data.async_get_device_factory_info(device_ids_str)
+        
+        new_data = entry.data.copy()
+        updated = False
+        
+        # Update from factory info (MAC, SN, UUID)
+        if factory_info and "result" in factory_info and factory_info["result"]:
+            for device_info in factory_info["result"]:
+                dev_id = device_info.get("id") or device_info.get("device_id")
+                mac = device_info.get("mac")
+                sn = device_info.get("sn")
+                uuid = device_info.get("uuid")
+                if dev_id and mac and mac != "00:00:00:00:00:00" and dev_id in new_data.get(CONF_DEVICES, {}):
+                    new_data[CONF_DEVICES][dev_id][CONF_MAC] = mac
+                    if sn:
+                        new_data[CONF_DEVICES][dev_id]["cloud_sn"] = sn
+                    if uuid:
+                        new_data[CONF_DEVICES][dev_id]["cloud_uuid"] = uuid
+                    updated = True
+                    _LOGGER.info(f"MAC address retrieved for {dev_id}: {mac}")
+        
+        if updated:
+            new_data[ATTR_UPDATED_AT] = str(int(time.time() * 1000))
+            hass.config_entries.async_update_entry(entry, data=new_data)
+            _LOGGER.info("MAC addresses downloaded and updated for all devices on startup")
+        else:
+            _LOGGER.info("No MAC address updates were applied on startup (API may require additional permissions in Tuya IoT platform)")
+    except Exception as e:
+        if "1106" in str(e) or "permission deny" in str(e).lower():
+            _LOGGER.info("MAC retrieval skipped - API permission required in Tuya IoT platform (enable 'Device Factory Info' API in project settings)")
+        else:
+            _LOGGER.warning(f"Failed to download MAC addresses on startup: {e}")
 
 
 async def async_remove_config_entry_device(

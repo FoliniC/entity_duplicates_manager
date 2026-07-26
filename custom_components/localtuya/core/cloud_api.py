@@ -356,6 +356,32 @@ class TuyaCloudApi:
 
     async def async_get_device_factory_info(self, device_id) -> dict | None:
         """Get factory info (MAC, SN, UUID) for a device."""
+        # Try single device first (works like Tuya GUI)
+        for dev_id in [device_id]:
+            if not (
+                resp := await self.async_make_request(
+                    "GET", url=f"/v1.0/iot-03/devices/factory-infos?device_ids={dev_id}"
+                )
+            ):
+                self._logger.debug(f"Failed to get factory info for {dev_id}")
+                continue
+
+            if not resp.get("success"):
+                self._logger.debug(f"Failed to get factory info for {dev_id}: {resp}")
+                continue
+
+            result = resp.get("result", [])
+            if not result:
+                continue
+
+            device_info = result[0]
+            return {
+                "mac": device_info.get("mac"),
+                "sn": device_info.get("sn"),
+                "uuid": device_info.get("uuid"),
+            }
+
+        # Fallback: try batch if single fails
         if not (
             resp := await self.async_make_request(
                 "GET", url=f"/v1.0/iot-03/devices/factory-infos?device_ids={device_id}"
@@ -384,12 +410,10 @@ class TuyaCloudApi:
         if (res := await self.async_get_access_token()) and res != "ok":
             self._logger.warning("Cloud API connection failed: %s", res)
             return "authentication_failed", res
-        if res and (res := await self.async_get_devices_list()) and res != "ok":
-            self._logger.warning("Cloud API connection failed: %s", res)
-            return "device_list_failed", res
-        if res:
-            self._logger.info("Cloud API connection succeeded.")
-        return True, res
+        # Don't require device list - factory info API works independently
+        await self.async_get_devices_list()  # Try but don't fail
+        self._logger.info("Cloud API connection succeeded.")
+        return True, "ok"
 
     @property
     def token_validate(self):

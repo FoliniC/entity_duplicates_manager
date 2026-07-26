@@ -611,6 +611,8 @@ views:
                 entities:
                   - entity: sensor.usb_tether_descrizione
                     name: "Stato"
+                  - entity: input_select.usb_tether_host
+                    name: "Server"
                   - entity: input_select.usb_tether_mode
                     name: "Modalità"
                   - entity: sensor.usb_tether_status

@@ -132,4 +132,54 @@ Per diagnosticare rallentamenti e identificare dispositivi che saturano la banda
     - **Stabilità dei Dati**: I sensori hanno stati numerici standard, ideali per la gestione dello storico di HA.
 
 ---
-*Ultimo aggiornamento: 1 Giugno 2026*
+*Ultimo aggiornamento: 25 Luglio 2026*
+
+## Collegamento SSH tra Server
+
+Il server Debian (192.168.0.3) funge da pivot per la gestione remota degli altri dispositivi di rete tramite SSH. Le chiavi sono nel container HA (`/config/.ssh/`) e montate anche sul filesystem host (`/home/carlo/docker/homeassistant/config/.ssh/`).
+
+### Chiavi SSH disponibili
+
+| Chiave | Formato | Utilizzo | Host |
+|---|---|---|---|
+| `host_key` | RSA 4096 | Loopback locale (Debian) | `carlo@localhost` (via sudo) |
+| `router_key` | (inherited) | Router OpenWrt | `root@192.168.0.11` |
+| `win_key` | ED25519 | PC Windows 11 | `carlo_2@192.168.0.8` |
+
+### Comandi di collegamento
+
+**Router OpenWrt (192.168.0.11):**
+```bash
+ssh -i /config/.ssh/router_key -o StrictHostKeyChecking=no root@192.168.0.11
+```
+
+**Server Debian locale (loopback):**
+```bash
+ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no carlo@localhost
+```
+
+**PC Windows 11 (192.168.0.8):**
+```bash
+ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no carlo_2@192.168.0.8
+```
+
+### Script di tethering USB
+
+Entrambi i server host supportano lo script di tethering USB:
+
+| Server | Script | Path remoto |
+|---|---|---|
+| Debian (192.168.0.3) | `usb_tether.sh` (bash) | `/home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh` |
+| Windows (192.168.0.8) | `usb_tether.ps1` (PowerShell) | `C:\Scripts\usb_tether.ps1` |
+
+**Esecuzione da remoto (Windows):**
+```bash
+ssh -i /config/.ssh/win_key carlo_2@192.168.0.8 \
+  "powershell -ExecutionPolicy Bypass -File C:\Scripts\usb_tether.ps1 -Action status"
+```
+
+### Note di sicurezza
+- Le chiavi sono NON password-protette (uso automation).
+- Il file `host_key` è usato anche per il ControlMaster SSH Multiplexing.
+- `win_key` è stata generata appositamente per Windows (formato ED25519, più compatibile con OpenSSH for Windows 9.5).
+- Il router accetta solo connessioni SSH chiave, password disabilitata.

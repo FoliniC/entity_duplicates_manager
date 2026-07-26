@@ -216,43 +216,39 @@ class LocalTuyaEntity(RestoreEntity, pytuya.ContextualLogger):
     def device_info(self):
         """Return device information for the device registry."""
         device_config = self._device_config
+        device_dict = device_config.device_config if hasattr(device_config, 'device_config') else {}
+        
+        # Build connections (MAC + IPs will display like MAC row)
+        connections = set()
+        mac = device_dict.get('mac') or device_dict.get('cloud_mac')
+        if mac:
+            connections.add(("mac", mac))
+        # Add local IP to connections
+        if hasattr(device_config, 'host') and device_config.host:
+            connections.add(("ip", device_config.host))
+        # Add cloud IP to connections
+        cloud_ip = device_dict.get('cloud_ip')
+        if cloud_ip:
+            connections.add(("ip", cloud_ip))
+        
+        # Build model with cloud product name if available
+        model = f"{device_config.model} ({device_config.id})"
+        if device_dict.get('cloud_product_name'):
+            model = f"{model} - {device_dict.get('cloud_product_name')}"
+        
+        # Don't set suggested_area - let HA handle area assignment naturally
+        suggested_area = None
+        
         device_info = DeviceInfo(
-            # Serial numbers are unique identifiers within a specific domain
             identifiers={(DOMAIN, f"local_{device_config.id}")},
             name=device_config.name,
             manufacturer="Tuya",
-            model=f"{device_config.model} ({device_config.id})",
+            model=model,
             sw_version=device_config.protocol_version,
+            configuration_url=f"http://{device_config.host}" if hasattr(device_config, 'host') and device_config.host else None,
+            suggested_area=suggested_area,
+            connections=connections if connections else None,
         )
-        # Add MAC address if available
-        device_dict = device_config.device_config if hasattr(device_config, 'device_config') else {}
-        mac = device_dict.get('mac') or device_dict.get('cloud_mac')
-        if mac:
-            device_info["connections"] = {("mac", mac)}
-        # Add local IP
-        if hasattr(device_config, 'host') and device_config.host:
-            device_info["configuration_url"] = f"http://{device_config.host}"
-        # Add cloud info
-        if hasattr(device_config, 'cloud_ip') and device_config.cloud_ip:
-            device_info["suggested_area"] = f"Cloud IP: {device_config.cloud_ip}"
-        # Add cloud MAC if available
-        cloud_mac = device_dict.get('cloud_mac')
-        if cloud_mac:
-            device_info["connections"] = {("mac", cloud_mac)}
-        # Add cloud product info
-        if device_dict.get('cloud_product_name'):
-            device_info["model"] = f"{device_config.model} ({device_config.id}) - {device_dict.get('cloud_product_name')}"
-        # Add cloud status
-        cloud_online = device_dict.get('cloud_online')
-        if cloud_online is not None:
-            device_info["suggested_area"] = f"Cloud: {'Online' if cloud_online else 'Offline'}"
-        # Add cloud MAC if available
-        cloud_mac = device_dict.get('cloud_mac')
-        if cloud_mac:
-            device_info["connections"] = {("mac", cloud_mac)}
-        # Add local IP as suggested area
-        if hasattr(device_config, 'host') and device_config.host:
-            device_info["suggested_area"] = f"Local IP: {device_config.host}"
 
         if self._device.is_subdevice and self._device.id != self._device.gateway.id:
             device_info[ATTR_VIA_DEVICE] = (DOMAIN, f"local_{self._device.gateway.id}")
