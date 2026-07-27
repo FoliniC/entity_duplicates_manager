@@ -41,6 +41,7 @@ from .const import (
     DOMAIN,
     DeviceConfig,
     RESTORE_STATES,
+    SUPPORTED_PROTOCOL_VERSIONS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -187,57 +188,73 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         max_retries = 3
         update_localkey = False
 
+        # If protocol_version is "auto", we'll iterate through supported versions
+        protocol_versions = SUPPORTED_PROTOCOL_VERSIONS if self._device_config.protocol_version == "auto" else [self._device_config.protocol_version]
+
         self.debug(f"Trying to connect to: {host}...", force=True)
         # Connect to the device, interface should be connected for next steps.
-        while retry < max_retries and not self.is_closing:
-            retry += 1
-            try:
-                if self.is_subdevice:
-                    gateway = self._get_gateway()
-                    if not gateway:
+        connected = False
+        for protocol_version in protocol_versions:
+            retry = 0
+            max_retries = 3
+            update_localkey = False
+
+            self.debug(f"Trying to connect to: {host} with protocol version: {protocol_version}...", force=True)
+            # Connect to the device, interface should be connected for next steps.
+            while retry < max_retries and not self.is_closing:
+                retry += 1
+                try:
+                    if self.is_subdevice:
+                        gateway = self._get_gateway()
+                        if not gateway:
+                            update_localkey = True
+                            break
+                        if not gateway.connected and gateway.is_connecting:
+                            return await self.abort_connect()
+                        self._interface = gateway._interface
+                        if not self._interface:
+                            break
+                        if self._device_config.enable_debug:
+                            self._interface.enable_debug(True, gateway.friendly_name)
+                    else:
+                        self._interface = await pytuya_connect(
+                            self._device_config.host,
+                            self._device_config.id,
+                            self.local_key,
+                            float(protocol_version),
+                            self._device_config.enable_debug,
+                            self,
+                        )
+                        self._interface.enable_debug(
+                            self._device_config.enable_debug, self.friendly_name
+                        )
+                    self._interface.add_dps_to_request(self.dps_to_request)
+                    connected = True
+                    break  # Succeed break while loop
+                except asyncio.CancelledError:
+                    await self.abort_connect()
+                    self._task_connect = None
+                    return
+                except OSError as e:
+                    await self.abort_connect()
+                    if (
+                        e.errno == errno.EHOSTUNREACH
+                        and not self._status
+                        and not self.is_sleep
+                    ):
+                        self.warning(f"Connection failed: {e}")
+                        break
+                except Exception as ex:  # pylint: disable=broad-except
+                    await self.abort_connect()
+                    if not self.is_sleep:
+                        self.warning(f"Failed to connect to {host}: {str(ex)}")
+                    if "key" in str(ex):
                         update_localkey = True
                         break
-                    if not gateway.connected and gateway.is_connecting:
-                        return await self.abort_connect()
-                    self._interface = gateway._interface
-                    if not self._interface:
-                        break
-                    if self._device_config.enable_debug:
-                        self._interface.enable_debug(True, gateway.friendly_name)
-                else:
-                    self._interface = await pytuya_connect(
-                        self._device_config.host,
-                        self._device_config.id,
-                        self.local_key,
-                        float(self._device_config.protocol_version),
-                        self._device_config.enable_debug,
-                        self,
-                    )
-                    self._interface.enable_debug(
-                        self._device_config.enable_debug, self.friendly_name
-                    )
-                self._interface.add_dps_to_request(self.dps_to_request)
-                break  # Succeed break while loop
-            except asyncio.CancelledError:
-                await self.abort_connect()
-                self._task_connect = None
-                return
-            except OSError as e:
-                await self.abort_connect()
-                if (
-                    e.errno == errno.EHOSTUNREACH
-                    and not self._status
-                    and not self.is_sleep
-                ):
-                    self.warning(f"Connection failed: {e}")
-                    break
-            except Exception as ex:  # pylint: disable=broad-except
-                await self.abort_connect()
-                if not self.is_sleep:
-                    self.warning(f"Failed to connect to {host}: {str(ex)}")
-                if "key" in str(ex):
-                    update_localkey = True
-                    break
+
+            # If connected, break out of protocol_version loop
+            if connected:
+                break
 
         # Get device status and configure DPS.
         if self.connected and not self.is_closing:
@@ -339,6 +356,16 @@ class TuyaDevice(TuyaListener, ContextualLogger):
 
         self._task_connect = None
 
+    async def check_connection(self):
+        """Ensure that the device is not still connecting; if it is, wait for it."""
+        if not self.connected and self._task_connect:
+            await self._task_connect
+        if not self.connected and self.gateway and self.gateway._task_connect:
+            await self.gateway._task_connect
+        if not self.connected:
+            self.error(f"Not connected to device {self._device_config.name}")
+
+
     async def abort_connect(self):
         """Abort the connect process to the interface[device]"""
         if self.is_subdevice:
@@ -348,15 +375,6 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         if self._interface is not None:
             await self._interface.close()
             self._interface = None
-
-    async def check_connection(self):
-        """Ensure that the device is not still connecting; if it is, wait for it."""
-        if not self.connected and self._task_connect:
-            await self._task_connect
-        if not self.connected and self.gateway and self.gateway._task_connect:
-            await self.gateway._task_connect
-        if not self.connected:
-            self.error(f"Not connected to device {self._device_config.name}")
 
     async def close(self):
         """Close connection and stop re-connect loop."""
@@ -388,6 +406,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
             self.gateway.filter_subdevices()
         self.debug("Closed connection", force=True)
 
+
     async def set_status(self):
         """Send self._pending_status payload to device."""
         await self.check_connection()
@@ -404,6 +423,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         elif not self.connected:
             self.error(f"Device is not connected.")
 
+
     async def set_dp(self, state, dp_index):
         """Change value of a DP of the Tuya device."""
         if self._interface is not None:
@@ -413,6 +433,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         else:
             if self.is_sleep:
                 return self._pending_status.update({str(dp_index): state})
+
 
     async def set_dps(self, states):
         """Change value of a DPs of the Tuya device."""
@@ -425,6 +446,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
                 return self._pending_status.update(states)
 
     async def _async_refresh(self, _now):
+        """Refresh device status."""
         if self.connected:
             self.debug("Refreshing dps for device")
             # This a workaround for >= 3.4 devices, since there is an issue on waiting for the correct seqno
@@ -592,33 +614,33 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         try:
             cloud_api = self._hass_entry.cloud_data
             devices = self._entry.data.get(CONF_DEVICES, {})
-            
+
             # Find devices without MAC
             devices_without_mac = [
                 dev_id for dev_id, dev_config in devices.items()
                 if not dev_config.get(CONF_MAC)
             ]
-            
+
             if not devices_without_mac:
                 return
-            
+
             # Get factory info for all devices at once
             device_ids = ",".join(devices_without_mac)
             factory_info = await cloud_api.async_get_device_factory_info(device_ids)
-            
+
             if factory_info and "result" in factory_info and factory_info["result"]:
                 new_data = self._entry.data.copy()
                 updated = False
-                
+
                 for device_info in factory_info["result"]:
                     dev_id = device_info.get("id") or device_info.get("device_id")
                     mac = device_info.get("mac")
-                    
+
                     if dev_id and mac and mac != "00:00:00:00:00:00" and dev_id in new_data[CONF_DEVICES]:
                         new_data[CONF_DEVICES][dev_id][CONF_MAC] = mac
                         updated = True
                         self.info(f"MAC address retrieved for {dev_id}: {mac}")
-                
+
                 if updated:
                     new_data[ATTR_UPDATED_AT] = str(int(time.time() * 1000))
                     self.hass.config_entries.async_update_entry(self._entry, data=new_data)

@@ -1169,6 +1169,23 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         else:
             self.discovered_devices, errors = await discover_devices()
 
+        # Ensure cloud device list is loaded before building the dropdown
+        cloud_load_error = None
+        _LOGGER.debug("async_step_add_device: cloud device list has %d entries, no_cloud=%s",
+                      len(self.cloud_data.device_list),
+                      self.config_entry.data.get(CONF_NO_CLOUD, True))
+        if not self.cloud_data.device_list and not self.config_entry.data.get(CONF_NO_CLOUD, True):
+            _LOGGER.debug("async_step_add_device: loading cloud device list...")
+            result = await self.cloud_data.async_get_devices_list()
+            _LOGGER.debug("async_step_add_device: cloud device list load result: %s, now has %d entries",
+                          result, len(self.cloud_data.device_list))
+            if result and result != "ok":
+                cloud_load_error = f"Cloud API error: {result}"
+        
+        _LOGGER.debug("async_step_add_device: device_list keys count=%d, sample keys: %s",
+                      len(self.cloud_data.device_list),
+                      list(self.cloud_data.device_list.keys())[:3])
+
         allDevices = mergeDevicesList(
             self.discovered_devices, self.cloud_data.device_list
         )
@@ -1187,7 +1204,18 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 if dev.get(CONF_NODE_ID, None) is not None:
                     devices[dev_id] = "Sub Device"
                 else:
-                    devices[dev_id] = dev.get(CONF_TUYA_IP, "")
+                    # Pass the name from cloud data if available
+                    cloud_name = None
+                    if dev_id in self.cloud_data.device_list:
+                        cloud_name = self.cloud_data.device_list[dev_id].get(CONF_NAME)
+                    devices[dev_id] = {
+                        CONF_TUYA_IP: dev.get(CONF_TUYA_IP, ""),
+                        "name": cloud_name or dev_id,
+                    }
+
+        # Add cloud error to form errors if present
+        if cloud_load_error:
+            errors["base"] = cloud_load_error
 
         return self.async_show_form(
             step_id="add_device",
@@ -1978,22 +2006,31 @@ def devices_schema(
     devices = {}
     for dev_id, dev_host in discovered_devices.items():
         dev_name = dev_id
+        provenance = "ID"
         # Handle both formats: dict with CONF_TUYA_IP (discovery) or string IP (edit mode)
         if isinstance(dev_host, dict):
             host_str = dev_host.get(CONF_TUYA_IP, "")
+            # Try to get name from device data dict (cloud name or fallback)
+            dev_name = dev_host.get("name", dev_id)
+            if "name" in dev_host and dev_host["name"] != dev_id:
+                provenance = "cloud"
         else:
             host_str = str(dev_host)
         
         # when editing devices get INFOS from stored!.
         if not add_custom_device and dev_id in existed_devices.keys():
             dev_name = existed_devices[dev_id].get(CONF_FRIENDLY_NAME, dev_id)
+            provenance = "config"
         elif dev_id in cloud_devices_list.keys():
             dev_name = cloud_devices_list[dev_id][CONF_NAME]
+            provenance = "cloud"
 
-            known_devices[f"{dev_name} ({host_str})"] = dev_id
+            known_devices[f"{dev_name} ({host_str}) [{provenance}]"] = dev_id
             continue
 
-        devices[f"{dev_name} ({host_str})"] = dev_id
+        _LOGGER.debug("devices_schema: device=%s name=%s host=%s provenance=%s",
+                      dev_id, dev_name, host_str, provenance)
+        devices[f"{dev_name} ({host_str}) [{provenance}]"] = dev_id
 
     known_devices = dict(sorted(known_devices.items()))
     devices = {**known_devices, **devices}

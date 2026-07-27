@@ -114,7 +114,7 @@
             },
             "configure_device": {
                 "title": "Connettività Dispositivo",
-                "description": "Configura i dettagli del dispositivo per consentire a LocalTuya di connettersi.",
+                "description": "Configura i dettagli del dispositivo{for_device} per consentire a LocalTuya di connettersi.",
                 "data": {
                     "friendly_name": "Nome Dispositivo",
                     "host": "Indirizzo IP",

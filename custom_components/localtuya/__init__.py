@@ -423,20 +423,18 @@ async def update_listener(hass: HomeAssistant, config_entry: ConfigEntry):
         if hass_data and hass_data.cloud_data:
             try:
                 _LOGGER.info("Downloading MAC addresses...")
-                # Get factory info for all devices
-                device_ids = list(config_entry.data.get(CONF_DEVICES, {}).keys())
                 # Get factory info for all devices (call one at a time like Tuya GUI does)
-            device_ids = list(config_entry.data.get(CONF_DEVICES, {}).keys())
-            for device_id in device_ids:
-                factory_info = await hass_data.cloud_data.async_get_device_factory_info(device_id)
-                if factory_info and "result" in factory_info and factory_info["result"]:
-                    for device_info in factory_info["result"]:
-                        dev_id = device_info.get("id") or device_info.get("device_id")
-                        mac = device_info.get("mac")
-                        sn = device_info.get("sn")
-                        uuid = device_info.get("uuid")
-                        if dev_id and mac and mac != "00:00:00:00:00:00" and dev_id in new_data.get(CONF_DEVICES, {}):
-                            new_data[CONF_DEVICES][dev_id][CONF_MAC] = mac
+                device_ids = list(config_entry.data.get(CONF_DEVICES, {}).keys())
+                for device_id in device_ids:
+                    factory_info = await hass_data.cloud_data.async_get_device_factory_info(device_id)
+                    if factory_info and "result" in factory_info and factory_info["result"]:
+                        for device_info in factory_info["result"]:
+                            dev_id = device_info.get("id") or device_info.get("device_id")
+                            mac = device_info.get("mac")
+                            sn = device_info.get("sn")
+                            uuid = device_info.get("uuid")
+                            if dev_id and mac and mac != "00:00:00:00:00:00" and dev_id in new_data.get(CONF_DEVICES, {}):
+                                new_data[CONF_DEVICES][dev_id][CONF_MAC] = mac
                             if sn:
                                 new_data[CONF_DEVICES][dev_id]["cloud_sn"] = sn
                             if uuid:
@@ -455,39 +453,44 @@ async def update_listener(hass: HomeAssistant, config_entry: ConfigEntry):
 
 
 async def _download_cloud_info_on_startup(hass: HomeAssistant, entry: ConfigEntry):
-    """Download MAC addresses on startup if enabled."""
+    """Download MAC addresses on startup if enabled (one device at a time)."""
     hass_data = hass.data[DOMAIN].get(entry.entry_id)
     if not hass_data or not hass_data.cloud_data:
         return
     
     try:
-        _LOGGER.info("Downloading MAC addresses on startup...")
-        # Get factory info for all devices (MAC, SN, UUID)
+        _LOGGER.info("Downloading MAC addresses on startup (one device at a time)...")
         device_ids = list(entry.data.get(CONF_DEVICES, {}).keys())
         if not device_ids:
             return
-            
-        device_ids_str = ",".join(device_ids)
-        factory_info = await hass_data.cloud_data.async_get_device_factory_info(device_ids_str)
         
         new_data = entry.data.copy()
         updated = False
         
-        # Update from factory info (MAC, SN, UUID)
-        if factory_info and "result" in factory_info and factory_info["result"]:
-            for device_info in factory_info["result"]:
-                dev_id = device_info.get("id") or device_info.get("device_id")
-                mac = device_info.get("mac")
-                sn = device_info.get("sn")
-                uuid = device_info.get("uuid")
-                if dev_id and mac and mac != "00:00:00:00:00:00" and dev_id in new_data.get(CONF_DEVICES, {}):
-                    new_data[CONF_DEVICES][dev_id][CONF_MAC] = mac
-                    if sn:
-                        new_data[CONF_DEVICES][dev_id]["cloud_sn"] = sn
-                    if uuid:
-                        new_data[CONF_DEVICES][dev_id]["cloud_uuid"] = uuid
-                    updated = True
-                    _LOGGER.info(f"MAC address retrieved for {dev_id}: {mac}")
+        # Call factory info API one device at a time (like Tuya GUI does)
+        for device_id in device_ids:
+            try:
+                factory_info = await hass_data.cloud_data.async_get_device_factory_info(device_id)
+                
+                if factory_info and "result" in factory_info and factory_info["result"]:
+                    for device_info in factory_info["result"]:
+                        dev_id = device_info.get("id") or device_info.get("device_id")
+                        mac = device_info.get("mac")
+                        sn = device_info.get("sn")
+                        uuid = device_info.get("uuid")
+                        if dev_id and mac and mac != "00:00:00:00:00:00" and dev_id in new_data.get(CONF_DEVICES, {}):
+                            new_data[CONF_DEVICES][dev_id][CONF_MAC] = mac
+                            if sn:
+                                new_data[CONF_DEVICES][dev_id]["cloud_sn"] = sn
+                            if uuid:
+                                new_data[CONF_DEVICES][dev_id]["cloud_uuid"] = uuid
+                            updated = True
+                            _LOGGER.info(f"MAC address retrieved for {dev_id}: {mac}")
+            except Exception as e:
+                if "1106" in str(e) or "permission deny" in str(e).lower():
+                    _LOGGER.info(f"MAC retrieval for {device_id} skipped - API permission required in Tuya IoT platform (enable 'Device Factory Info' API in project settings)")
+                else:
+                    _LOGGER.warning(f"Failed to get factory info for {device_id}: {e}")
         
         if updated:
             new_data[ATTR_UPDATED_AT] = str(int(time.time() * 1000))
