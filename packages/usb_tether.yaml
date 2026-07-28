@@ -1,61 +1,54 @@
 # ============================================================================
 # usb_tether.yaml - Controllo tethering USB
 # ----------------------------------------------------------------------------
-# Permette di instradare il traffico Internet verso un telefono in USB tethering.
-# Supporta due server host:
-#   - Debian 13 (192.168.0.3) via script bash usb_tether.sh
-#   - Windows 11 (192.168.0.8) via PowerShell usb_tether.ps1
-#
-# Modalità:
-#   - server: solo il server locale usa il tethering (LAN resta su router).
-#   - intranet: tutto il traffico LAN viene forzato via server (router WAN down).
+# Tre modalità accessibili con un singolo click:
+#   - Normale: ripristina routing normale (restore)
+#   - Server: solo il server locale usa il tethering
+#   - Intranet: tutta la LAN via server (WAN router down)
 # ============================================================================
 
-# --- Helpers configurabili --------------------------------------------------
+# --- Helpers ----------------------------------------------------------------
 input_number:
   usb_tether_max_duration:
-    name: "Tethering USB - durata massima (min)"
+    name: "Tethering durata (min)"
     icon: mdi:timer-outline
     min: 5
     max: 120
     step: 5
-    initial: 30
+    initial: 60
     unit_of_measurement: "min"
 
-input_select:
-  usb_tether_mode:
-    name: "Modalità tethering"
-    icon: mdi:usb
-    options:
-      - "server"
-      - "intranet"
-    initial: "server"
-
-  usb_tether_host:
-    name: "Server tethering"
-    icon: mdi:server
-    options:
-      - "192.168.0.3 (Debian)"
-      - "192.168.0.8 (Windows)"
-    initial: "192.168.0.3 (Debian)"
-
 input_text:
-  usb_tether_last_error:
-    name: "Tethering USB - ultimo errore"
-    icon: mdi:alert-circle-outline
+  usb_tether_status_message:
+    name: "Messaggio stato tethering"
+    icon: mdi:message-text
     max: 255
     initial: ""
 
-# --- Sensore di stato (poll 30s) -------------------------------------------
-# Il sensore interroga il server attualmente selezionato.
+input_select:
+  usb_tether_host:
+    name: "Server tethering"
+    icon: mdi:server-network
+    options:
+      - "Debian (192.168.0.3)"
+      - "Windows 11 (192.168.0.8)"
+    initial: "Debian (192.168.0.3)"
+
+# --- Sensore di stato (poll 10s) -------------------------------------------
 command_line:
   - sensor:
       name: USB Tether Status
       unique_id: usb_tether_status
-      command: >-
-        /bin/bash -c 'HOST="{{ states("input_select.usb_tether_host") }}"; if echo "$HOST" | grep -q "Windows"; then ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=5 carlo_2@192.168.0.8 "powershell -ExecutionPolicy Bypass -File C:\\Scripts\\usb_tether.ps1 -Action status" 2>&1; else ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=5 carlo@localhost "/home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh status" 2>&1; fi'
+      command: >
+        /bin/bash -c '
+        H="{{ states("input_select.usb_tether_host") }}";
+        if [[ "$H" == *"Windows"* ]]; then
+          ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=5 carlo_2@192.168.0.8 "powershell -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 status" 2>&1;
+        else
+          ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=5 carlo@localhost "/home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh status" 2>&1;
+        fi'
       value_template: "{{ value_json.state | default('error') }}"
-      command_timeout: 15
+      command_timeout: 10
       json_attributes:
         - mode
         - phone_if
@@ -65,143 +58,174 @@ command_line:
         - remaining_min
         - auto_expire
         - message
-      scan_interval: 30
+      scan_interval: 10
 
-# --- Switch di controllo ----------------------------------------------------
+# --- Sensore template: messaggio dashboard ---------------------------------
 template:
-  - switch:
-      - name: "USB Tether"
-        unique_id: usb_tether
-        icon: >-
-          {% if is_state('sensor.usb_tether_status', 'active') %}
-            mdi:usb-port
-          {% elif is_state('sensor.usb_tether_status', 'error') %}
-            mdi:alert-circle
-          {% else %}
-            mdi:usb
-          {% endif %}
-        state: "{{ is_state('sensor.usb_tether_status', 'active') }}"
-        turn_on:
-          - choose:
-              - conditions:
-                  - condition: template
-                    value_template: "{{ is_state('input_select.usb_tether_mode', 'intranet') }}"
-                sequence:
-                  - choose:
-                      - conditions:
-                          - condition: template
-                            value_template: "{{ 'Windows' in states('input_select.usb_tether_host') }}"
-                        sequence:
-                          - action: shell_command.usb_tether_activate_intranet_win
-                      - conditions:
-                          - condition: template
-                            value_template: "{{ 'Debian' in states('input_select.usb_tether_host') }}"
-                        sequence:
-                          - action: shell_command.usb_tether_activate_intranet
-                            data:
-                              max_min: "{{ states('input_number.usb_tether_max_duration') | int(30) }}"
-              - conditions:
-                  - condition: template
-                    value_template: "{{ is_state('input_select.usb_tether_mode', 'server') }}"
-                sequence:
-                  - choose:
-                      - conditions:
-                          - condition: template
-                            value_template: "{{ 'Windows' in states('input_select.usb_tether_host') }}"
-                        sequence:
-                          - action: shell_command.usb_tether_activate_win
-                      - conditions:
-                          - condition: template
-                            value_template: "{{ 'Debian' in states('input_select.usb_tether_host') }}"
-                        sequence:
-                          - action: shell_command.usb_tether_activate
-                            data:
-                              max_min: "{{ states('input_number.usb_tether_max_duration') | int(30) }}"
-          - delay: "00:00:02"
-          - action: homeassistant.update_entity
-            target:
-              entity_id: sensor.usb_tether_status
-        turn_off:
-          - choose:
-              - conditions:
-                  - condition: template
-                    value_template: "{{ 'Windows' in states('input_select.usb_tether_host') }}"
-                sequence:
-                  - action: shell_command.usb_tether_restore_win
-              - conditions:
-                  - condition: template
-                    value_template: "{{ 'Debian' in states('input_select.usb_tether_host') }}"
-                sequence:
-                  - action: shell_command.usb_tether_restore
-          - delay: "00:00:02"
-          - action: homeassistant.update_entity
-            target:
-              entity_id: sensor.usb_tether_status
-
-  # Sensore template: descrizione umana dello stato
   - sensor:
-      - name: "USB Tether Descrizione"
-        unique_id: usb_tether_descrizione
-        icon: mdi:cellphone-information
-        state: "{{ state_attr('sensor.usb_tether_status', 'message') }}"
+      - name: "USB Tether Dashboard"
+        unique_id: usb_tether_dashboard
+        icon: mdi:usb
+        state: >-
+          {% set s = states('sensor.usb_tether_status') %}
+          {% set m = state_attr('sensor.usb_tether_status', 'mode') | default('') %}
+          {% set msg = states('input_text.usb_tether_status_message') %}
+          {% set host = states('input_select.usb_tether_host') | default('') %}
+          {% if msg != '' %}
+            {{ msg }}
+          {% elif s == 'unavailable' %}
+            ERRORE: comando non eseguibile - controlla log e connessione SSH
+          {% elif s == 'error' %}
+            ERRORE: {{ state_attr('sensor.usb_tether_status', 'message') | default('controlla log') }}
+          {% elif s == 'active' and m == 'intranet' %}
+            INTRANET ATTIVA - tutta la LAN via {{ host.split('(')[0].strip() }} (gateway internet)
+          {% elif s == 'active' and m == 'server' %}
+            SERVER ATTIVO - solo server via {{ host.split('(')[0].strip() }} (gateway internet)
+          {% else %}
+            INATTIVO - route normale via router
+          {% endif %}
         attributes:
-          server: "{{ states('input_select.usb_tether_host') }}"
           mode: "{{ state_attr('sensor.usb_tether_status', 'mode') | default('') }}"
+          phone_if: "{{ state_attr('sensor.usb_tether_status', 'phone_if') }}"
+          phone_gw: "{{ state_attr('sensor.usb_tether_status', 'phone_gw') }}"
           remaining_min: "{{ state_attr('sensor.usb_tether_status', 'remaining_min') | int(0) }}"
-          auto_expire: "{{ state_attr('sensor.usb_tether_status', 'auto_expire') }}"
+          active_since: "{{ state_attr('sensor.usb_tether_status', 'active_since') }}"
 
 # --- Comandi remoti ---------------------------------------------------------
-# Debian 192.168.0.3 (server locale via SSH loopback)
 shell_command:
-  usb_tether_activate: >-
-    ssh -i /config/.ssh/host_key
-    -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
-    -o LogLevel=QUIET -o ConnectTimeout=10
-    carlo@localhost
-    'sudo -n /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh activate {{ max_min }}' 2>&1; true
+  usb_tether_activate: >
+    /bin/bash -c '
+    H="{{ states("input_select.usb_tether_host") }}";
+    DUR="{{ states("input_number.usb_tether_max_duration") | int(60) }}";
+    if [[ "$H" == *"Windows"* ]]; then
+      ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 carlo_2@192.168.0.8 "powershell -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 -Action activate -MaxMinutes $DUR" 2>&1;
+    else
+      ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 carlo@localhost "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh activate $DUR intranet" 2>&1;
+    fi'
 
-  usb_tether_activate_intranet: >-
-    ssh -i /config/.ssh/host_key
-    -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
-    -o LogLevel=QUIET -o ConnectTimeout=10
-    carlo@localhost
-    'sudo -n /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh activate {{ max_min }} intranet' 2>&1; true
+  usb_tether_activate_intranet: >
+    /bin/bash -c '
+    H="{{ states("input_select.usb_tether_host") }}";
+    DUR="{{ states("input_number.usb_tether_max_duration") | int(60) }}";
+    if [[ "$H" == *"Windows"* ]]; then
+      ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 carlo_2@192.168.0.8 "powershell -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 -Action activate -MaxMinutes $DUR" 2>&1;
+    else
+      ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 carlo@localhost "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh activate $DUR intranet" 2>&1;
+    fi'
 
-  usb_tether_restore: >-
-    ssh -i /config/.ssh/host_key
-    -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
-    -o LogLevel=QUIET -o ConnectTimeout=10
-    carlo@localhost
-    'sudo -n /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh restore' 2>&1; true
+  usb_tether_restore: >
+    /bin/bash -c '
+    H="{{ states("input_select.usb_tether_host") }}";
+    if [[ "$H" == *"Windows"* ]]; then
+      ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 carlo_2@192.168.0.8 "powershell -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 -Action restore" 2>&1;
+    else
+      ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 carlo@localhost "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh restore" 2>&1;
+    fi'
 
-  # Windows 192.168.0.8 (via SSH remoto)
-  usb_tether_activate_win: >-
-    ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
-    -o LogLevel=QUIET -o ConnectTimeout=10
-    carlo_2@192.168.0.8
-    'powershell -ExecutionPolicy Bypass -File C:\Scripts\usb_tether.ps1 -Action activate -MaxMinutes {{ states("input_number.usb_tether_max_duration") | int(30) }}' 2>&1; true
+# --- Script: azioni con messaggio e gestione errori ----------
+script:
+  usb_tether_normale:
+    alias: "Tethering: routing normale"
+    icon: mdi:router-wireless
+    sequence:
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.usb_tether_status_message
+        data:
+          value: "ripristino routing normale in corso..."
+      - action: shell_command.usb_tether_restore
+      - delay: "00:00:03"
+      - action: homeassistant.update_entity
+        target:
+          entity_id: sensor.usb_tether_status
+      - wait_template: "{{ is_state('sensor.usb_tether_status', 'idle') or is_state('sensor.usb_tether_status', 'error') or is_state('sensor.usb_tether_status', 'unavailable') }}"
+        timeout: "00:00:10"
+      - if:
+          - condition: not
+            conditions:
+              - condition: state
+                entity_id: sensor.usb_tether_status
+                state: "idle"
+        then:
+          - action: input_text.set_value
+            target:
+              entity_id: input_text.usb_tether_status_message
+            data:
+              value: "ERRORE: routing normale non ripristinate - controlla log"
 
-  usb_tether_activate_intranet_win: >-
-    ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
-    -o LogLevel=QUIET -o ConnectTimeout=10
-    carlo_2@192.168.0.8
-    'powershell -ExecutionPolicy Bypass -File C:\Scripts\usb_tether.ps1 -Action activate -MaxMinutes {{ states("input_number.usb_tether_max_duration") | int(30) }}' 2>&1; true
+  usb_tether_server:
+    alias: "Tethering: modalita server"
+    icon: mdi:server
+    sequence:
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.usb_tether_status_message
+        data:
+          value: "attivazione modalita' server in corso..."
+      - action: shell_command.usb_tether_activate
+      - delay: "00:00:03"
+      - action: homeassistant.update_entity
+        target:
+          entity_id: sensor.usb_tether_status
+      - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') or is_state('sensor.usb_tether_status', 'idle') or is_state('sensor.usb_tether_status', 'error') or is_state('sensor.usb_tether_status', 'unavailable') }}"
+        timeout: "00:00:10"
+      - if:
+          - condition: not
+            conditions:
+              - condition: state
+                entity_id: sensor.usb_tether_status
+                state: "active"
+        then:
+          - action: input_text.set_value
+            target:
+              entity_id: input_text.usb_tether_status_message
+            data:
+              value: "ERRORE: tethering server non attivato - controlla log"
 
-  usb_tether_restore_win: >-
-    ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
-    -o LogLevel=QUIET -o ConnectTimeout=10
-    carlo_2@192.168.0.8
-    'powershell -ExecutionPolicy Bypass -File C:\Scripts\usb_tether.ps1 -Action restore' 2>&1; true
+  usb_tether_intranet:
+    alias: "Tethering: modalita intranet"
+    icon: mdi:wan
+    sequence:
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.usb_tether_status_message
+        data:
+          value: "attivazione modalita' intranet in corso..."
+      - action: shell_command.usb_tether_activate_intranet
+      - delay: "00:00:03"
+      - action: homeassistant.update_entity
+        target:
+          entity_id: sensor.usb_tether_status
+      - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') or is_state('sensor.usb_tether_status', 'idle') or is_state('sensor.usb_tether_status', 'error') or is_state('sensor.usb_tether_status', 'unavailable') }}"
+        timeout: "00:00:10"
+      - if:
+          - condition: not
+            conditions:
+              - condition: state
+                entity_id: sensor.usb_tether_status
+                state: "active"
+        then:
+          - action: input_text.set_value
+            target:
+              entity_id: input_text.usb_tether_status_message
+            data:
+              value: "ERRORE: intranet non attivata - controlla log"
 
-  usb_tether_detect_win: >-
-    ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
-    -o LogLevel=QUIET -o ConnectTimeout=10
-    carlo_2@192.168.0.8
-    'powershell -ExecutionPolicy Bypass -File C:\Scripts\usb_tether.ps1 -Action detect' 2>&1; true
-
-# --- Automazione: notifica al failback -------------------------------------
+# --- Automazione: aggiorna messaggio dopo cambio stato ----------------------
 automation:
-  - alias: "USB Tether - notifica failback automatico"
+  - alias: "USB Tether - aggiorna messaggio dashboard"
+    id: usb_tether_aggiorna_messaggio
+    description: "Pulisce il messaggio temporaneo quando il sensore si aggiorna."
+    trigger:
+      - platform: state
+        entity_id: sensor.usb_tether_status
+    action:
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.usb_tether_status_message
+        data:
+          value: ""
+  - alias: "USB Tether - messaggio fallback automatico"
     id: usb_tether_notifica_failback
     description: "Avvisa quando il tethering si disattiva da solo."
     trigger:
@@ -217,6 +241,5 @@ automation:
         data:
           title: "Tethering USB disattivato"
           message: >-
-            Il tethering USB su {{ states('input_select.usb_tether_host') }}
-            e' scaduto automaticamente alle {{ now().strftime('%H:%M:%S') }}.
-            Route e WAN router ripristinate.
+            Il tethering e' scaduto automaticamente alle
+            {{ now().strftime('%H:%M:%S') }}. Route e WAN router ripristinate.

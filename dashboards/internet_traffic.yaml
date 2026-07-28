@@ -459,7 +459,7 @@ views:
 
   # ==========================================================================
   # TAB: TETHERING USB
-  # Controllo del tethering USB per aggiornamenti del server via giga del cellulare.
+  # Controllo tethering USB - singolo click per attivare.
   # ==========================================================================
   - title: Tethering USB
     path: tethering-usb
@@ -470,40 +470,37 @@ views:
         columns: 2
         square: false
         cards:
-          # --- COLONNA SINISTRA: controllo ---
+          # --- COLONNA SINISTRA ---
           - type: vertical-stack
             cards:
-              - type: markdown
-                content: >
-                  # 📱 Tethering USB
-
-                  Instrada temporaneamente il traffico Internet del server verso il
-                  telefono collegato in USB. Pensato per **aggiornamenti software (apt)**
-                  pagati con i giga del cellulare.
-                card_mod:
-                  style: "ha-card { user-select: text !important; }"
-
-              # Box stato principale (colore dinamico)
+              # BANNER STATO PRINCIPALE
               - type: markdown
                 content: >
                   {% set st = states('sensor.usb_tether_status') %}
+                  {% set msg = states('sensor.usb_tether_dashboard') %}
+                  {% set rm = state_attr('sensor.usb_tether_status', 'remaining_min') | int(0) %}
                   {% if st == 'active' %}
-                    <div style="background-color: #2e7d32; color: white; padding: 12px; border-radius: 6px; font-weight: bold; text-align: center;">
-                      ✅ TETHERING ATTIVO
-                    </div>
-                  {% elif st == 'error' %}
-                    <div style="background-color: #c62828; color: white; padding: 12px; border-radius: 6px; font-weight: bold; text-align: center;">
-                      ⚠️ {{ state_attr('sensor.usb_tether_status', 'message') }}
-                    </div>
+                    {% set bg = '#2e7d32' %}
+                    {% set icon = '✅' %}
+                  {% elif st == 'error' or st == 'unavailable' %}
+                    {% set bg = '#b71c1c' %}
+                    {% set icon = '⚠️' %}
                   {% else %}
-                    <div style="background-color: #455a64; color: white; padding: 12px; border-radius: 6px; font-weight: bold; text-align: center;">
-                      💤 INATTIVO (route normale via router)
-                    </div>
+                    {% set bg = '#37474f' %}
+                    {% set icon = '💤' %}
+                  {% endif %}
+                  <div style="background-color: {{ bg }}; color: white; padding: 16px; border-radius: 8px; font-weight: bold; text-align: center; font-size: 18px;">
+                    {{ icon }} {{ msg }}
+                  </div>
+                  {% if st == 'active' and rm > 0 %}
+                  <div style="margin-top: 4px; text-align: center; color: #888; font-size: 12px;">
+                    auto-ripristino tra ~{{ rm }} min
+                  </div>
                   {% endif %}
                 card_mod:
                   style: "ha-card { margin: 4px 0; border: none; background: none; }"
 
-              # Toggle principale - 3 bottoni: normale, server, intranet
+              # 3 BOTTONI - SINGOLO CLICK
               - type: horizontal-stack
                 cards:
                   - type: button
@@ -511,7 +508,7 @@ views:
                     icon: mdi:router-wireless
                     tap_action:
                       action: perform-action
-                      perform_action: shell_command.usb_tether_restore
+                      perform_action: script.usb_tether_normale
                     card_mod:
                       style: |
                         ha-card {
@@ -528,21 +525,12 @@ views:
                     icon: mdi:server
                     tap_action:
                       action: perform-action
-                      perform_action: input_select.select_option
-                      target:
-                        entity_id: input_select.usb_tether_mode
-                      data:
-                        option: server
-                    hold_action:
-                      action: perform-action
-                      perform_action: switch.turn_on
-                      target:
-                        entity_id: switch.usb_tether
+                      perform_action: script.usb_tether_server
                     card_mod:
                       style: |
                         ha-card {
                           {% set m = state_attr('sensor.usb_tether_status', 'mode') | default('') %}
-                          {% if is_state('sensor.usb_tether_status', 'active') and (m == 'server' or m == '' or m == none) %}
+                          {% if is_state('sensor.usb_tether_status', 'active') and (m == 'server' or m == '') %}
                             background: #1e88e5 !important;
                           {% else %}
                             background: #455a64 !important;
@@ -555,16 +543,7 @@ views:
                     icon: mdi:wan
                     tap_action:
                       action: perform-action
-                      perform_action: input_select.select_option
-                      target:
-                        entity_id: input_select.usb_tether_mode
-                      data:
-                        option: intranet
-                    hold_action:
-                      action: perform-action
-                      perform_action: switch.turn_on
-                      target:
-                        entity_id: switch.usb_tether
+                      perform_action: script.usb_tether_intranet
                     card_mod:
                       style: |
                         ha-card {
@@ -576,26 +555,12 @@ views:
                           --mdc-theme-primary: white;
                         }
 
-              # Bottone ripristino rapido (sempre visibile)
-              - type: button
-                name: "⛔ RIPRISTINA TUTTO (Normale)"
-                icon: mdi:restore
-                tap_action:
-                  action: perform-action
-                  perform_action: shell_command.usb_tether_restore
-                card_mod:
-                  style: |
-                    ha-card {
-                      background: #c62828 !important;
-                      --mdc-theme-primary: white;
-                    }
-
-              # Configurazione durata
+              # Durata
               - type: entities
-                title: "Durata massima (safety-net)"
+                title: "Durata (safety-net)"
                 entities:
                   - entity: input_number.usb_tether_max_duration
-                    name: "Minuti prima del ripristino automatico"
+                    name: "Minuti prima ripristino automatico"
                 card_mod:
                   style: |
                     ha-card {
@@ -607,14 +572,13 @@ views:
 
               # Dettagli tecnici
               - type: entities
-                title: "Dettagli connessione"
+                title: "Dettagli"
                 entities:
-                  - entity: sensor.usb_tether_descrizione
+                  - entity: sensor.usb_tether_dashboard
                     name: "Stato"
+                    attribute: mode
                   - entity: input_select.usb_tether_host
-                    name: "Server"
-                  - entity: input_select.usb_tether_mode
-                    name: "Modalità"
+                    name: "Server (tethering host)"
                   - entity: sensor.usb_tether_status
                     name: "Interfaccia telefono"
                     attribute: phone_if
@@ -622,62 +586,30 @@ views:
                     name: "Gateway telefono"
                     attribute: phone_gw
                   - entity: sensor.usb_tether_status
-                    name: "Gateway LAN (originale)"
-                    attribute: lan_gw
-                  - entity: sensor.usb_tether_status
                     name: "Attivo dalle"
                     attribute: active_since
                 card_mod:
                   style: "ha-card { user-select: text !important; }"
 
-          # --- COLONNA DESTRA: countdown + istruzioni ---
+          # --- COLONNA DESTRA ---
           - type: vertical-stack
             cards:
-              # Countdown (visibile solo se attivo)
-              - type: conditional
-                conditions:
-                  - entity: sensor.usb_tether_status
-                    state: "active"
-                card:
-                  type: markdown
-                  content: >
-                    # ⏳ Auto-ripristino
-
-                    Mancano circa **{{ state_attr('sensor.usb_tether_status', 'remaining_min') | int(0) }} minuti**
-                    al ripristino automatico della route.
-
-                    *Il timer di sicurezza vive sul server: ripristina la route anche se
-                    Home Assistant o la rete dovessero cadere.*
-                  card_mod:
-                    style: |
-                      ha-card {
-                        user-select: text !important;
-                        background: rgba(46, 125, 50, 0.08);
-                        border: 1px solid #2e7d32;
-                      }
-
-              # Istruzioni d'uso
+              # Istruzioni
               - type: markdown
                 content: >
                   ## 📋 Come usarlo
 
 
-                  **Seleziona modalità:**
-
-
-                  | Bottone | Cosa fa |
+                  | Bottone | Azione |
                   |---|---|
-                  | 🔄 Normale | Ripristina tutto: server torna via router, WAN router riattivata |
-                  | 📱 Server | Solo il server usa USB tethering (LAN resta via router) |
-                  | 🌐 Intranet | TUTTA la LAN passa via server (WAN router disattivata) |
-
-
-                  **Tap** = seleziona modalità, **Tieni premuto** = attiva.
+                  | 🔄 Normale | Ripristina routing normale |
+                  | 📱 Server | Solo server via USB tethering |
+                  | 🌐 Intranet | TUTTA la LAN via server |
 
 
                   1. Sul telefono: attiva **Tethering USB**.
                   2. Collega il cavo USB al server.
-                  3. Seleziona modalità e tieni premuto per attivare.
+                  3. Premi il bottone desiderato.
                   4. Per disattivare: premi **Normale**.
                 card_mod:
                   style: "ha-card { user-select: text !important; }"
@@ -739,7 +671,7 @@ views:
                     {{ state_attr('sensor.usb_tether_status', 'message') }}
 
                     Cause comuni: telefono non collegato, tethering non attivato sul
-                    cellulare, o route residua. Premi **RIPRISTINA ORA** per pulire lo stato.
+                    cellulare, o route residua. Premi **Normale** per pulire lo stato.
                   card_mod:
                     style: |
                       ha-card {

@@ -188,3 +188,144 @@ venv/bin/python helpers/tuya_selective_isolation.py remove --flush-sets
 - La correzione avra' effetto al prossimo wake-up/riassociazione Wi-Fi del sensore.
 - Se dopo il prossimo wake-up il TH3C resta indisponibile, la prossima verifica utile e' una cattura del traffico durante il risveglio per scoprire eventuali altri domini Tuya da aggiungere alla lista.
 - La strategia MITM/mock del cloud resta sconsigliata: TLS, validazione certificati e tempi di wake-up dei sensori rendono la soluzione fragile rispetto a una allowlist WAN minima.
+
+---
+
+## 8. Analisi API Cloud Tuya (Luglio 2026)
+
+Durante l'integrazione di LocalTuya con le API Cloud Tuya per il recupero automatico di nomi, MAC address e DPS, sono emersi i seguenti dettagli tecnici.
+
+### 8.1 Autenticazione (Project Token Flow)
+
+LocalTuya utilizza il **Project Token** (non OAuth 2.0 standard), basato su HMAC-SHA256:
+
+| Step | Endpoint | Metodo | Descrizione |
+|---|---|---|---|
+| **1. Token** | `GET /v1.0/token?grant_type=1` | GET | Ottiene `access_token` (validità ~2h) |
+| **2. Device List** | `GET /v1.0/users/{uid}/devices` | GET | Lista device dell'utente (richiede token) |
+| **3. Factory Info** | `GET /v1.0/iot-03/devices/factory-infos?device_ids={id}` | GET | MAC, SN, UUID per singolo device |
+| **4. DPS Specs** | `GET /v1.1/devices/{id}/specifications` | GET | Definizioni DP (ID, tipo, valori) |
+
+**Firma HMAC** (ogni richiesta):
+```
+signStr = client_id + access_token + timestamp + method + "\n" + 
+          contentSHA256 + "\n" + 
+          signatureHeaders + "\n" + 
+          "/" + path
+sign = HMAC-SHA256(signStr, client_secret).upper()
+```
+
+Headers richiesti:
+```
+client_id: <Access ID>
+access_token: <token from step 1>
+t: <timestamp ms>
+sign_method: HMAC-SHA256
+sign: <calculated sign>
+Signature-Headers: client_id:access_token:sign_method:t
+```
+
+### 8.2 Endpoint Principali Usati da LocalTuya
+
+| Funzione | Endpoint | Note |
+|---|---|---|
+| **Token** | `GET /v1.0/token?grant_type=1` | Senza `access_token` nel payload |
+| **Device List** | `GET /v1.0/users/{uid}/devices` | Restituisce: id, name, local_key, ip, product_id, category, online, mac, uuid |
+| **Factory Info** | `GET /v1.0/iot-03/devices/factory-infos?device_ids={id}` | MAC, SN, UUID, product_name |
+| **Specifications** | `GET /v1.1/devices/{id}/specifications` | DP definitions per auto-config |
+| **Device Functions** | `GET /v2.0/cloud/thing/{id}/shadow/properties` | Proprietà device (v2.0) |
+| **Device Status** | `GET /v1.0/devices/{id}/status` | Stato attuale DPs |
+
+### 8.3 Codici Errore Comuni
+
+| Codice | Messaggio | Causa | Soluzione |
+|---|---|---|---|
+| **1004** | `sign invalid` | Firma HMAC errata | Verifica timestamp, secret, payload string |
+| **1010** | `token invalid` | Token scaduto/non valido | Rinnova token (`/v1.0/token`) |
+| **1011** | `signature verification failed` | Firma non valida | Stesso di 1004 |
+| **1106** | `permission deny` | **Permessi API mancanti su Tuya IoT Platform** | Vedi sotto |
+| **1108** | `uri path invalid` | Endpoint sbagliato | Verifica path e versione API |
+
+### 8.4 Errore 1106 - Permission Deny (Il Problema Principale)
+
+**Causa**: Il progetto Tuya IoT Platform non ha le autorizzazioni per accedere ai dati dell'utente.
+
+**Requisiti su Tuya IoT Platform** (https://iot.tuya.com):
+
+1. **App Authorization** → **App Authorization** tab → **Associated App** / **Linked App**
+   - Bind **Smart Life** (`com.tuya.smartlife`) **OPPURE** **Tuya Smart** (`com.tuya.smart`)
+   - Deve corrispondere all'app usata sul telefono
+
+2. **Authorization** → **API Permissions** → **Smart Home Basic Service** → **Smart Home Device Management** → **View Details**
+   - Abilita (Authorized/Approved):
+     - ✅ **Get the list of devices under the user** (`GET:/v1.0/user/devices`)
+     - ✅ **Get Device Status** (`GET:/v1.0/devices/{deviceId}/status`)
+     - ✅ **Control Device** (`POST:/v1.0/devices/{deviceId}/commands`)
+     - ✅ **Query Factory Information in Bulk** (`GET:/v1.0/devices/factory-infos`)
+
+3. **Link Account** (obbligatorio):
+   - In **App Authorization** → **Link Tuya App Account**
+   - Scansiona QR Code con l'app mobile (Smart Life / Tuya Smart)
+   - Collega l'account `carlo.folini@gmail.com` al progetto
+
+4. **Project Status**: Deve essere **Formal Release** (non Trial) per certi permessi
+
+5. **Data Center**: EU → `openapi.tuyaeu.com` (corrisponde a `region: eu` in HA)
+
+### 8.5 Verifica Funzionamento
+
+Dopo autorizzazione e link account (attendi 5-10 min propagazione):
+
+**API Explorer** (icona `</>` in alto a destra su iot.tuya.com):
+- Data Center: **EU**
+- Access ID: `9ekucswk4xjhkmjy88wt`
+- Endpoint: `GET /v1.0/user/devices` → **Send**
+
+| Risultato | Significato |
+|---|---|
+| `{"success": true, "result": [...]}` | ✅ Tutto OK |
+| `{"code": 1106, "msg": "permission deny"}` | ❌ Permessi mancanti o link account non fatto |
+
+### 8.6 In Home Assistant (dopo fix cloud)
+
+1. **Impostazioni** → **Dispositivi e Servizi** → **LocalTuya** → **Configura**
+2. **Manage Cloud API account** → **Salva** (forza refresh token)
+3. **Aggiungi nuovo dispositivo** → ora vedi nomi con tag `[cloud]` invece di `[ID]`
+
+### 8.7 Fallback Manuale (Se Cloud Non Funziona)
+
+Se il cloud non è autorizzabile, configura manualmente in **Aggiungi dispositivo manualmente**:
+
+| Campo | Fonte |
+|---|---|
+| **Device ID** | Da app Tuya / Tuya IoT Platform / tuya-cli |
+| **Local Key** | Da tuya-cli (`tuya-cli wizard`) o backup app |
+| **IP Address** | Da router / scansione LAN |
+| **Protocol Version** | `auto` o `3.3`/`3.4`/`3.5` |
+| **Friendly Name** | Nome a tua scelta |
+
+> **Nota**: Il controllo locale funziona **perfettamente** senza cloud (solo `device_id` + `local_key` + `IP`). Il cloud serve solo per: nomi automatici, MAC address, DPS specs, controllo remoto fuori LAN.
+
+### 8.8 Endpoint Alternativi (v2.0)
+
+Per progetti con permessi diversi, esistono endpoint v2.0:
+
+| Endpoint | Descrizione |
+|---|---|
+| `GET /v2.0/cloud/thing/{id}/shadow/properties` | Proprietà device (richiede permesso "Device Status") |
+| `GET /v2.0/cloud/thing/{id}/model` | Data model (richiede permesso "Device Specification") |
+| `GET /v2.0/iot-03/users/{uid}/devices` | Device list v2 (richiede permesso "Device List v2") |
+
+> LocalTuya attualmente usa principalmente v1.0/v1.1. La migrazione a v2.0 richiederebbe permessi diversi sul progetto.
+
+---
+
+## 9. Riferimenti Rapidi
+
+| Risorsa | Link |
+|---|---|
+| **Tuya IoT Platform** | https://iot.tuya.com |
+| **API Explorer** | Icona `</>` su iot.tuya.com |
+| **OpenAPI Docs (EU)** | https://developer.tuya.com/en/docs/iot/openapi/api-list/api-list |
+| **LocalTuya GitHub** | https://github.com/rospogrigio/localtuya |
+| **tuya-cli** | `pip install tuya-cli` → `tuya-cli wizard` |

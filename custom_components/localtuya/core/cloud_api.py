@@ -164,8 +164,18 @@ class TuyaCloudApi:
                     async with session.get(
                         full_url, headers=dict(default_par, **headers)
                     ) as resp:
-                        self._logger.debug("CLOUD API RESP - Status: %s - Body: %s", resp.status, await resp.text())
-                        return await resp.json()
+                        resp_text = await resp.text()
+                        self._logger.debug("CLOUD API RESP - Status: %s - Body: %s", resp.status, resp_text)
+                        if resp.status >= 400:
+                            return {"success": False, "code": resp.status, "msg": f"HTTP {resp.status}: {resp_text}", "url": full_url, "method": method}
+                        try:
+                            resp_json = await resp.json()
+                        except Exception:
+                            resp_json = {"success": False, "code": "PARSE_ERROR", "msg": resp_text, "url": full_url, "method": method}
+                        # Add debug info to error responses
+                        if not resp_json.get("success") and resp_json.get("code") not in (None, "ok"):
+                            resp_json["_debug"] = {"url": full_url, "method": method, "payload_base": self._client_id + (self._access_token or "") + timestamp}
+                        return resp_json
 
                 if method == "POST":
                     async with session.post(
@@ -173,8 +183,17 @@ class TuyaCloudApi:
                         headers=dict(default_par, **headers, **{"Content-Type": "application/json"}),
                         data=json.dumps(body),
                     ) as resp:
-                        self._logger.debug("CLOUD API RESP - Status: %s - Body: %s", resp.status, await resp.text())
-                        return await resp.json()
+                        resp_text = await resp.text()
+                        self._logger.debug("CLOUD API RESP - Status: %s - Body: %s", resp.status, resp_text)
+                        if resp.status >= 400:
+                            return {"success": False, "code": resp.status, "msg": f"HTTP {resp.status}: {resp_text}", "url": full_url, "method": method}
+                        try:
+                            resp_json = await resp.json()
+                        except Exception:
+                            resp_json = {"success": False, "code": "PARSE_ERROR", "msg": resp_text, "url": full_url, "method": method}
+                        if not resp_json.get("success") and resp_json.get("code") not in (None, "ok"):
+                            resp_json["_debug"] = {"url": full_url, "method": method, "payload_base": self._client_id + (self._access_token or "") + timestamp}
+                        return resp_json
 
                 if method == "PUT":
                     async with session.put(
@@ -182,8 +201,17 @@ class TuyaCloudApi:
                         headers=dict(default_par, **headers, **{"Content-Type": "application/json"}),
                         data=json.dumps(body),
                     ) as resp:
-                        self._logger.debug("CLOUD API RESP - Status: %s - Body: %s", resp.status, await resp.text())
-                        return await resp.json()
+                        resp_text = await resp.text()
+                        self._logger.debug("CLOUD API RESP - Status: %s - Body: %s", resp.status, resp_text)
+                        if resp.status >= 400:
+                            return {"success": False, "code": resp.status, "msg": f"HTTP {resp.status}: {resp_text}", "url": full_url, "method": method}
+                        try:
+                            resp_json = await resp.json()
+                        except Exception:
+                            resp_json = {"success": False, "code": "PARSE_ERROR", "msg": resp_text, "url": full_url, "method": method}
+                        if not resp_json.get("success") and resp_json.get("code") not in (None, "ok"):
+                            resp_json["_debug"] = {"url": full_url, "method": method, "payload_base": self._client_id + (self._access_token or "") + timestamp}
+                        return resp_json
             except (aiohttp.ClientConnectionError, TimeoutError) as ex:
                 self._logger.debug(f"Failed to send request to tuya cloud: {ex}")
                 return False
@@ -367,19 +395,17 @@ class TuyaCloudApi:
                 continue
 
             if not resp.get("success"):
+                # Include debug info in response for UI
+                debug_resp = dict(resp)
+                debug_resp["_debug"] = {
+                    "url": f"/v1.0/iot-03/devices/factory-infos?device_ids={dev_id}",
+                    "device_id": dev_id,
+                    "code": resp.get("code"),
+                    "msg": resp.get("msg"),
+                }
                 self._logger.debug(f"Failed to get factory info for {dev_id}: {resp}")
-                continue
-
-            result = resp.get("result", [])
-            if not result:
-                continue
-
-            device_info = result[0]
-            return {
-                "mac": device_info.get("mac"),
-                "sn": device_info.get("sn"),
-                "uuid": device_info.get("uuid"),
-            }
+                return debug_resp
+            ...
 
         # Fallback: try batch if single fails
         if not (
@@ -391,8 +417,15 @@ class TuyaCloudApi:
             return None
 
         if not resp.get("success"):
+            debug_resp = dict(resp)
+            debug_resp["_debug"] = {
+                "url": f"/v1.0/iot-03/devices/factory-infos?device_ids={device_id}",
+                "device_id": device_id,
+                "code": resp.get("code"),
+                "msg": resp.get("msg"),
+            }
             self._logger.debug(f"Failed to get factory info for {device_id}: {resp}")
-            return None
+            return debug_resp
 
         result = resp.get("result", [])
         if not result:

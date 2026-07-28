@@ -410,27 +410,17 @@ logger:
       - "Entity not found"
       - "Entity not exposed"
   logs:
-    custom_components.localtuya: debug
+    custom_components.localtuya: error
     fancoil_system: error
-    #homeassistant.components.shell_command: debug
-    #homeassistant.components.python_script: debug
-    homeassistant.components.script: error
+    homeassistant.components.shell_command: debug
+    homeassistant.components.script: debug
     system_log.external: error
     homeassistant.components.mqtt: error
     homeassistant.components.automation: error
-    custom_components.cronostar: info
+    custom_components.cronostar: error
     custom_components.azure_openai_sdk_conversation: error
-    #homeassistant.core: error
-    #homeassistant.components: error
-    #homeassistant.bootstrap: error
-    #homeassistant.loader: error
     esphome: error
-    homeassistant.helpers.script: error
-    #custom_components.sinapsi_alfa: debug
-    #homeassistant.components.http: debug
-    #homeassistant.components.frontend: debug
-    #homeassistant.components.automation: debug
-    xknx: error             # Abilita tutti i log della libreria xknx
+    homeassistant.helpers.script: debug
 # ============================================================================
 # LOGBOOK & RECORDER
 # ============================================================================

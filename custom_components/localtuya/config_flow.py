@@ -1171,6 +1171,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
 
         # Ensure cloud device list is loaded before building the dropdown
         cloud_load_error = None
+        cloud_debug_info = {}
         _LOGGER.debug("async_step_add_device: cloud device list has %d entries, no_cloud=%s",
                       len(self.cloud_data.device_list),
                       self.config_entry.data.get(CONF_NO_CLOUD, True))
@@ -1180,6 +1181,9 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             _LOGGER.debug("async_step_add_device: cloud device list load result: %s, now has %d entries",
                           result, len(self.cloud_data.device_list))
             if result and result != "ok":
+                # Extract debug info from cloud API if available
+                if isinstance(result, dict) and result.get("_debug"):
+                    cloud_debug_info = result["_debug"]
                 cloud_load_error = f"Cloud API error: {result}"
         
         _LOGGER.debug("async_step_add_device: device_list keys count=%d, sample keys: %s",
@@ -1216,11 +1220,15 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         # Add cloud error to form errors if present
         if cloud_load_error:
             errors["base"] = cloud_load_error
+            # Add debug info to description placeholders
+            if cloud_debug_info:
+                errors["_debug_payload"] = str(cloud_debug_info)
 
         return self.async_show_form(
             step_id="add_device",
             data_schema=devices_schema(devices, self.cloud_data.device_list),
             errors=errors,
+            description_placeholders={"debug_payload": str(cloud_debug_info)} if cloud_debug_info else {},
         )
 
     @callback
@@ -1296,13 +1304,14 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                     self.discovered_devices, _ = await discover_devices()
                     _LOGGER.debug("Discovered devices via fresh discovery: %s", list(self.discovered_devices.keys()))
             
-            # Auto-retrieve MAC if enabled and device doesn't have one
+# Auto-retrieve MAC if enabled and device doesn't have one
             if self.config_entry.data.get(CONF_MAC_RETRIEVAL, False):
                 if not dev_conf.get(CONF_MAC):
                     _LOGGER.info("Auto-retrieving MAC for device %s", self.selected_device)
                     try:
                         cloud_api = self.cloud_data
                         factory_info = await cloud_api.async_get_device_factory_info(self.selected_device)
+                        mac_retrieved = False
                         if factory_info and factory_info.get("result"):
                             mac = factory_info["result"][0].get("mac")
                             if mac and mac != "00:00:00:00:00:00":
@@ -1313,8 +1322,17 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                                 _LOGGER.info("Auto-retrieved MAC address for %s: %s", self.selected_device, mac)
                                 # Refresh dev_conf with new MAC
                                 dev_conf = new_data[CONF_DEVICES][self.selected_device]
+                                mac_retrieved = True
+                        
+                        if not mac_retrieved:
+                            if isinstance(factory_info, dict) and factory_info.get("_debug"):
+                                errors["base"] = f"Cloud API error getting MAC: {factory_info.get('msg', 'unknown')}"
+                                errors["_debug_payload"] = str(factory_info["_debug"])
+                            else:
+                                errors["base"] = "Failed to retrieve MAC from cloud (no result)"
                     except Exception as e:
                         _LOGGER.warning("Failed to auto-retrieve MAC for %s: %s", self.selected_device, e)
+                        errors["base"] = f"Failed to get MAC: {e}"
             
             return await self.async_step_configure_device()
 
