@@ -1058,7 +1058,7 @@ HTML_TEMPLATE = """
             return set;
         }
         function switchTab(tab) {
-            const isManage = tab === 'manage';
+            console.log('[tuya_gui] switchTab called:', tab);
             const isAdd = tab === 'add';
             const isCloud = tab === 'cloud';
             const isSpace = tab === 'space';
@@ -1173,6 +1173,7 @@ HTML_TEMPLATE = """
             refresh();
         }
         async function refresh() {
+            console.log('[tuya_gui] refresh: called');
             if(!selectedId) return;
             const overlay = document.getElementById('loadingOverlay'); overlay.classList.remove('hidden');
             try {
@@ -1194,6 +1195,7 @@ HTML_TEMPLATE = """
             finally { overlay.classList.add('hidden'); }
         }
         async function cloudCheck() {
+            console.log('[tuya_gui] cloudCheck: called');
             if(!selectedId) return;
             const overlay = document.getElementById('loadingOverlay'); overlay.classList.remove('hidden');
             const logsBox = document.getElementById('techLogs');
@@ -1285,6 +1287,7 @@ HTML_TEMPLATE = """
             loadDevices(); 
         }
         async function send() {
+            console.log('[tuya_gui] send: called');
             const dpId = document.getElementById('dpId').value;
             const val = document.getElementById('dpValSelect').style.display === 'none' ? document.getElementById('dpValText').value : document.getElementById('dpValSelect').value;
             let finalVal = val;
@@ -1303,6 +1306,7 @@ HTML_TEMPLATE = """
         }
 
         async function forceFallback() {
+            console.log('[tuya_gui] forceFallback: called');
             if(!selectedId) return;
             const overlay = document.getElementById('loadingOverlay');
             overlay.classList.remove('hidden');
@@ -1351,10 +1355,12 @@ HTML_TEMPLATE = """
         }
 
         function closeCustomCommandModal() {
+            console.log('[tuya_gui] closeCustomCommandModal: called');
             document.getElementById('customCommandModal').classList.add('hidden');
         }
 
         async function sendCustomCloudCommand() {
+            console.log('[tuya_gui] sendCustomCloudCommand: called');
             const deviceId = document.getElementById('customCmdDeviceId').innerText;
             if(!deviceId) return;
             const method = document.getElementById('customCmdMethod').value;
@@ -1396,6 +1402,7 @@ HTML_TEMPLATE = """
         }
 
         async function discoverByIp() {
+            console.log('[tuya_gui] discoverByIp: called');
             const ipInput = document.getElementById('manualDeviceIp');
             const ip = ipInput.value.trim();
             if (!ip) { alert('Enter an IP address'); return; }
@@ -1515,6 +1522,7 @@ HTML_TEMPLATE = """
         }
 
         async function loadUnaddedDevices() {
+            console.log('[tuya_gui] loadUnaddedDevices: called');
             const list = document.getElementById('unaddedList');
             const logs = document.getElementById('unaddedLogs');
             list.innerHTML = 'Loading...';
@@ -1617,6 +1625,7 @@ HTML_TEMPLATE = """
 
 // Cloud Devices Tab Functions
         async function loadCloudDevices() {
+            console.log('[tuya_gui] loadCloudDevices: called');
             const list = document.getElementById('cloudList');
             const logs = document.getElementById('cloudLogs');
             list.innerHTML = 'Loading...';
@@ -1883,7 +1892,10 @@ HTML_TEMPLATE = """
             // Wire up fetch button ("Get device IDs")
             const fetchBtn = document.getElementById('fetchDetailsBtn');
             if (fetchBtn) {
-                fetchBtn.onclick = fetchDeviceDetailsFromList;
+                fetchBtn.onclick = function() {
+                    console.log('[tuya_gui] fetchDetailsBtn clicked');
+                    fetchDeviceDetailsFromList();
+                };
             }
 
             // Wire up copy button
@@ -2174,6 +2186,7 @@ HTML_TEMPLATE = """
 
         // Show configuration document in a modal for copy/download
         function downloadCloudJson() {
+            console.log('[tuya_gui] downloadCloudJson (cloud check): called');
             const textarea = document.getElementById('cloudJsonOutput');
             if (!textarea.value) return;
             const blob = new Blob([textarea.value], {type: 'application/json'});
@@ -2398,6 +2411,7 @@ function showConfigDocumentModal(configDocument, jsonString, logs) {
         }
 
         function copyCloudJson() {
+            console.log('[tuya_gui] copyCloudJson: called');
             const textarea = document.getElementById('cloudJsonOutput');
             if (!textarea.value) return;
             navigator.clipboard.writeText(textarea.value).then(() => {
@@ -2410,6 +2424,7 @@ function showConfigDocumentModal(configDocument, jsonString, logs) {
         }
 
         function downloadCloudJson() {
+            console.log('[tuya_gui] downloadCloudJson (batch result): called');
             const textarea = document.getElementById('cloudJsonOutput');
             if (!textarea.value) return;
             const blob = new Blob([textarea.value], {type: 'application/json'});
@@ -2423,6 +2438,8 @@ function showConfigDocumentModal(configDocument, jsonString, logs) {
 
         // Batch fetch device details from CSV list and show combined LocalTuya config
         async function fetchDeviceDetailsFromList() {
+            console.log('[tuya_gui] fetchDeviceDetailsFromList: called, device IDs:',
+                          document.getElementById('deviceIdsTextbox')?.value?.slice(0, 100) || 'empty');
             const textarea = document.getElementById('deviceIdsTextbox');
             const btn = document.getElementById('fetchDetailsBtn');
             const statusDiv = document.getElementById('batchStatus');
