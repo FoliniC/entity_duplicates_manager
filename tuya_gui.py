@@ -792,7 +792,7 @@ HTML_TEMPLATE = """
         .tab-content.active { display:flex; }
         .container { gap: 15px; height: 85vh; }
         .sidebar { flex: 1; display: flex; flex-direction: column; gap: 10px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .main { flex: 2.5; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; }
+        .main { flex: 2.5; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow-y: auto; }
         .list { overflow-y: auto; flex: 1; border: 1px solid #eee; }
         .item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; }
         .item:hover { background: #f8f9fa; }
@@ -1000,7 +1000,7 @@ HTML_TEMPLATE = """
                 <div id="space-options" class="space-options">
                     <!-- Space options will be populated dynamically -->
                 </div>
-                <button id="select-space-btn" class="primary-btn" disabled>Select Space</button>
+                <button id="select-space-btn" class="primary-btn" disabled>Get devices</button>
             </div>
             
             <div id="spaceResourcesContainer" class="hidden" style="margin-top: 20px;">
@@ -1009,6 +1009,29 @@ HTML_TEMPLATE = """
                     <!-- New devices will be listed here -->
                 </div>
                 <button id="configure-devices-btn" class="primary-btn">Configure New Devices</button>
+                <div id="rawPayloadSection" style="margin-top: 15px;">
+                    <h5 style="margin: 0 0 8px 0;">Raw Space Resources (LocalTuya Format)</h5>
+                    <textarea id="rawPayloadJson" readonly style="width: 100%; height: 200px; font-family: monospace; font-size: 11px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; background: #fff; resize:none; overflow:auto;">No raw payload yet. Select a space to fetch.</textarea>
+                    <br>
+                    <button id="copyRawPayloadBtn" class="primary-btn" style="margin-top: 8px; margin-right: 10px; padding: 6px 14px; font-size: 12px;">📋 Copy Raw JSON</button>
+                    <button id="downloadRawPayloadBtn" class="btn-send" style="margin-top: 8px; padding: 6px 14px; font-size: 12px;">💾 Download Raw JSON</button>
+                    <span id="rawPayloadStatus" style="font-size: 11px; color: #666; margin-left: 10px;"></span>
+                </div>
+                <div id="batchDevicesSection" class="hidden" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <h4 style="margin: 0 0 10px 0;">Batch Device Details</h4>
+                    <textarea id="deviceIdsTextbox" style="width: 100%; height: 80px; font-family: monospace; font-size: 12px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;" placeholder="Paste or type device IDs separated by commas..."></textarea>
+                    <br>
+                    <button id="fetchDetailsBtn" class="primary-btn" style="margin-right: 10px;">Get device IDs</button>
+                    <button id="copyIdsBtn" class="btn-send" style="margin-right: 10px;">📋 Copy IDs</button>
+                    <span id="batchStatus" style="font-size: 12px; color: #666;"></span>
+                </div>
+                <div id="batchResultSection" style="margin-top: 15px;">
+                    <h5 style="margin: 0 0 8px 0;">Merged Device Config JSON</h5>
+                    <textarea id="batchResultJson" readonly style="width: 100%; height: 200px; font-family: monospace; font-size: 11px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; background: #fff; resize:none; overflow:auto;">No results yet. Select a space and click "Get device IDs".</textarea>
+                    <br>
+                    <button id="copyBatchJsonBtn" class="primary-btn" style="margin-top: 8px; margin-right: 10px; padding: 6px 14px; font-size: 12px;">📋 Copy JSON</button>
+                    <button id="downloadBatchJsonBtn" class="btn-send" style="margin-top: 8px; padding: 6px 14px; font-size: 12px;">💾 Download JSON</button>
+                </div>
             </div>
         </div>
         <div class="main" id="spaceDetails" style="display:none">
@@ -1064,12 +1087,29 @@ HTML_TEMPLATE = """
             } catch(e) {
                 console.error('[tuya_gui] init: failed to load settings', e);
             }
-            
-            // Attach click handler for Space Management "Select Space" button
+
+            // Restore cached values from localStorage
+            const cachedDeviceIds = localStorage.getItem('tuyaGui_deviceIds');
+            if (cachedDeviceIds) {
+                const tb = document.getElementById('deviceIdsTextbox');
+                if (tb) tb.value = cachedDeviceIds;
+            }
+            const cachedBatchResult = localStorage.getItem('tuyaGui_batchResult');
+            if (cachedBatchResult) {
+                const rb = document.getElementById('batchResultJson');
+                if (rb) rb.value = cachedBatchResult;
+            }
+            const cachedRawPayload = localStorage.getItem('tuyaGui_rawPayload');
+            if (cachedRawPayload) {
+                const rp = document.getElementById('rawPayloadJson');
+                if (rp) rp.value = cachedRawPayload;
+            }
+
+            // Attach click handler for Space Management "Get devices" button
             const selectSpaceBtn = document.getElementById('select-space-btn');
             if (selectSpaceBtn) {
                 selectSpaceBtn.addEventListener('click', handleSpaceSelection);
-                console.log('[tuya_gui] init: Select Space button click handler attached');
+                console.log('[tuya_gui] init: Get devices button click handler attached');
             } else {
                 console.warn('[tuya_gui] init: select-space-btn NOT found in DOM at init');
             }
@@ -1689,7 +1729,7 @@ HTML_TEMPLATE = """
                         btn.disabled = false;
                         console.log('Space selection updated, button enabled');
                     } else {
-                        console.error('❌ select-space-btn NOT FOUND in DOM!');
+                        console.error('❌ select-space-btn ("Get devices" button) NOT FOUND in DOM!');
                     }
                 });
                 
@@ -1754,8 +1794,26 @@ HTML_TEMPLATE = """
                 document.getElementById('spaceResourcesContainer').classList.remove('hidden');
                 console.log('✅ Space resources display updated and shown');
                 
-                // Add device ID textbox and fetch details button
-                addDeviceIdTextbox(newDevices, selectedSpaceId);
+                // Populate batch device IDs textbox with ALL space resources (not just new ones)
+                addDeviceIdTextbox(resources, selectedSpaceId);
+                
+                // Auto-fetch raw Tuya Cloud API payload (LocalTuya-compatible format) and show in textbox
+                fetch(`/api/cloud/spaces/${selectedSpaceId}/resources_raw`)
+                    .then(r => r.json())
+                    .then(data => {
+                        const rawJson = document.getElementById('rawPayloadJson');
+                        const rawStatus = document.getElementById('rawPayloadStatus');
+                        if (rawJson) rawJson.value = JSON.stringify(data, null, 2);
+                        if (rawStatus) rawStatus.innerText = data.error ? `Error: ${data.error}` : '✅ Raw payload loaded';
+                        // Persist raw payload to localStorage
+                        if (rawJson && !data.error) localStorage.setItem('tuyaGui_rawPayload', rawJson.value);
+                    })
+                    .catch(err => {
+                        const rawJson = document.getElementById('rawPayloadJson');
+                        const rawStatus = document.getElementById('rawPayloadStatus');
+                        if (rawJson) rawJson.value = `Error: ${err.message}`;
+                        if (rawStatus) rawStatus.innerText = 'Error fetching raw payload';
+                    });
                 
             } catch (error) {
                 console.error('❌ Error loading space resources:', error);
@@ -1804,6 +1862,76 @@ HTML_TEMPLATE = """
                     configureNewDevice(deviceId, spaceId);
                 });
             });
+        }
+
+        function addDeviceIdTextbox(devices, spaceId) {
+            const batchSection = document.getElementById('batchDevicesSection');
+            const textbox = document.getElementById('deviceIdsTextbox');
+            const deviceList = document.getElementById('spaceDevicesList');
+            const configureBtn = document.getElementById('configure-devices-btn');
+            if (!batchSection || !textbox) return;
+
+            const deviceIds = devices.map(d => d.res_id || d.device_id || d.id || d.deviceId).filter(Boolean);
+            textbox.value = deviceIds.join(', ');
+            localStorage.setItem('tuyaGui_deviceIds', deviceIds.join(', '));
+            batchSection.classList.remove('hidden');
+
+            // Hide individual device cards and configure button in batch mode
+            if (deviceList) deviceList.classList.add('hidden');
+            if (configureBtn) configureBtn.classList.add('hidden');
+
+            // Wire up fetch button ("Get device IDs")
+            const fetchBtn = document.getElementById('fetchDetailsBtn');
+            if (fetchBtn) {
+                fetchBtn.onclick = fetchDeviceDetailsFromList;
+            }
+
+            // Wire up copy button
+            const copyBtn = document.getElementById('copyIdsBtn');
+            if (copyBtn) {
+                copyBtn.onclick = function() {
+                    const tb = document.getElementById('deviceIdsTextbox');
+                    if (!tb || !tb.value) return;
+                    navigator.clipboard.writeText(tb.value).then(() => {
+                        alert('Device IDs copied to clipboard!');
+                    }).catch(() => {
+                        tb.select();
+                        document.execCommand('copy');
+                        alert('Device IDs copied to clipboard!');
+                    });
+                };
+            }
+
+            // Wire up raw payload copy button
+            const rawPayloadJson = document.getElementById('rawPayloadJson');
+            const copyRawBtn = document.getElementById('copyRawPayloadBtn');
+            if (copyRawBtn && rawPayloadJson) {
+                copyRawBtn.onclick = function() {
+                    if (!rawPayloadJson || !rawPayloadJson.value) return;
+                    navigator.clipboard.writeText(rawPayloadJson.value).then(() => {
+                        alert('Raw payload JSON copied to clipboard!');
+                    }).catch(() => {
+                        rawPayloadJson.select();
+                        document.execCommand('copy');
+                        alert('Raw payload JSON copied to clipboard!');
+                    });
+                };
+            }
+
+            // Wire up raw payload download button
+            const downloadRawBtn = document.getElementById('downloadRawPayloadBtn');
+            if (downloadRawBtn && rawPayloadJson) {
+                downloadRawBtn.onclick = function() {
+                    if (!rawPayloadJson || !rawPayloadJson.value) return;
+                    const blob = new Blob([rawPayloadJson.value], {type: 'application/json'});
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `space_${spaceId}_resources_${new Date().toISOString().split('T')[0]}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                };
+            }
         }
 
         function configureNewDevice(deviceId, spaceId) {
@@ -2293,8 +2421,129 @@ function showConfigDocumentModal(configDocument, jsonString, logs) {
             URL.revokeObjectURL(url);
         }
 
+        // Batch fetch device details from CSV list and show combined LocalTuya config
+        async function fetchDeviceDetailsFromList() {
+            const textarea = document.getElementById('deviceIdsTextbox');
+            const btn = document.getElementById('fetchDetailsBtn');
+            const statusDiv = document.getElementById('batchStatus');
+
+            if (!textarea || !textarea.value.trim()) {
+                alert('Please enter device IDs');
+                return;
+            }
+
+            const deviceIds = textarea.value.split(',').map(id => id.trim()).filter(id => id);
+            if (deviceIds.length === 0) {
+                alert('No valid device IDs found');
+                return;
+            }
+
+            if (btn) { btn.disabled = true; btn.textContent = '⏳ Fetching...'; }
+            if (statusDiv) { statusDiv.innerText = `Fetching ${deviceIds.length} device(s)...`; }
+
+            const configDevices = [];
+            const logs = [`=== Batch Device Details ===`, `Devices requested: ${deviceIds.length}`, `Timestamp: ${new Date().toISOString()}`, ''];
+
+            for (let i = 0; i < deviceIds.length; i++) {
+                const devId = deviceIds[i];
+                if (statusDiv) { statusDiv.innerText = `Fetching device ${i + 1}/${deviceIds.length}: ${devId}...`; }
+
+                try {
+                    const resp = await fetch(`/api/device/${devId}/cloud_device_details`);
+                    const data = await resp.json();
+
+                    if (data.error) {
+                        console.error(`Error fetching device ${devId}:`, data.error);
+                        logs.push(`✗ ${devId}: ${data.error}`);
+                        continue;
+                    }
+
+                    const devInfo = data.device_info || {};
+                    const funcs = data.functions || {};
+                    const factoryInfo = data.factory_info || {};
+
+                    // Tuya Cloud API-compatible device format (LocalTuya import expects result[])
+                    const tuyaDevice = {
+                        id: devId,
+                        name: devInfo.name || devInfo.friendly_name || devId,
+                        local_key: devInfo.local_key || '',
+                        ip: devInfo.local_ip || devInfo.ip || '',
+                        product_id: devInfo.product_id || devInfo.product_key || '',
+                        product_name: devInfo.product_name || '',
+                        category: devInfo.category || '',
+                        model: devInfo.model || '',
+                        status: devInfo.status || {},
+                        firmware_version: devInfo.firmware_version || '',
+                        manufacturer: factoryInfo.manufacturer || '',
+                        mac: factoryInfo.mac || devInfo.mac || devInfo.device_mac || '',
+                        uuid: factoryInfo.uuid || devInfo.uuid || '',
+                        create_date: devInfo.create_date || '',
+                        update_date: devInfo.update_date || '',
+                        active_time: devInfo.active_time || '',
+                        icon: devInfo.icon || '',
+                        comment: devInfo.comment || ''
+                    };
+
+                    configDevices.push(tuyaDevice);
+                    logs.push(`✓ ${devId}: ${tuyaDevice.name}`);
+                } catch (err) {
+                    console.error(`Error fetching device ${devId}:`, err);
+                    logs.push(`✗ ${devId}: ${err.message}`);
+                }
+            }
+
+            if (btn) { btn.disabled = false; btn.textContent = 'Get device IDs'; }
+            if (statusDiv) { statusDiv.innerText = `Done: ${configDevices.length}/${deviceIds.length} devices fetched`; }
+
+            if (configDevices.length === 0) {
+                alert('No device details could be retrieved');
+                return;
+            }
+
+            const jsonStr = JSON.stringify({ result: configDevices }, null, 2);
+
+            // Populate result textbox
+            const resultJson = document.getElementById('batchResultJson');
+            const resultSection = document.getElementById('batchResultSection');
+            if (resultJson) resultJson.value = jsonStr;
+            if (resultSection) resultSection.classList.remove('hidden');
+            // Persist batch result to localStorage
+            if (resultJson) localStorage.setItem('tuyaGui_batchResult', resultJson.value);
+
+            // Wire up result copy button
+            const copyResultBtn = document.getElementById('copyBatchJsonBtn');
+            if (copyResultBtn) {
+                copyResultBtn.onclick = function() {
+                    if (!resultJson || !resultJson.value) return;
+                    navigator.clipboard.writeText(resultJson.value).then(() => {
+                        alert('JSON copied to clipboard!');
+                    }).catch(() => {
+                        resultJson.select();
+                        document.execCommand('copy');
+                        alert('JSON copied to clipboard!');
+                    });
+                };
+            }
+
+            // Wire up result download button
+            const downloadResultBtn = document.getElementById('downloadBatchJsonBtn');
+            if (downloadResultBtn) {
+                downloadResultBtn.onclick = function() {
+                    if (!resultJson || !resultJson.value) return;
+                    const blob = new Blob([resultJson.value], {type: 'application/json'});
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `tuya_batch_devices_${new Date().toISOString().split('T')[0]}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                };
+            }
+
+            alert(`✅ Fetched ${configDevices.length}/${deviceIds.length} device(s). JSON ready in the result box below.`);
+        }
+
         init();
-        ${SPACE_MANAGEMENT_JS}
     </script>
 </body>
 </html>
@@ -3761,5 +4010,100 @@ def api_cloud_space_resources(space_id):
         return jsonify(future.result(timeout=30))
     except Exception as e:
         return jsonify({"error": str(e)})
+
+
+# ---------------------------------------------------------------------------
+# /api/cloud/spaces/<space_id>/resources_raw  — Raw Tuya Cloud API response (LocalTuya-compatible format)
+# ---------------------------------------------------------------------------
+@app.route("/api/cloud/spaces/<space_id>/resources_raw")
+def api_cloud_space_resources_raw(space_id):
+    """Return raw Tuya Cloud API response for space resources (LocalTuya 'Lista Dispositivi' compatible format)."""
+    if TuyaCloudApi is None:
+        return jsonify({"error": "LocalTuya cloud dependencies unavailable"}), 503
+
+    ha_config = get_ha_config()
+    cloud_conf = None
+    for entry in ha_config.get("data", {}).get("entries", []):
+        if entry.get("domain") == "localtuya":
+            cloud_conf = entry.get("data")
+            break
+
+    if not cloud_conf:
+        return jsonify({"error": "No cloud config"}), 404
+
+    async def _run():
+        h = ListHandler()
+        cl_logger = logging.getLogger("cloud_api")
+        cl_logger.addHandler(h)
+        cl_logger.setLevel(logging.DEBUG)
+        try:
+            api = TuyaCloudApi(
+                cloud_conf["region"],
+                cloud_conf["client_id"],
+                cloud_conf["client_secret"],
+                cloud_conf["user_id"],
+            )
+            await api.async_connect()
+            raw_resp = await api.async_make_request("GET", f"/v2.0/cloud/space/{space_id}/resource")
+            return raw_resp
+        except Exception as e:
+            return {"error": str(e)}
+        finally:
+            cl_logger.removeHandler(h)
+
+    future = asyncio.run_coroutine_threadsafe(_run(), loop)
+    try:
+        return jsonify(future.result(timeout=30))
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+
+# ---------------------------------------------------------------------------
+# /api/cloud/devices-list  — Return TuyaCloudApi's cached device_list (all cloud device details)
+# ---------------------------------------------------------------------------
+@app.route("/api/cloud/devices-list")
+def api_cloud_devices_list():
+    """Return the full cached TuyaCloudApi device_list (all cloud devices with details)."""
+    if TuyaCloudApi is None:
+        return jsonify({"error": "LocalTuya cloud dependencies unavailable"}), 503
+
+    ha_config = get_ha_config()
+    cloud_conf = None
+    for entry in ha_config.get("data", {}).get("entries", []):
+        if entry.get("domain") == "localtuya":
+            cloud_conf = entry.get("data")
+            break
+
+    if not cloud_conf:
+        return jsonify({"error": "No cloud config"}), 404
+
+    async def _run():
+        h = ListHandler()
+        cl_logger = logging.getLogger("cloud_api")
+        cl_logger.addHandler(h)
+        cl_logger.setLevel(logging.DEBUG)
+        try:
+            api = TuyaCloudApi(
+                cloud_conf["region"],
+                cloud_conf["client_id"],
+                cloud_conf["client_secret"],
+                cloud_conf["user_id"],
+            )
+            await api.async_connect()
+            # Ensure device_list is populated
+            await api.async_get_devices_list()
+            return {"result": list(api.device_list.values())}
+        except Exception as e:
+            return {"error": str(e)}
+        finally:
+            cl_logger.removeHandler(h)
+
+    future = asyncio.run_coroutine_threadsafe(_run(), loop)
+    try:
+        return jsonify(future.result(timeout=30))
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001)

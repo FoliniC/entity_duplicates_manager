@@ -9,6 +9,7 @@ import copy
 from importlib import import_module
 from functools import partial
 from collections.abc import Callable, Coroutine
+from pathlib import Path
 from typing import Any
 
 
@@ -1237,56 +1238,116 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
 
     async def async_step_add_device_manual_cloud(self, user_input=None):
         """Handle manual cloud device list JSON input when cloud API fails."""
+        _LOGGER.debug("async_step_add_device_manual_cloud called, user_input=%s",
+                      user_input is not None)
         errors = {}
-        
-        # Get already configured device IDs
-        configured_devices = set()
-        entries = self.hass.config_entries.async_entries(DOMAIN)
-        for entry in entries:
-            for dev_id in entry.data.get(CONF_DEVICES, {}).keys():
-                configured_devices.add(dev_id)
-        
+
+        # Cache file path for the manual cloud device list JSON
+        cache_path = Path(self.hass.config.config_dir) / ".tuya_cloud_manual_list_cache.json"
+
+        # Check for existing cache
+        cached_json = None
+        if cache_path.exists():
+            try:
+                cached_json = json.loads(cache_path.read_text())
+                _LOGGER.debug("Loaded existing cache from %s", cache_path)
+            except Exception as ex:
+                _LOGGER.warning("Failed to load cache from %s: %s", cache_path, ex)
+                cached_json = None
+        else:
+            _LOGGER.debug("No cache file found at %s", cache_path)
+
         if user_input is not None:
-            json_input = user_input.get("cloud_device_json", "").strip()
-            if not json_input:
-                errors["base"] = "json_required"
+            # User chose option from selector (either "use cached" or "paste new JSON")
+            action = user_input.get("action")
+            json_input = user_input.get("cloud_device_json", "")
+            _LOGGER.debug("user_input received: action=%s, has_json=%s", action, bool(json_input and json_input.strip()))
+
+            if action == "use_cached" and cached_json is not None:
+                _LOGGER.debug("Branch: using cached JSON")
+                parsed = cached_json
+            elif action == "paste_json":
+                json_input = json_input.strip()
+                _LOGGER.debug("Branch: paste_json, json_input length=%d", len(json_input))
+                if not json_input:
+                    _LOGGER.debug("Branch: paste_json but json_input is empty")
+                    errors["base"] = "json_required"
+                    parsed = None
+                else:
+                    try:
+                        parsed = json.loads(json_input)
+                        _LOGGER.debug("Branch: JSON parsed successfully, top-level keys=%s", list(parsed.keys()))
+                    except json.JSONDecodeError as ex:
+                        _LOGGER.debug("Branch: JSON parse failed: %s", ex)
+                        errors["base"] = "json_invalid"
+                        parsed = None
             else:
+                # Use cached as fallback
+                _LOGGER.debug("Branch: fallback to cached_json (action=%s, cached_json=%s)",
+                              action, cached_json is not None)
+                parsed = cached_json
+
+            if parsed is not None and not errors:
+                _LOGGER.debug("Parsed JSON is valid, checking format...")
                 try:
-                    import json
-                    parsed = json.loads(json_input)
-                    
-                    # Determine which JSON format was provided
-                    # Format 1: Initial list with res_id/res_type
-                    # Format 2: Detailed device info with local_key, etc.
-                    
                     if "result" in parsed and isinstance(parsed["result"], dict) and "data" in parsed["result"]:
-                        # Format 1: Initial list
+                        _LOGGER.debug("Format 1 detected: result.data structure")
+                        # Format 1: Initial device list (res_id based)
                         devices_data = parsed["result"]["data"]
                         if not isinstance(devices_data, list):
+                            _LOGGER.debug("Format 1: devices_data is not a list, type=%s", type(devices_data))
                             errors["base"] = "json_invalid_data"
                         else:
-                            # Extract device IDs and filter out already configured ones
-                            unconfigured_devices = []
-                            for dev in devices_data:
-                                res_id = dev.get("res_id") or dev.get("id")
-                                if res_id and res_id not in configured_devices:
-                                    name = dev.get("name") or res_id
-                                    unconfigured_devices.append(f"{res_id} ({name})")
-                            
+                            _LOGGER.debug("Format 1: devices_data has %d entries", len(devices_data))
+                            configured_devices = set()
+                            for entry in self.hass.config_entries.async_entries(DOMAIN):
+                                for dev_id in entry.data.get(CONF_DEVICES, {}).keys():
+                                    configured_devices.add(dev_id)
+                            _LOGGER.debug("Configured device IDs: %s", configured_devices)
+
+                            unconfigured_devices = [
+                                d for d in devices_data
+                                if (d.get("res_id") or d.get("id")) and (d.get("res_id") or d.get("id")) not in configured_devices
+                            ]
+                            _LOGGER.debug("Unconfigured device IDs: %s", [d.get("res_id") or d.get("id") for d in unconfigured_devices])
+
                             if not unconfigured_devices:
+                                _LOGGER.debug("No unconfigured devices, setting error 'all_devices_configured'")
                                 errors["base"] = "all_devices_configured"
                             else:
-                                # Store the device IDs for the next step
-                                self._manual_device_ids = [d.split(" (")[0] for d in unconfigured_devices]
-                                # Show summary and ask for detailed JSON
+                                # Cache the raw JSON for future use
+                                if action == "paste_json":
+                                    try:
+                                        cache_path.write_text(json_input)
+                                        _LOGGER.debug("Cached raw JSON to %s", cache_path)
+                                    except Exception as ex:
+                                        _LOGGER.warning("Failed to write cache to %s: %s", cache_path, ex)
+
+                                self._manual_device_ids = [
+                                    d.get("res_id") or d.get("id") for d in unconfigured_devices
+                                ]
+                                _LOGGER.debug("Set _manual_device_ids=%s", self._manual_device_ids)
+                                # Cache the unconfigured device IDs so next step knows which devices to configure
+                                try:
+                                    (Path(self.hass.config.config_dir) / ".tuya_manual_cloud_ids_cache.json").write_text(
+                                        json.dumps(self._manual_device_ids)
+                                    )
+                                    _LOGGER.debug("Cached unconfigured IDs to .tuya_manual_cloud_ids_cache.json")
+                                except Exception as ex:
+                                    _LOGGER.warning("Failed to write IDs cache: %s", ex)
+                                # Show the unconfigured device list summary then ask for detailed JSON
+                                _LOGGER.debug("Calling async_step_add_device_manual_cloud_detail()")
                                 return await self.async_step_add_device_manual_cloud_detail()
-                    
+
                     elif "result" in parsed and isinstance(parsed["result"], list):
+                        _LOGGER.debug("Format 2 detected: result is list (detailed device info)")
                         # Format 2: Detailed device info
                         devices_data = parsed["result"]
                         if not isinstance(devices_data, list):
+                            _LOGGER.debug("Format 2: devices_data is not a list, type=%s", type(devices_data))
                             errors["base"] = "json_invalid_data"
                         else:
+                            _LOGGER.debug("Format 2: devices_data has %d entries", len(devices_data))
                             manual_device_list = {}
                             for dev in devices_data:
                                 dev_id = dev.get("id")
@@ -1315,33 +1376,49 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                                         "sub": dev.get("sub", False),
                                         "time_zone": dev.get("time_zone"),
                                     }
-                            
-                            # Merge manual device list with discovered devices
+                            _LOGGER.debug("Format 2: built manual_device_list with %d entries for IDs in _manual_device_ids=%s",
+                                          len(manual_device_list), getattr(self, '_manual_device_ids', 'N/A'))
+
                             self.cloud_data.device_list.update(manual_device_list)
                             _LOGGER.info(f"Manually added {len(manual_device_list)} devices from detailed JSON input")
-                            
-                            # Clean up
+
                             if hasattr(self, "_manual_device_ids"):
                                 delattr(self, "_manual_device_ids")
-                            
-                            # Now continue to the normal add_device step
+
                             return await self.async_step_add_device()
-                    
+
                     else:
+                        _LOGGER.debug("Format unrecognized: keys=%s", list(parsed.keys()), exc_info=True)
                         errors["base"] = "json_invalid_format"
-                        
+
                 except json.JSONDecodeError:
+                    _LOGGER.debug("json.JSONDecodeError during format check")
                     errors["base"] = "json_invalid"
                 except Exception as ex:
                     _LOGGER.exception("Error parsing manual cloud JSON")
                     errors["base"] = f"json_error: {ex}"
-        
-        # Schema for the manual JSON input (Format 1)
+
+        # Build form schema
         import voluptuous as vol
-        schema = vol.Schema({
-            vol.Required("cloud_device_json"): str,
-        })
-        
+        cache_option = cached_json is not None
+        if cache_option:
+            schema = vol.Schema({
+                vol.Required("action", default="paste_json"): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[
+                            SelectOptionDict(value="use_cached", label="📂 Use cached device list"),
+                            SelectOptionDict(value="paste_json", label="📝 Paste new JSON"),
+                        ],
+                        mode=SelectSelectorMode.DROPDOWN,
+                    ),
+                ),
+                vol.Optional("cloud_device_json"): str,
+            })
+        else:
+            schema = vol.Schema({
+                vol.Required("cloud_device_json"): str,
+            })
+
         return self.async_show_form(
             step_id="add_device_manual_cloud",
             data_schema=schema,
@@ -1360,33 +1437,51 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
   "t": 1785229260540,
   "tid": "daa2e1a18a6211f19cb812e3d0098c67"
 }''',
-                "note": "Incolla qui il JSON completo ottenuto dall'API Tuya Cloud (endpoint /v1.0/users/{uid}/devices o simile). Il formato deve contenere 'result.data' con array di oggetti che hanno 'res_id' (device ID)."
+                "note": (
+                    "Incolla il JSON completo dall'API Tuya Cloud (endpoint /v1.0/users/{uid}/devices). "
+                    "Il formato deve contenere 'result.data' con oggetti che hanno 'res_id' (device ID). "
+                    + ("⚡ Cache trovata: puoi usare quella salvata o incollare un nuovo JSON."
+                       if cache_option
+                       else "Se incolla il JSON, verrà salvato in cache per i prossimi utilizzi.")
+                ),
             },
         )
 
     async def async_step_add_device_manual_cloud_detail(self, user_input=None):
         """Handle detailed device info JSON input for unconfigured devices."""
+        _LOGGER.debug("async_step_add_device_manual_cloud_detail called, user_input=%s, _manual_device_ids=%s",
+                      user_input is not None, getattr(self, '_manual_device_ids', 'N/A'))
         errors = {}
-        
+
         if user_input is not None:
             json_input = user_input.get("cloud_device_json", "").strip()
+            _LOGGER.debug("user_input received in detail step, json_input length=%d", len(json_input))
             if not json_input:
+                _LOGGER.debug("Branch: json_input is empty")
                 errors["base"] = "json_required"
             else:
                 try:
                     import json
                     parsed = json.loads(json_input)
-                    
+                    _LOGGER.debug("Branch: JSON parsed successfully, top-level keys=%s", list(parsed.keys()))
+
                     # Expect Format 2: Detailed device info
                     if "result" in parsed and isinstance(parsed["result"], list):
+                        _LOGGER.debug("Format 2 detected: result is list")
                         devices_data = parsed["result"]
                         if not isinstance(devices_data, list):
+                            _LOGGER.debug("Format 2: devices_data is not a list, type=%s", type(devices_data))
                             errors["base"] = "json_invalid_data"
                         else:
+                            _LOGGER.debug("Format 2: devices_data has %d entries, _manual_device_ids=%s",
+                                          len(devices_data), getattr(self, '_manual_device_ids', 'N/A'))
                             manual_device_list = {}
                             for dev in devices_data:
                                 dev_id = dev.get("id")
+                                _LOGGER.debug("  checking dev_id=%s against _manual_device_ids=%s",
+                                              dev_id, getattr(self, '_manual_device_ids', 'N/A'))
                                 if dev_id and dev_id in self._manual_device_ids:
+                                    _LOGGER.debug("  MATCH: dev_id=%s found in _manual_device_ids", dev_id)
                                     manual_device_list[dev_id] = {
                                         "id": dev_id,
                                         "name": dev.get("name") or dev.get("custom_name") or dev_id,
@@ -1411,27 +1506,33 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                                         "sub": dev.get("sub", False),
                                         "time_zone": dev.get("time_zone"),
                                     }
-                            
-                            # Merge manual device list with discovered devices
+                            _LOGGER.debug("Format 2: built manual_device_list with %d matched entries out of %d total",
+                                          len(manual_device_list), len(devices_data))
+
                             self.cloud_data.device_list.update(manual_device_list)
                             _LOGGER.info(f"Manually added {len(manual_device_list)} devices from detailed JSON input")
-                            
-                            # Clean up
+
                             if hasattr(self, "_manual_device_ids"):
+                                _LOGGER.debug("Deleting _manual_device_ids attribute")
                                 delattr(self, "_manual_device_ids")
-                            
-                            # Now continue to the normal add_device step
+
+                            _LOGGER.debug("Calling async_step_add_device()")
                             return await self.async_step_add_device()
                     else:
+                        _LOGGER.debug("Format unrecognized in detail step: keys=%s (is result a list? %s)",
+                                      list(parsed.keys()), isinstance(parsed.get("result"), list))
                         errors["base"] = "json_invalid_format"
-                        
-                except json.JSONDecodeError:
+
+                except json.JSONDecodeError as ex:
+                    _LOGGER.debug("json.JSONDecodeError in detail step: %s", ex)
                     errors["base"] = "json_invalid"
                 except Exception as ex:
-                    _LOGGER.exception("Error parsing manual cloud JSON")
+                    _LOGGER.exception("Error parsing manual cloud JSON in detail step")
                     errors["base"] = f"json_error: {ex}"
-        
+
         # Build the list of unconfigured device IDs for the user
+        _LOGGER.debug("Building device_list_str for form display, has _manual_device_ids=%s",
+                       hasattr(self, '_manual_device_ids'))
         device_list_str = ", ".join(self._manual_device_ids) if hasattr(self, "_manual_device_ids") else ""
         device_count = len(self._manual_device_ids) if hasattr(self, "_manual_device_ids") else 0
         

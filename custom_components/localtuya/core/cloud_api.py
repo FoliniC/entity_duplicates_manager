@@ -331,10 +331,10 @@ class TuyaCloudApi:
 
         return resp["result"], "ok"
 
-    async def async_get_device_functions(self, device_id) -> dict[str, dict]:
+    async def async_get_device_functions(self, device_id, force_update=False) -> dict[str, dict]:
         """Pull Devices Properties and Specifications to devices_list"""
         cached = device_id in self.cached_device_list
-        if cached and (dps_data := self.cached_device_list[device_id].get("dps_data")):
+        if cached and (dps_data := self.cached_device_list[device_id].get("dps_data")) and not force_update:
             self.device_list[device_id]["dps_data"] = dps_data
             return dps_data
 
