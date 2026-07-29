@@ -1291,7 +1291,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 _LOGGER.debug("Parsed JSON is valid, checking format...")
                 try:
                     if "result" in parsed and isinstance(parsed["result"], dict) and "data" in parsed["result"]:
-                        _LOGGER.debug("Format 1 detected: result.data structure")
+                        _LOGGER.info("Format 1 detected: result.data structure")
                         # Format 1: Initial device list (res_id based)
                         devices_data = parsed["result"]["data"]
                         if not isinstance(devices_data, list):
@@ -1309,7 +1309,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                                 d for d in devices_data
                                 if (d.get("res_id") or d.get("id")) and (d.get("res_id") or d.get("id")) not in configured_devices
                             ]
-                            _LOGGER.debug("Unconfigured device IDs: %s", [d.get("res_id") or d.get("id") for d in unconfigured_devices])
+                            _LOGGER.info("Unconfigured device IDs: %s", [d.get("res_id") or d.get("id") for d in unconfigured_devices])
 
                             if not unconfigured_devices:
                                 _LOGGER.debug("No unconfigured devices, setting error 'all_devices_configured'")
@@ -1326,7 +1326,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                                 self._manual_device_ids = [
                                     d.get("res_id") or d.get("id") for d in unconfigured_devices
                                 ]
-                                _LOGGER.debug("Set _manual_device_ids=%s", self._manual_device_ids)
+                                _LOGGER.info("Set _manual_device_ids=%s", self._manual_device_ids)
                                 # Cache the unconfigured device IDs so next step knows which devices to configure
                                 try:
                                     (Path(self.hass.config.config_dir) / ".tuya_manual_cloud_ids_cache.json").write_text(
@@ -1336,11 +1336,11 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                                 except Exception as ex:
                                     _LOGGER.warning("Failed to write IDs cache: %s", ex)
                                 # Show the unconfigured device list summary then ask for detailed JSON
-                                _LOGGER.debug("Calling async_step_add_device_manual_cloud_detail()")
+                                _LOGGER.info("Calling async_step_add_device_manual_cloud_detail()")
                                 return await self.async_step_add_device_manual_cloud_detail()
 
                     elif "result" in parsed and isinstance(parsed["result"], list):
-                        _LOGGER.debug("Format 2 detected: result is list (detailed device info)")
+                        _LOGGER.info("Format 2 detected in step 1: result is list (detailed device info)")
                         # Format 2: Detailed device info
                         devices_data = parsed["result"]
                         if not isinstance(devices_data, list):
@@ -1353,8 +1353,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                             for dev in devices_data:
                                 dev_id = dev.get("id")
                                 if dev_id and (manual_ids is None or dev_id in manual_ids):
-                                    _LOGGER.debug("Format 2 step1: including dev_id=%s (manual_ids=%s)",
-                                                   dev_id, manual_ids is not None)
+                                    _LOGGER.info("Format 2 step1: including dev_id=%s (no manual_ids filter active)", dev_id)
                                     manual_device_list[dev_id] = {
                                         "id": dev_id,
                                         "name": dev.get("name") or dev.get("custom_name") or dev_id,
@@ -1379,7 +1378,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                                         "sub": dev.get("sub", False),
                                         "time_zone": dev.get("time_zone"),
                                     }
-                            _LOGGER.debug("Format 2 step1: built manual_device_list with %d entries (manual_ids_set=%s)",
+                            _LOGGER.info("Format 2 step1: built manual_device_list with %d entries (manual_ids_set=%s)",
                                           len(manual_device_list), manual_ids is not None)
 
                             self.cloud_data.device_list.update(manual_device_list)
@@ -1470,7 +1469,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
 
                     # Expect Format 2: Detailed device info
                     if "result" in parsed and isinstance(parsed["result"], list):
-                        _LOGGER.debug("Format 2 detected: result is list")
+                        _LOGGER.info("Format 2 detected in detail step: result is list")
                         devices_data = parsed["result"]
                         if not isinstance(devices_data, list):
                             _LOGGER.debug("Format 2: devices_data is not a list, type=%s", type(devices_data))
