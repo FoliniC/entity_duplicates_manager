@@ -66,7 +66,8 @@
             "json_invalid_data": "JSON data array is invalid or empty.",
             "json_success_false": "JSON indicates API call was not successful (success: false).",
             "json_error": "Error parsing JSON: {ex}",
-            "all_devices_configured": "All devices from the list are already configured in LocalTuya."
+            "all_devices_configured": "All devices from the list are already configured in LocalTuya.",
+            "duplicate_device": "This device is already configured or shares an IP/MAC with an existing device.\n{device_info}"
         },
         "step": {
             "yaml_import": {

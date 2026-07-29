@@ -1915,6 +1915,57 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                         cloud_devs[dev_id_to_check][CONF_DPS_STRINGS] = dps_string_list({}, dps_data)
                     cloud_dps = cloud_devs[dev_id_to_check].get(CONF_DPS_STRINGS, [])
 
+                # Check for duplicate device (same host/IP or same cloud device_id
+                # already configured under a different localtuya entry)
+                new_host = user_input.get(CONF_HOST, "")
+                new_cloud_id = user_input.get(CONF_DEVICE_ID, "")
+                existing_errors = []
+                entries = hass.config_entries.async_entries(DOMAIN)
+                for existing_entry in entries:
+                    for existing_dev_id, existing_dev in existing_entry.data.get(
+                        CONF_DEVICES, {}
+                    ).items():
+                        existing_host = existing_dev.get(CONF_HOST, "")
+                        existing_name = existing_dev.get(CONF_FRIENDLY_NAME, "")
+                        existing_mac = existing_dev.get("mac", "")
+                        existing_cloud_id = existing_dev.get("device_id", "")
+                        # Normalize MACs for comparison
+                        def _norm_mac(m):
+                            return (m or "").lower().replace(":", "").replace("-", "").replace(" ", "")
+
+                        if new_host and existing_host == new_host and existing_dev_id != dev_id:
+                            existing_errors.append(
+                                f"La IP {new_host} è già configurata per il dispositivo "
+                                f'"{existing_name}" (id: {existing_dev_id}).'
+                            )
+                        if new_cloud_id and existing_cloud_id == new_cloud_id and existing_dev_id != dev_id:
+                            existing_errors.append(
+                                f"L'ID cloud {new_cloud_id} è già registrato in localtuya "
+                                f'come "{existing_name}" (id: {existing_dev_id}).'
+                            )
+                        if (
+                            new_host
+                            and existing_host
+                            and _norm_mac(existing_mac) == _norm_mac(user_input.get("mac", ""))
+                            and existing_dev_id != dev_id
+                        ):
+                            existing_errors.append(
+                                f"La MAC {existing_mac} è già configurata per il dispositivo "
+                                f'"{existing_name}" con IP {existing_host} (id: {existing_dev_id}). '
+                                "Lo stesso dispositivo fisico non può apparire due volte."
+                            )
+
+                if existing_errors:
+                    _LOGGER.warning("Duplicate device blocked: %s", existing_errors)
+                    errors["base"] = "duplicate_device"
+                    placeholders["duplicate_info"] = " ".join(existing_errors)
+                    return self.async_show_form(
+                        step_id="configure_device",
+                        data_schema=schema_suggested_values(DEVICE_SCHEMA, **defaults),
+                        errors=errors,
+                        description_placeholders=placeholders,
+                    )
+
                 if not hasattr(self, "_validate_task"):
                     self._validate_task = self.hass.async_create_task(
                         validate_input(

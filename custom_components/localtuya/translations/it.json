@@ -187,7 +187,8 @@
             "json_invalid_format": "Formato JSON non valido. Atteso array 'result.data'.",
             "json_invalid_data": "Formato dati non valido. 'result.data' deve essere un array.",
             "json_error": "Errore nel parsing JSON: {ex}",
-            "all_devices_configured": "Tutti i dispositivi dalla lista sono già configurati in LocalTuya."
+            "all_devices_configured": "Tutti i dispositivi dalla lista sono già configurati in LocalTuya.",
+            "duplicate_device": "Questo dispositivo è già configurato o condivide un IP/MAC con un dispositivo esistente.\n{device_info}"
         }
     },
     "title": "LocalTuya"
