@@ -9,9 +9,11 @@ from pathlib import Path
 from threading import Thread
 import subprocess
 
+# v1.2.5 - Fix space management button enabling + logging enhancements
+# v1.2.4 - Space management API + frontend
 # v1.2.1 - Refresh stale local_key from Tuya Cloud at runtime and classify
 #          session-key negotiation failures explicitly.
-VERSION = "1.2.4"
+VERSION = "1.2.5"
 
 # ---------------------------------------------------------------------------
 # Library path – prioritise the local localtuya/core over any system package
@@ -41,9 +43,32 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     datefmt="%H:%M:%S",
 )
+# Reduce werkzeug access logs (HTTP request logging)
+logging.getLogger("werkzeug").setLevel(logging.WARNING)
+
+# Add file logging with rotation
+from logging.handlers import RotatingFileHandler
+log_dir = BASE_DIR / "logs"
+log_dir.mkdir(parents=True, exist_ok=True)
+log_file = log_dir / "tuya_gui.log"
+
+file_handler = RotatingFileHandler(
+    log_file, maxBytes=10*1024*1024, backupCount=5, encoding="utf-8"
+)
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(logging.Formatter(
+    "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+))
+
+# Get root logger and add file handler
+root_logger = logging.getLogger()
+root_logger.addHandler(file_handler)
+
 _log = logging.getLogger("tuya_gui")
 _log.info("=== tuya_gui %s starting ===", VERSION)
 _log.info("connect=%s  TuyaCloudApi=%s", connect, TuyaCloudApi)
+_log.info("Log file: %s", log_file)
 
 def _filter_numeric_dps(dps_dict: dict) -> dict:
     """Restituisce un dict contenente solo chiavi numeriche (int o stringhe di cifre)."""
@@ -787,6 +812,9 @@ HTML_TEMPLATE = """
         .btn-refresh { background: #28a745; }
         .btn-send { background: #007bff; }
         .btn-cloud { background: #17a2b8; }
+        .primary-btn { background: #007bff; color: white; border: none; border-radius: 4px; padding: 8px 16px; cursor: pointer; font-weight: bold; font-size: 12px; transition: background 0.2s, opacity 0.2s; }
+        .primary-btn:hover:not(:disabled) { background: #0056b3; }
+        .primary-btn:disabled { background: #6c757d; color: #adb5bd; cursor: not-allowed; opacity: 0.65; }
         input, select { padding: 6px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; font-size: 12px; }
         label { font-size: 10px; font-weight: bold; color: #666; display: block; }
         .hidden { display: none; }
@@ -797,6 +825,8 @@ HTML_TEMPLATE = """
     <div class="tabs">
         <button id="tabManageBtn" class="tab-btn active" onclick="switchTab('manage')">Manage devices</button>
         <button id="tabAddBtn" class="tab-btn" onclick="switchTab('add')">Add new device</button>
+        <button id="tabCloudBtn" class="tab-btn" onclick="switchTab('cloud')">Cloud Device Details</button>
+        <button id="tabSpaceBtn" class="tab-btn" onclick="switchTab('space')">Space Management</button>
     </div>
 
     <div id="tabManage" class="container tab-content active">
@@ -874,6 +904,40 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
+    <div id="tabCloud" class="container tab-content">
+        <div class="sidebar">
+            <label>All Cloud Devices</label>
+            <div style="display:flex; gap:8px; margin-bottom:8px;">
+                <button class="btn-cloud" style="flex:1" onclick="loadCloudDevices()">Refresh Cloud Devices</button>
+            </div>
+            <div style="margin:8px 0;">
+                <label>Search</label>
+                <input type="text" id="cloudSearch" placeholder="Filter cloud devices..." style="width:100%; padding:8px; margin-top:5px; box-sizing:border-box;" oninput="filterCloudDevices()">
+            </div>
+            <div class="list" id="cloudList">Press "Refresh Cloud Devices"</div>
+        </div>
+        <div class="main" id="cloudDetails" style="display:none">
+            <h3 id="cloudName" style="margin:0"></h3>
+            <p id="cloudMeta" style="font-size:11px; color:#666; margin:5px 0"></p>
+            <div class="status-area">
+                <div id="cloudLoadingOverlay" class="overlay hidden">WORKING...</div>
+                <table>
+                    <thead><tr><th>Field</th><th>Value</th></tr></thead>
+                    <tbody id="cloudDetailBody"></tbody>
+                </table>
+            </div>
+            <div class="tech-logs" id="cloudLogs">Ready.</div>
+            <div style="margin-top:10px;">
+                <label>Full JSON Export</label>
+                <textarea id="cloudJsonOutput" rows="10" style="width:100%; padding:8px; margin-top:5px; box-sizing:border-box; font-family:monospace; font-size:11px;" readonly placeholder="Click 'Refresh Cloud Devices', select a device, then the JSON will appear here..."></textarea>
+                <div style="display:flex; gap:8px; margin-top:8px;">
+                    <button class="btn-cloud" style="flex:1" onclick="copyCloudJson()">Copy JSON</button>
+                    <button class="btn-send" style="flex:1" onclick="downloadCloudJson()">Download JSON</button>
+                </div>
+</div>
+</div>
+</div>
+
     <!-- Custom Cloud Command Modal -->
     <div id="customCommandModal" class="overlay hidden" style="z-index:1000; background:rgba(0,0,0,0.7);">
         <div style="background:white; max-width:600px; margin:50px auto; padding:20px; border-radius:8px; position:relative;">
@@ -926,6 +990,35 @@ HTML_TEMPLATE = """
             </div>
         </div>
     </div>
+
+    <!-- Space Management Tab -->
+    <div id="tabSpace" class="container tab-content">
+        <div class="sidebar">
+            <h3>Space Management</h3>
+            <div class="space-selector">
+                <label>Select Space from Tuya Cloud:</label>
+                <div id="space-options" class="space-options">
+                    <!-- Space options will be populated dynamically -->
+                </div>
+                <button id="select-space-btn" class="primary-btn" disabled>Select Space</button>
+            </div>
+            
+            <div id="spaceResourcesContainer" class="hidden" style="margin-top: 20px;">
+                <h3>Available Devices in Selected Space:</h3>
+                <div id="spaceDevicesList" class="device-list">
+                    <!-- New devices will be listed here -->
+                </div>
+                <button id="configure-devices-btn" class="primary-btn">Configure New Devices</button>
+            </div>
+        </div>
+        <div class="main" id="spaceDetails" style="display:none">
+            <h3>Space Details</h3>
+            <div id="space-info-content">
+                <!-- Space details will be displayed here -->
+            </div>
+            <div class="tech-logs" id="spaceLogs">Ready.</div>
+        </div>
+    </div>
     <script>
         let devices = {}; let currentDps = {}; let currentDisplayDps = {}; let currentDisplayUnits = {}; let cloudDps = {}; let selectedId = null; let currentSort = "name";
         let unaddedDevices = {}; let selectedUnaddedId = null;
@@ -943,10 +1036,23 @@ HTML_TEMPLATE = """
         }
         function switchTab(tab) {
             const isManage = tab === 'manage';
+            const isAdd = tab === 'add';
+            const isCloud = tab === 'cloud';
+            const isSpace = tab === 'space';
             document.getElementById('tabManage').classList.toggle('active', isManage);
-            document.getElementById('tabAdd').classList.toggle('active', !isManage);
+            document.getElementById('tabAdd').classList.toggle('active', isAdd);
+            document.getElementById('tabCloud').classList.toggle('active', isCloud);
+            document.getElementById('tabSpace').classList.toggle('active', isSpace);
             document.getElementById('tabManageBtn').classList.toggle('active', isManage);
-            document.getElementById('tabAddBtn').classList.toggle('active', !isManage);
+            document.getElementById('tabAddBtn').classList.toggle('active', isAdd);
+            document.getElementById('tabCloudBtn').classList.toggle('active', isCloud);
+            document.getElementById('tabSpaceBtn').classList.toggle('active', isSpace);
+            
+            // Initialize space management when tab is selected
+            if (isSpace) {
+                console.log('[tuya_gui] Space Management tab selected, calling loadSpaces()');
+                loadSpaces();
+            }
         }
         async function init() {
             console.log('[tuya_gui] init: start');
@@ -958,6 +1064,16 @@ HTML_TEMPLATE = """
             } catch(e) {
                 console.error('[tuya_gui] init: failed to load settings', e);
             }
+            
+            // Attach click handler for Space Management "Select Space" button
+            const selectSpaceBtn = document.getElementById('select-space-btn');
+            if (selectSpaceBtn) {
+                selectSpaceBtn.addEventListener('click', handleSpaceSelection);
+                console.log('[tuya_gui] init: Select Space button click handler attached');
+            } else {
+                console.warn('[tuya_gui] init: select-space-btn NOT found in DOM at init');
+            }
+            
             loadDevices();
         }
         async function loadDevices() {
@@ -1459,7 +1575,726 @@ HTML_TEMPLATE = """
             });
         }
 
+// Cloud Devices Tab Functions
+        async function loadCloudDevices() {
+            const list = document.getElementById('cloudList');
+            const logs = document.getElementById('cloudLogs');
+            list.innerHTML = 'Loading...';
+            logs.innerText = 'Querying Tuya Cloud...';
+            try {
+                const r = await fetch('/api/devices/cloud');
+                const data = await r.json();
+                logs.innerText = data.tech_logs || 'Done.';
+                if (data.error) {
+                    list.innerHTML = `<div class="item">Error: ${data.error}</div>`;
+                    return;
+                }
+                cloudDevices = data.devices || {};
+                const keys = Object.keys(cloudDevices);
+                if (!keys.length) {
+                    list.innerHTML = '<div class="item">No cloud devices found.</div>';
+                    return;
+                }
+                list.innerHTML = keys.map(k => {
+                    const d = cloudDevices[k] || {};
+                    const localIp = d.local_ip || d.host || 'no local IP';
+                    const cloudIp = d.cloud_ip || d.ip || 'no cloud IP';
+                    const mac = d.match_mac || d.mac || d.device_mac || '-';
+                    const name = d.friendly_name || d.name || k;
+                    return `<div class="item" onclick="selectCloud(${JSON.stringify(k)})">
+                        <strong>${name}</strong><br>
+                        <small>${d.product_name || d.category || '-'} | local: ${localIp} | cloud: ${cloudIp} | mac: ${mac}</small>
+                    </div>`;
+                }).join('');
+            } catch(e) {
+                list.innerHTML = `<div class="item">Error: ${e}</div>`;
+                logs.innerText = 'Error: ' + e;
+            }
+        }
+
+        let cloudDevices = {};
+        let selectedCloudId = null;
+        let spaces = [];
+        let selectedSpaceId = null;
+
+        // Space management functions with detailed API logging
+        async function loadSpaces() {
+            console.log('=== SPACE MANAGEMENT: Loading Spaces ===');
+            console.log('[loadSpaces] Function called, fetching from /api/cloud/spaces');
+            try {
+                console.log('Making API request to: /api/cloud/spaces');
+                const response = await fetch('/api/cloud/spaces');
+                console.log('API Response Status:', response.status);
+                const data = await response.json();
+                
+                console.log('API Response Data:', JSON.stringify(data, null, 2));
+                
+                if (data.error) {
+                    console.error('Error loading spaces:', data.error);
+                    console.log('Tech logs:', data.tech_logs || '');
+                    return;
+                }
+                
+                spaces = data.spaces || [];
+                console.log('✅ Successfully loaded spaces:', spaces);
+                console.log('Total spaces found:', spaces.length);
+                displaySpaceOptions();
+            } catch (error) {
+                console.error('Error loading spaces:', error);
+                console.error('Error details:', error.stack || error.message);
+            }
+        }
+
+        function displaySpaceOptions() {
+            console.log('=== SPACE MANAGEMENT: Displaying Space Options ===');
+            const container = document.getElementById('space-options');
+            container.innerHTML = '';
+            
+            if (spaces.length === 0) {
+                container.innerHTML = '<div class="no-spaces">No spaces found</div>';
+                console.log('No spaces available for selection');
+                return;
+            }
+            
+            console.log('Creating space selection options for IDs:', spaces);
+            
+            spaces.forEach(spaceId => {
+                const spaceElement = document.createElement('label');
+                spaceElement.className = 'space-option';
+                const isSelected = selectedSpaceId === spaceId;
+                spaceElement.innerHTML = `
+                    <input type="radio" name="spaceId" value="${spaceId}" 
+                           ${isSelected ? 'checked' : ''}>
+                    <div>
+                        <strong>Space: ${spaceId}</strong>
+                        <small>Space ID from Tuya Cloud</small>
+                    </div>
+                `;
+                
+                if (isSelected) {
+                    spaceElement.classList.add('selected');
+                }
+                
+                spaceElement.querySelector('input').addEventListener('change', (e) => {
+                    console.log('=== SPACE MANAGEMENT: Space Selection Changed ===');
+                    console.log('Selected space ID:', e.target.value);
+                    selectedSpaceId = e.target.value;
+                    document.querySelectorAll('.space-option').forEach(el => {
+                        el.classList.remove('selected');
+                    });
+                    spaceElement.classList.add('selected');
+                    const btn = document.getElementById('select-space-btn');
+                    console.log('[Radio] Button element found:', btn !== null, 'Current disabled:', btn ? btn.disabled : 'N/A');
+                    if (btn) {
+                        btn.disabled = false;
+                        console.log('Space selection updated, button enabled');
+                    } else {
+                        console.error('❌ select-space-btn NOT FOUND in DOM!');
+                    }
+                });
+                
+                container.appendChild(spaceElement);
+                console.log('Added space option for ID:', spaceId);
+            });
+            
+            console.log('✅ Space options display complete:', spaces.length, 'options created');
+        }
+
+        async function handleSpaceSelection() {
+            console.log('=== SPACE MANAGEMENT: Handling Space Selection ===');
+            console.log('[handleSpaceSelection] Function called, selectedSpaceId:', selectedSpaceId);
+            
+            if (!selectedSpaceId) {
+                alert('Please select a space');
+                console.log('❌ No space selected, showing error message');
+                return;
+            }
+            
+            const apiUrl = `/api/cloud/spaces/${selectedSpaceId}/resources`;
+            console.log('Making API request to:', apiUrl);
+            
+            try {
+                console.log('Fetching space resources...');
+                const response = await fetch(apiUrl);
+                console.log('API Response Status:', response.status);
+                const data = await response.json();
+                
+                console.log('API Response Data:', JSON.stringify(data, null, 2));
+                
+                if (data.error) {
+                    console.error('❌ Error loading space resources:', data.error);
+                    console.log('Tech logs:', data.tech_logs || '');
+                    alert('Error loading space resources: ' + data.error);
+                    return;
+                }
+                
+                const resources = data.resources || [];
+                console.log('✅ Successfully loaded space resources:', resources.length, 'total');
+                console.log('Sample resource data:', resources.length > 0 ? JSON.stringify(resources[0], null, 2) : 'No resources');
+                
+                // Filter for new devices (not already configured)
+                console.log('=== SPACE MANAGEMENT: Filtering New Devices ===');
+                const existingDevices = await getExistingDevices();
+                console.log('Existing devices in system:', existingDevices);
+                
+                const newDevices = resources.filter(resource => {
+                    // Use res_id as the device identifier from Tuya Cloud
+                    const deviceId = resource.res_id || resource.device_id || resource.id || resource.deviceId;
+                    const isNew = deviceId && !existingDevices.includes(deviceId);
+                    console.log(`Checking resource - res_id: ${resource.res_id}, deviceId: ${deviceId}, res_type: ${resource.res_type}, Is New: ${isNew}`);
+                    return isNew;
+                });
+                
+                console.log('✅ Space filtering complete:');
+                console.log('- Total resources:', resources.length);
+                console.log('- New devices found:', newDevices.length);
+                console.log('New device IDs:', newDevices.map(d => d.device_id || d.id || d.deviceId));
+                
+                displaySpaceDevices(newDevices);
+                document.getElementById('spaceResourcesContainer').classList.remove('hidden');
+                console.log('✅ Space resources display updated and shown');
+                
+                // Add device ID textbox and fetch details button
+                addDeviceIdTextbox(newDevices, selectedSpaceId);
+                
+            } catch (error) {
+                console.error('❌ Error loading space resources:', error);
+                console.error('Error details:', error.stack || error.message);
+                alert('Error loading space resources');
+            }
+        }
+
+        function displaySpaceDevices(devices) {
+            const container = document.getElementById('spaceDevicesList');
+            container.innerHTML = '';
+            
+            if (devices.length === 0) {
+                container.innerHTML = '<div class="no-new-devices">No new devices found in this space</div>';
+                return;
+            }
+            
+            devices.forEach(device => {
+                // Use res_id as the device identifier from Tuya Cloud
+                const deviceId = device.res_id || device.device_id || device.id || device.deviceId;
+                const spaceId = device.space_id || selectedSpaceId;
+                const deviceElement = document.createElement('div');
+                deviceElement.className = 'device-item new-device';
+                deviceElement.dataset.deviceId = deviceId;
+                deviceElement.innerHTML = `
+                    <div class="device-info">
+                        <strong>${device.name || deviceId}</strong>
+                        <small>
+                            Resource Type: ${device.res_type !== undefined ? device.res_type : 'Unknown'}<br>
+                            Space: ${spaceId}
+                        </small>
+                    </div>
+                    <button class="config-device-btn" data-device-id="${deviceId}" data-space-id="${spaceId}">
+                        Configure Device
+                    </button>
+                `;
+                
+                container.appendChild(deviceElement);
+            });
+            
+            // Add event listeners to configure buttons
+            document.querySelectorAll('.config-device-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const deviceId = e.target.dataset.deviceId;
+                    const spaceId = e.target.dataset.spaceId;
+                    configureNewDevice(deviceId, spaceId);
+                });
+            });
+        }
+
+        function configureNewDevice(deviceId, spaceId) {
+            // Fetch detailed info for this device and build LocalTuya configuration
+            console.log(`Configuring device ${deviceId} from space ${spaceId}`);
+            
+            // Show loading state
+            const btn = document.querySelector(`.config-device-btn[data-device-id="${deviceId}"]`);
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Fetching...';
+            }
+            
+            fetch(`/api/device/${deviceId}/cloud_device_details`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        console.error(`Error fetching device ${deviceId}:`, data.error);
+                        alert(`Error fetching device details: ${data.error}`);
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.textContent = 'Configure Device';
+                        }
+                        return;
+                    }
+                    
+                    const deviceInfo = data.device_info || {};
+                    const functions = data.functions || {};
+                    const factoryInfo = data.factory_info || {};
+                    
+                    // Build device config for LocalTuya
+                    const deviceConfig = {
+                        device_id: deviceId,
+                        name: deviceInfo.name || deviceInfo.friendly_name || deviceId,
+                        product_id: deviceInfo.product_id || '',
+                        product_name: deviceInfo.product_name || '',
+                        model: deviceInfo.model || '',
+                        category: deviceInfo.category || '',
+                        status: deviceInfo.status || {},
+                        dps: {},
+                        manufacturer: factoryInfo.manufacturer || '',
+                        mac: factoryInfo.mac || deviceInfo.mac || deviceInfo.device_mac || '',
+                        uuid: factoryInfo.uuid || deviceInfo.uuid || '',
+                        local_key: deviceInfo.local_key || '',
+                        space_id: spaceId,
+                        source: 'space_management'
+                    };
+                    
+                    // Process DP functions
+                    for (const [dpId, func] of Object.entries(functions)) {
+                        if (func && typeof func === 'object') {
+                            deviceConfig.dps[dpId] = {
+                                name: func.name || func.code || `DP${dpId}`,
+                                type: func.type || 'string',
+                                value: func.value || '',
+                                access: func.access || func.accessMode || 'read_write',
+                                values: func.values || {}
+                            };
+                        }
+                    }
+                    
+                    // Create configuration document
+                    const configDocument = {
+                        version: "1.0",
+                        source: "tuya_space_management",
+                        space_id: spaceId,
+                        exported_at: new Date().toISOString(),
+                        devices: [deviceConfig]
+                    };
+                    
+                    console.log('=== LOCALTUYA CONFIGURATION DOCUMENT ===');
+                    console.log(JSON.stringify(configDocument, null, 2));
+                    
+                    // Show in modal
+                    showConfigDocumentModal(configDocument, JSON.stringify(configDocument, null, 2), [
+                        `=== Single Device Configuration ===`,
+                        `Space ID: ${spaceId}`,
+                        `Device ID: ${deviceId}`,
+                        `Timestamp: ${new Date().toISOString()}`,
+                        '',
+                        `✓ ${deviceConfig.name} (${deviceId})`,
+                        `  Product: ${deviceConfig.product_name} | Model: ${deviceConfig.model}`,
+                        `  DPs: ${Object.keys(deviceConfig.dps).length}`,
+                        ''
+                    ]);
+                    
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = 'Configure Device';
+                    }
+                })
+                .catch(error => {
+                    console.error(`Error processing device ${deviceId}:`, error);
+                    alert(`Error processing device: ${error.message}`);
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = 'Configure Device';
+                    }
+                });
+        }
+
+        async function getExistingDevices() {
+            // Get list of already configured devices from local configuration
+            try {
+                const response = await fetch('/api/devices');
+                const data = await response.json();
+                
+                if (data.error) {
+                    console.error('Error loading existing devices:', data.error);
+                    return [];
+                }
+                
+                // Extract device IDs from existing devices
+                const existingDevices = [];
+                if (data.devices) {
+                    for (const [deviceId, deviceInfo] of Object.entries(data.devices)) {
+                        if (deviceInfo && deviceInfo.device_id) {
+                            existingDevices.push(deviceInfo.device_id);
+                        } else {
+                            existingDevices.push(deviceId);
+                        }
+                    }
+                }
+                
+                return existingDevices;
+            } catch (error) {
+                console.error('Error loading existing devices:', error);
+                return [];
+            }
+        }
+
+        // Fetch detailed info for each new device and build LocalTuya JSON config
+        async function fetchDeviceDetailsAndBuildConfig(devices, spaceId) {
+            console.log('=== FETCHING DETAILED DEVICE INFO ===');
+            console.log(`Fetching details for ${devices.length} device(s) from space ${spaceId}`);
+            
+            const configDevices = [];
+            const logs = [`=== Space Management Device Configuration ===`, `Space ID: ${spaceId}`, `Timestamp: ${new Date().toISOString()}`, `Devices found: ${devices.length}`, ''];
+            
+            // Show progress modal
+            showProgressModal(devices.length);
+            
+            for (let i = 0; i < devices.length; i++) {
+                const device = devices[i];
+                const deviceId = device.res_id || device.device_id || device.id || device.deviceId;
+                if (!deviceId) {
+                    console.warn('Skipping device with no ID:', device);
+                    continue;
+                }
+                
+                try {
+                    console.log(`Fetching details for device: ${deviceId}`);
+                    logs.push(`--- Fetching device: ${deviceId} ---`);
+                    
+                    // Update progress
+                    updateProgressModal(i + 1, devices.length, deviceId);
+                    
+                    const response = await fetch(`/api/device/${deviceId}/cloud_device_details`);
+                    const data = await response.json();
+                    
+                    if (data.error) {
+                        console.error(`Error fetching device ${deviceId}:`, data.error);
+                        logs.push(`ERROR: ${data.error}`);
+                        continue;
+                    }
+                    
+                    const deviceInfo = data.device_info || {};
+                    const functions = data.functions || {};
+                    const factoryInfo = data.factory_info || {};
+                    
+                    // Build device config for LocalTuya
+                    const deviceConfig = {
+                        device_id: deviceId,
+                        name: deviceInfo.name || deviceInfo.friendly_name || device.name || deviceId,
+                        product_id: deviceInfo.product_id || '',
+                        product_name: deviceInfo.product_name || '',
+                        model: deviceInfo.model || '',
+                        category: deviceInfo.category || '',
+                        status: deviceInfo.status || {},
+                        dps: {},
+                        manufacturer: factoryInfo.manufacturer || '',
+                        mac: factoryInfo.mac || deviceInfo.mac || deviceInfo.device_mac || '',
+                        uuid: factoryInfo.uuid || deviceInfo.uuid || '',
+                        local_key: deviceInfo.local_key || '',
+                        space_id: spaceId,
+                        source: 'space_management'
+                    };
+                    
+                    // Process DP functions
+                    for (const [dpId, func] of Object.entries(functions)) {
+                        if (func && typeof func === 'object') {
+                            deviceConfig.dps[dpId] = {
+                                name: func.name || func.code || `DP${dpId}`,
+                                type: func.type || 'string',
+                                value: func.value || '',
+                                access: func.access || func.accessMode || 'read_write',
+                                values: func.values || {}
+                            };
+                        }
+                    }
+                    
+                    configDevices.push(deviceConfig);
+                    logs.push(`✓ ${deviceConfig.name} (${deviceId})`);
+                    logs.push(`  Product: ${deviceConfig.product_name} | Model: ${deviceConfig.model}`);
+                    logs.push(`  DPs: ${Object.keys(deviceConfig.dps).length}`);
+                    logs.push('');
+                    
+                } catch (error) {
+                    console.error(`Error processing device ${deviceId}:`, error);
+                    logs.push(`ERROR processing ${deviceId}: ${error.message}`);
+                }
+            }
+            
+            // Hide progress modal
+            hideProgressModal();
+            const configDocument = {
+                version: "1.0",
+                source: "tuya_space_management",
+                space_id: spaceId,
+                exported_at: new Date().toISOString(),
+                devices: configDevices
+            };
+            
+            // Output to console for copy-paste
+            console.log('=== LOCALTUYA CONFIGURATION DOCUMENT ===');
+            console.log(JSON.stringify(configDocument, null, 2));
+            
+            // Also create a copy-paste friendly version
+            const jsonString = JSON.stringify(configDocument, null, 2);
+            
+            // Show in UI - create a modal with the JSON
+            showConfigDocumentModal(configDocument, jsonString, logs);
+            
+            console.log('=== CONFIGURATION COMPLETE ===');
+            console.log(`Total devices processed: ${configDevices.length}`);
+            console.log('Copy the JSON from the modal or console for LocalTuya configuration');
+            
+            return configDocument;
+        }
+
+        // Show configuration document in a modal for copy/download
+        function downloadCloudJson() {
+            const textarea = document.getElementById('cloudJsonOutput');
+            if (!textarea.value) return;
+            const blob = new Blob([textarea.value], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `tuya_device_${selectedCloudId || 'export'}_${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Progress Modal Functions
+        function showProgressModal(total) {
+            const existingModal = document.getElementById('progressModal');
+            if (existingModal) existingModal.remove();
+
+            const modal = document.createElement('div');
+            modal.id = 'progressModal';
+            modal.className = 'overlay';
+            modal.style.zIndex = '3000';
+            modal.innerHTML = `
+                <div style="background:white; max-width:500px; margin:10vh auto; padding:30px; border-radius:12px; position:relative; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+                    <h2 style="margin:0 0 20px 0; color:#2c3e50; text-align:center;">⏳ Fetching Device Details</h2>
+                    <div style="margin-bottom:15px; font-size:14px; color:#666; text-align:center;">
+                        <span id="progressCurrent">0</span> / <span id="progressTotal">${total}</span> devices
+                    </div>
+                    <div style="background:#ecf0f1; border-radius:8px; height:12px; overflow:hidden; margin-bottom:15px;">
+                        <div id="progressBar" style="background:#3498db; height:100%; width:0%; border-radius:8px; transition:width 0.3s ease;"></div>
+                    </div>
+                    <div style="font-size:13px; color:#7f8c8d; text-align:center; min-height:20px;">
+                        <span id="progressDevice">Starting...</span>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function updateProgressModal(current, total, deviceId) {
+            const percent = Math.round((current / total) * 100);
+            document.getElementById('progressCurrent').textContent = current;
+            document.getElementById('progressTotal').textContent = total;
+            document.getElementById('progressBar').style.width = percent + '%';
+            document.getElementById('progressDevice').textContent = `Fetching: ${deviceId} (${current}/${total})`;
+        }
+
+        function hideProgressModal() {
+            const modal = document.getElementById('progressModal');
+            if (modal) modal.remove();
+        }
+
+function showConfigDocumentModal(configDocument, jsonString, logs) {
+            // Remove any existing modal
+            const existingModal = document.getElementById('configDocumentModal');
+            if (existingModal) existingModal.remove();
+
+            const modal = document.createElement('div');
+            modal.id = 'configDocumentModal';
+            modal.className = 'overlay';
+            modal.style.zIndex = '2000';
+            modal.innerHTML = `
+                <div style="background:white; max-width:1200px; max-height:95vh; margin:1vh auto; padding:25px; border-radius:12px; position:relative; display:flex; flex-direction:column; overflow:hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+                    <button onclick="closeConfigModal()" style="position:absolute; top:15px; right:20px; background:none; border:none; font-size:28px; cursor:pointer; color:#333; z-index:10; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:background 0.2s;">&times;</button>
+                    <h2 style="margin:0 0 15px 0; color:#2c3e50;">📋 LocalTuya Configuration Document</h2>
+                    <div style="margin-bottom:20px; padding:15px; background:#f8f9fa; border-radius:8px; font-size:13px; color:#666;">
+                        <strong>Space ID:</strong> ${configDocument.space_id} | 
+                        <strong>Devices:</strong> ${configDocument.devices.length} | 
+                        <strong>Exported:</strong> ${configDocument.exported_at}
+                    </div>
+                    
+                    <div style="display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
+                        <button class="primary-btn" onclick="copyConfigJson()" style="padding:10px 20px; font-size:13px;">📋 Copy JSON</button>
+                        <button class="btn-send" onclick="downloadConfigJson()" style="padding:10px 20px; font-size:13px;">💾 Download JSON</button>
+                        <button class="btn-cloud" onclick="copyConfigMinified()" style="padding:10px 20px; font-size:13px;">📄 Copy Minified</button>
+                    </div>
+
+                    <div style="display:flex; gap:15px; flex:1; overflow:hidden;">
+                        <!-- JSON Panel -->
+                        <div style="flex:1; display:flex; flex-direction:column; min-width:0;">
+                            <label style="font-size:12px; font-weight:bold; color:#666; margin-bottom:8px;">Full JSON (Pretty):</label>
+                            <textarea id="configJsonPretty" readonly style="flex:1; font-family:'Monaco','Menlo','Ubuntu Mono',monospace; font-size:12px; padding:15px; border:1px solid #ddd; border-radius:6px; background:#fafafa; color:#333; resize:none; overflow:auto; line-height:1.4;"></textarea>
+                        </div>
+                        
+                        <!-- Logs Panel -->
+                        <div style="width:400px; display:flex; flex-direction:column; min-width:0; flex-shrink:0;">
+                            <label style="font-size:12px; font-weight:bold; color:#666; margin-bottom:8px;">Configuration Log:</label>
+                            <textarea id="configLogs" readonly style="flex:1; font-family:'Monaco','Menlo','Ubuntu Mono',monospace; font-size:11px; padding:12px; border:1px solid #ddd; border-radius:6px; background:#1e1e1e; color:#00ff00; resize:none; overflow:auto; line-height:1.3;"></textarea>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Populate content
+            document.getElementById('configJsonPretty').value = JSON.stringify(configDocument, null, 2);
+            document.getElementById('configLogs').value = logs.join('\\n');
+            
+            // Auto-scroll logs to bottom
+            const logsEl = document.getElementById('configLogs');
+            logsEl.scrollTop = logsEl.scrollHeight;
+        }
+
+        function closeConfigModal() {
+            const modal = document.getElementById('configDocumentModal');
+            if (modal) modal.remove();
+        }
+
+        function copyConfigJson() {
+            const textarea = document.getElementById('configJsonPretty');
+            if (!textarea.value) return;
+            navigator.clipboard.writeText(textarea.value).then(() => {
+                alert('Full JSON copied to clipboard!');
+            }).catch(() => {
+                textarea.select();
+                document.execCommand('copy');
+                alert('Full JSON copied to clipboard!');
+            });
+        }
+
+        function copyConfigMinified() {
+            const textarea = document.getElementById('configJsonPretty');
+            if (!textarea.value) return;
+            const minified = JSON.stringify(JSON.parse(textarea.value));
+            navigator.clipboard.writeText(minified).then(() => {
+                alert('Minified JSON copied to clipboard!');
+            }).catch(() => {
+                alert('Failed to copy minified JSON');
+            });
+        }
+
+        function downloadConfigJson() {
+            const textarea = document.getElementById('configJsonPretty');
+            if (!textarea.value) return;
+            const blob = new Blob([textarea.value], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `tuya_space_config_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        async function selectCloud(devId) {
+            selectedCloudId = devId;
+            document.querySelectorAll('#cloudList .item').forEach(el => el.classList.remove('active'));
+            document.getElementById('cloudDetails').style.display = 'flex';
+            const d = cloudDevices[devId] || {};
+            document.getElementById('cloudName').innerText = d.friendly_name || d.name || devId;
+            document.getElementById('cloudMeta').innerText = `ID: ${devId} | Category: ${d.category || '-'} | Product: ${d.product_name || '-'} | Local IP: ${d.local_ip || d.host || 'N/A'} | Cloud IP: ${d.cloud_ip || d.ip || 'N/A'} | MAC: ${d.match_mac || d.mac || d.device_mac || 'N/A'}`;
+            const overlay = document.getElementById('cloudLoadingOverlay');
+            const logs = document.getElementById('cloudLogs');
+            overlay.classList.remove('hidden');
+            logs.innerText = 'Loading device details...';
+            try {
+                const r = await fetch(`/api/device/${devId}/cloud_device_details`);
+                const data = await r.json();
+                logs.innerText = data.tech_logs || '';
+                if (data.error) {
+                    document.getElementById('cloudDetailBody').innerHTML = `<tr><td colspan="2">Error: ${data.error}</td></tr>`;
+                    document.getElementById('cloudJsonOutput').value = '';
+                    return;
+                }
+                const funcs = data.functions || {};
+                const devInfo = data.device_info || {};
+                const factoryInfo = data.factory_info || {};
+                const rows = Object.keys(funcs).sort().map(dpId => {
+                    const info = funcs[dpId] || {};
+                    const vals = info.values ? JSON.stringify(info.values) : '-';
+                    return `<tr>
+                        <td><b>${dpId}</b></td>
+                        <td>${info.name || '-'}</td>
+                    </tr>`;
+                });
+                document.getElementById('cloudDetailBody').innerHTML = rows.length ? rows.join('') : '<tr><td colspan="2">No functions returned.</td></tr>';
+                
+                // Prepare full JSON for export
+                const fullJson = {
+                    result: {
+                        active_time: devInfo.active_time,
+                        bind_space_id: devInfo.bind_space_id,
+                        category: devInfo.category,
+                        create_time: devInfo.create_time,
+                        custom_name: devInfo.custom_name || "",
+                        icon: devInfo.icon,
+                        id: devId,
+                        ip: devInfo.ip || devInfo.cloud_ip || devInfo.local_ip,
+                        is_online: devInfo.is_online || devInfo.online,
+                        lat: devInfo.lat,
+                        local_key: devInfo.local_key,
+                        lon: devInfo.lon,
+                        model: devInfo.model,
+                        name: devInfo.name || devInfo.friendly_name,
+                        product_id: devInfo.product_id,
+                        product_name: devInfo.product_name,
+                        sub: devInfo.sub,
+                        time_zone: devInfo.time_zone,
+                        update_time: devInfo.update_time,
+                        uuid: devInfo.uuid,
+                        functions: funcs
+                    },
+                    success: true,
+                    t: Date.now(),
+                    tid: "tuya_gui_export_" + devId
+                };
+                document.getElementById('cloudJsonOutput').value = JSON.stringify(fullJson, null, 2);
+            } catch(e) {
+                document.getElementById('cloudDetailBody').innerHTML = `<tr><td colspan="2">Error: ${e}</td></tr>`;
+                document.getElementById('cloudJsonOutput').value = '';
+            } finally {
+                overlay.classList.add('hidden');
+            }
+        }
+
+        function filterCloudDevices() {
+            const input = document.getElementById('cloudSearch');
+            const filter = input.value.toLowerCase();
+            const items = document.querySelectorAll('#cloudList .item');
+            items.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = text.includes(filter) ? '' : 'none';
+            });
+        }
+
+        function copyCloudJson() {
+            const textarea = document.getElementById('cloudJsonOutput');
+            if (!textarea.value) return;
+            navigator.clipboard.writeText(textarea.value).then(() => {
+                alert('JSON copied to clipboard!');
+            }).catch(() => {
+                textarea.select();
+                document.execCommand('copy');
+                alert('JSON copied to clipboard!');
+            });
+        }
+
+        function downloadCloudJson() {
+            const textarea = document.getElementById('cloudJsonOutput');
+            if (!textarea.value) return;
+            const blob = new Blob([textarea.value], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `tuya_device_${selectedCloudId || 'export'}_${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
         init();
+        ${SPACE_MANAGEMENT_JS}
     </script>
 </body>
 </html>
@@ -1681,9 +2516,89 @@ def api_unadded_devices():
         return jsonify({"error": str(e)})
 
 
-# ---------------------------------------------------------------------------
-# /api/device/discover_by_ip  — discover Tuya device at IP via local scan
-# ---------------------------------------------------------------------------
+@app.route("/api/devices/cloud")
+def api_cloud_devices():
+    """Return all devices from Tuya Cloud with full details."""
+    if TuyaCloudApi is None:
+        return jsonify({"error": "LocalTuya cloud dependencies unavailable"}), 503
+
+    ha_config = get_ha_config()
+    cloud_conf = None
+    for entry in ha_config.get("data", {}).get("entries", []):
+        if entry.get("domain") == "localtuya":
+            cloud_conf = entry.get("data")
+            break
+
+    if not cloud_conf:
+        return jsonify({"error": "No cloud config"}), 404
+
+    async def _run():
+        h = ListHandler()
+        cl_logger = logging.getLogger("cloud_api")
+        cl_logger.addHandler(h)
+        cl_logger.setLevel(logging.DEBUG)
+        try:
+            api = TuyaCloudApi(
+                cloud_conf["region"],
+                cloud_conf["client_id"],
+                cloud_conf["client_secret"],
+                cloud_conf["user_id"],
+            )
+            await api.async_connect()
+            devs = await api.async_get_devices_list(force_update=True)
+            cloud_devices: dict = {}
+            if isinstance(devs, dict):
+                cloud_devices = devs
+            elif isinstance(getattr(api, "device_list", None), dict):
+                cloud_devices = api.device_list
+            elif isinstance(getattr(api, "devices", None), dict):
+                cloud_devices = api.devices
+
+            # Also try to get functions for each device (in parallel)
+            # But limit to avoid timeout - we'll return raw cloud data and let frontend fetch details on demand
+            # We can enrich with local MAC/IP info if available
+            configured_devices = get_devices_data()
+            configured_by_mac: dict = {}
+            configured_by_device_id: dict = {}
+            for d in (configured_devices or {}).values():
+                if not isinstance(d, dict):
+                    continue
+                m = _extract_mac(d.get("mac") or d.get("match_mac"))
+                if m:
+                    configured_by_mac[m] = d.get("host")
+                if d.get("device_id"):
+                    configured_by_device_id[d.get("device_id")] = d.get("host")
+                if d.get("gwId"):
+                    configured_by_device_id[d.get("gwId")] = d.get("host")
+
+            enriched: dict = {}
+            for dev_id, info in cloud_devices.items():
+                if not isinstance(info, dict):
+                    continue
+                ip_cloud = info.get("ip") or info.get("local_ip") or ""
+                mac = _extract_mac(info.get("mac") or info.get("device_mac"))
+                
+                local_ip = configured_by_mac.get(mac) if mac else None
+                local_ip = local_ip or configured_by_device_id.get(dev_id)
+                
+                info["cloud_ip"] = ip_cloud
+                info["local_ip"] = local_ip
+                info["match_mac"] = mac
+                enriched[dev_id] = info
+            
+            return {"devices": enriched, "tech_logs": "\\n".join(h.records)}
+        except Exception as e:
+            return {"error": str(e), "tech_logs": "\\n".join(h.records)}
+        finally:
+            cl_logger.removeHandler(h)
+
+    future = asyncio.run_coroutine_threadsafe(_run(), loop)
+    try:
+        return jsonify(future.result(timeout=25))
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+
 @app.route("/api/device/discover_by_ip", methods=["POST"])
 def api_discover_by_ip():
     """Discover a Tuya device at a specific IP address by attempting local connection."""
@@ -2469,6 +3384,10 @@ def api_cloud_check(dev_id: str):
                 cloud_conf["user_id"],
             )
             await api.async_connect()
+            
+            h.records.append(f"=== CLOUD CHECK ===")
+            h.records.append(f"Device ID: {dev_id}")
+            
             funcs = await api.async_get_device_functions(dev_id)
             for dp in funcs:
                 if "values" in funcs[dp]:
@@ -2551,11 +3470,146 @@ def api_custom_cloud_request(dev_id: str):
             )
             await api.async_connect()
             
+            # Log the request details
+            h.records.append(f"=== CUSTOM CLOUD REQUEST ===")
+            h.records.append(f"Device ID: {dev_id}")
+            h.records.append(f"Method: {method}")
+            h.records.append(f"Path: {path}")
+            h.records.append(f"Body: {body}")
+            
             # Use the internal async_make_request method
             result = await api.async_make_request(method, path, body)
             
+            # Log the response
+            h.records.append(f"=== RESPONSE ===")
+            h.records.append(f"Response: {result}")
+            
             return {
                 "result": result,
+                "tech_logs": "\\n".join(h.records),
+            }
+        except Exception as e:
+            return {"error": str(e), "tech_logs": "\\n".join(h.records)}
+        finally:
+            cl_logger.removeHandler(h)
+
+    future = asyncio.run_coroutine_threadsafe(_run(), loop)
+    try:
+        return jsonify(future.result(timeout=30))
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+
+# ---------------------------------------------------------------------------
+# /api/device/<dev_id>/cloud_device_details  — Detailed info for a specific device
+# ---------------------------------------------------------------------------
+@app.route("/api/device/<dev_id>/cloud_device_details", endpoint="api_cloud_device_details")
+def api_cloud_device_details(dev_id: str):
+    """Return detailed info for a specific device from Tuya Cloud."""
+    if TuyaCloudApi is None:
+        return jsonify({"error": "LocalTuya cloud dependencies unavailable"}), 503
+
+    ha_config = get_ha_config()
+    cloud_conf = None
+    for entry in ha_config.get("data", {}).get("entries", []):
+        if entry.get("domain") == "localtuya":
+            cloud_conf = entry.get("data")
+            break
+
+    if not cloud_conf:
+        return jsonify({"error": "No cloud config"}), 404
+
+    async def _run():
+        h = ListHandler()
+        cl_logger = logging.getLogger("cloud_api")
+        cl_logger.addHandler(h)
+        cl_logger.setLevel(logging.DEBUG)
+        try:
+            api = TuyaCloudApi(
+                cloud_conf["region"],
+                cloud_conf["client_id"],
+                cloud_conf["client_secret"],
+                cloud_conf["user_id"],
+            )
+            await api.async_connect()
+            
+            # Get device info - try multiple endpoints
+            device_info = {}
+            
+            # Try 1: /v1.0/devices/{id}
+            try:
+                device_resp = await api.async_make_request("GET", f"/v1.0/devices/{dev_id}")
+                h.records.append(f"Device info response (v1.0): {device_resp}")
+                if device_resp.get("success") and device_resp.get("result"):
+                    device_info = device_resp["result"]
+                    h.records.append(f"SUCCESS: Got device info from /v1.0/devices/{dev_id}")
+                else:
+                    h.records.append(f"/v1.0/devices failed: {device_resp.get('msg', 'unknown')}")
+                    
+                    # Try /v1.1/devices/{id}/specifications
+                    try:
+                        spec_resp = await api.async_make_request("GET", f"/v1.1/devices/{dev_id}/specifications")
+                        h.records.append(f"Specifications response: {spec_resp}")
+                        if spec_resp.get("success") and spec_resp.get("result"):
+                            device_info = spec_resp["result"]
+                            h.records.append(f"SUCCESS: Got device info from specifications endpoint")
+                    except Exception as e:
+                        h.records.append(f"Warning: specifications failed: {e}")
+                    
+                    # If still no device info, try to get from cloud device list
+                    if not device_info:
+                        try:
+                            devs = await api.async_get_devices_list(force_update=True)
+                            if isinstance(devs, dict):
+                                if dev_id in devs:
+                                    device_info = devs[dev_id]
+                                else:
+                                    # Search by other ID fields
+                                    for dev_key, dev_val in devs.items():
+                                        if isinstance(dev_val, dict):
+                                            if (dev_val.get("id") == dev_id or 
+                                                dev_val.get("device_id") == dev_id or 
+                                                dev_val.get("res_id") == dev_id or
+                                                dev_val.get("deviceId") == dev_id or
+                                                dev_key == dev_id):
+                                                device_info = dev_val
+                                                break
+                        except Exception as e:
+                            h.records.append(f"Warning: device list fallback failed: {e}")
+            except Exception as e:
+                h.records.append(f"Warning: /v1.0/devices failed: {e}")
+            
+            # Fallback: create minimal device info
+            if not device_info:
+                device_info = {"id": dev_id, "device_id": dev_id, "res_id": dev_id}
+                h.records.append("WARNING: No device info retrieved - created minimal info")
+            
+            # Get device functions - handle permission errors gracefully
+            funcs = {}
+            try:
+                funcs = await api.async_get_device_functions(dev_id)
+                if funcs:
+                    for dp in funcs:
+                        if "values" in funcs[dp]:
+                            try:
+                                funcs[dp]["values"] = json.loads(funcs[dp]["values"])
+                            except Exception:
+                                pass
+            except Exception as func_error:
+                h.records.append(f"Warning: Could not fetch device functions: {func_error}")
+                funcs = {}
+            
+            # Get factory info for MAC/SN/UUID
+            factory_info = {}
+            try:
+                factory_info = await api.async_get_device_factory_info(dev_id)
+            except Exception as factory_error:
+                h.records.append(f"Warning: Could not fetch factory info: {factory_error}")
+            
+            return {
+                "device_info": device_info,
+                "functions": funcs,
+                "factory_info": factory_info,
                 "tech_logs": "\\n".join(h.records),
             }
         except Exception as e:
@@ -2607,7 +3661,105 @@ def api_command(dev_id: str):
         return jsonify(future.result(timeout=max(t + 10, 35)))
     except Exception as e:
         return jsonify({"error": str(e)})
+# ---------------------------------------------------------------------------
+# /api/cloud/spaces  — Get all spaces from Tuya Cloud
+# ---------------------------------------------------------------------------
+@app.route("/api/cloud/spaces")
+def api_cloud_spaces():
+    """Return all spaces from Tuya Cloud."""
+    if TuyaCloudApi is None:
+        return jsonify({"error": "LocalTuya cloud dependencies unavailable"}), 503
 
+    ha_config = get_ha_config()
+    cloud_conf = None
+    for entry in ha_config.get("data", {}).get("entries", []):
+        if entry.get("domain") == "localtuya":
+            cloud_conf = entry.get("data")
+            break
 
+    if not cloud_conf:
+        return jsonify({"error": "No cloud config"}), 404
+
+    async def _run():
+        h = ListHandler()
+        cl_logger = logging.getLogger("cloud_api")
+        cl_logger.addHandler(h)
+        cl_logger.setLevel(logging.DEBUG)
+        try:
+            api = TuyaCloudApi(
+                cloud_conf["region"],
+                cloud_conf["client_id"],
+                cloud_conf["client_secret"],
+                cloud_conf["user_id"],
+            )
+            await api.async_connect()
+            
+            # Get spaces from cloud
+            spaces = await api.async_get_spaces()
+            
+            return {
+                "spaces": spaces,
+                "tech_logs": "\\n".join(h.records),
+            }
+        except Exception as e:
+            return {"error": str(e), "tech_logs": "\\n".join(h.records)}
+        finally:
+            cl_logger.removeHandler(h)
+
+    future = asyncio.run_coroutine_threadsafe(_run(), loop)
+    try:
+        return jsonify(future.result(timeout=30))
+    except Exception as e:
+        return jsonify({"error": str(e)})
+# ---------------------------------------------------------------------------
+# /api/cloud/spaces/<space_id>/resources  — Get resources for a specific space
+# ---------------------------------------------------------------------------
+@app.route("/api/cloud/spaces/<space_id>/resources")
+def api_cloud_space_resources(space_id):
+    """Return all resources for a specific space from Tuya Cloud."""
+    if TuyaCloudApi is None:
+        return jsonify({"error": "LocalTuya cloud dependencies unavailable"}), 503
+
+    ha_config = get_ha_config()
+    cloud_conf = None
+    for entry in ha_config.get("data", {}).get("entries", []):
+        if entry.get("domain") == "localtuya":
+            cloud_conf = entry.get("data")
+            break
+
+    if not cloud_conf:
+        return jsonify({"error": "No cloud config"}), 404
+
+    async def _run():
+        h = ListHandler()
+        cl_logger = logging.getLogger("cloud_api")
+        cl_logger.addHandler(h)
+        cl_logger.setLevel(logging.DEBUG)
+        try:
+            api = TuyaCloudApi(
+                cloud_conf["region"],
+                cloud_conf["client_id"],
+                cloud_conf["client_secret"],
+                cloud_conf["user_id"],
+            )
+            await api.async_connect()
+            
+            # Get resources for the specific space
+            resources = await api.async_get_space_resources(space_id)
+            
+            return {
+                "resources": resources,
+                "tech_logs": "\\n".join(h.records),
+            }
+        except Exception as e:
+            return {"error": str(e), "tech_logs": "\\n".join(h.records)}
+        finally:
+            cl_logger.removeHandler(h)
+
+    future = asyncio.run_coroutine_threadsafe(_run(), loop)
+    try:
+        return jsonify(future.result(timeout=30))
+    except Exception as e:
+        return jsonify({"error": str(e)})
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001)

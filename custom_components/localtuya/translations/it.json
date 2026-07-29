@@ -15,7 +15,13 @@
             "mac_not_found": "Nessun indirizzo MAC valido trovato nella risposta Tuya Cloud.",
             "cloud_error": "Impossibile recuperare MAC da Tuya Cloud.",
             "mac_retrieval_disabled": "Il recupero MAC non è abilitato per questo dispositivo.",
-            "no_device_selected": "Nessun dispositivo selezionato per il recupero MAC."
+            "no_device_selected": "Nessun dispositivo selezionato per il recupero MAC.",
+            "json_required": "Input JSON richiesto. Incolla il JSON della lista dispositivi Tuya Cloud.",
+            "json_invalid": "Formato JSON non valido. Controlla la sintassi.",
+            "json_success_false": "Il JSON indica fallimento (success: false). Controlla la risposta API.",
+            "json_invalid_format": "Formato JSON non valido. Atteso array 'result.data'.",
+            "json_invalid_data": "Formato dati non valido. 'result.data' deve essere un array.",
+            "json_error": "Errore nel parsing JSON: {error}"
         },
         "step": {
             "user": {
@@ -97,6 +103,20 @@
                     "block": "Blocca Accesso Internet",
                     "unblock": "Sblocca Accesso Internet"
                 }
+            },
+            "add_device_manual_cloud": {
+                "title": "Lista Dispositivi Tuya Cloud Manuale XXXal",
+                "description": "L'API Cloud non è riuscita a recuperare la lista dispositivi. Incolla qui la risposta JSON dall'API Tuya Cloud (es. endpoint dell'elenco dispositivi).",
+                "data": {
+                    "cloud_device_json": "JSON Lista Dispositivi Cloud"
+                }
+            },
+            "add_device_manual_cloud_detail": {
+                "title": "Dettagli Dispositivi Tuya Cloud",
+                "description": "Trovati {unconfigured_count} dispositivo(i) non configurato(i): {unconfigured_list}\n\nIncolla qui il JSON con i dettagli completi dei dispositivi NON ancora configurati. L'array 'result' deve contenere oggetti con tutti i campi (inclusi 'id', 'local_key', 'name', 'product_name', 'category', 'ip', 'is_online', 'uuid', ecc.).",
+                "data": {
+                    "cloud_device_json": "JSON Dettagli Dispositivi Cloud"
+                }
             }
         }
     },
@@ -142,11 +162,32 @@
                 "actions": {
                     "retrieve_mac_now": "Recupera MAC Ora"
                 }
+            },
+            "add_device_manual_cloud": {
+                "title": "Lista Dispositivi Tuya Cloud Manuale XXXal",
+                "description": "L'API Cloud non è riuscita a recuperare la lista dispositivi. Incolla qui la risposta JSON dall'API Tuya Cloud (es. endpoint dell'elenco dispositivi).",
+                "data": {
+                    "cloud_device_json": "JSON Lista Dispositivi Cloud"
+                }
+            },
+            "add_device_manual_cloud_detail": {
+                "title": "Dettagli Dispositivi Tuya Cloud",
+                "description": "Trovati {unconfigured_count} dispositivo(i) non configurato(i): {unconfigured_list}\n\nIncolla qui il JSON con i dettagli completi dei dispositivi NON ancora configurati. L'array 'result' deve contenere oggetti con tutti i campi (inclusi 'id', 'local_key', 'name', 'product_name', 'category', 'ip', 'is_online', 'uuid', ecc.).",
+                "data": {
+                    "cloud_device_json": "JSON Dettagli Dispositivi Cloud"
+                }
             }
         },
         "error": {
             "connecting": "Connessione al dispositivo e rilevamento DPS. Attendere prego...",
-            "auto_configure_progress": "Scoperta automatica delle entità in corso..."
+            "auto_configure_progress": "Scoperta automatica delle entità in corso...",
+            "json_required": "Input JSON richiesto. Incolla il JSON della lista dispositivi Tuya Cloud.",
+            "json_invalid": "Formato JSON non valido. Controlla la sintassi.",
+            "json_success_false": "Il JSON indica fallimento (success: false). Controlla la risposta API.",
+            "json_invalid_format": "Formato JSON non valido. Atteso array 'result.data'.",
+            "json_invalid_data": "Formato dati non valido. 'result.data' deve essere un array.",
+            "json_error": "Errore nel parsing JSON: {error}",
+            "all_devices_configured": "Tutti i dispositivi dalla lista sono già configurati in LocalTuya."
         }
     },
     "title": "LocalTuya"

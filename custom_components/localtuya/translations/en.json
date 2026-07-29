@@ -19,7 +19,13 @@
             "mac_not_found": "No valid MAC address found in Tuya Cloud response.",
             "cloud_error": "Failed to retrieve MAC from Tuya Cloud.",
             "mac_retrieval_disabled": "MAC retrieval is not enabled for this device.",
-            "no_device_selected": "No device selected for MAC retrieval."
+            "no_device_selected": "No device selected for MAC retrieval.",
+            "json_required": "Please provide the JSON from Tuya Cloud API.",
+            "json_invalid": "Invalid JSON format. Please check the syntax.",
+            "json_invalid_format": "JSON format is incorrect. Expected structure with 'result.data' array.",
+            "json_invalid_data": "JSON data array is invalid or empty.",
+            "json_success_false": "JSON indicates API call was not successful (success: false).",
+            "json_error": "Error parsing JSON: {ex}"
         },
         "step": {
             "user": {
@@ -53,7 +59,14 @@
             "entity_already_configured": "This entity has already been configured.",
             "address_in_use": "TCP port 6668 (used for discovery) is already in use. Check no other integration is using it.",
             "discovery_failed": "Something failed when discovering devices. See log for details. If problem persists, create a new issue (including debug logs).",
-            "empty_dps": "Connection to device succeeded but no datapoints could be found. Please try set-up again. If problem persists, create a new issue (including debug logs)."
+            "empty_dps": "Connection to device succeeded but no datapoints could be found. Please try set-up again. If problem persists, create a new issue (including debug logs).",
+            "json_required": "Please provide the JSON from Tuya Cloud API.",
+            "json_invalid": "Invalid JSON format. Please check the syntax.",
+            "json_invalid_format": "JSON format is incorrect. Expected structure with 'result.data' array.",
+            "json_invalid_data": "JSON data array is invalid or empty.",
+            "json_success_false": "JSON indicates API call was not successful (success: false).",
+            "json_error": "Error parsing JSON: {ex}",
+            "all_devices_configured": "All devices from the list are already configured in LocalTuya."
         },
         "step": {
             "yaml_import": {
@@ -76,6 +89,26 @@
                 "data": {
                     "selected_device": "Discovered devices",
                     "mass_configure": "Configure all recognized devices automatically"
+                }
+            },
+            "add_device_manual_cloud": {
+                "title": "Manual Cloud Device List",
+                "description": "Unable to retrieve device list from Tuya Cloud automatically. Please paste the JSON response from the Tuya Cloud API (e.g., from `/v1.0/users/<uid>/devices` endpoint) below. The JSON must contain a `result.data` array with device objects having `res_id` (device ID) and `res_type` fields.",
+                "data": {
+                    "cloud_device_json": "Tuya Cloud Device List JSON"
+                },
+                "data_description": {
+                    "cloud_device_json": "Paste the full JSON response from Tuya Cloud API here. Example format shown in the description placeholder."
+                }
+            },
+            "add_device_manual_cloud_detail": {
+                "title": "Provide Detailed Device Info",
+                "description": "Found {unconfigured_count} unconfigured device(s): {unconfigured_list}\n\nPlease provide the detailed device information from Tuya Cloud API (full response from the device list endpoint) containing fields like `local_key`, `ip`, `product_id`, `category`, etc. for these devices.",
+                "data": {
+                    "cloud_device_json": "Tuya Cloud Detailed Device JSON"
+                },
+                "data_description": {
+                    "cloud_device_json": "Paste the full JSON response from Tuya Cloud API with detailed device info. Must contain 'result' array with device objects having 'id', 'local_key', 'ip', 'product_id', 'category', 'name', etc."
                 }
             },
             "edit_device": {
@@ -296,6 +329,16 @@
                     "fan_speed_list": "Each line represents [ device_value: friendly name ]",
                     "device_class": "Device class for this entity.",
                     "state_class": "State class for this sensor entity."
+                }
+            },
+            "add_device_manual_cloud": {
+                "title": "Manual Tuya Cloud Device List",
+                "description": "Unable to retrieve device list from Tuya Cloud automatically. Please paste the JSON response from the Tuya Cloud API (e.g., from the device list endpoint) below. The JSON must contain a `result.data` array with device objects having `res_id` (device ID) and `res_type` fields.",
+                "data": {
+                    "cloud_device_json": "Tuya Cloud Device List JSON"
+                },
+                "data_description": {
+                    "cloud_device_json": "Paste the full JSON response from Tuya Cloud API here. Example format shown in the description placeholder."
                 }
             }
         }

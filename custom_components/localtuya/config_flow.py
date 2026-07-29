@@ -1190,6 +1190,10 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                       len(self.cloud_data.device_list),
                       list(self.cloud_data.device_list.keys())[:3])
 
+        # If cloud load failed, ask user to provide device list JSON manually
+        if cloud_load_error:
+            return await self.async_step_add_device_manual_cloud()
+
         allDevices = mergeDevicesList(
             self.discovered_devices, self.cloud_data.device_list
         )
@@ -1229,6 +1233,274 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             data_schema=devices_schema(devices, self.cloud_data.device_list),
             errors=errors,
             description_placeholders={"debug_payload": str(cloud_debug_info)} if cloud_debug_info else {},
+        )
+
+    async def async_step_add_device_manual_cloud(self, user_input=None):
+        """Handle manual cloud device list JSON input when cloud API fails."""
+        errors = {}
+        
+        # Get already configured device IDs
+        configured_devices = set()
+        entries = self.hass.config_entries.async_entries(DOMAIN)
+        for entry in entries:
+            for dev_id in entry.data.get(CONF_DEVICES, {}).keys():
+                configured_devices.add(dev_id)
+        
+        if user_input is not None:
+            json_input = user_input.get("cloud_device_json", "").strip()
+            if not json_input:
+                errors["base"] = "json_required"
+            else:
+                try:
+                    import json
+                    parsed = json.loads(json_input)
+                    
+                    # Determine which JSON format was provided
+                    # Format 1: Initial list with res_id/res_type
+                    # Format 2: Detailed device info with local_key, etc.
+                    
+                    if "result" in parsed and isinstance(parsed["result"], dict) and "data" in parsed["result"]:
+                        # Format 1: Initial list
+                        devices_data = parsed["result"]["data"]
+                        if not isinstance(devices_data, list):
+                            errors["base"] = "json_invalid_data"
+                        else:
+                            # Extract device IDs and filter out already configured ones
+                            unconfigured_devices = []
+                            for dev in devices_data:
+                                res_id = dev.get("res_id") or dev.get("id")
+                                if res_id and res_id not in configured_devices:
+                                    name = dev.get("name") or res_id
+                                    unconfigured_devices.append(f"{res_id} ({name})")
+                            
+                            if not unconfigured_devices:
+                                errors["base"] = "all_devices_configured"
+                            else:
+                                # Store the device IDs for the next step
+                                self._manual_device_ids = [d.split(" (")[0] for d in unconfigured_devices]
+                                # Show summary and ask for detailed JSON
+                                return await self.async_step_add_device_manual_cloud_detail()
+                    
+                    elif "result" in parsed and isinstance(parsed["result"], list):
+                        # Format 2: Detailed device info
+                        devices_data = parsed["result"]
+                        if not isinstance(devices_data, list):
+                            errors["base"] = "json_invalid_data"
+                        else:
+                            manual_device_list = {}
+                            for dev in devices_data:
+                                dev_id = dev.get("id")
+                                if dev_id and dev_id in self._manual_device_ids:
+                                    manual_device_list[dev_id] = {
+                                        "id": dev_id,
+                                        "name": dev.get("name") or dev.get("custom_name") or dev_id,
+                                        "local_key": dev.get("local_key") or "",
+                                        "ip": dev.get("ip") or "",
+                                        "product_id": dev.get("product_id") or "",
+                                        "product_name": dev.get("product_name") or "",
+                                        "category": dev.get("category") or "",
+                                        "online": dev.get("is_online", dev.get("online", True)),
+                                        "mac": dev.get("mac") or "",
+                                        "uuid": dev.get("uuid") or "",
+                                        "version": dev.get("version") or "auto",
+                                        "model": dev.get("model") or "",
+                                        "active_time": dev.get("active_time"),
+                                        "create_time": dev.get("create_time"),
+                                        "update_time": dev.get("update_time"),
+                                        "bind_space_id": dev.get("bind_space_id"),
+                                        "custom_name": dev.get("custom_name") or "",
+                                        "icon": dev.get("icon") or "",
+                                        "lat": dev.get("lat"),
+                                        "lon": dev.get("lon"),
+                                        "sub": dev.get("sub", False),
+                                        "time_zone": dev.get("time_zone"),
+                                    }
+                            
+                            # Merge manual device list with discovered devices
+                            self.cloud_data.device_list.update(manual_device_list)
+                            _LOGGER.info(f"Manually added {len(manual_device_list)} devices from detailed JSON input")
+                            
+                            # Clean up
+                            if hasattr(self, "_manual_device_ids"):
+                                delattr(self, "_manual_device_ids")
+                            
+                            # Now continue to the normal add_device step
+                            return await self.async_step_add_device()
+                    
+                    else:
+                        errors["base"] = "json_invalid_format"
+                        
+                except json.JSONDecodeError:
+                    errors["base"] = "json_invalid"
+                except Exception as ex:
+                    _LOGGER.exception("Error parsing manual cloud JSON")
+                    errors["base"] = f"json_error: {ex}"
+        
+        # Schema for the manual JSON input (Format 1)
+        import voluptuous as vol
+        schema = vol.Schema({
+            vol.Required("cloud_device_json"): str,
+        })
+        
+        return self.async_show_form(
+            step_id="add_device_manual_cloud",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={
+                "json_format": '''{
+  "result": {
+    "data": [
+      {"res_id": "bfc0abab874dc1a864q5kn", "res_type": 0},
+      {"res_id": "bf054a2177fd16678d9yds", "res_type": 0}
+    ],
+    "last_row_key": 2031162322342079,
+    "page_size": 200
+  },
+  "success": true,
+  "t": 1785229260540,
+  "tid": "daa2e1a18a6211f19cb812e3d0098c67"
+}''',
+                "note": "Incolla qui il JSON completo ottenuto dall'API Tuya Cloud (endpoint /v1.0/users/{uid}/devices o simile). Il formato deve contenere 'result.data' con array di oggetti che hanno 'res_id' (device ID)."
+            },
+        )
+
+    async def async_step_add_device_manual_cloud_detail(self, user_input=None):
+        """Handle detailed device info JSON input for unconfigured devices."""
+        errors = {}
+        
+        if user_input is not None:
+            json_input = user_input.get("cloud_device_json", "").strip()
+            if not json_input:
+                errors["base"] = "json_required"
+            else:
+                try:
+                    import json
+                    parsed = json.loads(json_input)
+                    
+                    # Expect Format 2: Detailed device info
+                    if "result" in parsed and isinstance(parsed["result"], list):
+                        devices_data = parsed["result"]
+                        if not isinstance(devices_data, list):
+                            errors["base"] = "json_invalid_data"
+                        else:
+                            manual_device_list = {}
+                            for dev in devices_data:
+                                dev_id = dev.get("id")
+                                if dev_id and dev_id in self._manual_device_ids:
+                                    manual_device_list[dev_id] = {
+                                        "id": dev_id,
+                                        "name": dev.get("name") or dev.get("custom_name") or dev_id,
+                                        "local_key": dev.get("local_key") or "",
+                                        "ip": dev.get("ip") or "",
+                                        "product_id": dev.get("product_id") or "",
+                                        "product_name": dev.get("product_name") or "",
+                                        "category": dev.get("category") or "",
+                                        "online": dev.get("is_online", dev.get("online", True)),
+                                        "mac": dev.get("mac") or "",
+                                        "uuid": dev.get("uuid") or "",
+                                        "version": dev.get("version") or "auto",
+                                        "model": dev.get("model") or "",
+                                        "active_time": dev.get("active_time"),
+                                        "create_time": dev.get("create_time"),
+                                        "update_time": dev.get("update_time"),
+                                        "bind_space_id": dev.get("bind_space_id"),
+                                        "custom_name": dev.get("custom_name") or "",
+                                        "icon": dev.get("icon") or "",
+                                        "lat": dev.get("lat"),
+                                        "lon": dev.get("lon"),
+                                        "sub": dev.get("sub", False),
+                                        "time_zone": dev.get("time_zone"),
+                                    }
+                            
+                            # Merge manual device list with discovered devices
+                            self.cloud_data.device_list.update(manual_device_list)
+                            _LOGGER.info(f"Manually added {len(manual_device_list)} devices from detailed JSON input")
+                            
+                            # Clean up
+                            if hasattr(self, "_manual_device_ids"):
+                                delattr(self, "_manual_device_ids")
+                            
+                            # Now continue to the normal add_device step
+                            return await self.async_step_add_device()
+                    else:
+                        errors["base"] = "json_invalid_format"
+                        
+                except json.JSONDecodeError:
+                    errors["base"] = "json_invalid"
+                except Exception as ex:
+                    _LOGGER.exception("Error parsing manual cloud JSON")
+                    errors["base"] = f"json_error: {ex}"
+        
+        # Build the list of unconfigured device IDs for the user
+        device_list_str = ", ".join(self._manual_device_ids) if hasattr(self, "_manual_device_ids") else ""
+        device_count = len(self._manual_device_ids) if hasattr(self, "_manual_device_ids") else 0
+        
+        # Schema for the detailed JSON input (Format 2)
+        import voluptuous as vol
+        schema = vol.Schema({
+            vol.Required("cloud_device_json"): str,
+        })
+        
+        return self.async_show_form(
+            step_id="add_device_manual_cloud_detail",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={
+                "unconfigured_list": device_list_str,
+                "unconfigured_count": str(device_count),
+                "json_format": '''{
+  "result": [
+    {
+      "active_time": 1741388374,
+      "bind_space_id": "150797786",
+      "category": "tdq",
+      "create_time": 1695142031,
+      "custom_name": "",
+      "icon": "smart/icon/ay1533257659316XGZOd/1f21cca41812827d145dc1620bf8a835.jpg",
+      "id": "bfc0abab874dc1a864q5kn",
+      "ip": "109.53.1.80",
+      "is_online": false,
+      "lat": "0",
+      "local_key": "&t-ii)HEj{'W]PSq",
+      "lon": "0",
+      "model": "",
+      "name": "1CH WiFi Switch Module 3",
+      "product_id": "1o5lr0wtvu2bziz6",
+      "product_name": "1CH WiFi Switch Module CB3S",
+      "sub": false,
+      "time_zone": "+01:00",
+      "update_time": 1741388379,
+      "uuid": "a1fe4be9b7581dbc"
+    },
+    {
+      "active_time": 1784999107,
+      "bind_space_id": "150797786",
+      "category": "tdq",
+      "create_time": 1698482845,
+      "custom_name": "luci cucina",
+      "icon": "smart/icon/bay1624869296421wDFy/004a59b34f6ea7a794a43c403f23e5c8.png",
+      "id": "bf054a2177fd16678d9yds",
+      "ip": "109.54.80.116",
+      "is_online": true,
+      "lat": "0",
+      "local_key": "!+6&sWj?;n^a}<_|",
+      "lon": "0",
+      "model": "",
+      "name": "PSW-4CH-CBU",
+      "product_id": "ebsml1m0sp7nwjal",
+      "product_name": "PSW-4CH-CBU",
+      "sub": false,
+      "time_zone": "+02:00",
+      "update_time": 1784999166,
+      "uuid": "1ee361bc7945043b"
+    }
+  ],
+  "success": true,
+  "t": 1785230238284,
+  "tid": "216c929d8a6511f19f9afa101bc7a5bb"
+}''',
+                "note": "Incolla qui il JSON con i dettagli completi dei dispositivi NON ancora configurati. L'array 'result' deve contenere oggetti con tutti i campi (inclusi 'id', 'local_key', 'name', 'product_name', 'category', 'ip', 'is_online', 'uuid', ecc.). Verranno importati solo i dispositivi nella lista: {device_list}"
+            },
         )
 
     @callback

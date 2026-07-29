@@ -158,6 +158,10 @@ class TuyaCloudApi:
         }
         full_url = self._base_url + url
 
+        # Log request details
+        safe_headers = {k: v for k, v in dict(default_par, **headers).items() if k not in ("access_token", "sign")}
+        self._logger.debug("CLOUD API REQ - Method: %s - URL: %s - Headers: %s - Body: %s", method, full_url, safe_headers, body)
+
         async with self._session as session:
             try:
                 if method == "GET":
@@ -455,3 +459,115 @@ class TuyaCloudApi:
         expire_time = self._token_expire_time - 30
 
         return expire_time >= cur_time
+
+    async def async_get_spaces(self) -> list:
+        """Get list of spaces from Tuya Cloud.
+        
+        Returns:
+            list: List of space IDs from Tuya Cloud API
+            """
+        if not (
+            resp := await self.async_make_request("GET", "/v2.0/cloud/space/child")
+        ):
+            return self._logger.debug(f"Failed to retrieve spaces from Tuya Cloud")
+
+        if not resp["success"]:
+            return self._logger.debug(f"Failed to retrieve spaces: {resp.get('code')}: {resp.get('msg')}")
+
+        # Return the space IDs from the response (based on log format)
+        # Response format: {"result": {"data": [space_id1, space_id2, ...], "page_size": 200}}
+        result_data = resp.get("result", {})
+        spaces = result_data.get("data", [])
+        self._logger.debug(f"Retrieved {len(spaces)} spaces from Tuya Cloud: {spaces}")
+        return spaces
+
+    async def async_get_space_resources(self, space_id) -> list:
+        """Get resources for a specific space.
+        
+        Args:
+            space_id: The ID of the space to get resources for
+            
+        Returns:
+            list: List of resource objects from Tuya Cloud API
+        """
+        if not (
+            resp := await self.async_make_request("GET", f"/v2.0/cloud/space/{space_id}/resource")
+        ):
+            return self._logger.debug(f"Failed to retrieve resources for space {space_id} from Tuya Cloud")
+
+        if not resp["success"]:
+            return self._logger.debug(f"Failed to retrieve resources for space {space_id}: {resp.get('code')}: {resp.get('msg')}")
+
+        # Return the resources list from the response
+        # Response format: {"result": {"data": [{"res_id": "device_id", "res_type": 0}, ...], "last_row_key": ..., "page_size": 200}}
+        result_data = resp.get("result", {})
+        resources = result_data.get("data", [])
+        self._logger.debug(f"Retrieved {len(resources)} resources from space {space_id} from Tuya Cloud")
+        
+        # Transform to include device_id for compatibility with existing code
+        for resource in resources:
+            if "res_id" in resource:
+                resource["device_id"] = resource["res_id"]
+                resource["resource_type"] = resource.get("res_type", 0)
+        
+        return resources
+
+    async def async_filter_new_devices(self, resources: list) -> list:
+        """Filter resources to find new devices that are not already configured.
+        
+        Args:
+            resources: List of resource objects from space API
+            
+        Returns:
+            list: Filtered list of new device resources
+        """
+        if not resources:
+            return []
+            
+        # Get already configured devices
+        configured_devices = self.device_list
+        
+        # Filter for new devices
+        new_devices = []
+        for resource in resources:
+            # Check if this is a device resource (not a service, etc.)
+            if isinstance(resource, dict):
+                # Try different possible device ID field names
+                device_id = (
+                    resource.get("device_id") or 
+                    resource.get("id") or 
+                    resource.get("deviceId") or
+                    resource.get("deviceId")
+                )
+                
+                if device_id and device_id not in configured_devices:
+                    # Add space context to the device resource
+                    resource["space_id"] = resource.get("space_id", "unknown")
+                    resource["_is_new"] = True
+                    new_devices.append(resource)
+            
+        self._logger.debug(f"Filtered {len(resources)} resources to {len(new_devices)} new devices")
+        return new_devices
+
+    async def async_get_space_details(self, space_id) -> dict:
+        """Get detailed information about a specific space.
+        
+        Args:
+            space_id: The ID of the space to get details for
+            
+        Returns:
+            dict: Space details from Tuya Cloud API
+        """
+        # Try to get detailed space information
+        if not (
+            resp := await self.async_make_request("GET", f"/v2.0/cloud/space/{space_id}")
+        ):
+            return self._logger.debug(f"Failed to get details for space {space_id}")
+
+        if not resp["success"]:
+            return self._logger.debug(f"Failed to get details for space {space_id}: {resp.get('code')}: {resp.get('msg')}")
+
+        # Return space details
+        space_details = resp.get("result", {})
+        self._logger.debug(f"Retrieved details for space {space_id}")
+        return space_details
