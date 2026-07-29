@@ -1349,9 +1349,12 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                         else:
                             _LOGGER.debug("Format 2: devices_data has %d entries", len(devices_data))
                             manual_device_list = {}
+                            manual_ids = getattr(self, '_manual_device_ids', None)
                             for dev in devices_data:
                                 dev_id = dev.get("id")
-                                if dev_id and dev_id in self._manual_device_ids:
+                                if dev_id and (manual_ids is None or dev_id in manual_ids):
+                                    _LOGGER.debug("Format 2 step1: including dev_id=%s (manual_ids=%s)",
+                                                   dev_id, manual_ids is not None)
                                     manual_device_list[dev_id] = {
                                         "id": dev_id,
                                         "name": dev.get("name") or dev.get("custom_name") or dev_id,
@@ -1376,11 +1379,11 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                                         "sub": dev.get("sub", False),
                                         "time_zone": dev.get("time_zone"),
                                     }
-                            _LOGGER.debug("Format 2: built manual_device_list with %d entries for IDs in _manual_device_ids=%s",
-                                          len(manual_device_list), getattr(self, '_manual_device_ids', 'N/A'))
+                            _LOGGER.debug("Format 2 step1: built manual_device_list with %d entries (manual_ids_set=%s)",
+                                          len(manual_device_list), manual_ids is not None)
 
                             self.cloud_data.device_list.update(manual_device_list)
-                            _LOGGER.info(f"Manually added {len(manual_device_list)} devices from detailed JSON input")
+                            _LOGGER.info(f"Manually added {len(manual_device_list)} devices from detailed JSON input (step 1)")
 
                             if hasattr(self, "_manual_device_ids"):
                                 delattr(self, "_manual_device_ids")
@@ -1396,7 +1399,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                     errors["base"] = "json_invalid"
                 except Exception as ex:
                     _LOGGER.exception("Error parsing manual cloud JSON")
-                    errors["base"] = f"json_error: {ex}"
+                    errors["base"] = str(ex)
 
         # Build form schema
         import voluptuous as vol
@@ -1528,7 +1531,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                     errors["base"] = "json_invalid"
                 except Exception as ex:
                     _LOGGER.exception("Error parsing manual cloud JSON in detail step")
-                    errors["base"] = f"json_error: {ex}"
+                    errors["base"] = str(ex)
 
         # Build the list of unconfigured device IDs for the user
         _LOGGER.debug("Building device_list_str for form display, has _manual_device_ids=%s",
