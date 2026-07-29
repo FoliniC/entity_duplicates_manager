@@ -562,7 +562,7 @@ async def _get_cloud_functions_cached(
                 cloud_conf["user_id"],
             )
             await api.async_connect()
-            funcs = await api.async_get_device_functions(cloud_id)
+            funcs = await api.async_get_device_functions(cloud_id, force_update=force_update)
         except Exception:
             return _cloud_functions_cache.get(cloud_id, {})
         funcs = _parse_function_values(funcs or {})
