@@ -1535,8 +1535,41 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                             _LOGGER.debug("Format 2: built manual_device_list with %d matched entries out of %d total",
                                           len(manual_device_list), len(devices_data))
 
-                            self.cloud_data.device_list.update(manual_device_list)
-                            _LOGGER.info(f"Manually added {len(manual_device_list)} devices from detailed JSON input")
+                            # Pre-import check: filter out any device that may have
+                            # slipped through (e.g. manually edited JSON with dupes)
+                            configured_ids = set()
+                            configured_macs = set()
+                            for existing_entry in self.hass.config_entries.async_entries(DOMAIN):
+                                for existing_dev_id, existing_dev in existing_entry.data.get(
+                                    CONF_DEVICES, {}
+                                ).items():
+                                    configured_ids.add(existing_dev_id)
+                                    mac = existing_dev.get("mac") or existing_dev.get("mac_address") or ""
+                                    if mac:
+                                        configured_macs.add(mac.lower().replace(":", "").replace("-", ""))
+
+                            filtered_manual_device_list = {}
+                            for dev_id, dev_data in manual_device_list.items():
+                                if dev_id in configured_ids:
+                                    _LOGGER.info("Pre-import check: skipping already-configured device %s", dev_id)
+                                    continue
+                                dev_mac = (dev_data.get("mac") or "").lower().replace(":", "").replace("-", "")
+                                if dev_mac and dev_mac in configured_macs:
+                                    _LOGGER.info("Pre-import check: skipping device %s with duplicate MAC %s", dev_id, dev_mac)
+                                    continue
+                                filtered_manual_device_list[dev_id] = dev_data
+
+                            manual_device_list = filtered_manual_device_list
+                            _LOGGER.info("Pre-import check: %d/%d devices pass validation, %d filtered out",
+                                          len(manual_device_list), len(devices_data),
+                                          len(devices_data) - len(manual_device_list))
+
+                            if not manual_device_list:
+                                _LOGGER.info("Pre-import check: all devices filtered, nothing to import")
+                                errors["base"] = "all_devices_configured"
+                            else:
+                                self.cloud_data.device_list.update(manual_device_list)
+                                _LOGGER.info(f"Manually added {len(manual_device_list)} devices from detailed JSON input")
 
                             if hasattr(self, "_manual_device_ids"):
                                 _LOGGER.debug("Deleting _manual_device_ids attribute")
