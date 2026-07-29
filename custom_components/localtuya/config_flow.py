@@ -1263,44 +1263,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             json_input = user_input.get("cloud_device_json", "")
             _LOGGER.info("user_input received: action=%s, has_json=%s", action, bool(json_input and json_input.strip()))
 
-            if action == "update_cache" and cached_json is not None:
-                _LOGGER.info("Branch: update_cache selected, fetching fresh data from Tuya Cloud...")
-                try:
-                    fresh_data = await self.cloud_data.async_get_devices_list(force_update=True)
-                    if fresh_data == "ok":
-                        _LOGGER.info("Branch: update_cache fetched fresh cloud device list OK (%d devices)",
-                                       len(self.cloud_data.device_list))
-                        # Build Format 1 result from fresh cloud device list
-                        # Compute configured device IDs to filter them out
-                        configured_devices = set()
-                        for entry in self.hass.config_entries.async_entries(DOMAIN):
-                            for dev_id in entry.data.get(CONF_DEVICES, {}).keys():
-                                configured_devices.add(dev_id)
-                        devices_list = [
-                            {"res_id": dev_id, "res_type": 0}
-                            for dev_id in self.cloud_data.device_list
-                            if dev_id not in configured_devices
-                        ]
-                        if not devices_list:
-                            errors["base"] = "all_devices_configured"
-                            parsed = None
-                        else:
-                            parsed = {"result": {"data": devices_list}}
-                            # Save fresh data to cache
-                            try:
-                                cache_path.write_text(json.dumps(parsed))
-                                _LOGGER.info("Updated cache with fresh Tuya Cloud data")
-                            except Exception as ex:
-                                _LOGGER.warning("Failed to update cache: %s", ex)
-                    else:
-                        _LOGGER.warning("Branch: update_cache failed to fetch data: %s", fresh_data)
-                        errors["base"] = "json_required"
-                        parsed = None
-                except Exception as ex:
-                    _LOGGER.exception("Branch: update_cache fetch failed")
-                    errors["base"] = str(ex)
-                    parsed = None
-            elif action == "use_cached" and cached_json is not None:
+            if action == "use_cached" and cached_json is not None:
                 _LOGGER.info("Branch: using cached JSON")
                 parsed = cached_json
             elif action == "paste_json":
@@ -1466,11 +1429,10 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         cache_option = cached_json is not None
         if cache_option:
             schema = vol.Schema({
-                vol.Required("action", default="use_cached"): SelectSelector(
+                vol.Required("action", default="paste_json"): SelectSelector(
                     SelectSelectorConfig(
                         options=[
-                            SelectOptionDict(value="use_cached", label="📂 Use cached device list (as-is)"),
-                            SelectOptionDict(value="update_cache", label="🔄 Fetch fresh from Tuya Cloud"),
+                            SelectOptionDict(value="use_cached", label="📂 Use cached device list"),
                             SelectOptionDict(value="paste_json", label="📝 Paste new JSON"),
                         ],
                         mode=SelectSelectorMode.DROPDOWN,
@@ -1504,11 +1466,9 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 "note": (
                     "Incolla il JSON completo dall'API Tuya Cloud (endpoint /v1.0/users/{uid}/devices). "
                     "Il formato deve contenere 'result.data' con oggetti che hanno 'res_id' (device ID). "
-                    + (
-                        "⚡ Cache trovata: puoi usare quella salvata, aggiornarla dal cloud, oppure incollare un nuovo JSON."
-                        if cache_option
-                        else "Se incolla il JSON, verrà salvato in cache per i prossimi utilizzi."
-                    )
+                    + ("⚡ Cache trovata: puoi usare quella salvata o incollare un nuovo JSON."
+                       if cache_option
+                       else "Se incolla il JSON, verrà salvato in cache per i prossimi utilizzi.")
                 ),
             },
         )
