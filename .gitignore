@@ -57,3 +57,6 @@ __pycache__/
 .cloud/
 deps/
 temp/
+# Tuya GUI runtime cache
+.tuya_manual_cloud_ids_cache.json
+.tuya_cloud_manual_list_cache.json
