@@ -1261,31 +1261,46 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             # User chose option from selector (either "use cached" or "paste new JSON")
             action = user_input.get("action")
             json_input = user_input.get("cloud_device_json", "")
-            _LOGGER.debug("user_input received: action=%s, has_json=%s", action, bool(json_input and json_input.strip()))
+            _LOGGER.info("user_input received: action=%s, has_json=%s", action, bool(json_input and json_input.strip()))
 
             if action == "use_cached" and cached_json is not None:
-                _LOGGER.debug("Branch: using cached JSON")
+                _LOGGER.info("Branch: using cached JSON")
                 parsed = cached_json
             elif action == "paste_json":
                 json_input = json_input.strip()
-                _LOGGER.debug("Branch: paste_json, json_input length=%d", len(json_input))
+                _LOGGER.info("Branch: paste_json, json_input length=%d", len(json_input))
                 if not json_input:
-                    _LOGGER.debug("Branch: paste_json but json_input is empty")
+                    _LOGGER.info("Branch: paste_json but json_input is empty")
                     errors["base"] = "json_required"
                     parsed = None
                 else:
                     try:
                         parsed = json.loads(json_input)
-                        _LOGGER.debug("Branch: JSON parsed successfully, top-level keys=%s", list(parsed.keys()))
+                        _LOGGER.info("Branch: JSON parsed successfully, top-level keys=%s", list(parsed.keys()))
                     except json.JSONDecodeError as ex:
-                        _LOGGER.debug("Branch: JSON parse failed: %s", ex)
+                        _LOGGER.info("Branch: JSON parse failed: %s", ex)
                         errors["base"] = "json_invalid"
                         parsed = None
+            elif action == "use_cached" and cached_json is None:
+                _LOGGER.info("Branch: use_cached selected but no cache file exists")
+                errors["base"] = "json_required"
+                parsed = None
             else:
-                # Use cached as fallback
-                _LOGGER.debug("Branch: fallback to cached_json (action=%s, cached_json=%s)",
-                              action, cached_json is not None)
-                parsed = cached_json
+                # action is None or unrecognized: default to paste_json behavior
+                _LOGGER.info("Branch: action=%s (unrecognized or None), defaulting to paste_json behavior", action)
+                json_input = json_input.strip() if json_input else ""
+                if not json_input:
+                    _LOGGER.info("Branch: no action and no JSON provided (action=%s)", action)
+                    errors["base"] = "json_required"
+                    parsed = None
+                else:
+                    try:
+                        parsed = json.loads(json_input)
+                        _LOGGER.info("Branch: JSON parsed (default path), top-level keys=%s", list(parsed.keys()))
+                    except json.JSONDecodeError as ex:
+                        _LOGGER.info("Branch: JSON parse failed (default path): %s", ex)
+                        errors["base"] = "json_invalid"
+                        parsed = None
 
             if parsed is not None and not errors:
                 _LOGGER.debug("Parsed JSON is valid, checking format...")
