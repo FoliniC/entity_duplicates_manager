@@ -2510,7 +2510,16 @@ function showConfigDocumentModal(configDocument, jsonString, logs) {
             // Persist batch result to localStorage
             if (resultJson) localStorage.setItem('tuyaGui_batchResult', resultJson.value);
 
-            // Wire up result copy button
+            // Automatically copy to clipboard so user can paste directly into LocalTuya dialog
+            if (resultJson && resultJson.value) {
+                navigator.clipboard.writeText(resultJson.value).then(() => {
+                    console.log('[tuya_gui] Batch result JSON auto-copied to clipboard');
+                }).catch(() => {
+                    console.warn('[tuya_gui] Auto-copy to clipboard failed, user can copy manually');
+                });
+            }
+
+            // Wire up result copy button (now redundant but kept for user convenience)
             const copyResultBtn = document.getElementById('copyBatchJsonBtn');
             if (copyResultBtn) {
                 copyResultBtn.onclick = function() {
@@ -2540,7 +2549,7 @@ function showConfigDocumentModal(configDocument, jsonString, logs) {
                 };
             }
 
-            alert(`✅ Fetched ${configDevices.length}/${deviceIds.length} device(s). JSON ready in the result box below.`);
+            alert(`✅ Fetched ${configDevices.length}/${deviceIds.length} device(s). JSON is in the result box below and has been copied to clipboard — paste directly into the LocalTuya dialog.`);
         }
 
         init();
