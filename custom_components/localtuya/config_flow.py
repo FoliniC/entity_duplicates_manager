@@ -1537,7 +1537,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 "note": (
                     "Incolla il JSON completo dall'API Tuya Cloud (endpoint /v1.0/users/{uid}/devices). "
                     "Il formato deve contenere 'result.data' con oggetti che hanno 'res_id' (device ID). "
-                    + ("⚡ Cache trovata: puoi usare quella salvata o incollare un nuovo JSON."
+                    + ("⚡ Cache trovata: puoi usare quella salvata, aggiornarla dalla nuvola o incollare un nuovo JSON."
                        if cache_option
                        else "Se incolla il JSON, verrà salvato in cache per i prossimi utilizzi.")
                 ),
