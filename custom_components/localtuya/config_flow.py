@@ -1315,14 +1315,23 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                         else:
                             _LOGGER.debug("Format 1: devices_data has %d entries", len(devices_data))
                             configured_devices = set()
+                            configured_macs = set()
                             for entry in self.hass.config_entries.async_entries(DOMAIN):
-                                for dev_id in entry.data.get(CONF_DEVICES, {}).keys():
+                                for dev_id, dev_conf in entry.data.get(CONF_DEVICES, {}).items():
                                     configured_devices.add(dev_id)
-                            _LOGGER.debug("Configured device IDs: %s", configured_devices)
+                                    mac = dev_conf.get("mac") or dev_conf.get("mac_address") or ""
+                                    if mac:
+                                        configured_macs.add(mac.lower().replace(":", "").replace("-", ""))
+                            _LOGGER.info("Configured device IDs: %s; MACs: %s", configured_devices, configured_macs)
 
                             unconfigured_devices = [
                                 d for d in devices_data
-                                if (d.get("res_id") or d.get("id")) and (d.get("res_id") or d.get("id")) not in configured_devices
+                                if (d.get("res_id") or d.get("id"))
+                                and (d.get("res_id") or d.get("id")) not in configured_devices
+                                and not (
+                                    d.get("mac")
+                                    and d.get("mac").lower().replace(":", "").replace("-", "") in configured_macs
+                                )
                             ]
                             _LOGGER.info("Unconfigured device IDs: %s", [d.get("res_id") or d.get("id") for d in unconfigured_devices])
 
