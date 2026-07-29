@@ -1919,8 +1919,16 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 # already configured under a different localtuya entry)
                 new_host = user_input.get(CONF_HOST, "")
                 new_cloud_id = user_input.get(CONF_DEVICE_ID, "")
+                # Also get MAC from cloud data if available (factory-reset devices
+                # get new cloud IDs but keep the same hardware MAC)
+                new_mac_from_cloud = (cloud_devs.get(new_cloud_id, {}).get("mac")
+                                      if new_cloud_id else "")
                 existing_errors = []
                 entries = hass.config_entries.async_entries(DOMAIN)
+
+                def _norm_mac(m):
+                    return (m or "").lower().replace(":", "").replace("-", "").replace(" ", "")
+
                 for existing_entry in entries:
                     for existing_dev_id, existing_dev in existing_entry.data.get(
                         CONF_DEVICES, {}
@@ -1929,9 +1937,6 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                         existing_name = existing_dev.get(CONF_FRIENDLY_NAME, "")
                         existing_mac = existing_dev.get("mac", "")
                         existing_cloud_id = existing_dev.get("device_id", "")
-                        # Normalize MACs for comparison
-                        def _norm_mac(m):
-                            return (m or "").lower().replace(":", "").replace("-", "").replace(" ", "")
 
                         if new_host and existing_host == new_host and existing_dev_id != dev_id:
                             existing_errors.append(
@@ -1943,10 +1948,12 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                                 f"L'ID cloud {new_cloud_id} è già registrato in localtuya "
                                 f'come "{existing_name}" (id: {existing_dev_id}).'
                             )
+                        # Check MAC match (catches factory-reset devices with new cloud IDs)
+                        compare_mac = new_mac_from_cloud or user_input.get("mac", "")
                         if (
-                            new_host
+                            compare_mac
                             and existing_host
-                            and _norm_mac(existing_mac) == _norm_mac(user_input.get("mac", ""))
+                            and _norm_mac(existing_mac) == _norm_mac(compare_mac)
                             and existing_dev_id != dev_id
                         ):
                             existing_errors.append(
