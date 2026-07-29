@@ -818,6 +818,15 @@ HTML_TEMPLATE = """
         input, select { padding: 6px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; font-size: 12px; }
         label { font-size: 10px; font-weight: bold; color: #666; display: block; }
         .hidden { display: none; }
+        .toast-sticker { position: fixed; bottom: 24px; right: 24px; background: #323232; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.25); z-index: 9999; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+        .toast-sticker.show { opacity: 1; }
+        .space-options { display: flex; flex-direction: column; gap: 4px; max-width: 320px; }
+        .space-option { display: flex; align-items: center; gap: 8px; padding: 6px 8px; cursor: pointer; border-radius: 4px; font-size: 12px; width: fit-content; }
+        .space-option:hover { background: #f8f9fa; }
+        .space-option.selected { background: #e7f1ff; border-left: 4px solid #007bff; }
+        .space-option input[type="radio"] { margin: 0; flex-shrink: 0; }
+        .space-option strong { font-size: 12px; }
+        .space-option small { font-size: 10px; color: #666; display: block; }
     </style>
 </head>
 <body>
@@ -1059,6 +1068,7 @@ HTML_TEMPLATE = """
         }
         function switchTab(tab) {
             console.log('[tuya_gui] switchTab called:', tab);
+            const isManage = tab === 'manage';
             const isAdd = tab === 'add';
             const isCloud = tab === 'cloud';
             const isSpace = tab === 'space';
@@ -1076,6 +1086,14 @@ HTML_TEMPLATE = """
                 console.log('[tuya_gui] Space Management tab selected, calling loadSpaces()');
                 loadSpaces();
             }
+        }
+        function showToast(msg) {
+            const t = document.getElementById('toastSticker');
+            if (!t) return;
+            t.textContent = msg;
+            t.classList.add('show');
+            clearTimeout(t._timer);
+            t._timer = setTimeout(() => t.classList.remove('show'), 2200);
         }
         async function init() {
             console.log('[tuya_gui] init: start');
@@ -1905,11 +1923,11 @@ HTML_TEMPLATE = """
                     const tb = document.getElementById('deviceIdsTextbox');
                     if (!tb || !tb.value) return;
                     navigator.clipboard.writeText(tb.value).then(() => {
-                        alert('Device IDs copied to clipboard!');
+                        showToast('Device IDs copied to clipboard!');
                     }).catch(() => {
                         tb.select();
                         document.execCommand('copy');
-                        alert('Device IDs copied to clipboard!');
+                        showToast('Device IDs copied to clipboard!');
                     });
                 };
             }
@@ -1921,11 +1939,11 @@ HTML_TEMPLATE = """
                 copyRawBtn.onclick = function() {
                     if (!rawPayloadJson || !rawPayloadJson.value) return;
                     navigator.clipboard.writeText(rawPayloadJson.value).then(() => {
-                        alert('Raw payload JSON copied to clipboard!');
+                        showToast('Raw payload JSON copied to clipboard!');
                     }).catch(() => {
                         rawPayloadJson.select();
                         document.execCommand('copy');
-                        alert('Raw payload JSON copied to clipboard!');
+                        showToast('Raw payload JSON copied to clipboard!');
                     });
                 };
             }
@@ -2298,11 +2316,11 @@ function showConfigDocumentModal(configDocument, jsonString, logs) {
             const textarea = document.getElementById('configJsonPretty');
             if (!textarea.value) return;
             navigator.clipboard.writeText(textarea.value).then(() => {
-                alert('Full JSON copied to clipboard!');
+                showToast('Full JSON copied to clipboard!');
             }).catch(() => {
                 textarea.select();
                 document.execCommand('copy');
-                alert('Full JSON copied to clipboard!');
+                showToast('Full JSON copied to clipboard!');
             });
         }
 
@@ -2311,9 +2329,9 @@ function showConfigDocumentModal(configDocument, jsonString, logs) {
             if (!textarea.value) return;
             const minified = JSON.stringify(JSON.parse(textarea.value));
             navigator.clipboard.writeText(minified).then(() => {
-                alert('Minified JSON copied to clipboard!');
+                showToast('Minified JSON copied to clipboard!');
             }).catch(() => {
-                alert('Failed to copy minified JSON');
+                showToast('Failed to copy minified JSON');
             });
         }
 
@@ -2415,11 +2433,11 @@ function showConfigDocumentModal(configDocument, jsonString, logs) {
             const textarea = document.getElementById('cloudJsonOutput');
             if (!textarea.value) return;
             navigator.clipboard.writeText(textarea.value).then(() => {
-                alert('JSON copied to clipboard!');
+                showToast('JSON copied to clipboard!');
             }).catch(() => {
                 textarea.select();
                 document.execCommand('copy');
-                alert('JSON copied to clipboard!');
+                showToast('JSON copied to clipboard!');
             });
         }
 
@@ -2542,11 +2560,11 @@ function showConfigDocumentModal(configDocument, jsonString, logs) {
                 copyResultBtn.onclick = function() {
                     if (!resultJson || !resultJson.value) return;
                     navigator.clipboard.writeText(resultJson.value).then(() => {
-                        alert('JSON copied to clipboard!');
+                        showToast('JSON copied to clipboard!');
                     }).catch(() => {
                         resultJson.select();
                         document.execCommand('copy');
-                        alert('JSON copied to clipboard!');
+                        showToast('JSON copied to clipboard!');
                     });
                 };
             }
@@ -2566,11 +2584,12 @@ function showConfigDocumentModal(configDocument, jsonString, logs) {
                 };
             }
 
-            alert(`✅ Fetched ${configDevices.length}/${deviceIds.length} device(s). JSON is in the result box below and has been copied to clipboard — paste directly into the LocalTuya dialog.`);
+            showToast(`✅ Fetched ${configDevices.length}/${deviceIds.length} device(s). JSON is in the result box below and has been copied to clipboard.`);
         }
 
         init();
     </script>
+    <div id="toastSticker" class="toast-sticker"></div>
 </body>
 </html>
 """
