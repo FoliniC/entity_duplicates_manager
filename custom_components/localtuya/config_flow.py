@@ -1571,12 +1571,12 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                                 self.cloud_data.device_list.update(manual_device_list)
                                 _LOGGER.info(f"Manually added {len(manual_device_list)} devices from detailed JSON input")
 
-                            if hasattr(self, "_manual_device_ids"):
-                                _LOGGER.debug("Deleting _manual_device_ids attribute")
-                                delattr(self, "_manual_device_ids")
+                                if hasattr(self, "_manual_device_ids"):
+                                    _LOGGER.debug("Deleting _manual_device_ids attribute")
+                                    delattr(self, "_manual_device_ids")
 
-                            _LOGGER.debug("Calling async_step_add_device()")
-                            return await self.async_step_add_device()
+                                _LOGGER.debug("Calling async_step_add_device()")
+                                return await self.async_step_add_device()
                     else:
                         _LOGGER.debug("Format unrecognized in detail step: keys=%s (is result a list? %s)",
                                       list(parsed.keys()), isinstance(parsed.get("result"), list))
