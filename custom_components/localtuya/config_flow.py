@@ -1958,7 +1958,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 if existing_errors:
                     _LOGGER.warning("Duplicate device blocked: %s", existing_errors)
                     errors["base"] = "duplicate_device"
-                    placeholders["duplicate_info"] = " ".join(existing_errors)
+                    placeholders["device_info"] = " ".join(existing_errors)
                     return self.async_show_form(
                         step_id="configure_device",
                         data_schema=schema_suggested_values(DEVICE_SCHEMA, **defaults),
