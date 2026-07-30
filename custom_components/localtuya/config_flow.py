@@ -13,6 +13,16 @@ from pathlib import Path
 from typing import Any
 
 
+class ListHandler(logging.Handler):
+    """Capture log records for debugging (like tuya_gui.py)."""
+    def __init__(self):
+        super().__init__()
+        self.records: list[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.records.append(self.format(record))
+
+
 import homeassistant.helpers.config_validation as cv
 import homeassistant.helpers.entity_registry as er
 from homeassistant.helpers.selector import (
@@ -1283,29 +1293,35 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                             cloud_conf.get(CONF_USER_ID, ""),
                         )
                         await api.async_connect()
-                        # Step 1: Get spaces
-                        _LOGGER.debug("update_cache: calling /v2.0/cloud/space/child")
-                        spaces_resp = await api.async_make_request("GET", "/v2.0/cloud/space/child")
-                        _LOGGER.debug("update_cache: spaces_resp=%s", spaces_resp)
-                        if not spaces_resp.get("success"):
-                            _LOGGER.warning("update_cache: spaces API failed: %s", spaces_resp.get("msg"))
-                            errors["base"] = str(spaces_resp.get("msg", "Failed to fetch spaces"))
+                        # Step 1: Get spaces using cloud_api's async_get_spaces with debug logging
+                        _LOGGER.info("update_cache: === FETCHING SPACES FROM TUYA CLOUD ===")
+                        _LOGGER.info("update_cache: Calling async_get_spaces()")
+                        # Attach ListHandler to capture cloud_api debug logs (like tuya_gui.py)
+                        h = ListHandler()
+                        cl_logger = logging.getLogger("cloud_api")
+                        cl_logger.addHandler(h)
+                        cl_logger.setLevel(logging.DEBUG)
+                        try:
+                            spaces = await api.async_get_spaces()
+                        finally:
+                            cl_logger.removeHandler(h)
+                        
+                        # Log the captured cloud_api debug logs (like tuya_gui.py)
+                        if h.records:
+                            _LOGGER.info("update_cache: === CLOUD_API DEBUG LOGS ===")
+                            for record in h.records:
+                                _LOGGER.info("update_cache: %s", record)
+                        
+                        _LOGGER.info("update_cache: async_get_spaces() returned %d spaces: %s", len(spaces) if spaces else 0, spaces)
+                        
+                        if not spaces:
+                            _LOGGER.warning("update_cache: no spaces found in response")
+                            errors["base"] = "no_spaces_found"
                             parsed = None
                         else:
-                            spaces = spaces_resp.get("result", [])
-                            _LOGGER.debug("update_cache: spaces raw result=%s", spaces)
-                            if not isinstance(spaces, list):
-                                _LOGGER.warning("Spaces result is not a list: %s", type(spaces))
-                                spaces = []
-                            _LOGGER.info("update_cache: fetched %d spaces", len(spaces))
-                            if not spaces:
-                                _LOGGER.warning("update_cache: no spaces found in response")
-                                errors["base"] = "no_spaces_found"
-                                parsed = None
-                            else:
-                                # Store spaces and redirect to space selection step
-                                self._update_cache_spaces = spaces
-                                return await self.async_step_update_cache_select_space()
+                            # Store spaces and redirect to space selection step
+                            self._update_cache_spaces = spaces
+                            return await self.async_step_update_cache_select_space()
                 except Exception as ex:
                     _LOGGER.exception("Branch: update_cache fetch spaces failed")
                     errors["base"] = str(ex)
@@ -1598,21 +1614,32 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                     cloud_conf.get(CONF_USER_ID, ""),
                 )
                 await api.async_connect()
-                _LOGGER.debug("update_cache_select_space: calling /v2.0/cloud/space/child")
-                spaces_resp = await api.async_make_request("GET", "/v2.0/cloud/space/child")
-                _LOGGER.debug("update_cache_select_space: spaces_resp=%s", spaces_resp)
-                if spaces_resp.get("success"):
-                    spaces_result = spaces_resp.get("result")
-                    _LOGGER.debug("update_cache_select_space: spaces raw result=%s", spaces_result)
-                    if isinstance(spaces_result, list):
-                        self._update_cache_spaces = spaces_result
-                    else:
-                        _LOGGER.warning("Spaces result is not a list: %s", type(spaces_result))
-                        self._update_cache_spaces = []
-                    _LOGGER.info("Fetched %d spaces for update_cache", len(self._update_cache_spaces))
+                _LOGGER.info("update_cache_select_space: === FETCHING SPACES FROM TUYA CLOUD ===")
+                _LOGGER.info("update_cache_select_space: Calling async_get_spaces()")
+                # Attach ListHandler to capture cloud_api debug logs (like tuya_gui.py)
+                h = ListHandler()
+                cl_logger = logging.getLogger("cloud_api")
+                cl_logger.addHandler(h)
+                cl_logger.setLevel(logging.DEBUG)
+                try:
+                    spaces = await api.async_get_spaces()
+                finally:
+                    cl_logger.removeHandler(h)
+                
+                # Log the captured cloud_api debug logs (like tuya_gui.py)
+                if h.records:
+                    _LOGGER.info("update_cache_select_space: === CLOUD_API DEBUG LOGS ===")
+                    for record in h.records:
+                        _LOGGER.info("update_cache_select_space: %s", record)
+                
+                _LOGGER.info("update_cache_select_space: async_get_spaces() returned %d spaces: %s", len(spaces) if spaces else 0, spaces)
+                
+                if spaces and isinstance(spaces, list):
+                    self._update_cache_spaces = spaces
                 else:
-                    _LOGGER.warning("update_cache_select_space: spaces API failed: %s", spaces_resp.get("msg"))
-                    errors["base"] = "cloud_fetch_spaces_failed"
+                    _LOGGER.warning("Spaces result is not a list: %s", type(spaces))
+                    self._update_cache_spaces = []
+                _LOGGER.info("update_cache_select_space: fetched %d spaces for update_cache", len(self._update_cache_spaces))
             except Exception as ex:
                 _LOGGER.exception("Failed to fetch spaces for update_cache")
                 errors["base"] = str(ex)
@@ -1688,21 +1715,29 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             )
             await api.async_connect()
             
-            # Fetch space resources
-            _LOGGER.debug("update_cache_fetch_devices: calling /v2.0/cloud/space/%s/resource", space_id)
-            resources_resp = await api.async_make_request("GET", f"/v2.0/cloud/space/{space_id}/resource")
-            _LOGGER.debug("update_cache_fetch_devices: resources_resp=%s", resources_resp)
-            if not resources_resp.get("success"):
-                _LOGGER.warning("update_cache_fetch_devices: resources API failed: %s", resources_resp.get("msg"))
-                errors["base"] = "cloud_fetch_resources_failed"
-                return await self.async_step_update_cache_select_space()
+            # Fetch space resources using async_get_space_resources with debug logging (like tuya_gui.py)
+            _LOGGER.info("update_cache_fetch_devices: === FETCHING DEVICES FROM SPACE %s ===", space_id)
+            _LOGGER.info("update_cache_fetch_devices: Calling async_get_space_resources()")
+            # Attach ListHandler to capture cloud_api debug logs (like tuya_gui.py)
+            h = ListHandler()
+            cl_logger = logging.getLogger("cloud_api")
+            cl_logger.addHandler(h)
+            cl_logger.setLevel(logging.DEBUG)
+            try:
+                resources = await api.async_get_space_resources(space_id)
+            finally:
+                cl_logger.removeHandler(h)
             
-            resources_result = resources_resp.get("result")
-            _LOGGER.debug("update_cache_fetch_devices: resources raw result=%s", resources_result)
-            if isinstance(resources_result, list):
-                resources = resources_result
-            else:
-                _LOGGER.warning("Resources result is not a list: %s", type(resources_result))
+            # Log the captured cloud_api debug logs (like tuya_gui.py)
+            if h.records:
+                _LOGGER.info("update_cache_fetch_devices: === CLOUD_API DEBUG LOGS ===")
+                for record in h.records:
+                    _LOGGER.info("update_cache_fetch_devices: %s", record)
+            
+            _LOGGER.info("update_cache_fetch_devices: async_get_space_resources() returned %d resources: %s", len(resources) if resources else 0, resources)
+            
+            if not resources or not isinstance(resources, list):
+                _LOGGER.warning("Resources result is not a list or empty: %s", type(resources))
                 resources = []
             _LOGGER.info("Fetched %d resources from space %s", len(resources), space_id)
             
