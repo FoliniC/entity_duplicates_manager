@@ -1258,12 +1258,12 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             _LOGGER.debug("No cache file found at %s", cache_path)
 
         if user_input is not None:
-            # User chose option from selector (either "use cached" or "paste new JSON")
+            # User chose option from selector
             action = user_input.get("action")
             json_input = user_input.get("cloud_device_json", "")
             _LOGGER.info("user_input received: action=%s, has_json=%s", action, bool(json_input and json_input.strip()))
 
-            if action == "update_cache" and cached_json is not None:
+            if action == "update_cache":
                 _LOGGER.info("Branch: update_cache, fetching fresh device list from Tuya Cloud...")
                 try:
                     fresh_result = await self.cloud_data.async_get_devices_list(force_update=True)

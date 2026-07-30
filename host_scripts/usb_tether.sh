@@ -33,6 +33,7 @@ LAN_IF="enp2s0"                       # interfaccia LAN del server
 ROUTER_IP="192.168.0.11"              # IP router OpenWrt (sorgente traffico da NATare)
 ROUTER_SSH_KEY="/home/carlo/docker/homeassistant/config/.ssh/router_key"
 ROUTER_ROUTE_METRIC=30                # metric della route sul router (dopo wan=10, wwan=20)
+ROUTER_WAN_IF="usb0"                  # interfaccia WAN USB del router OpenWrt
 # Pattern di interfacce da ESCLUDERE nella ricerca del telefono.
 # Le veth hanno suffisso @ifN (es. vethabc123@if2) che va gestito.
 EXCLUDE_RE='^(lo|docker[0-9]*|br-[a-f0-9]+|veth[a-f0-9]+(@.*)?|zt[a-z0-9]+|tun[0-9]*|enp2s0|sit[0-9]*|ip6tnl[0-9]*|wlan[0-9]+)$'
@@ -71,17 +72,31 @@ router_del_fallback_route() {
         || echo "WARN: impossibile rimuovere route fallback dal router (forse gia assente)." >&2
 }
 
-# Toglie/ripristina la WAN primaria del router (usb0) per forzare tutto il traffico via server.
+# Legge da netifd il gateway DHCP attuale della WAN USB del router.
+router_wan_gateway() {
+    router_ssh "ifstatus wan 2>/dev/null | jsonfilter -e '@.route[0].nexthop' 2>/dev/null | head -1" \
+        | tr -d '\r'
+}
+
+# Toglie/ripristina la WAN primaria del router per forzare tutto il traffico via server.
 router_wan_down() {
-    router_ssh "ip route del default via 10.175.108.144 dev usb0 metric 10 2>/dev/null; true" \
-        && echo "WAN router disattivata (route usb0 rimossa)." \
+    router_ssh "while ip route del default dev $ROUTER_WAN_IF metric 10 2>/dev/null; do :; done; true" \
+        && echo "WAN router disattivata (route $ROUTER_WAN_IF rimossa)." \
         || echo "WARN: WAN router gia assente o errore." >&2
 }
 
 router_wan_up() {
-    router_ssh "ip route replace default via 10.175.108.144 dev usb0 metric 10 2>/dev/null; true" \
-        && echo "WAN router riattivata (route usb0 ripristinata)." \
-        || echo "WARN: impossibile ripristinare WAN router." >&2
+    local gw
+    gw=$(router_wan_gateway | head -1)
+    if [[ "$gw" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        router_ssh "ip route replace default via $gw dev $ROUTER_WAN_IF metric 10 2>/dev/null; true" \
+            && echo "WAN router riattivata (route $ROUTER_WAN_IF via $gw ripristinata)." \
+            || echo "WARN: impossibile ripristinare WAN router." >&2
+    else
+        router_ssh "ifup wan >/dev/null 2>&1; sleep 2; GW=\$(ifstatus wan 2>/dev/null | jsonfilter -e '@.route[0].nexthop' 2>/dev/null | head -1); [ -n \"\$GW\" ] && ip route replace default via \"\$GW\" dev $ROUTER_WAN_IF metric 10 2>/dev/null; true" \
+            && echo "WAN router riattivata tramite ifup wan." \
+            || echo "WARN: impossibile ripristinare WAN router." >&2
+    fi
 }
 
 # --- NAT/Forwarding per traffico LAN router -> telefono ---
