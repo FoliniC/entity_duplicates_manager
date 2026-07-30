@@ -1518,8 +1518,10 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         ids_cache_path = Path(self.hass.config.config_dir) / ".tuya_manual_cloud_ids_cache.json"
         partial_cache = ids_cache_path.exists()
         has_selector = cache_option or partial_cache
-        # When user selected an action that doesn't need JSON, omit the textbox
-        hide_json = user_input is not None and user_input.get("action") in ("update_cache", "use_cached")
+        # When user selected (or default is) an action that doesn't need JSON, omit the textbox
+        default_action = "update_cache"
+        selected_action = user_input.get("action") if user_input is not None else default_action
+        hide_json = selected_action in ("update_cache", "use_cached")
         if has_selector:
             options = [
                 SelectOptionDict(value="update_cache", label="🔄 Fetch fresh from Tuya Cloud"),
@@ -1528,7 +1530,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             if cache_option:
                 options.insert(0, SelectOptionDict(value="use_cached", label="📂 Use cached device list"))
             schema_fields = {
-                vol.Required("action", default="update_cache"): SelectSelector(
+                vol.Required("action", default=default_action): SelectSelector(
                     SelectSelectorConfig(
                         options=options,
                         mode=SelectSelectorMode.DROPDOWN,
