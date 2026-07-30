@@ -1832,12 +1832,167 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             if hasattr(self, "_update_cache_selected_space"):
                 delattr(self, "_update_cache_selected_space")
             
-            # Proceed to detail step
+            # Proceed to auto-fetch detailed device info
             self._manual_device_ids = [d["res_id"] for d in devices_list]
-            return await self.async_step_add_device_manual_cloud_detail()
+            return await self.async_step_update_cache_fetch_details()
             
         except Exception as ex:
-            _LOGGER.exception("Failed to fetch devices from space")
+                _LOGGER.exception("Failed to fetch devices from space")
+                errors["base"] = str(ex)
+                return await self.async_step_update_cache_select_space()
+
+    async def async_step_update_cache_fetch_details(self, user_input=None):
+        """Automatically fetch detailed device info for all filtered devices."""
+        _LOGGER.setLevel(logging.DEBUG)
+        cl_logger = logging.getLogger("cloud_api")
+        cl_logger.setLevel(logging.DEBUG)
+        _LOGGER.info("async_step_update_cache_fetch_details called")
+        errors = {}
+        
+        device_ids = getattr(self, "_manual_device_ids", None)
+        if not device_ids:
+            _LOGGER.warning("No device IDs to fetch details for")
+            errors["base"] = "no_devices_to_fetch"
+            return await self.async_step_update_cache_select_space()
+        
+        _LOGGER.info("Auto-fetching details for %d devices: %s", len(device_ids), device_ids)
+        
+        # Get cloud credentials
+        cloud_conf = None
+        for entry in self.hass.config_entries.async_entries(DOMAIN):
+            if entry.data.get(CONF_REGION) and entry.data.get(CONF_CLIENT_ID):
+                cloud_conf = entry.data
+                break
+        
+        if not cloud_conf:
+            errors["base"] = "json_required"
+            return await self.async_step_update_cache_select_space()
+        
+        try:
+            api = TuyaCloudApi(
+                cloud_conf.get(CONF_REGION, ""),
+                cloud_conf.get(CONF_CLIENT_ID, ""),
+                cloud_conf.get(CONF_CLIENT_SECRET, ""),
+                cloud_conf.get(CONF_USER_ID, ""),
+            )
+            await api.async_connect()
+            
+            # Fetch detailed info for each device
+            _LOGGER.info("Fetching detailed info for %d devices...", len(device_ids))
+            h = ListHandler()
+            cl_logger = logging.getLogger("cloud_api")
+            cl_logger.addHandler(h)
+            cl_logger.setLevel(logging.DEBUG)
+            try:
+                manual_device_list = {}
+                for dev_id in device_ids:
+                    _LOGGER.info("Fetching details for device %s", dev_id)
+                    try:
+                        # Use the detailed endpoint like tuya_gui.py
+                        detail_resp = await api.async_make_request("GET", f"/v1.0/devices/{dev_id}")
+                        if detail_resp.get("success") and detail_resp.get("result"):
+                            dev = detail_resp["result"]
+                            manual_device_list[dev_id] = {
+                                "id": dev_id,
+                                "name": dev.get("name") or dev.get("custom_name") or dev_id,
+                                "local_key": dev.get("local_key") or "",
+                                "ip": dev.get("ip") or "",
+                                "product_id": dev.get("product_id") or "",
+                                "product_name": dev.get("product_name") or "",
+                                "category": dev.get("category") or "",
+                                "online": dev.get("is_online", dev.get("online", True)),
+                                "mac": dev.get("mac") or "",
+                                "uuid": dev.get("uuid") or "",
+                                "version": dev.get("version") or "auto",
+                                "model": dev.get("model") or "",
+                                "active_time": dev.get("active_time"),
+                                "create_time": dev.get("create_time"),
+                                "update_time": dev.get("update_time"),
+                                "bind_space_id": dev.get("bind_space_id"),
+                                "custom_name": dev.get("custom_name") or "",
+                                "icon": dev.get("icon") or "",
+                                "lat": dev.get("lat"),
+                                "lon": dev.get("lon"),
+                                "sub": dev.get("sub", False),
+                                "time_zone": dev.get("time_zone"),
+                            }
+                            _LOGGER.info("Fetched details for %s: name=%s, mac=%s, ip=%s", 
+                                         dev_id, dev.get("name"), dev.get("mac"), dev.get("ip"))
+                        else:
+                            _LOGGER.warning("Failed to fetch details for %s: %s", dev_id, detail_resp.get("msg"))
+                    except Exception as ex:
+                        _LOGGER.warning("Error fetching details for %s: %s", dev_id, ex)
+                
+                if h.records:
+                    _LOGGER.info("=== CLOUD_API DEBUG LOGS (fetch details) ===")
+                    for record in h.records:
+                        _LOGGER.info("%s", record)
+            finally:
+                cl_logger.removeHandler(h)
+            
+            if not manual_device_list:
+                _LOGGER.warning("No device details fetched")
+                errors["base"] = "no_devices_fetched"
+                return await self.async_step_update_cache_select_space()
+            
+            # Check for duplicates in detailed info (by MAC, IP, cloud ID)
+            _LOGGER.info("Checking %d devices for duplicates in detailed info...", len(manual_device_list))
+            unique_devices = {}
+            duplicate_info = []
+            
+            for dev_id, dev_data in manual_device_list.items():
+                dev_mac = (dev_data.get("mac") or "").lower().replace(":", "").replace("-", "")
+                dev_ip = dev_data.get("ip", "")
+                
+                # Check against already configured devices
+                is_duplicate = False
+                for entry in self.hass.config_entries.async_entries(DOMAIN):
+                    for existing_dev_id, existing_dev in entry.data.get(CONF_DEVICES, {}).items():
+                        existing_mac = (existing_dev.get("mac") or "").lower().replace(":", "").replace("-", "")
+                        existing_ip = existing_dev.get(CONF_HOST, "")
+                        existing_cloud_id = existing_dev.get("device_id", "")
+                        
+                        if dev_id == existing_cloud_id:
+                            duplicate_info.append(f"{dev_id} (cloud ID match with {existing_dev_id})")
+                            is_duplicate = True
+                            break
+                        if dev_mac and existing_mac == dev_mac:
+                            duplicate_info.append(f"{dev_id} (MAC match with {existing_dev_id}: {dev_mac})")
+                            is_duplicate = True
+                            break
+                        if dev_ip and existing_ip == dev_ip:
+                            duplicate_info.append(f"{dev_id} (IP match with {existing_dev_id}: {dev_ip})")
+                            is_duplicate = True
+                            break
+                
+                if not is_duplicate:
+                    unique_devices[dev_id] = dev_data
+            
+            _LOGGER.info("Duplicate check: %d unique, %d duplicates filtered out", len(unique_devices), len(manual_device_list) - len(unique_devices))
+            if duplicate_info:
+                for dup in duplicate_info:
+                    _LOGGER.warning("Duplicate filtered: %s", dup)
+            
+            if not unique_devices:
+                _LOGGER.warning("All devices are duplicates")
+                errors["base"] = "all_devices_configured"
+                return await self.async_step_update_cache_select_space()
+            
+            # Clean up temp attributes
+            if hasattr(self, "_update_cache_spaces"):
+                delattr(self, "_update_cache_spaces")
+            if hasattr(self, "_update_cache_selected_space"):
+                delattr(self, "_update_cache_selected_space")
+            if hasattr(self, "_manual_device_ids"):
+                delattr(self, "_manual_device_ids")
+            
+            # Store unique devices and proceed to configure_device
+            self.cloud_data.device_list.update(unique_devices)
+            _LOGGER.info("Proceeding to configure %d unique devices", len(unique_devices))
+            return await self.async_step_add_device()
+            
+        except Exception as ex:
+            _LOGGER.exception("Failed to fetch device details")
             errors["base"] = str(ex)
             return await self.async_step_update_cache_select_space()
 
