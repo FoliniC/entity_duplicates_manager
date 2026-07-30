@@ -1591,7 +1591,12 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 await api.async_connect()
                 spaces_resp = await api.async_make_request("GET", "/v2.0/cloud/space/child")
                 if spaces_resp.get("success"):
-                    self._update_cache_spaces = spaces_resp.get("result", [])
+                    spaces_result = spaces_resp.get("result")
+                    if isinstance(spaces_result, list):
+                        self._update_cache_spaces = spaces_result
+                    else:
+                        _LOGGER.warning("Spaces result is not a list: %s", type(spaces_result))
+                        self._update_cache_spaces = []
                     _LOGGER.info("Fetched %d spaces for update_cache", len(self._update_cache_spaces))
                 else:
                     _LOGGER.warning("Failed to fetch spaces: %s", spaces_resp.get("msg"))
@@ -1673,7 +1678,12 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 errors["base"] = "cloud_fetch_resources_failed"
                 return await self.async_step_update_cache_select_space()
             
-            resources = resources_resp.get("result", [])
+            resources_result = resources_resp.get("result")
+            if isinstance(resources_result, list):
+                resources = resources_result
+            else:
+                _LOGGER.warning("Resources result is not a list: %s", type(resources_result))
+                resources = []
             _LOGGER.info("Fetched %d resources from space %s", len(resources), space_id)
             
             # Get configured device IDs to filter out
