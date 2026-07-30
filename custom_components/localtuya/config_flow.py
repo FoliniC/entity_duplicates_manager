@@ -1295,7 +1295,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                                 _LOGGER.warning("Branch: update_cache failed to write cache: %s", ex)
                     else:
                         _LOGGER.warning("Branch: update_cache failed to fetch data: %s", fresh_result)
-                        errors["base"] = "json_required"
+                        errors["base"] = str(fresh_result)
                         parsed = None
                 except Exception as ex:
                     _LOGGER.exception("Branch: update_cache fetch failed")
