@@ -1266,7 +1266,6 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             if action == "update_cache":
                 _LOGGER.info("Branch: update_cache, fetching fresh device list from Tuya Cloud...")
                 try:
-                    ha_config = self.hass.data.get("config_entries", {})
                     cloud_conf = None
                     for entry in self.hass.config_entries.async_entries(DOMAIN):
                         if entry.data.get("region") and entry.data.get("client_id"):
