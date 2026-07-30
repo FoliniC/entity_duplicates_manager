@@ -1286,6 +1286,11 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                         errors["base"] = "json_required"
                         parsed = None
                     else:
+                        # Temporarily enable debug logging for localtuya to see API calls
+                        _LOGGER.setLevel(logging.DEBUG)
+                        cl_logger = logging.getLogger("cloud_api")
+                        cl_logger.setLevel(logging.DEBUG)
+                        _LOGGER.info("update_cache: enabled debug logging for localtuya and cloud_api")
                         api = TuyaCloudApi(
                             cloud_conf.get(CONF_REGION, ""),
                             cloud_conf.get(CONF_CLIENT_ID, ""),
@@ -1603,6 +1608,9 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
 
     async def async_step_update_cache_select_space(self, user_input=None):
         """Handle space selection for updating cache from Tuya Cloud."""
+        _LOGGER.setLevel(logging.DEBUG)
+        cl_logger = logging.getLogger("cloud_api")
+        cl_logger.setLevel(logging.DEBUG)
         _LOGGER.debug("async_step_update_cache_select_space called, user_input=%s", user_input is not None)
         errors = {}
         
@@ -1722,6 +1730,9 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
 
     async def async_step_update_cache_fetch_devices(self, user_input=None):
         """Fetch device details from selected space and build Format 1 JSON."""
+        _LOGGER.setLevel(logging.DEBUG)
+        cl_logger = logging.getLogger("cloud_api")
+        cl_logger.setLevel(logging.DEBUG)
         _LOGGER.debug("async_step_update_cache_fetch_devices called, user_input=%s", user_input is not None)
         errors = {}
         
