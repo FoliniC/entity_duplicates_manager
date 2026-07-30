@@ -1266,37 +1266,56 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             if action == "update_cache":
                 _LOGGER.info("Branch: update_cache, fetching fresh device list from Tuya Cloud...")
                 try:
-                    fresh_result = await self.cloud_data.async_get_devices_list(force_update=True)
-                    if fresh_result == "ok":
-                        _LOGGER.info("Branch: update_cache fetched fresh cloud device list OK (%d devices)",
-                                       len(self.cloud_data.device_list))
-                        # Compute configured device IDs to filter them out
-                        configured_devices = set()
-                        for entry in self.hass.config_entries.async_entries(DOMAIN):
-                            for dev_id in entry.data.get(CONF_DEVICES, {}).keys():
-                                configured_devices.add(dev_id)
-                        devices_list = [
-                            {"res_id": dev_id, "res_type": 0}
-                            for dev_id in self.cloud_data.device_list
-                            if dev_id not in configured_devices
-                        ]
-                        if not devices_list:
-                            _LOGGER.info("Branch: update_cache all devices already configured")
-                            errors["base"] = "all_devices_configured"
-                            parsed = None
-                        else:
-                            parsed = {"result": {"data": devices_list}}
-                            # Save fresh data to cache
-                            try:
-                                cache_path.write_text(json.dumps(parsed))
-                                _LOGGER.info("Branch: update_cache cache updated with fresh data (%d devices)",
-                                               len(devices_list))
-                            except Exception as ex:
-                                _LOGGER.warning("Branch: update_cache failed to write cache: %s", ex)
-                    else:
-                        _LOGGER.warning("Branch: update_cache failed to fetch data: %s", fresh_result)
-                        errors["base"] = str(fresh_result)
+                    ha_config = self.hass.data.get("config_entries", {})
+                    cloud_conf = None
+                    for entry in self.hass.config_entries.async_entries(DOMAIN):
+                        if entry.data.get("region") and entry.data.get("client_id"):
+                            cloud_conf = entry.data
+                            break
+                    if not cloud_conf:
+                        _LOGGER.warning("Branch: update_cache no cloud config found")
+                        errors["base"] = "json_required"
                         parsed = None
+                    else:
+                        api = TuyaCloudApi(
+                            cloud_conf.get("region", ""),
+                            cloud_conf.get("client_id", ""),
+                            cloud_conf.get("client_secret", ""),
+                            cloud_conf.get("user_id", ""),
+                        )
+                        await api.async_connect()
+                        fresh_result = await api.async_get_devices_list(force_update=True)
+                        cloud_devices = api.device_list if isinstance(api.device_list, dict) else {}
+                        if fresh_result == "ok" or cloud_devices:
+                            _LOGGER.info("Branch: update_cache fetched fresh cloud device list OK (%d devices)",
+                                           len(cloud_devices))
+                            # Compute configured device IDs to filter them out
+                            configured_devices = set()
+                            for entry in self.hass.config_entries.async_entries(DOMAIN):
+                                for dev_id in entry.data.get(CONF_DEVICES, {}).keys():
+                                    configured_devices.add(dev_id)
+                            devices_list = [
+                                {"res_id": dev_id, "res_type": 0}
+                                for dev_id in cloud_devices
+                                if dev_id not in configured_devices
+                            ]
+                            if not devices_list:
+                                _LOGGER.info("Branch: update_cache all devices already configured")
+                                errors["base"] = "all_devices_configured"
+                                parsed = None
+                            else:
+                                parsed = {"result": {"data": devices_list}}
+                                # Save fresh data to cache
+                                try:
+                                    cache_path.write_text(json.dumps(parsed))
+                                    _LOGGER.info("Branch: update_cache cache updated with fresh data (%d devices)",
+                                                   len(devices_list))
+                                except Exception as ex:
+                                    _LOGGER.warning("Branch: update_cache failed to write cache: %s", ex)
+                        else:
+                            _LOGGER.warning("Branch: update_cache failed to fetch data: %s", fresh_result)
+                            errors["base"] = str(fresh_result) if fresh_result else "Cloud API fetch failed"
+                            parsed = None
                 except Exception as ex:
                     _LOGGER.exception("Branch: update_cache fetch failed")
                     errors["base"] = str(ex)
