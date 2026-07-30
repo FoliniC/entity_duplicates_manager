@@ -313,3 +313,49 @@ reference implementation exactly. No endpoints have been added, removed, or chan
    - Per-device check during individual configuration
    - Matches by IP, cloud device ID, and MAC (including MAC from cloud data for factory-reset devices)
    - Shows `duplicate_device` error if conflict detected
+
+---
+
+## Update Cache Flow (Auto-fetch Detailed Device Info)
+
+When the user selects `🔄 Fetch fresh from Tuya Cloud` in the manual cloud import dialog, the flow now implements a fully automated multi-step process:
+
+### Step 1: Space Selection
+- Calls `/v2.0/cloud/space/child` to fetch all spaces from Tuya Cloud
+- Presents a dropdown for user to select a space
+
+### Step 2: Fetch & Filter Devices
+- Calls `/v2.0/cloud/space/{space_id}/resource` to get all devices in selected space
+- Filters out already-configured devices by cloud device ID
+- Logs: "total devices from space: X, unconfigured: Y, filtered out: Z"
+
+### Step 3: Auto-fetch Detailed Device Info (NEW)
+For each unconfigured device ID, automatically calls `/v1.0/devices/{device_id}` to fetch full device details:
+- `local_key`, `ip`, `mac`, `uuid`, `product_id`, `product_name`, `category`, `model`, etc.
+- Logs each device's details: name, MAC, IP
+
+### Duplicate Detection in Detailed Info (NEW)
+After fetching all device details, performs a comprehensive duplicate check against already-configured devices:
+- **MAC address match** — catches factory-reset devices with new cloud IDs but same hardware MAC
+- **IP address match** — catches devices sharing the same local IP
+- **Cloud device ID match** — catches already-configured devices
+
+Duplicates are logged with details:
+```
+Duplicate filtered: bfc0abab874dc1a864q5kn (MAC match with existing_dev: aa:bb:cc:dd:ee:ff)
+Duplicate filtered: bf054a2177fd16678d9yds (IP match with existing_dev: 192.168.1.100)
+```
+
+Only unique devices proceed to the `configure_device` step.
+
+### Step 4: Proceed to Configuration
+- Merges unique devices into `cloud_data.device_list`
+- Proceeds directly to `async_step_add_device()` for individual device configuration
+- Skips the manual Format 2 JSON paste step entirely
+
+### Logging
+All API calls use the same `ListHandler` pattern as `tuya_gui.py`:
+- Captures `cloud_api` debug logs via `ListHandler`
+- Logs full request/response payloads with `[CLOUD-API]` prefix
+- Logs duplicate detection results with device IDs and match reasons
+- Format matches `tuya_gui.py` for side-by-side log comparison
