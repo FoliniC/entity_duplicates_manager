@@ -72,7 +72,7 @@
             "cloud_fetch_spaces_failed": "Failed to fetch spaces from Tuya Cloud.",
             "cloud_fetch_resources_failed": "Failed to fetch device resources from selected space.",
             "duplicate_device": "This device is already configured or shares an IP/MAC with an existing device.\n{device_info}",
-            "no_spaces_available": "No spaces available. Check your Tuya Cloud account.",
+            "no_spaces_available": "No spaces available. Check your Tuya Cloud account."
         },
         "step": {
             "yaml_import": {
