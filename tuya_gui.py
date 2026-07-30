@@ -820,13 +820,14 @@ HTML_TEMPLATE = """
         .hidden { display: none; }
         .toast-sticker { position: fixed; bottom: 24px; right: 24px; background: #323232; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.25); z-index: 9999; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
         .toast-sticker.show { opacity: 1; }
-        .space-options { display: flex; flex-direction: column; gap: 4px; max-width: 320px; }
-        .space-option { display: flex; align-items: center; gap: 8px; padding: 6px 8px; cursor: pointer; border-radius: 4px; font-size: 12px; width: fit-content; }
+        .space-selector { max-width: 260px; }
+        .space-options { display: flex; flex-direction: column; gap: 4px; }
+        .space-option { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; border-radius: 4px; font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
         .space-option:hover { background: #f8f9fa; }
-        .space-option.selected { background: #e7f1ff; border-left: 4px solid #007bff; }
-        .space-option input[type="radio"] { margin: 0; flex-shrink: 0; }
-        .space-option strong { font-size: 12px; }
-        .space-option small { font-size: 10px; color: #666; display: block; }
+        .space-option.selected { background: #e7f1ff; border-left: 3px solid #007bff; }
+        .space-option input[type="radio"] { margin: 0; width: 17px; height: 17px; accent-color: #007bff; flex-shrink: 0; }
+        .space-option strong { font-size: 13px; overflow: hidden; text-overflow: ellipsis; }
+        .space-option small { font-size: 12px; color: #555; display: block; overflow: hidden; text-overflow: ellipsis; }
     </style>
 </head>
 <body>
