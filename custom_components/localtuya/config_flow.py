@@ -1325,15 +1325,17 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                             parsed = None
                         else:
                             # Ensure spaces is a list of space IDs (strings)
-                            # async_get_spaces might return list of IDs or list of dicts with id/name
+                            # async_get_spaces might return list of IDs (int/str) or list of dicts with id/name
                             space_ids = []
                             for s in spaces:
                                 if isinstance(s, str):
                                     space_ids.append(s)
+                                elif isinstance(s, int):
+                                    space_ids.append(str(s))
                                 elif isinstance(s, dict):
                                     space_id = s.get("id") or s.get("space_id") or s.get("device_id")
                                     if space_id:
-                                        space_ids.append(space_id)
+                                        space_ids.append(str(space_id))
                             _LOGGER.info("update_cache: extracted space IDs: %s", space_ids)
                             
                             if not space_ids:
@@ -1664,10 +1666,12 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 for s in spaces if spaces else []:
                     if isinstance(s, str):
                         space_ids.append(s)
+                    elif isinstance(s, int):
+                        space_ids.append(str(s))
                     elif isinstance(s, dict):
                         space_id = s.get("id") or s.get("space_id") or s.get("device_id")
                         if space_id:
-                            space_ids.append(space_id)
+                            space_ids.append(str(space_id))
                 
                 _LOGGER.info("update_cache_select_space: extracted space IDs: %s", space_ids)
                 
