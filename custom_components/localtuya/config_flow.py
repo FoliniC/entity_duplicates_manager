@@ -1522,6 +1522,8 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         default_action = "update_cache"
         selected_action = user_input.get("action") if user_input is not None else default_action
         hide_json = selected_action in ("update_cache", "use_cached")
+        _LOGGER.debug("Schema builder: user_input=%s, cache_option=%s, partial_cache=%s, has_selector=%s, selected_action=%s, hide_json=%s",
+                      user_input is not None, cache_option, partial_cache, has_selector, selected_action, hide_json)
         if has_selector:
             options = [
                 SelectOptionDict(value="update_cache", label="🔄 Fetch fresh from Tuya Cloud"),
@@ -1543,6 +1545,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             schema_fields = {
                 vol.Required("cloud_device_json"): str,
             }
+        _LOGGER.debug("Schema fields keys: %s", list(schema_fields.keys()))
 
         schema = vol.Schema(schema_fields)
 
