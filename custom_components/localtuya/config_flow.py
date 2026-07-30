@@ -1284,16 +1284,22 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                         )
                         await api.async_connect()
                         # Step 1: Get spaces
+                        _LOGGER.debug("update_cache: calling /v2.0/cloud/space/child")
                         spaces_resp = await api.async_make_request("GET", "/v2.0/cloud/space/child")
+                        _LOGGER.debug("update_cache: spaces_resp=%s", spaces_resp)
                         if not spaces_resp.get("success"):
+                            _LOGGER.warning("update_cache: spaces API failed: %s", spaces_resp.get("msg"))
                             errors["base"] = str(spaces_resp.get("msg", "Failed to fetch spaces"))
                             parsed = None
                         else:
                             spaces = spaces_resp.get("result", [])
+                            _LOGGER.debug("update_cache: spaces raw result=%s", spaces)
                             if not isinstance(spaces, list):
                                 _LOGGER.warning("Spaces result is not a list: %s", type(spaces))
                                 spaces = []
+                            _LOGGER.info("update_cache: fetched %d spaces", len(spaces))
                             if not spaces:
+                                _LOGGER.warning("update_cache: no spaces found in response")
                                 errors["base"] = "no_spaces_found"
                                 parsed = None
                             else:
@@ -1592,9 +1598,12 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                     cloud_conf.get(CONF_USER_ID, ""),
                 )
                 await api.async_connect()
+                _LOGGER.debug("update_cache_select_space: calling /v2.0/cloud/space/child")
                 spaces_resp = await api.async_make_request("GET", "/v2.0/cloud/space/child")
+                _LOGGER.debug("update_cache_select_space: spaces_resp=%s", spaces_resp)
                 if spaces_resp.get("success"):
                     spaces_result = spaces_resp.get("result")
+                    _LOGGER.debug("update_cache_select_space: spaces raw result=%s", spaces_result)
                     if isinstance(spaces_result, list):
                         self._update_cache_spaces = spaces_result
                     else:
@@ -1602,7 +1611,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                         self._update_cache_spaces = []
                     _LOGGER.info("Fetched %d spaces for update_cache", len(self._update_cache_spaces))
                 else:
-                    _LOGGER.warning("Failed to fetch spaces: %s", spaces_resp.get("msg"))
+                    _LOGGER.warning("update_cache_select_space: spaces API failed: %s", spaces_resp.get("msg"))
                     errors["base"] = "cloud_fetch_spaces_failed"
             except Exception as ex:
                 _LOGGER.exception("Failed to fetch spaces for update_cache")
@@ -1680,13 +1689,16 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             await api.async_connect()
             
             # Fetch space resources
+            _LOGGER.debug("update_cache_fetch_devices: calling /v2.0/cloud/space/%s/resource", space_id)
             resources_resp = await api.async_make_request("GET", f"/v2.0/cloud/space/{space_id}/resource")
+            _LOGGER.debug("update_cache_fetch_devices: resources_resp=%s", resources_resp)
             if not resources_resp.get("success"):
-                _LOGGER.warning("Failed to fetch space resources: %s", resources_resp.get("msg"))
+                _LOGGER.warning("update_cache_fetch_devices: resources API failed: %s", resources_resp.get("msg"))
                 errors["base"] = "cloud_fetch_resources_failed"
                 return await self.async_step_update_cache_select_space()
             
             resources_result = resources_resp.get("result")
+            _LOGGER.debug("update_cache_fetch_devices: resources raw result=%s", resources_result)
             if isinstance(resources_result, list):
                 resources = resources_result
             else:
