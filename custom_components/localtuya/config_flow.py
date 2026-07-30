@@ -1290,6 +1290,9 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                             parsed = None
                         else:
                             spaces = spaces_resp.get("result", [])
+                            if not isinstance(spaces, list):
+                                _LOGGER.warning("Spaces result is not a list: %s", type(spaces))
+                                spaces = []
                             if not spaces:
                                 errors["base"] = "no_spaces_found"
                                 parsed = None
@@ -1617,10 +1620,15 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         # Build space selector
         space_options = []
         if hasattr(self, "_update_cache_spaces"):
-            for space in self._update_cache_spaces:
-                space_options.append(
-                    SelectOptionDict(value=space.get("id", ""), label=f"{space.get('name', '')} ({space.get('id', '')})")
-                )
+            spaces_list = self._update_cache_spaces
+            if not isinstance(spaces_list, list):
+                _LOGGER.warning("_update_cache_spaces is not a list: %s", type(spaces_list))
+                spaces_list = []
+            for space in spaces_list:
+                if isinstance(space, dict):
+                    space_options.append(
+                        SelectOptionDict(value=space.get("id", ""), label=f"{space.get('name', '')} ({space.get('id', '')})")
+                    )
         
         if not space_options:
             errors["base"] = "no_spaces_found"
