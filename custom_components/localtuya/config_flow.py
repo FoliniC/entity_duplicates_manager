@@ -1606,6 +1606,9 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 self._update_cache_selected_space = selected_space_id
                 return await self.async_step_update_cache_fetch_devices()
         
+        import voluptuous as vol
+        from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig, SelectSelectorMode, SelectOptionDict
+        
         # Build space selector
         space_options = []
         if hasattr(self, "_update_cache_spaces"):
@@ -1617,9 +1620,6 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         if not space_options:
             errors["base"] = "no_spaces_found"
             space_options = [SelectOptionDict(value="", label="No spaces available")]
-        
-        import voluptuous as vol
-        from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig, SelectSelectorMode, SelectOptionDict
         
         schema = vol.Schema({
             vol.Required("space_id"): SelectSelector(
