@@ -1512,31 +1512,37 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                     _LOGGER.exception("Error parsing manual cloud JSON")
                     errors["base"] = str(ex)
 
-        # Build form schema
+        # Build form schema dynamically based on action selection
         import voluptuous as vol
         cache_option = cached_json is not None
         ids_cache_path = Path(self.hass.config.config_dir) / ".tuya_manual_cloud_ids_cache.json"
         partial_cache = ids_cache_path.exists()
-        if cache_option or partial_cache:
+        has_selector = cache_option or partial_cache
+        # When user selected an action that doesn't need JSON, omit the textbox
+        hide_json = user_input is not None and user_input.get("action") in ("update_cache", "use_cached")
+        if has_selector:
             options = [
                 SelectOptionDict(value="update_cache", label="🔄 Fetch fresh from Tuya Cloud"),
                 SelectOptionDict(value="paste_json", label="📝 Paste new JSON"),
             ]
             if cache_option:
                 options.insert(0, SelectOptionDict(value="use_cached", label="📂 Use cached device list"))
-            schema = vol.Schema({
+            schema_fields = {
                 vol.Required("action", default="update_cache"): SelectSelector(
                     SelectSelectorConfig(
                         options=options,
                         mode=SelectSelectorMode.DROPDOWN,
                     ),
                 ),
-                vol.Optional("cloud_device_json"): str,
-            })
+            }
+            if not hide_json:
+                schema_fields[vol.Optional("cloud_device_json")] = str
         else:
-            schema = vol.Schema({
+            schema_fields = {
                 vol.Required("cloud_device_json"): str,
-            })
+            }
+
+        schema = vol.Schema(schema_fields)
 
         return self.async_show_form(
             step_id="add_device_manual_cloud",
