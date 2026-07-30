@@ -1497,15 +1497,19 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         # Build form schema
         import voluptuous as vol
         cache_option = cached_json is not None
-        if cache_option:
+        ids_cache_path = Path(self.hass.config.config_dir) / ".tuya_manual_cloud_ids_cache.json"
+        partial_cache = ids_cache_path.exists()
+        if cache_option or partial_cache:
+            options = [
+                SelectOptionDict(value="update_cache", label="🔄 Fetch fresh from Tuya Cloud"),
+                SelectOptionDict(value="paste_json", label="📝 Paste new JSON"),
+            ]
+            if cache_option:
+                options.insert(0, SelectOptionDict(value="use_cached", label="📂 Use cached device list"))
             schema = vol.Schema({
-                vol.Required("action", default="paste_json"): SelectSelector(
+                vol.Required("action", default="update_cache"): SelectSelector(
                     SelectSelectorConfig(
-                        options=[
-                            SelectOptionDict(value="use_cached", label="📂 Use cached device list"),
-                            SelectOptionDict(value="update_cache", label="🔄 Fetch fresh from Tuya Cloud"),
-                            SelectOptionDict(value="paste_json", label="📝 Paste new JSON"),
-                        ],
+                        options=options,
                         mode=SelectSelectorMode.DROPDOWN,
                     ),
                 ),
