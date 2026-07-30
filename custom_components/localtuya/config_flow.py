@@ -1268,7 +1268,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 try:
                     cloud_conf = None
                     for entry in self.hass.config_entries.async_entries(DOMAIN):
-                        if entry.data.get("region") and entry.data.get("client_id"):
+                        if entry.data.get(CONF_REGION) and entry.data.get(CONF_CLIENT_ID):
                             cloud_conf = entry.data
                             break
                     if not cloud_conf:
@@ -1277,10 +1277,10 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                         parsed = None
                     else:
                         api = TuyaCloudApi(
-                            cloud_conf.get("region", ""),
-                            cloud_conf.get("client_id", ""),
-                            cloud_conf.get("client_secret", ""),
-                            cloud_conf.get("user_id", ""),
+                            cloud_conf.get(CONF_REGION, ""),
+                            cloud_conf.get(CONF_CLIENT_ID, ""),
+                            cloud_conf.get(CONF_CLIENT_SECRET, ""),
+                            cloud_conf.get(CONF_USER_ID, ""),
                         )
                         await api.async_connect()
                         # Step 1: Get spaces
@@ -1570,7 +1570,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         # Get cloud credentials
         cloud_conf = None
         for entry in self.hass.config_entries.async_entries(DOMAIN):
-            if entry.data.get("region") and entry.data.get("client_id"):
+            if entry.data.get(CONF_REGION) and entry.data.get(CONF_CLIENT_ID):
                 cloud_conf = entry.data
                 break
         
@@ -1586,10 +1586,10 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         if not hasattr(self, "_update_cache_spaces"):
             try:
                 api = TuyaCloudApi(
-                    cloud_conf.get("region", ""),
-                    cloud_conf.get("client_id", ""),
-                    cloud_conf.get("client_secret", ""),
-                    cloud_conf.get("user_id", ""),
+                    cloud_conf.get(CONF_REGION, ""),
+                    cloud_conf.get(CONF_CLIENT_ID, ""),
+                    cloud_conf.get(CONF_CLIENT_SECRET, ""),
+                    cloud_conf.get(CONF_USER_ID, ""),
                 )
                 await api.async_connect()
                 spaces_resp = await api.async_make_request("GET", "/v2.0/cloud/space/child")
@@ -1662,7 +1662,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         # Get cloud credentials
         cloud_conf = None
         for entry in self.hass.config_entries.async_entries(DOMAIN):
-            if entry.data.get("region") and entry.data.get("client_id"):
+            if entry.data.get(CONF_REGION) and entry.data.get(CONF_CLIENT_ID):
                 cloud_conf = entry.data
                 break
         
@@ -1672,10 +1672,10 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         
         try:
             api = TuyaCloudApi(
-                cloud_conf.get("region", ""),
-                cloud_conf.get("client_id", ""),
-                cloud_conf.get("client_secret", ""),
-                cloud_conf.get("user_id", ""),
+                cloud_conf.get(CONF_REGION, ""),
+                cloud_conf.get(CONF_CLIENT_ID, ""),
+                cloud_conf.get(CONF_CLIENT_SECRET, ""),
+                cloud_conf.get(CONF_USER_ID, ""),
             )
             await api.async_connect()
             
