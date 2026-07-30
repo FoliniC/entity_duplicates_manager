@@ -1264,7 +1264,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             _LOGGER.info("user_input received: action=%s, has_json=%s", action, bool(json_input and json_input.strip()))
 
             if action == "update_cache":
-                _LOGGER.info("Branch: update_cache, fetching fresh device list from Tuya Cloud...")
+                _LOGGER.info("Branch: update_cache, fetching spaces from Tuya Cloud...")
                 try:
                     cloud_conf = None
                     for entry in self.hass.config_entries.async_entries(DOMAIN):
@@ -1283,40 +1283,22 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                             cloud_conf.get("user_id", ""),
                         )
                         await api.async_connect()
-                        fresh_result = await api.async_get_devices_list(force_update=True)
-                        cloud_devices = api.device_list if isinstance(api.device_list, dict) else {}
-                        if fresh_result == "ok" or cloud_devices:
-                            _LOGGER.info("Branch: update_cache fetched fresh cloud device list OK (%d devices)",
-                                           len(cloud_devices))
-                            # Compute configured device IDs to filter them out
-                            configured_devices = set()
-                            for entry in self.hass.config_entries.async_entries(DOMAIN):
-                                for dev_id in entry.data.get(CONF_DEVICES, {}).keys():
-                                    configured_devices.add(dev_id)
-                            devices_list = [
-                                {"res_id": dev_id, "res_type": 0}
-                                for dev_id in cloud_devices
-                                if dev_id not in configured_devices
-                            ]
-                            if not devices_list:
-                                _LOGGER.info("Branch: update_cache all devices already configured")
-                                errors["base"] = "all_devices_configured"
+                        # Step 1: Get spaces
+                        spaces_resp = await api.async_make_request("GET", "/v2.0/cloud/space/child")
+                        if not spaces_resp.get("success"):
+                            errors["base"] = str(spaces_resp.get("msg", "Failed to fetch spaces"))
+                            parsed = None
+                        else:
+                            spaces = spaces_resp.get("result", [])
+                            if not spaces:
+                                errors["base"] = "no_spaces_found"
                                 parsed = None
                             else:
-                                parsed = {"result": {"data": devices_list}}
-                                # Save fresh data to cache
-                                try:
-                                    cache_path.write_text(json.dumps(parsed))
-                                    _LOGGER.info("Branch: update_cache cache updated with fresh data (%d devices)",
-                                                   len(devices_list))
-                                except Exception as ex:
-                                    _LOGGER.warning("Branch: update_cache failed to write cache: %s", ex)
-                        else:
-                            _LOGGER.warning("Branch: update_cache failed to fetch data: %s", fresh_result)
-                            errors["base"] = str(fresh_result) if fresh_result else "Cloud API fetch failed"
-                            parsed = None
+                                # Store spaces and redirect to space selection step
+                                self._update_cache_spaces = spaces
+                                return await self.async_step_update_cache_select_space()
                 except Exception as ex:
-                    _LOGGER.exception("Branch: update_cache fetch failed")
+                    _LOGGER.exception("Branch: update_cache fetch spaces failed")
                     errors["base"] = str(ex)
                     parsed = None
             elif action == "use_cached" and cached_json is not None:
@@ -1576,6 +1558,167 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 ),
             },
         )
+
+    async def async_step_update_cache_select_space(self, user_input=None):
+        """Handle space selection for updating cache from Tuya Cloud."""
+        _LOGGER.debug("async_step_update_cache_select_space called, user_input=%s", user_input is not None)
+        errors = {}
+        
+        # Get cloud credentials
+        cloud_conf = None
+        for entry in self.hass.config_entries.async_entries(DOMAIN):
+            if entry.data.get("region") and entry.data.get("client_id"):
+                cloud_conf = entry.data
+                break
+        
+        if not cloud_conf:
+            errors["base"] = "json_required"
+            return self.async_show_form(
+                step_id="update_cache_select_space",
+                data_schema=vol.Schema({vol.Required("dummy"): str}),
+                errors=errors,
+            )
+        
+        # Fetch spaces from Tuya Cloud
+        if not hasattr(self, "_update_cache_spaces"):
+            try:
+                api = TuyaCloudApi(
+                    cloud_conf.get("region", ""),
+                    cloud_conf.get("client_id", ""),
+                    cloud_conf.get("client_secret", ""),
+                    cloud_conf.get("user_id", ""),
+                )
+                await api.async_connect()
+                spaces_resp = await api.async_make_request("GET", "/v2.0/cloud/space/child")
+                if spaces_resp.get("success"):
+                    self._update_cache_spaces = spaces_resp.get("result", [])
+                    _LOGGER.info("Fetched %d spaces for update_cache", len(self._update_cache_spaces))
+                else:
+                    _LOGGER.warning("Failed to fetch spaces: %s", spaces_resp.get("msg"))
+                    errors["base"] = "cloud_fetch_spaces_failed"
+            except Exception as ex:
+                _LOGGER.exception("Failed to fetch spaces for update_cache")
+                errors["base"] = str(ex)
+        
+        if user_input is not None:
+            selected_space_id = user_input.get("space_id")
+            if selected_space_id:
+                self._update_cache_selected_space = selected_space_id
+                return await self.async_step_update_cache_fetch_devices()
+        
+        # Build space selector
+        space_options = []
+        if hasattr(self, "_update_cache_spaces"):
+            for space in self._update_cache_spaces:
+                space_options.append(
+                    SelectOptionDict(value=space.get("id", ""), label=f"{space.get('name', '')} ({space.get('id', '')})")
+                )
+        
+        if not space_options:
+            errors["base"] = "no_spaces_found"
+            space_options = [SelectOptionDict(value="", label="No spaces available")]
+        
+        import voluptuous as vol
+        from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig, SelectSelectorMode, SelectOptionDict
+        
+        schema = vol.Schema({
+            vol.Required("space_id"): SelectSelector(
+                SelectSelectorConfig(
+                    options=space_options,
+                    mode=SelectSelectorMode.DROPDOWN,
+                ),
+            ),
+        })
+        
+        return self.async_show_form(
+            step_id="update_cache_select_space",
+            data_schema=schema,
+            errors=errors,
+        )
+
+    async def async_step_update_cache_fetch_devices(self, user_input=None):
+        """Fetch device details from selected space and build Format 1 JSON."""
+        _LOGGER.debug("async_step_update_cache_fetch_devices called, user_input=%s", user_input is not None)
+        errors = {}
+        
+        space_id = getattr(self, "_update_cache_selected_space", None)
+        if not space_id:
+            errors["base"] = "no_space_selected"
+            return await self.async_step_update_cache_select_space()
+        
+        # Get cloud credentials
+        cloud_conf = None
+        for entry in self.hass.config_entries.async_entries(DOMAIN):
+            if entry.data.get("region") and entry.data.get("client_id"):
+                cloud_conf = entry.data
+                break
+        
+        if not cloud_conf:
+            errors["base"] = "json_required"
+            return await self.async_step_update_cache_select_space()
+        
+        try:
+            api = TuyaCloudApi(
+                cloud_conf.get("region", ""),
+                cloud_conf.get("client_id", ""),
+                cloud_conf.get("client_secret", ""),
+                cloud_conf.get("user_id", ""),
+            )
+            await api.async_connect()
+            
+            # Fetch space resources
+            resources_resp = await api.async_make_request("GET", f"/v2.0/cloud/space/{space_id}/resource")
+            if not resources_resp.get("success"):
+                _LOGGER.warning("Failed to fetch space resources: %s", resources_resp.get("msg"))
+                errors["base"] = "cloud_fetch_resources_failed"
+                return await self.async_step_update_cache_select_space()
+            
+            resources = resources_resp.get("result", [])
+            _LOGGER.info("Fetched %d resources from space %s", len(resources), space_id)
+            
+            # Get configured device IDs to filter out
+            configured_devices = set()
+            for entry in self.hass.config_entries.async_entries(DOMAIN):
+                for dev_id in entry.data.get(CONF_DEVICES, {}).keys():
+                    configured_devices.add(dev_id)
+            
+            # Build Format 1 device list
+            devices_list = [
+                {"res_id": res.get("id") or res.get("res_id") or res.get("device_id"), "res_type": 0}
+                for res in resources
+                if res.get("id") or res.get("res_id") or res.get("device_id")
+                and (res.get("id") or res.get("res_id") or res.get("device_id")) not in configured_devices
+            ]
+            
+            if not devices_list:
+                _LOGGER.info("All devices from space %s already configured", space_id)
+                errors["base"] = "all_devices_configured"
+                return await self.async_step_update_cache_select_space()
+            
+            parsed = {"result": {"data": devices_list}}
+            
+            # Save to cache
+            cache_path = Path(self.hass.config.config_dir) / ".tuya_cloud_manual_list_cache.json"
+            try:
+                cache_path.write_text(json.dumps(parsed))
+                _LOGGER.info("Updated cache with %d fresh devices from space %s", len(devices_list), space_id)
+            except Exception as ex:
+                _LOGGER.warning("Failed to write cache: %s", ex)
+            
+            # Clean up temp attributes
+            if hasattr(self, "_update_cache_spaces"):
+                delattr(self, "_update_cache_spaces")
+            if hasattr(self, "_update_cache_selected_space"):
+                delattr(self, "_update_cache_selected_space")
+            
+            # Proceed to detail step
+            self._manual_device_ids = [d["res_id"] for d in devices_list]
+            return await self.async_step_add_device_manual_cloud_detail()
+            
+        except Exception as ex:
+            _LOGGER.exception("Failed to fetch devices from space")
+            errors["base"] = str(ex)
+            return await self.async_step_update_cache_select_space()
 
     async def async_step_add_device_manual_cloud_detail(self, user_input=None):
         """Handle detailed device info JSON input for unconfigured devices."""

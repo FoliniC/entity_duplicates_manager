@@ -188,7 +188,12 @@
             "json_invalid_data": "Formato dati non valido. 'result.data' deve essere un array.",
             "json_error": "Errore nel parsing JSON: {ex}",
             "all_devices_configured": "Tutti i dispositivi dalla lista sono già configurati in LocalTuya.",
-            "duplicate_device": "Questo dispositivo è già configurato o condivide un IP/MAC con un dispositivo esistente.\n{device_info}"
+            "no_spaces_found": "Nessuno spazio Tuya Cloud trovato per il tuo account.",
+            "no_space_selected": "Seleziona uno spazio per continuare.",
+            "cloud_fetch_spaces_failed": "Impossibile recuperare gli spazi da Tuya Cloud.",
+            "cloud_fetch_resources_failed": "Impossibile recuperare le risorse dei dispositivi dallo spazio selezionato.",
+            "duplicate_device": "Questo dispositivo è già configurato o condivide un IP/MAC con un dispositivo esistente.\n{device_info}",
+            "no_spaces_available": "Nessuno spazio disponibile. Controlla il tuo account Tuya Cloud."
         }
     },
     "title": "LocalTuya"
