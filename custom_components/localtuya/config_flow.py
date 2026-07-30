@@ -1319,9 +1319,26 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                             errors["base"] = "no_spaces_found"
                             parsed = None
                         else:
-                            # Store spaces and redirect to space selection step
-                            self._update_cache_spaces = spaces
-                            return await self.async_step_update_cache_select_space()
+                            # Ensure spaces is a list of space IDs (strings)
+                            # async_get_spaces might return list of IDs or list of dicts with id/name
+                            space_ids = []
+                            for s in spaces:
+                                if isinstance(s, str):
+                                    space_ids.append(s)
+                                elif isinstance(s, dict):
+                                    space_id = s.get("id") or s.get("space_id") or s.get("device_id")
+                                    if space_id:
+                                        space_ids.append(space_id)
+                            _LOGGER.info("update_cache: extracted space IDs: %s", space_ids)
+                            
+                            if not space_ids:
+                                _LOGGER.warning("update_cache: no valid space IDs extracted")
+                                errors["base"] = "no_spaces_found"
+                                parsed = None
+                            else:
+                                # Store space IDs and redirect to space selection step
+                                self._update_cache_spaces = space_ids
+                                return await self.async_step_update_cache_select_space()
                 except Exception as ex:
                     _LOGGER.exception("Branch: update_cache fetch spaces failed")
                     errors["base"] = str(ex)
@@ -1634,10 +1651,22 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 
                 _LOGGER.info("update_cache_select_space: async_get_spaces() returned %d spaces: %s", len(spaces) if spaces else 0, spaces)
                 
-                if spaces and isinstance(spaces, list):
-                    self._update_cache_spaces = spaces
+                # Extract space IDs from the response (handle both list of IDs and list of objects)
+                space_ids = []
+                for s in spaces if spaces else []:
+                    if isinstance(s, str):
+                        space_ids.append(s)
+                    elif isinstance(s, dict):
+                        space_id = s.get("id") or s.get("space_id") or s.get("device_id")
+                        if space_id:
+                            space_ids.append(space_id)
+                
+                _LOGGER.info("update_cache_select_space: extracted space IDs: %s", space_ids)
+                
+                if space_ids:
+                    self._update_cache_spaces = space_ids
                 else:
-                    _LOGGER.warning("Spaces result is not a list: %s", type(spaces))
+                    _LOGGER.warning("Spaces result has no valid space IDs: %s", spaces)
                     self._update_cache_spaces = []
                 _LOGGER.info("update_cache_select_space: fetched %d spaces for update_cache", len(self._update_cache_spaces))
             except Exception as ex:
@@ -1660,8 +1689,14 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             if not isinstance(spaces_list, list):
                 _LOGGER.warning("_update_cache_spaces is not a list: %s", type(spaces_list))
                 spaces_list = []
+            # If we have full space objects from original fetch, we'd need to handle both cases
+            # For now, since _update_cache_spaces is space IDs, we'll create labels from IDs
             for space in spaces_list:
-                if isinstance(space, dict):
+                if isinstance(space, str):
+                    space_options.append(
+                        SelectOptionDict(value=space, label=f"Space {space}")
+                    )
+                elif isinstance(space, dict):
                     space_options.append(
                         SelectOptionDict(value=space.get("id", ""), label=f"{space.get('name', '')} ({space.get('id', '')})")
                     )

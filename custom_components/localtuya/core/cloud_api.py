@@ -478,7 +478,13 @@ class TuyaCloudApi:
         # Response format: {"result": {"data": [space_id1, space_id2, ...], "page_size": 200}}
         result_data = resp.get("result", {})
         spaces = result_data.get("data", [])
-        self._logger.debug(f"Retrieved {len(spaces)} spaces from Tuya Cloud: {spaces}")
+        self._logger.info(f"[CLOUD-API] async_get_spaces raw result_data: {result_data}")
+        self._logger.info(f"[CLOUD-API] async_get_spaces extracted spaces: {spaces} (type: {type(spaces)})")
+        if isinstance(spaces, list) and spaces and isinstance(spaces[0], dict):
+            # API returns objects with id/name, extract IDs
+            space_ids = [s.get("id") for s in spaces if s.get("id")]
+            self._logger.info(f"[CLOUD-API] async_get_spaces extracted space IDs: {space_ids}")
+            return space_ids
         return spaces
 
     async def async_get_space_resources(self, space_id) -> list:
