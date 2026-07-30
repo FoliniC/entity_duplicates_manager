@@ -1796,14 +1796,20 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             for entry in self.hass.config_entries.async_entries(DOMAIN):
                 for dev_id in entry.data.get(CONF_DEVICES, {}).keys():
                     configured_devices.add(dev_id)
+            _LOGGER.info("update_cache_fetch_devices: configured devices: %d (%s)", len(configured_devices), list(configured_devices)[:5])
             
-            # Build Format 1 device list
-            devices_list = [
+            # Build Format 1 device list (filter out already configured)
+            all_devices = [
                 {"res_id": res.get("id") or res.get("res_id") or res.get("device_id"), "res_type": 0}
                 for res in resources
                 if res.get("id") or res.get("res_id") or res.get("device_id")
-                and (res.get("id") or res.get("res_id") or res.get("device_id")) not in configured_devices
             ]
+            devices_list = [
+                d for d in all_devices
+                if d["res_id"] not in configured_devices
+            ]
+            _LOGGER.info("update_cache_fetch_devices: total devices from space: %d, unconfigured: %d, filtered out: %d", 
+                         len(all_devices), len(devices_list), len(all_devices) - len(devices_list))
             
             if not devices_list:
                 _LOGGER.info("All devices from space %s already configured", space_id)
