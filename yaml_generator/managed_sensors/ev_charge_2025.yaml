@@ -70,6 +70,9 @@
     {% else %}
       unavailable
     {% endif %}
+  availability: >
+    {{ states('sensor.selected_vehicle_soc') not in ['unavailable', 'unknown', 'none'] or 
+       states('sensor.piazzale_mg_mg4_electric_state_of_charge') not in ['unavailable', 'unknown', 'none'] }}
 
 
 - name: "EV Charge 2025 Remaining Time"

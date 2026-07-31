@@ -1,5 +1,7 @@
 shell_command:
-  refresh_tuya_selective_isolation: "python3 /config/helpers/tuya_selective_isolation.py apply --strict-battery"
+  refresh_tuya_selective_isolation: "timeout 120 python3 /config/helpers/tuya_selective_isolation.py apply --strict-battery"
+  tuya_selective_isolation_remove: "timeout 60 python3 /config/helpers/tuya_selective_isolation.py remove"
+  tuya_selective_isolation_status: "timeout 30 python3 /config/helpers/tuya_selective_isolation.py status"
 
 automation:
   - id: refresh_tuya_selective_isolation

@@ -208,6 +208,11 @@ bring_up_iface() {
     local iface="$1"
     [ -n "$iface" ] || return 1
 
+    # Porta UP a livello link prima di NM (necessario per RNDIS/USB
+    # tethering che altrimenti resta DOWN anche se NM ha la connessione).
+    ip link set "$iface" up 2>/dev/null || true
+    sleep 1
+
     # Gia' attiva con un IPv4? Niente da fare.
     ip -4 addr show dev "$iface" 2>/dev/null | grep -q 'inet ' && return 0
 
@@ -240,6 +245,11 @@ tear_down_iface() {
     local conn_name="usb-tether-${iface}"
     nmcli con delete "$conn_name" >/dev/null 2>&1 || true
     nmcli dev disconnect "$iface" >/dev/null 2>&1 || true
+    # Force the interface down — Android USB tethering overrides NM,
+    # so we need to explicitly take the interface offline to prevent
+    # the tethering route from re-appearing.
+    ip link set "$iface" down 2>/dev/null || true
+    ip addr flush dev "$iface" 2>/dev/null || true
 }
 
 # --- detect -----------------------------------------------------------------
@@ -253,10 +263,16 @@ cmd_detect() {
         [ -z "$iface" ] && continue
         [[ "$iface" =~ $EXCLUDE_RE ]] && continue
 
-        # Deve avere carrier (cavo collegato, telefono attivo).
-        [ -r "/sys/class/net/$iface/carrier" ] || continue
-        carrier=$(cat "/sys/class/net/$iface/carrier" 2>/dev/null)
-        [ "$carrier" = "1" ] || continue
+                # Carico fisico Ethernet ha carrier. Interfacce USB RNDIS/CDC-ether
+        # (tethering telefono) non hanno carrier sysfs: le accettiamo se
+        # il dispositivo USB e' presente (indicato dalla presenza dell'interfaccia
+        # con tipo ARPHRD_ETHER ma nome non fisico).
+        if [ -r "/sys/class/net/$iface/carrier" ]; then
+            carrier=$(cat "/sys/class/net/$iface/carrier" 2>/dev/null)
+            [ "$carrier" = "1" ] || continue
+        else
+            true
+        fi
 
         # Se non ha IPv4, prova a portarla UP via DHCP (una sola volta per chiamata).
         if ! ip -4 addr show dev "$iface" 2>/dev/null | grep -q 'inet '; then
@@ -370,6 +386,91 @@ cmd_activate() {
     echo $! > "$PID_FILE"
 
     echo "OK attivato: $iface via $gw per ${max_min} min (modalita $mode)."
+    return 0
+}
+
+# --- rndis_activate -------------------------------------------------------
+# Attivazione tethering USB Xiaomi RNDIS bypassando cmd_detect.
+# Usa quando l'interfaccia RNDIS esiste (enx9a65fc6df489) ma
+# cmd_detect non la rileva perche' non ha carrier sysfs.
+cmd_rndis_activate() {
+    local max_min="${1:-30}" mode="${2:-server}"
+    local iface="enx9a65fc6df489"
+    local max_min_valid="${max_min:-30}" mode_valid="$mode"
+    case "$max_min_valid" in
+        ''|*[!0-9]*) max_min_valid=30 ;;
+    esac
+    [ "$max_min_valid" -lt 1 ] 2>/dev/null && max_min_valid=1
+    [ "$max_min_valid" -gt 480 ] 2>/dev/null && max_min_valid=480
+
+    # L'interfaccia esiste gia' (Xiaomi RNDIS). Portala UP e aspetta IP.
+    ip link set "$iface" up 2>/dev/null || true
+    sleep 2
+
+    # Assegna IP via NM DHCP.
+    local conn_name="usb-tether-${iface}"
+    nmcli con add type ethernet ifname "$iface" con-name "$conn_name" \
+        ipv4.method auto ipv6.method ignore \
+        connection.autoconnect no \
+        ipv4.never-default yes >/dev/null 2>&1 || true
+    timeout 30 nmcli con up "$conn_name" >/dev/null 2>&1 || true
+    sleep 3
+
+    # Trova il gateway del telefono (route via enx9a65fc6df489).
+    local gw
+    gw=$(ip route | grep "dev $iface" | grep -oE 'via [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | awk '{print $2}' | head -1)
+    if [ -z "$gw" ]; then
+        # Fallback: IP tipico del gateway RNDIS Xiaomi
+        gw="172.21.40.55"
+    fi
+
+    # Verifica che l'interfaccia abbia un IPv4.
+    ip -4 addr show dev "$iface" 2>/dev/null | grep -q 'inet ' || {
+        echo "ERRORE: $iface non ha IP dopo DHCP" >&2
+        nmcli con delete "$conn_name" >/dev/null 2>&1 || true
+        return 2
+    }
+
+    local lan_gw
+    lan_gw=$(get_default_gw)
+    [ -z "$lan_gw" ] && lan_gw="192.168.0.11"
+
+    # Aggiungi default route via telefono con metrica PIU BASSA.
+    ip route add default via "$gw" dev "$iface" metric 50 2>/dev/null \
+        || ip route replace default via "$gw" dev "$iface" metric 50 2>/dev/null || {
+        echo "Impossibile aggiungere la route via $iface." >&2
+        return 3
+    }
+
+    enable_nat_router "$iface"
+
+    local now expire
+    now=$(now_epoch)
+    expire=$((now + max_min_valid * 60))
+
+    if [ "$mode_valid" = "intranet" ]; then
+        router_wan_down
+        echo "Modalita' INTRANET: WAN router disattivata, traffico LAN forzato via $iface."
+    fi
+
+    {
+        echo "state=active"
+        echo "mode=$mode_valid"
+        echo "phone_if=$iface"
+        echo "phone_gw=$gw"
+        echo "lan_gw=$lan_gw"
+        echo "activated_at=$now"
+        echo "expire_at=$expire"
+    } > "$STATE_FILE"
+
+    if [ -f "$PID_FILE" ]; then
+        kill "$(cat "$PID_FILE" 2>/dev/null)" 2>/dev/null || true
+        rm -f "$PID_FILE"
+    fi
+    setsid bash "$0" _watch "$expire" >/dev/null 2>&1 < /dev/null &
+    echo $! > "$PID_FILE"
+
+    echo "OK attivato: $iface via $gw per ${max_min_valid} min (modalita $mode_valid)."
     return 0
 }
 
@@ -541,14 +642,15 @@ cmd_diagnose() {
 
 # --- main -------------------------------------------------------------------
 case "${1:-status}" in
-    detect)   cmd_detect ;;
-    activate) shift; cmd_activate "$@" ;;
-    restore)  cmd_restore ;;
-    status)   cmd_status ;;
-    diagnose) cmd_diagnose ;;
-    _watch)   shift; cmd_watch "$@" ;;
+    detect)      cmd_detect ;;
+    activate)    shift; cmd_activate "$@" ;;
+    rndis_activate) shift; cmd_rndis_activate "$@" ;;
+    restore)     cmd_restore ;;
+    status)      cmd_status ;;
+    diagnose)    cmd_diagnose ;;
+    _watch)      shift; cmd_watch "$@" ;;
     *)
-        echo "Uso: $0 {detect|activate [max_min] [intranet|server]|restore|status|diagnose}" >&2
+        echo "Uso: $0 {detect|activate [max_min] [intranet|server]|rndis_activate [max_min] [intranet|server]|restore|status|diagnose}" >&2
         exit 64
         ;;
 esac

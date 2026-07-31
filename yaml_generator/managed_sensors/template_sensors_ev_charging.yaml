@@ -12,6 +12,14 @@
     {% endif %}
   unit_of_measurement: "%"
   device_class: battery
+  availability: >
+    {% if states('input_select.selected_vehicle') == 'MG4' %}
+      {{ states('sensor.piazzale_mg_mg4_electric_state_of_charge') not in ['unavailable', 'unknown', 'none'] }}
+    {% elif states('input_select.selected_vehicle') == 'BYD' %}
+      {{ states('sensor.byd_battery_box_premium_hv_state_of_charge') not in ['unavailable', 'unknown', 'none'] }}
+    {% else %}
+      false
+    {% endif %}
 
 - name: "Current Target SOC"
   unique_id: current_target_soc

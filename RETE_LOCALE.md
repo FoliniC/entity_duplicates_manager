@@ -787,13 +787,15 @@ esac
 .DESCRIPTION
     Permette di instradare il traffico Internet della LAN verso un telefono
     collegato in USB tethering sul PC Windows. Abilita NAT e routing.
-    In modalità intranet disabilita la WAN del router OpenWrt.
+    In modalità intranet disabilita la WAN del router OpenWrt e aggiunge
+    una route di fallback sul router verso questo server Windows.
 
     Uso:
         .\usb_tether.ps1 -Action detect
         .\usb_tether.ps1 -Action activate -MaxMinutes 60 [-Mode intranet|server]
         .\usb_tether.ps1 -Action restore
         .\usb_tether.ps1 -Action status
+        .\usb_tether.ps1 -Action diagnose
 .NOTES
     DEVE essere eseguito come Administrator.
     Richiede: OpenSSH Server attivo, NetNat module.
@@ -809,14 +811,14 @@ param(
 
 # --- Costanti ---
 $LAN_NET = '192.168.0.0/24'
-$LAN_GW = '192.168.0.11'
+$LAN_GW = '192.168.0.11'          # IP router OpenWrt (gateway LAN)
 $ROUTER_IP = '192.168.0.11'
 $ROUTER_USER = 'root'
 $ROUTER_KEY = 'C:\Users\carlo_2\.ssh\router_key'
-$LAN_IF_NAME = 'Ethernet'   # nome interfaccia LAN su Windows (verificare con Get-NetAdapter)
 $NAT_NAME = 'USBTetherNAT'
 $STATE_DIR = Join-Path $env:LOCALAPPDATA 'usb_tether'
 $STATE_FILE = Join-Path $STATE_DIR 'usb_tether_state.json'
+$WATCHDOG_JOB_NAME = 'USBTetherWatchdog'
 
 # --- Funzioni helper ---
 function Get-NowEpoch { [int][DateTimeOffset]::UtcNow.ToUnixTimeSeconds() }
@@ -825,6 +827,54 @@ function Write-Log   { param($Msg) Write-Host "[$(Get-NowIso)] $Msg" }
 function EpochTo-DateTime {
     param([int]$Epoch)
     return (Get-Date "1970-01-01 00:00:00Z").AddSeconds($Epoch).ToLocalTime()
+}
+
+# --- Rileva interfaccia LAN dinamicamente ---
+function Get-LanInterface {
+    $adapters = Get-NetAdapter | Where-Object { 
+        $_.Status -eq 'Up' -and 
+        $_.InterfaceAlias -notmatch 'Wi-Fi|WiFi|Wireless|Loopback|Virtual|Bluetooth|vEthernet|Docker|isatap|Teredo'
+    }
+    foreach ($adapter in $adapters) {
+        $ipConfig = Get-NetIPConfiguration -InterfaceIndex $adapter.InterfaceIndex
+        $ipv4 = $ipConfig.IPv4Address.IPAddress
+        if ($ipv4 -is [array]) { $ipv4 = $ipv4[0] }
+        if ($ipv4 -and ($ipv4 -match '^192\.168\.0\.')) {
+            return $adapter.InterfaceAlias
+        }
+    }
+    # Fallback: prima interfaccia UP non-WiFi
+    return ($adapters | Select-Object -First 1).InterfaceAlias
+}
+
+# Imposta $LAN_IF_NAME dinamicamente
+$script:LAN_IF_NAME = Get-LanInterface
+if (-not $script:LAN_IF_NAME) {
+    Write-Warning "Impossibile rilevare interfaccia LAN automaticamente. Uso 'Ethernet' come fallback."
+    $script:LAN_IF_NAME = 'Ethernet'
+}
+Write-Log "Interfaccia LAN rilevata: $script:LAN_IF_NAME"
+
+# --- Verifica permessi chiave SSH router ---
+function Test-RouterKeyPermissions {
+    if (-not (Test-Path $ROUTER_KEY)) {
+        Write-Warning "Chiave router NON trovata: $ROUTER_KEY"
+        Write-Warning "Copiala da Debian: scp /config/.ssh/router_key carlo_2@192.168.0.8:C:\Users\carlo_2\.ssh\router_key"
+        return $false
+    }
+    try {
+        $acl = Get-Acl $ROUTER_KEY
+        $access = $acl.Access | Where-Object { 
+            $_.IdentityReference -notmatch '^BUILTIN\\Administrators$|^NT AUTHORITY\\SYSTEM$|^carlo_2$' 
+        }
+        if ($access) {
+            Write-Warning "Permessi chiave SSH troppo aperti. Correggi con:"
+            Write-Warning "  icacls $ROUTER_KEY /inheritance:r /grant:r `$env:USERNAME`:R"
+        }
+    } catch {
+        Write-Warning "Impossibile verificare permessi chiave: $_"
+    }
+    return $true
 }
 
 # --- SSH al router ---
@@ -843,32 +893,44 @@ function Router-SSH {
     return $true
 }
 
-# --- Disabilita WAN router (rimuove route default via usb0) ---
-function Disable-RouterWAN {
-    Write-Log "Disabilito WAN router (rimuovo route usb0)..."
-    $cmd = "ip route del default via 10.175.108.144 dev usb0 metric 10 2>/dev/null; true"
+# --- Aggiunge route fallback sul router via Windows (metric 30) ---
+function Add-RouterFallbackRoute {
+    Write-Log "Aggiungo route fallback sul router via $LAN_GW (Windows metric 30)..."
+    $cmd = "ip route replace default via $LAN_GW dev br-lan metric 30 2>/dev/null; true"
     return Router-SSH -Command $cmd
 }
 
-# --- Riabilita WAN router (ripristina route default via usb0) ---
+# --- Rimuove route fallback dal router ---
+function Remove-RouterFallbackRoute {
+    Write-Log "Rimuovo route fallback dal router..."
+    $cmd = "ip route del default via $LAN_GW dev br-lan metric 30 2>/dev/null; true"
+    return Router-SSH -Command $cmd
+}
+
+# --- Disabilita WAN router (rimuove route default via usb0 metric 10) ---
+function Disable-RouterWAN {
+    Write-Log "Disabilito WAN router (rimuovo route usb0 metric 10)..."
+    $cmd = "ip route del default dev usb0 metric 10 2>/dev/null; true"
+    return Router-SSH -Command $cmd
+}
+
+# --- Riabilita WAN router (ripristina route default via usb0 metric 10) ---
 function Enable-RouterWAN {
-    Write-Log "Riabilito WAN router (ripristino route usb0)..."
+    Write-Log "Riabilito WAN router (ripristino route usb0 metric 10)..."
     $cmd = "ip route replace default via 10.175.108.144 dev usb0 metric 10 2>/dev/null; true"
     return Router-SSH -Command $cmd
 }
 
-# --- rileva interfaccia telefono ---
-# Cerca un'interfaccia UP, non LAN, con gateway predefinito (fuori 192.168.0.0/24)
+# --- Rileva interfaccia telefono ---
 function Get-PhoneInterface {
     $configs = Get-NetIPConfiguration -Detailed 2>$null | Where-Object {
         $_.NetAdapter.Status -eq 'Up' -and
         $_.InterfaceAlias -notmatch 'Loopback|Virtual|Bluetooth|vEthernet|Docker|isatap|Teredo' -and
-        $_.InterfaceAlias -ne $LAN_IF_NAME -and
+        $_.InterfaceAlias -ne $script:LAN_IF_NAME -and
         $_.IPv4DefaultGateway -ne $null
     }
     foreach ($cfg in $configs) {
         $gw = $cfg.IPv4DefaultGateway.NextHop
-        # Il gateway deve essere fuori dalla LAN
         if ($gw -and ($gw -notmatch '^192\.168\.0\.')) {
             $ip = $cfg.IPv4Address.IPAddress
             if ($ip -is [array]) { $ip = $ip[0] }
@@ -883,17 +945,16 @@ function Get-PhoneInterface {
     return $null
 }
 
-# --- abilita NAT e routing ---
+# --- Abilita NAT e routing ---
 function Enable-TetherNAT {
     param($PhoneIface)
-    Write-Log "Abilito forwarding su $LAN_IF_NAME..."
-    Set-NetIPInterface -InterfaceAlias $LAN_IF_NAME -Forwarding Enabled -ErrorAction SilentlyContinue
+    Write-Log "Abilito forwarding su $script:LAN_IF_NAME..."
+    Set-NetIPInterface -InterfaceAlias $script:LAN_IF_NAME -Forwarding Enabled -ErrorAction SilentlyContinue
 
     Write-Log "Abilito forwarding su $($PhoneIface.InterfaceAlias)..."
     Set-NetIPInterface -InterfaceAlias $PhoneIface.InterfaceAlias -Forwarding Enabled -ErrorAction SilentlyContinue
 
     # Rimuovi qualsiasi NAT esistente sullo stesso prefisso interno
-    # (WinNAT ammette un solo NAT per prefisso, indipendentemente dal nome)
     Get-NetNat | Where-Object { $_.InternalIPInterfaceAddressPrefix -eq $LAN_NET } |
         Remove-NetNat -Confirm:$false -ErrorAction SilentlyContinue
 
@@ -903,14 +964,45 @@ function Enable-TetherNAT {
     Write-Log "NAT attivato."
 }
 
-# --- disabilita NAT ---
+# --- Disabilita NAT ---
 function Disable-TetherNAT {
     Write-Log "Rimuovo NAT..."
     Get-NetNat -Name $NAT_NAME -ErrorAction SilentlyContinue | Remove-NetNat -Confirm:$false -ErrorAction SilentlyContinue
 
-    Write-Log "Disabilito forwarding su $LAN_IF_NAME..."
-    Set-NetIPInterface -InterfaceAlias $LAN_IF_NAME -Forwarding Disabled -ErrorAction SilentlyContinue
+    Write-Log "Disabilito forwarding su $script:LAN_IF_NAME..."
+    Set-NetIPInterface -InterfaceAlias $script:LAN_IF_NAME -Forwarding Disabled -ErrorAction SilentlyContinue
     Write-Log "NAT disattivato."
+}
+
+# --- Watchdog: auto-restore allo scadere del tempo ---
+function Start-Watchdog {
+    param($ExpireEpoch)
+    # Rimuovi job esistente se presente
+    Get-Job -Name $WATCHDOG_JOB_NAME -ErrorAction SilentlyContinue | Remove-Job -Force
+
+    $scriptBlock = {
+        param($ExpireEpoch, $StateFile)
+        while ($true) {
+            $now = [int][DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+            if ($now -ge $ExpireEpoch) {
+                Write-Host "[Watchdog] Tempo scaduto, eseguo restore automatico..."
+                & "$PSScriptRoot\usb_tether.ps1" -Action restore
+                break
+            }
+            if (-not (Test-Path $StateFile)) {
+                Write-Host "[Watchdog] File stato rimosso, esco."
+                break
+            }
+            Start-Sleep -Seconds 15
+        }
+    }
+    Start-Job -Name $WATCHDOG_JOB_NAME -ScriptBlock $scriptBlock -ArgumentList $ExpireEpoch, $STATE_FILE | Out-Null
+    Write-Log "Watchdog avviato (scadenza: $(EpochTo-DateTime $ExpireEpoch))"
+}
+
+function Stop-Watchdog {
+    Get-Job -Name $WATCHDOG_JOB_NAME -ErrorAction SilentlyContinue | Remove-Job -Force
+    Write-Log "Watchdog fermato."
 }
 
 # --- detect ---
@@ -920,13 +1012,17 @@ function cmd_detect {
         "$($phone.InterfaceAlias)|$($phone.Gateway)"
         return
     }
-    # Se non trovato, prova ad aspettare un po' (telefono potrebbe essere in connessione)
     Write-Warning "Nessuna interfaccia telefono trovata."
     ""
 }
 
 # --- activate ---
 function cmd_activate {
+    # Verifica chiave SSH router
+    if (-not (Test-RouterKeyPermissions)) {
+        return 1
+    }
+
     # Assicura directory stato
     if (-not (Test-Path $STATE_DIR)) {
         New-Item -ItemType Directory -Path $STATE_DIR -Force | Out-Null
@@ -957,10 +1053,19 @@ function cmd_activate {
         return 3
     }
 
-    # Se modalità intranet, disabilita WAN router
+    # Se modalità intranet: disabilita WAN router E aggiungi route fallback
     if ($Mode -eq 'intranet') {
+        $wanDisabled = $false
         if (-not (Disable-RouterWAN)) {
-            Write-Warning "Impossibile disabilitare WAN router, continuo comunque."
+            Write-Warning "Impossibile disabilitare WAN router."
+        } else {
+            $wanDisabled = $true
+        }
+        if (-not (Add-RouterFallbackRoute)) {
+            Write-Warning "Impossibile aggiungere route fallback sul router!"
+            # Rollback: riabilita WAN se l'abbiamo disabilitata
+            if ($wanDisabled) { Enable-RouterWAN }
+            return 4
         }
     }
 
@@ -972,11 +1077,15 @@ function cmd_activate {
         phone_gw      = $phone.Gateway
         phone_ip      = $phone.IPAddress
         lan_gw        = $LAN_GW
+        lan_if        = $script:LAN_IF_NAME
         activated_at  = $now
         expire_at     = $expire
         message       = "Attivo via $($phone.InterfaceAlias) ($Mode)"
     } | ConvertTo-Json -Compress
     $state | Set-Content $STATE_FILE -Force
+
+    # Avvia watchdog per auto-restore
+    Start-Watchdog -ExpireEpoch $expire
 
     Write-Host "OK attivato: $($phone.InterfaceAlias) via $($phone.Gateway) [$Mode] per ${MaxMinutes} min"
     return 0
@@ -986,19 +1095,27 @@ function cmd_activate {
 function cmd_restore {
     $phoneIface = $null
     $wasIntranet = $false
+    $lanIf = $script:LAN_IF_NAME
     if (Test-Path $STATE_FILE) {
         try {
             $st = Get-Content $STATE_FILE | ConvertFrom-Json
             $phoneIface = $st.phone_if
             $wasIntranet = ($st.mode -eq 'intranet')
+            $lanIf = if ($st.lan_if) { $st.lan_if } else { $script:LAN_IF_NAME }
         } catch {}
     }
+
+    # Ferma watchdog
+    Stop-Watchdog
 
     # Disabilita NAT/forwarding
     Disable-TetherNAT
 
-    # Se era intranet, riabilita WAN router
+    # Se era intranet: PRIMA rimuovi route fallback, POI riabilita WAN router
     if ($wasIntranet) {
+        if (-not (Remove-RouterFallbackRoute)) {
+            Write-Warning "Impossibile rimuovere route fallback dal router."
+        }
         if (-not (Enable-RouterWAN)) {
             Write-Warning "Impossibile riabilitare WAN router."
         }
@@ -1018,6 +1135,7 @@ function cmd_status {
     $phone_if = ''
     $phone_gw = ''
     $lan_gw = $LAN_GW
+    $lan_if = $script:LAN_IF_NAME
     $active_since = ''
     $remaining_min = 0
     $auto_expire = $false
@@ -1031,6 +1149,7 @@ function cmd_status {
             $phone_if = $st.phone_if
             $phone_gw = $st.phone_gw
             $lan_gw = $st.lan_gw
+            $lan_if = if ($st.lan_if) { $st.lan_if } else { $script:LAN_IF_NAME }
             $active_since = $st.activated_at
             $now = Get-NowEpoch
             if ($st.expire_at) {
@@ -1044,6 +1163,12 @@ function cmd_status {
                 if (-not $nat) {
                     $state = 'error'
                     $message = "Stato attivo ma NAT assente: eseguire restore."
+                }
+                # Verifica watchdog
+                $job = Get-Job -Name $WATCHDOG_JOB_NAME -ErrorAction SilentlyContinue
+                if (-not $job) {
+                    $state = 'error'
+                    $message += " Watchdog non in esecuzione."
                 }
             }
         } catch {}
@@ -1060,6 +1185,7 @@ function cmd_status {
         phone_if      = $phone_if
         phone_gw      = $phone_gw
         lan_gw        = $lan_gw
+        lan_if        = $lan_if
         active_since  = $since_human
         remaining_min = $remaining_min
         auto_expire   = [bool]$auto_expire
@@ -1089,6 +1215,16 @@ function cmd_diagnose {
         $phone | Format-Table
     } else {
         Write-Host "`n=== NESSUN telefono rilevato ==="
+    }
+
+    Write-Host "`n=== Stato watchdog ==="
+    Get-Job -Name $WATCHDOG_JOB_NAME -ErrorAction SilentlyContinue | Format-Table Id, Name, State, HasMoreData
+
+    Write-Host "`n=== Chiave SSH router ==="
+    Test-RouterKeyPermissions
+    if (Test-Path $ROUTER_KEY) {
+        $acl = Get-Acl $ROUTER_KEY
+        $acl.Access | Format-Table IdentityReference, FileSystemRights, AccessControlType
     }
 }
 

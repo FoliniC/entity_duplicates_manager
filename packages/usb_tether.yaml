@@ -43,12 +43,12 @@ command_line:
         /bin/bash -c '
         H="{{ states("input_select.usb_tether_host") }}";
         if [[ "$H" == *"Windows"* ]]; then
-          ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=5 carlo_2@192.168.0.8 "powershell -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 status" 2>&1;
+          ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 carlo_2@192.168.0.8 "powershell -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 status" 2>&1 | tail -1;
         else
-          ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=5 carlo@localhost "/home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh status" 2>&1;
+          ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 carlo@localhost "/home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh status" 2>&1;
         fi'
       value_template: "{{ value_json.state | default('error') }}"
-      command_timeout: 10
+      command_timeout: 30
       json_attributes:
         - mode
         - phone_if
@@ -58,7 +58,7 @@ command_line:
         - remaining_min
         - auto_expire
         - message
-      scan_interval: 10
+      scan_interval: 30
 
 # --- Sensore template: messaggio dashboard ---------------------------------
 template:
@@ -138,8 +138,8 @@ script:
       - action: homeassistant.update_entity
         target:
           entity_id: sensor.usb_tether_status
-      - wait_template: "{{ is_state('sensor.usb_tether_status', 'idle') or is_state('sensor.usb_tether_status', 'error') or is_state('sensor.usb_tether_status', 'unavailable') }}"
-        timeout: "00:00:10"
+      - wait_template: "{{ is_state('sensor.usb_tether_status', 'idle') }}"
+        timeout: "00:00:45"
       - if:
           - condition: not
             conditions:
@@ -167,8 +167,8 @@ script:
       - action: homeassistant.update_entity
         target:
           entity_id: sensor.usb_tether_status
-      - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') or is_state('sensor.usb_tether_status', 'idle') or is_state('sensor.usb_tether_status', 'error') or is_state('sensor.usb_tether_status', 'unavailable') }}"
-        timeout: "00:00:10"
+      - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') }}"
+        timeout: "00:00:45"
       - if:
           - condition: not
             conditions:
@@ -196,8 +196,8 @@ script:
       - action: homeassistant.update_entity
         target:
           entity_id: sensor.usb_tether_status
-      - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') or is_state('sensor.usb_tether_status', 'idle') or is_state('sensor.usb_tether_status', 'error') or is_state('sensor.usb_tether_status', 'unavailable') }}"
-        timeout: "00:00:10"
+      - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') }}"
+        timeout: "00:00:45"
       - if:
           - condition: not
             conditions:

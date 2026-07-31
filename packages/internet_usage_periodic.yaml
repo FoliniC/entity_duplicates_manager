@@ -8,6 +8,7 @@ command_line:
       name: Internet Usage Periodic
       unique_id: internet_usage_periodic
       command: "python3 /config/helpers/monthly_traffic_stats.py"
+      command_timeout: 120
       value_template: "{{ value_json.period_total_mb | default(0) }}"
       json_attributes:
         - period_by_device
@@ -33,7 +34,7 @@ shell_command:
   reset_period_snapshot: >
     rm -f /config/temp/monthly_traffic_snapshot.json
   save_usage_start_day: >
-    echo "{{ states('input_number.internet_usage_start_day') | int }}" > /config/temp/usage_start_day.txt
+    python3 -c "open('/config/temp/usage_start_day.txt','w').write(str({{ states('input_number.internet_usage_start_day') | int }}))"
 
 automation:
   - alias: "Save Internet Usage Start Day"
