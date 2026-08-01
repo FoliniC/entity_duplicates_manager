@@ -60,7 +60,7 @@ L'integrazione del sistema Tenda Mesh5 e la gestione dei canali su OpenWrt hanno
 4.  **Interferenza Canali 5GHz:** Il router OpenWrt utilizza il **canale 149 (5GHz)** in modalità **VHT80** (fisso), mentre il Tenda Mesh opera sui canali bassi (es. 40), eliminando le sovrapposizioni.
 5.  **Interferenza Canali 2.4GHz & Stabilità Tuya:**
     *   **Configurazione:** Il router OpenWrt è impostato sul **Canale 1 (2.4GHz)** fisso, mentre il sistema Tenda Mesh è impostato sul **Canale 11 (2.4GHz)** fisso per eliminare le sovrapposizioni di banda 2.4GHz.
-    *   **Mitigazione Roaming Tuya:** Il MAC address di `luci-cucina` (`50:8b:b9:44:d0:bb`, IP `192.168.0.66`) non e' piu' in blacklist sulla 2.4GHz del router OpenWrt. Il dispositivo puo' quindi associarsi anche all'AP OpenWrt; l'accesso WAN resta limitato dalle regole Tuya selettive. Maggiori dettagli in [tuya_handshake.md](file:///home/carlo/docker/homeassistant/config/tuya_handshake.md#L45-L60).
+    *   **Mitigazione Roaming Tuya:** Il MAC address di `luci-cucina` (`50:8b:b9:44:fe:4e`, IP `192.168.0.25`) non e' piu' in blacklist sulla 2.4GHz del router OpenWrt. Il dispositivo puo' quindi associarsi anche all'AP OpenWrt; l'accesso WAN resta limitato dalle regole Tuya selettive. Maggiori dettagli in [tuya_handshake.md](file:///home/carlo/docker/homeassistant/config/tuya_handshake.md#L45-L60).
 
 ## Note di Configurazione
 - Il server Debian (`192.168.0.3`) funge da centro di controllo sia per la domotica che per i servizi di rete critici (DNS/DHCP tramite AdGuard).

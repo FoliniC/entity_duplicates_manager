@@ -1026,12 +1026,12 @@
               "title": "Luci Esterne e Cucina",
               "entities": [
                 {
-                  "entity": "switch.luci_cucina_switch_2",
-                  "name": "luce bancone"
+                  "entity": "switch.bancone_cucina",
+                  "name": "luce tavolo"
                 },
                 {
-                  "entity": "switch.luci_cucina_switch_3",
-                  "name": "luce tavolo"
+                  "entity": "switch.tavolo_cucina",
+                  "name": "luce bancone"
                 },
                 {
                   "entity": "switch.luce_balcone_switch_1"

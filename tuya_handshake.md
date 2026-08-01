@@ -23,7 +23,7 @@ L'isolamento WAN ha evidenziato due comportamenti distinti:
 - **Risultato**: Diventano invisibili in rete (non rispondono al ping, nessun ARP entry) e non possono essere letti localmente.
 
 ## 3. Analisi del Traffico Cloud Intercettato
-Dalle catture effettuate (es. `192.168.0.66` e `192.168.0.47`):
+Dalle catture effettuate (es. `192.168.0.25` e `192.168.0.47`):
 - **DNS**: I dispositivi cercano domini come `m2.tuyaeu.com`, `openapi.tuyaeu.com`, `m3-eu.lifeaiot.com`.
 - **TLS Handshake**: La comunicazione inizia con un pacchetto `Client Hello` (TLS 1.2/1.3).
     - Esempio hex intercettato: `16 03 03 00 4a 01 00 00 46 03 03 ...`
@@ -39,11 +39,11 @@ Simulare la risposta cloud locale è difficile per i seguenti motivi:
 | IP | Nome | Tipo | Stato Isolato | Note |
 |---|---|---|---|---|
 | 192.168.0.41 | TH3C | Batteria | Offline | Scomparso dalla rete |
-| 192.168.0.66 | Luci cucina | Alimentato | Online | Funziona LocalTuya |
+| 192.168.0.25 | Luci cucina | Alimentato | Online | Funziona LocalTuya |
 | 192.168.0.47 | Garage | Alimentato | Online | Handshake cloud fallito ma WiFi attivo |
 
 ## 6. Ottimizzazione Wi-Fi e Roaming (Prevenzione "Wake-up failed" e "Heartbeat timeout")
-Per i dispositivi Tuya alimentati (es. `luci-cucina` ad IP `192.168.0.66`) e a batteria, un problema ricorrente è il continuo "roaming" (saltellamento) tra l'Access Point principale (OpenWrt) e i satelliti Mesh (Tenda MW5), oppure la perdita di connessione dovuta a segnale debole/interferenza. Questo comportamento innesca i log di errore "Wake-up failed", "invalid key size for AES" e **"Heartbeat failed due to timeout"**, evidenziato dai log LocalTuya:
+Per i dispositivi Tuya alimentati (es. `luci-cucina` ad IP `192.168.0.25`) e a batteria, un problema ricorrente è il continuo "roaming" (saltellamento) tra l'Access Point principale (OpenWrt) e i satelliti Mesh (Tenda MW5), oppure la perdita di connessione dovuta a segnale debole/interferenza. Questo comportamento innesca i log di errore "Wake-up failed", "invalid key size for AES" e **"Heartbeat failed due to timeout"**, evidenziato dai log LocalTuya:
 
 ```
 [Luci cucina] Reconnect succeeded on attempt: 3
@@ -66,7 +66,7 @@ Per i dispositivi Tuya alimentati (es. `luci-cucina` ad IP `192.168.0.66`) e a b
    - *Motivazione*: Forzando tutti i dispositivi Tuya 2.4GHz sul solo Tenda Mesh (canale 1), si elimina la possibilità di roaming spurio verso il router. Ma se il canale 1 è congestionato, il problema heartbeat persiste.
 
 2. **Forzatura del Collegamento (BSSID Binding / MAC Blacklisting)**:
-   - Il MAC del dispositivo `luci-cucina` (`50:8b:b9:44:d0:bb`, IP `192.168.0.66`) e' stato rimosso dalla **Blacklist 2.4GHz** del router OpenWrt. Il dispositivo puo' tentare l'associazione anche all'AP OpenWrt.
+   - Il MAC del dispositivo `luci-cucina` (`50:8b:b9:44:fe:4e`, IP `192.168.0.25`) e' stato rimosso dalla **Blacklist 2.4GHz** del router OpenWrt. Il dispositivo puo' tentare l'associazione anche all'AP OpenWrt.
    - La blacklist OpenWrt resta disponibile solo come contromisura da riapplicare se il roaming dovesse causare nuovamente heartbeat timeout.
 
 3. **Heartbeat keepalive persistente**: Il modulo LocalTuya riprova automaticamente la connessione. **Non è una soluzione**, ma contiene il danno.

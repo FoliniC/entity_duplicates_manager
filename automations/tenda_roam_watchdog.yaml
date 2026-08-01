@@ -1,6 +1,6 @@
 # Tenda Roam / Tuya Wake-up Failure Watchdog
 # ─────────────────────────────────────────────────────────────────────────────
-# Monitora i "Wake-up failed" di LocalTuya per luci-cucina (192.168.0.66)
+# Monitora i "Wake-up failed" di LocalTuya per luci-cucina (192.168.0.25)
 # e correla con sensor.network_status_diagnosis / packet loss / jitter.
 # Se rileva pattern di roaming (reconnect frequenti), notifica e logga.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@
         level: WARNING
         message: >
           Tenda Roam Watchdog: Wake-up failure #{{
-          states('counter.tenda_roam_failures') }} per luci-cucina (192.168.0.66)
+          states('counter.tenda_roam_failures') }} per luci-cucina (192.168.0.25)
           | NetDiag: {{ net_diag }} | Loss: {{ packet_loss }}% | Jitter: {{ jitter }}ms | Lat: {{ latency }}ms
           | Msg: {{ last_log_message }}
         action: "tenda_roam"

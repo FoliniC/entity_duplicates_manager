@@ -83,8 +83,8 @@ sensor.prism_autolimit:
 switch.luce_balcone_switch_1:
   friendly_name: "Luce balcone"
 
-light.luci_cucina_switch_2:
+switch.bancone_cucina:
   friendly_name: "luce bancone"
 
-light.luci_cucina_switch_3:
+switch.tavolo_cucina:
   friendly_name: "luce tavolo"

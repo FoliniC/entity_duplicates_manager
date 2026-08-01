@@ -240,8 +240,10 @@ switch.fancoil_sala_switch_4
 switch.growlight
 switch.luce_balcone
 switch.luce_balcone_switch_1
-switch.luci_cucina_switch_2
-switch.luci_cucina_switch_3
+switch.luci_cucina
+switch.bancone_cucina
+switch.tavolo_cucina
+switch.cucina_luci_cucina_switch_4
 switch.presa_luci_natale
 switch.stox_fancoil_bagno_child_lock
 switch.stox_fancoil_bagno_switch

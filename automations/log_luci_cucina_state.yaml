@@ -9,10 +9,10 @@
   trigger:
     - platform: state
       entity_id:
-        - switch.luci_cucina_switch_1
-        - switch.luci_cucina_switch_2
-        - switch.luci_cucina_switch_3
-        - switch.luci_cucina_switch_4
+        - switch.luci_cucina
+        - switch.bancone_cucina
+        - switch.tavolo_cucina
+        - switch.cucina_luci_cucina_switch_4
   condition:
     # Logga OGNI cambio reale: on/off/unavailable/unknown
     # Esclude solo: nessun cambio reale (from==to) e rumore unavailable<->unknown
@@ -28,10 +28,10 @@
         debug_entity: "{{ trigger.entity_id }}"
         friendly_name: >-
           {% set eid = trigger.entity_id %}
-          {% if 'luci_cucina_switch_1' in eid %}luce 1
-          {% elif 'luci_cucina_switch_2' in eid %}luce bancone
-          {% elif 'luci_cucina_switch_3' in eid %}luce tavolo
-          {% elif 'luci_cucina_switch_4' in eid %}luce 4
+          {% if 'luci_cucina' in eid and 'switch_' not in eid %}luce 1
+          {% elif 'bancone_cucina' in eid %}luce bancone
+          {% elif 'tavolo_cucina' in eid %}luce tavolo
+          {% elif 'cucina_luci_cucina_switch_4' in eid %}luce 4
           {% else %}{{ eid }}{% endif %}
         user_id: "{{ trigger.to_state.context.user_id if trigger.to_state.context is defined else none }}"
         parent_id: "{{ trigger.to_state.context.parent_id if trigger.to_state.context is defined else none }}"

@@ -8,7 +8,7 @@ nel Tenda MW5 Mesh. Logga su file e opzionalmente notifica Home Assistant.
 Requisiti:
 - SSH access al router OpenWrt (192.168.0.11) con chiave
 - Tenda base IP: 192.168.0.10 (interfaccia web)
-- MAC target: 50:8b:b9:44:d0:bb (luci-cucina)
+- MAC target: 50:8b:b9:44:fe:4e (luci-cucina)
 
 Metodi di rilevamento (in ordine di preferenza):
 1. Tenda Web API (se accessibile) - più accurato, dice esattamente Base vs Satellite
@@ -36,8 +36,8 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
-TARGET_MAC = "50:8b:b9:44:d0:bb"          # luci-cucina
-TARGET_IP = "192.168.0.66"
+TARGET_MAC = "50:8b:b9:44:fe:4e"          # luci-cucina (bf054a2177fd16678d9yds)
+TARGET_IP = "192.168.0.25"
 TARGET_NAME = "luci-cucina"
 
 TENDA_BASE_IP = "192.168.0.10"
@@ -186,7 +186,7 @@ def get_ap_from_openwrt() -> Optional[str]:
         code, out, _ = run_ssh(f"iwinfo {phy} assoclist")
         if code == 0 and TARGET_MAC.lower() in out.lower():
             # Parsa output per trovare signal/AP name
-            # Output tipico: "50:8b:b9:44:d0:bb  -45 dBm  ...  (on wlan0)"
+            # Output tipico: "50:8b:b9:44:fe:4e  -45 dBm  ...  (on wlan0)"
             lines = out.split("\n")
             for line in lines:
                 if TARGET_MAC.lower() in line.lower():
@@ -217,7 +217,7 @@ def get_arp_gateway_mac() -> Optional[str]:
     """
     code, out, _ = run_ssh(f"ip neigh show {TARGET_IP}")
     if code == 0 and out:
-        # Output: "192.168.0.66 dev br-lan lladdr 50:8b:b9:44:d0:bb REACHABLE"
+        # Output: "192.168.0.25 dev br-lan lladdr 50:8b:b9:44:fe:4e REACHABLE"
         # Il MAC lladdr è del device, non dell'AP. Ma se c'è proxy ARP...
         pass
     return None

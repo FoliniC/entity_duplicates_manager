@@ -8,7 +8,7 @@ import os
 import re
 
 LOG_FILE = "/config/home-assistant.log"
-SEARCH_PATTERN = "Wake-up failed for 192.168.0.66"
+SEARCH_PATTERN = "Wake-up failed for 192.168.0.25"
 
 def main():
     count = 0

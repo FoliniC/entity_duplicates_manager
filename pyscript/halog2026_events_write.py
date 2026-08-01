@@ -63,16 +63,6 @@ _ENRICHERS: dict = {
 # ── Global state ──────────────────────────────────────────────────────────────
 _IS_STARTED = False
 
-# ── All listeners managed by HALog2026 ───────────────────────────────────────
-
-_LISTENERS: list[str] = [
-    "automation.fancoil_listener_eventi_log",
-    "automation.scale_listener_eventi_log",
-    "automation.ev_listener_eventi_log",
-    "automation.system_listener_eventi_log",
-    "automation.cucina_listener_eventi_log",
-]
-
 # ── Private helper (sync, for internal calls within this file) ────────────────
 
 def _write_direct(subsystem: str, message: str, level: str = "INFO") -> None:
@@ -257,14 +247,8 @@ async def halog2026_startup():
         value="none",
     )
 
-    # 4 — Double-Safety: simple attempt to activate listeners
-    # (Boot manager will handle the main activation after registry loads)
-    log.info("HALog2026: Attempting listener activation (Double-Safety fallback)")
-    await task.sleep(5)  # Give registry more time to populate
-    
-    for listener in _LISTENERS:
-        try:
-            automation.turn_on(entity_id=listener)
-            log.info(f"HALog2026: Activated {listener}")
-        except Exception as e:
-            log.warning(f"HALog2026: Could not activate {listener}: {e}")
+    # NOTE: Listener activation is NOT needed here.
+    # All listeners have initial_state: true and are activated automatically.
+    # The boot manager (halog2026_boot_manager.yaml) confirms this.
+    # The previous Double-Safety code ran too early (at startup trigger)
+    # and caused "Referenced entities ... are missing" warnings.

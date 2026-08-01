@@ -1,6 +1,8 @@
-light:
+switch:
   - platform: group
     name: "luci cucina"
     entities:
-      - light.luci_cucina_switch_2
-      - light.luci_cucina_switch_3
+      - switch.luci_cucina
+      - switch.bancone_cucina
+      - switch.tavolo_cucina
+      - switch.cucina_luci_cucina_switch_4

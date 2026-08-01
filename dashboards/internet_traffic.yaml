@@ -555,6 +555,49 @@ views:
                           --mdc-theme-primary: white;
                         }
 
+              # BOTTONE EMERGENCY RESTORE - ripristino diretto senza logica script
+              - type: horizontal-stack
+                cards:
+                  - type: button
+                    name: "🔴 EMERGENCY RESTORE"
+                    icon: mdi:alert-circle-outline
+                    tap_action:
+                      action: call-service
+                      service: shell_command.usb_tether_restore
+                    hold_action:
+                      action: none
+                    card_mod:
+                      style: |
+                        ha-card {
+                          background: #b71c1c !important;
+                          --mdc-theme-primary: white;
+                          font-weight: bold;
+                          border: 2px solid #ff5252;
+                        }
+
+              # LOG OPERAZIONI TETHERING
+              - type: markdown
+                title: "📋 Log Operazioni Tethering"
+                content: >
+                  **Stato corrente:** {{ states('sensor.usb_tether_dashboard') }}
+                  
+                  **Messaggio:** {{ states('input_text.usb_tether_status_message') }}
+                  
+                  **Dettagli sensore:**
+                  - Stato: {{ states('sensor.usb_tether_status') }}
+                  - Modalità: {{ state_attr('sensor.usb_tether_status', 'mode') | default('N/A') }}
+                  - Interfaccia: {{ state_attr('sensor.usb_tether_status', 'phone_if') | default('N/A') }}
+                  - Gateway: {{ state_attr('sensor.usb_tether_status', 'phone_gw') | default('N/A') }}
+                  - Attivo da: {{ state_attr('sensor.usb_tether_status', 'active_since') | default('N/A') }}
+                  - Minuti rimanenti: {{ state_attr('sensor.usb_tether_status', 'remaining_min') | int(0) }}
+                card_mod:
+                  style: |
+                    ha-card {
+                      font-family: monospace;
+                      font-size: 13px;
+                      line-height: 1.6;
+                    }
+
               # Durata
               - type: entities
                 title: "Durata (safety-net)"

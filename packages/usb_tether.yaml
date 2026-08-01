@@ -43,9 +43,9 @@ command_line:
         /bin/bash -c '
         H="{{ states("input_select.usb_tether_host") }}";
         if [[ "$H" == *"Windows"* ]]; then
-          ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 carlo_2@192.168.0.8 "powershell -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 status" 2>&1 | tail -1;
+          ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 -o ControlMaster=auto -o ControlPersist=60s -o ControlPath=/config/.ssh/cm/%C carlo_2@192.168.0.8 "powershell -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 status" 2>&1 | tail -1;
         else
-          ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 carlo@localhost "/home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh status" 2>&1;
+          ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 -o ControlMaster=auto -o ControlPersist=60s -o ControlPath=/config/.ssh/cm/%C carlo@192.168.0.3 "/home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh status" 2>&1;
         fi'
       value_template: "{{ value_json.state | default('error') }}"
       command_timeout: 30
@@ -98,9 +98,11 @@ shell_command:
     H="{{ states("input_select.usb_tether_host") }}";
     DUR="{{ states("input_number.usb_tether_max_duration") | int(60) }}";
     if [[ "$H" == *"Windows"* ]]; then
-      ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 carlo_2@192.168.0.8 "powershell -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 -Action activate -MaxMinutes $DUR -Mode server" 2>&1;
+      ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 -o ControlMaster=auto -o ControlPersist=60s -o ControlPath=/config/.ssh/cm/%C carlo_2@192.168.0.8 "powershell -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 -Action activate -MaxMinutes $DUR -Mode server" 2>&1 &
+      echo "{\"state\":\"activating\",\"mode\":\"server\",\"message\":\"Attivazione in corso...\"}"
     else
-      ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 carlo@localhost "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh activate $DUR server" 2>&1;
+      ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 -o ControlMaster=auto -o ControlPersist=60s -o ControlPath=/config/.ssh/cm/%C carlo@192.168.0.3 "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh activate $DUR server" 2>&1 &
+      echo "{\"state\":\"activating\",\"mode\":\"server\",\"message\":\"Attivazione in corso...\"}"
     fi'
 
   usb_tether_activate_intranet: >
@@ -108,18 +110,27 @@ shell_command:
     H="{{ states("input_select.usb_tether_host") }}";
     DUR="{{ states("input_number.usb_tether_max_duration") | int(60) }}";
     if [[ "$H" == *"Windows"* ]]; then
-      ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 carlo_2@192.168.0.8 "powershell -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 -Action activate -MaxMinutes $DUR -Mode intranet" 2>&1;
+      # Windows: usa powershell -File con -Action activate (script fa async via Scheduled Task watchdog)
+      # NOTA: su Windows "intranet" e' solo locale (nessun controllo router) - vedi guardia in script.usb_tether_intranet
+      ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 -o ControlMaster=auto -o ControlPersist=60s -o ControlPath=/config/.ssh/cm/%C carlo_2@192.168.0.8 "powershell -NoProfile -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 -Action activate -MaxMinutes $DUR -Mode intranet" 2>&1 &
+      echo "{\"state\":\"activating\",\"mode\":\"intranet\",\"message\":\"Attivazione in corso...\"}"
     else
-      ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 carlo@localhost "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh activate $DUR intranet" 2>&1;
+      # Debian: nohup + setsid. Usa 'activate' (non piu' 'rndis_activate'): il fallback
+      # RNDIS/Xiaomi e' gia' incluso in cmd_activate, cosi' Server e Intranet usano
+      # lo stesso percorso di rilevamento telefono.
+      ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 -o ControlMaster=auto -o ControlPersist=60s -o ControlPath=/config/.ssh/cm/%C carlo@192.168.0.3 "nohup setsid sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh activate $DUR intranet >/dev/null 2>&1 &" 2>&1;
+      echo "{\"state\":\"activating\",\"mode\":\"intranet\",\"message\":\"Attivazione in corso...\"}"
     fi'
 
   usb_tether_restore: >
     /bin/bash -c '
     H="{{ states("input_select.usb_tether_host") }}";
     if [[ "$H" == *"Windows"* ]]; then
-      ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 carlo_2@192.168.0.8 "powershell -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 -Action restore" 2>&1;
+      ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 -o ControlMaster=auto -o ControlPersist=60s -o ControlPath=/config/.ssh/cm/%C carlo_2@192.168.0.8 "powershell -NoProfile -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 -Action restore" 2>&1 &
+      echo "{\"state\":\"restoring\",\"mode\":\"server\",\"message\":\"Ripristino in corso...\"}"
     else
-      ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 carlo@localhost "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh restore" 2>&1;
+      ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET -o ConnectTimeout=10 -o ControlMaster=auto -o ControlPersist=60s -o ControlPath=/config/.ssh/cm/%C carlo@192.168.0.3 "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh restore" 2>&1 &
+      echo "{\"state\":\"restoring\",\"mode\":\"server\",\"message\":\"Ripristino in corso...\"}"
     fi'
 
 # --- Script: azioni con messaggio e gestione errori ----------
@@ -134,12 +145,12 @@ script:
         data:
           value: "ripristino routing normale in corso..."
       - action: shell_command.usb_tether_restore
-      - delay: "00:00:03"
+      - delay: "00:00:02"
       - action: homeassistant.update_entity
         target:
           entity_id: sensor.usb_tether_status
-      - wait_template: "{{ is_state('sensor.usb_tether_status', 'idle') }}"
-        timeout: "00:00:45"
+      - wait_template: "{{ is_state('sensor.usb_tether_status', 'idle') or is_state('sensor.usb_tether_status', 'restoring') }}"
+        timeout: "00:01:00"
       - if:
           - condition: not
             conditions:
@@ -167,8 +178,8 @@ script:
       - action: homeassistant.update_entity
         target:
           entity_id: sensor.usb_tether_status
-      - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') }}"
-        timeout: "00:00:45"
+      - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') or is_state('sensor.usb_tether_status', 'activating') }}"
+        timeout: "00:01:30"
       - if:
           - condition: not
             conditions:
@@ -186,6 +197,16 @@ script:
     alias: "Tethering: modalita intranet"
     icon: mdi:wan
     sequence:
+      - if:
+          - condition: template
+            value_template: "{{ 'Windows' in states('input_select.usb_tether_host') }}"
+        then:
+          - action: input_text.set_value
+            target:
+              entity_id: input_text.usb_tether_status_message
+            data:
+              value: "ERRORE: Intranet richiede il server Debian (solo lui controlla il router via SSH) - seleziona Debian come host"
+          - stop: "Intranet non disponibile su Windows: nessun controllo del router OpenWrt da questo host"
       - action: input_text.set_value
         target:
           entity_id: input_text.usb_tether_status_message
@@ -196,8 +217,8 @@ script:
       - action: homeassistant.update_entity
         target:
           entity_id: sensor.usb_tether_status
-      - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') }}"
-        timeout: "00:00:45"
+      - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') or is_state('sensor.usb_tether_status', 'activating') }}"
+        timeout: "00:01:30"
       - if:
           - condition: not
             conditions:

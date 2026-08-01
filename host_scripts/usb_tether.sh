@@ -293,7 +293,9 @@ cmd_detect() {
 
         # Il gateway del telefono NON deve stare nella LAN (192.168.0.0/24).
         # I telefoni tipicamente usano 192.168.42.x o simili.
-        if ip route get "$gw" >/dev/null 2>&1; then
+        # NOTA: "ip route get" verifica solo la raggiungibilita', non esclude
+        # la LAN da solo -> serve il controllo esplicito sul prefisso.
+        if [[ "$gw" != 192.168.0.* ]] && ip route get "$gw" >/dev/null 2>&1; then
             printf '%s|%s\n' "$iface" "$gw"
             return 0
         fi
@@ -327,6 +329,51 @@ cmd_activate() {
     # Rileva il telefono.
     local det iface gw
     det=$(cmd_detect) || true
+    
+    # Se cmd_detect non trova nulla, prova a cercare l'interfaccia RNDIS Xiaomi
+    # (VID 2717) dinamicamente come fallback.
+    if [ -z "$det" ]; then
+        local rndis_iface=""
+        while read -r iface_name _rest; do
+            [ -z "$iface_name" ] && continue
+            if udevadm info "/sys/class/net/$iface_name" 2>/dev/null | grep -q "ID_VENDOR_ID=2717"; then
+                rndis_iface="$iface_name"
+                break
+            fi
+        done < <(ip -br link 2>/dev/null | grep -E '^enx|^rndis|^usb')
+        
+        if [ -n "$rndis_iface" ]; then
+            # Porta UP l'interfaccia e ottieni IP
+            ip link set "$rndis_iface" up 2>/dev/null || true
+            sleep 1
+            
+            local conn_name="usb-tether-${rndis_iface}"
+            nmcli con delete "$conn_name" >/dev/null 2>&1 || true
+            nmcli con add type ethernet ifname "$rndis_iface" con-name "$conn_name" \
+                ipv4.method auto ipv6.method ignore \
+                connection.autoconnect no \
+                ipv4.never-default yes >/dev/null 2>&1 || true
+            timeout 15 nmcli con up "$conn_name" >/dev/null 2>&1 || true
+            sleep 1
+            
+            # Trova il gateway
+            gw=$(ip route | grep "dev $rndis_iface" | grep -oE 'via [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | awk '{print $2}' | head -1)
+            if [ -z "$gw" ]; then
+                gw="172.21.40.55"
+            fi
+            
+            # Verifica IPv4
+            ip -4 addr show dev "$rndis_iface" 2>/dev/null | grep -q 'inet ' || {
+                echo "ERRORE: $rndis_iface non ha IP dopo DHCP" >&2
+                nmcli con delete "$conn_name" >/dev/null 2>&1 || true
+                return 2
+            }
+            
+            iface="$rndis_iface"
+            det="${iface}|${gw}"
+        fi
+    fi
+    
     if [ -z "$det" ]; then
         echo "Telefono USB non rilevato. Attiva il tethering sul cellulare e collega il cavo USB." >&2
         return 2
@@ -343,10 +390,9 @@ cmd_activate() {
     now=$(now_epoch)
     expire=$((now + max_min * 60))
 
-    # Aggiungi la default route via telefono con metrica PIU BASSA (vince).
-    # Non tocchiamo la route LAN esistente: resta a metric 100.
+    # Aggiungi la default route via telefono con metrica PIU BASSA (vince per NUOVE connessioni).
+    # Manteniamo la route LAN esistente (metric 100) per far defluire le connessioni gia' aperte.
     if ! ip route add default via "$gw" dev "$iface" metric 50 2>/dev/null; then
-        # Se esiste gia' una route identica, sostituiscila.
         ip route replace default via "$gw" dev "$iface" metric 50 2>/dev/null || {
             echo "Impossibile aggiungere la route via $iface." >&2
             return 3
@@ -356,13 +402,41 @@ cmd_activate() {
     # Abilita NAT/forwarding per traffico router -> telefono.
     enable_nat_router "$iface"
 
-    # Se modalita' "intranet", disabilita anche la WAN del router,
-    # cosi' tutto il traffico LAN passa forzatamente via server.
+    # GRACEFUL TRANSITION: marca le connessioni gia' stabilite per tenerle sulla vecchia route.
+    # Usa CONNMARK per non rompere streaming/TCP esistenti (Alexa, ecc.).
+    local grace_period=60  # secondi per far defluire le connessioni
+    if command -v iptables >/dev/null 2>&1; then
+        # Marca connessioni ESTABLISHED/RELATED esistenti verso vecchi gateway
+        iptables -t mangle -A PREROUTING -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-mark 0x1 2>/dev/null || true
+        # Route marked connections via vecchio gateway LAN
+        ip rule add fwmark 0x1 lookup main pref 100 2>/dev/null || true
+        # (la route main ha ancora il vecchio gateway a metric 100)
+        
+        # Dopo grace_period, pulisci le regole e (se intranet) disabilita WAN router
+        (
+            sleep "$grace_period"
+            iptables -t mangle -D PREROUTING -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-mark 0x1 2>/dev/null || true
+            ip rule del fwmark 0x1 lookup main pref 100 2>/dev/null || true
+            # Se modalita' intranet, ORA disabilita WAN router (connessioni vecchie drenate)
+            if [ "$mode" = "intranet" ]; then
+                router_wan_down
+                echo "Modalita' INTRANET: WAN router disattivata dopo drenaggio connessioni (${grace_period}s)."
+            fi
+        ) &
+    else
+        # Fallback senza iptables: transizione immediata
+        if [ "$mode" = "intranet" ]; then
+            router_wan_down
+            echo "Modalita' INTRANET: WAN router disattivata (iptables non disponibile)."
+        fi
+    fi
+
+    # Se NON intranet, la WAN router resta attiva (route metric 100).
     local intranet_mode="false"
     if [ "$mode" = "intranet" ]; then
-        router_wan_down
         intranet_mode="true"
-        echo "Modalita' INTRANET: WAN router disattivata, traffico LAN forzato via $iface."
+        # Messaggio iniziale - il vero switch avviene dopo grace_period in background
+        echo "Modalita' INTRANET avviata: switch graduale tra ${grace_period}s..."
     fi
 
     # Salva stato (include la modalita' per ripristino corretto).
@@ -391,11 +465,11 @@ cmd_activate() {
 
 # --- rndis_activate -------------------------------------------------------
 # Attivazione tethering USB Xiaomi RNDIS bypassando cmd_detect.
-# Usa quando l'interfaccia RNDIS esiste (enx9a65fc6df489) ma
-# cmd_detect non la rileva perche' non ha carrier sysfs.
+# Usa quando l'interfaccia RNDIS Xiaomi esiste ma cmd_detect non la rileva
+# perche' non ha carrier sysfs. L'interfaccia viene identificata dinamicamente
+# cercando un dispositivo USB Xiaomi (VID 2717) con interfaccia RNDIS.
 cmd_rndis_activate() {
     local max_min="${1:-30}" mode="${2:-server}"
-    local iface="enx9a65fc6df489"
     local max_min_valid="${max_min:-30}" mode_valid="$mode"
     case "$max_min_valid" in
         ''|*[!0-9]*) max_min_valid=30 ;;
@@ -403,24 +477,47 @@ cmd_rndis_activate() {
     [ "$max_min_valid" -lt 1 ] 2>/dev/null && max_min_valid=1
     [ "$max_min_valid" -gt 480 ] 2>/dev/null && max_min_valid=480
 
-    # L'interfaccia esiste gia' (Xiaomi RNDIS). Portala UP e aspetta IP.
-    ip link set "$iface" up 2>/dev/null || true
-    sleep 2
+    # Trova dinamicamente l'interfaccia RNDIS Xiaomi (VID 2717).
+    local iface=""
+    while read -r iface_name _rest; do
+        [ -z "$iface_name" ] && continue
+        # Verifica se e' un'interfaccia USB Xiaomi via ethtool/devpath
+        if udevadm info "/sys/class/net/$iface_name" 2>/dev/null | grep -q "ID_VENDOR_ID=2717"; then
+            iface="$iface_name"
+            break
+        fi
+    done < <(ip -br link 2>/dev/null | grep -E '^enx|^rndis|^usb')
 
-    # Assegna IP via NM DHCP.
+    # Fallback: cerca per nome che inizia con enx (MAC-based)
+    if [ -z "$iface" ]; then
+        iface=$(ip -br link 2>/dev/null | grep -E '^enx' | awk '{print $1}' | head -1)
+    fi
+
+    if [ -z "$iface" ]; then
+        echo "ERRORE: Nessuna interfaccia RNDIS Xiaomi trovata" >&2
+        return 2
+    fi
+
+    echo "Interfaccia RNDIS rilevata: $iface" >&2
+
+    # Porta UP l'interfaccia
+    ip link set "$iface" up 2>/dev/null || true
+    sleep 0.5
+
+    # Assegna IP via NM DHCP (timeout ridotto).
     local conn_name="usb-tether-${iface}"
+    nmcli con delete "$conn_name" >/dev/null 2>&1 || true
     nmcli con add type ethernet ifname "$iface" con-name "$conn_name" \
         ipv4.method auto ipv6.method ignore \
         connection.autoconnect no \
         ipv4.never-default yes >/dev/null 2>&1 || true
-    timeout 30 nmcli con up "$conn_name" >/dev/null 2>&1 || true
-    sleep 3
+    timeout 15 nmcli con up "$conn_name" >/dev/null 2>&1 || true
+    sleep 1
 
-    # Trova il gateway del telefono (route via enx9a65fc6df489).
+    # Trova il gateway del telefono.
     local gw
     gw=$(ip route | grep "dev $iface" | grep -oE 'via [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | awk '{print $2}' | head -1)
     if [ -z "$gw" ]; then
-        # Fallback: IP tipico del gateway RNDIS Xiaomi
         gw="172.21.40.55"
     fi
 
@@ -444,13 +541,34 @@ cmd_rndis_activate() {
 
     enable_nat_router "$iface"
 
+    # GRACEFUL TRANSITION: marca le connessioni gia' stabilite per tenerle sulla vecchia route.
+    local grace_period=60
+    if command -v iptables >/dev/null 2>&1; then
+        iptables -t mangle -A PREROUTING -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-mark 0x1 2>/dev/null || true
+        ip rule add fwmark 0x1 lookup main pref 100 2>/dev/null || true
+        
+        (
+            sleep "$grace_period"
+            iptables -t mangle -D PREROUTING -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-mark 0x1 2>/dev/null || true
+            ip rule del fwmark 0x1 lookup main pref 100 2>/dev/null || true
+            if [ "$mode_valid" = "intranet" ]; then
+                router_wan_down
+                echo "Modalita' INTRANET: WAN router disattivata dopo drenaggio connessioni (${grace_period}s)."
+            fi
+        ) &
+    else
+        if [ "$mode_valid" = "intranet" ]; then
+            router_wan_down
+            echo "Modalita' INTRANET: WAN router disattivata (iptables non disponibile)."
+        fi
+    fi
+
     local now expire
     now=$(now_epoch)
     expire=$((now + max_min_valid * 60))
 
     if [ "$mode_valid" = "intranet" ]; then
-        router_wan_down
-        echo "Modalita' INTRANET: WAN router disattivata, traffico LAN forzato via $iface."
+        echo "Modalita' INTRANET avviata: switch graduale tra ${grace_period}s..."
     fi
 
     {
@@ -476,6 +594,8 @@ cmd_rndis_activate() {
 
 # --- restore ----------------------------------------------------------------
 # Idempotente: rimuove la route del telefono, killa il watcher, cancella stato.
+# GRACEFUL: mantiene la route tethering per 30s per far defluire le connessioni
+# attive, marcandole per continuare via tethering mentre le nuove usano WAN.
 cmd_restore() {
     local phone_if="" phone_gw=""
 
@@ -484,7 +604,6 @@ cmd_restore() {
         local wpid
         wpid=$(cat "$PID_FILE" 2>/dev/null)
         if [ -n "$wpid" ]; then
-            # killa l'intero processo+figli (il watcher e' in setsid).
             kill -- "-$wpid" 2>/dev/null || kill "$wpid" 2>/dev/null || true
         fi
         rm -f "$PID_FILE"
@@ -495,12 +614,43 @@ cmd_restore() {
         phone_if=$(grep -E '^phone_if=' "$STATE_FILE" | cut -d= -f2-)
         phone_gw=$(grep -E '^phone_gw=' "$STATE_FILE" | cut -d= -f2-)
     fi
-    # Tentativo basato sullo stato.
-    if [ -n "$phone_if" ] && [ -n "$phone_gw" ]; then
-        ip route del default via "$phone_gw" dev "$phone_if" metric 50 2>/dev/null || true
+
+    # GRACEFUL RESTORE: se c'era una route tethering, non rimuoverla subito.
+    # Marca le connessioni SULLA route tethering per continuare a usarla,
+    # mentre le nuove useranno la WAN ripristinata.
+    local grace_period=30
+    if [ -n "$phone_if" ] && [ -n "$phone_gw" ] && ip route show | grep -q "default via $phone_gw dev $phone_if metric 50"; then
+        echo "Restore graceful: drenaggio connessioni tethering per ${grace_period}s..." >&2
+        
+        # 1. Ripristina WAN router SUBITO (le nuove connessioni useranno questa)
+        router_wan_up
+        
+        # 2. Marca connessioni ESTABLISHED sulla route tethering per tenerle lì
+        iptables -t mangle -A PREROUTING -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-mark 0x2 2>/dev/null || true
+        ip rule add fwmark 0x2 lookup main pref 90 2>/dev/null || true
+        # main ha ancora la route tethering a metric 50 e WAN a metric 100
+        
+        # 3. Dopo grace_period, rimuovi route tethering e pulizia
+        (
+            sleep "$grace_period"
+            # Rimuovi route tethering
+            ip route del default via "$phone_gw" dev "$phone_if" metric 50 2>/dev/null || true
+            while ip route del default metric 50 2>/dev/null; do :; done
+            # Pulizia regole
+            iptables -t mangle -D PREROUTING -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-mark 0x2 2>/dev/null || true
+            ip rule del fwmark 0x2 lookup main pref 90 2>/dev/null || true
+        ) &
+    else
+        # Nessuna route tethering attiva, restore immediato
+        router_wan_up
     fi
-    # Tentativo generico: rimuovi ogni default route con metric 50 (la nostra firma).
-    while ip route del default metric 50 2>/dev/null; do :; done
+
+    # Tentativo generico: rimuovi ogni default route con metric 50 (pulizia finale).
+    # NOTA: la route vera viene rimossa dal background job sopra dopo grace_period.
+    # Qui puliamo solo se non c'era route tethering.
+    if [ -z "$phone_if" ] || [ -z "$phone_gw" ] || ! ip route show | grep -q "default via $phone_gw dev $phone_if metric 50"; then
+        while ip route del default metric 50 2>/dev/null; do :; done
+    fi
 
     # Rimuovi la connessione NM temporanea creata da bring_up_iface, se presente.
     if [ -n "$phone_if" ]; then
@@ -510,11 +660,12 @@ cmd_restore() {
     # Disabilita NAT/forwarding per traffico router.
     disable_nat_router "$phone_if"
 
-    # Ripristina la WAN del router (sempre, per sicurezza).
-    router_wan_up
+    # Cleanup regole graceful transition precedenti (mark 0x1).
+    iptables -t mangle -D PREROUTING -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-mark 0x1 2>/dev/null || true
+    ip rule del fwmark 0x1 lookup main pref 100 2>/dev/null || true
 
     rm -f "$STATE_FILE"
-    echo "OK ripristinato: default route tornata alla LAN."
+    echo "OK ripristinato: default route tornata alla LAN (graceful)."
     return 0
 }
 

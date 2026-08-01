@@ -26,7 +26,7 @@ TABLE = "tuya_block"
 CHAIN = "forward"
 SELECTIVE_MARKER = "tuya-selective"
 POWERED_CLOUD_ALLOW_IPS = [
-    "192.168.0.66",  # luci-cucina: powered Tuya device that needs cloud handshake
+    "192.168.0.25",  # luci-cucina (bf054a2177fd16678d9yds): powered Tuya device that needs cloud handshake
 ]
 
 TUYA_DOMAINS = [
