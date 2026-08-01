@@ -19,6 +19,7 @@ input_text:
     name: "Distacco rete - ultimo intervento"
     icon: mdi:history
     max: 255
+    initial: ""
 
 template:
    - binary_sensor:

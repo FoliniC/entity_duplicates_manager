@@ -583,6 +583,14 @@ views:
                   
                   **Messaggio:** {{ states('input_text.usb_tether_status_message') }}
                   
+                  **Log storico:** {{ state_attr('sensor.usb_tether_log', 'line_count') | int(0) }} righe, aggiornato {{ state_attr('sensor.usb_tether_log', 'updated') | default('N/A') }}
+                  {% set log_text = state_attr('sensor.usb_tether_log', 'text') %}
+                  {% if log_text %}
+                  {{ log_text }}
+                  {% else %}
+                  _Nessun log disponibile_
+                  {% endif %}
+                  
                   **Dettagli sensore:**
                   - Stato: {{ states('sensor.usb_tether_status') }}
                   - Modalità: {{ state_attr('sensor.usb_tether_status', 'mode') | default('N/A') }}
@@ -594,8 +602,9 @@ views:
                   style: |
                     ha-card {
                       font-family: monospace;
-                      font-size: 13px;
-                      line-height: 1.6;
+                      font-size: 12px;
+                      line-height: 1.5;
+                      white-space: pre-wrap;
                     }
 
               # Durata
@@ -647,11 +656,11 @@ views:
                   |---|---|
                   | 🔄 Normale | Ripristina routing normale |
                   | 📱 Server | Solo server via USB tethering |
-                  | 🌐 Intranet | TUTTA la LAN via server |
+                  | 🌐 Intranet | TUTTA la LAN via host selezionato |
 
 
                   1. Sul telefono: attiva **Tethering USB**.
-                  2. Collega il cavo USB al server.
+                  2. Collega il cavo USB all'host selezionato.
                   3. Premi il bottone desiderato.
                   4. Per disattivare: premi **Normale**.
                 card_mod:
@@ -676,9 +685,9 @@ views:
                            | LAN (192.168.0.0/24)   |
                            |                         |
                        +---v-------+            +----v----+
-                       | Server    |            | USB     |
+                       | Host      |            | USB     |
                        | HA + AdG  |<-----------+ Tether  |
-                       |192.168.0.3|            |10.22..45|
+                       |.3 / .8    |            |10.22..45|
                        +---+-------+            +---------+
                            |
                            |
@@ -697,7 +706,7 @@ views:
                   |---|---|
                   | Normale | LAN -> Router -> WAN (usb0) |
                   | Server | Server -> USB telefono; LAN -> Router -> WAN |
-                  | Intranet | LAN -> Router -> Server -> USB telefono -> Internet |
+                  | Intranet | LAN -> Router -> Host selezionato -> USB telefono -> Internet |
                 card_mod:
                   style: "ha-card { user-select: text !important; }"
 
