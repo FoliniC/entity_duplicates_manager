@@ -172,58 +172,44 @@ ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no carlo_2@192.168.0.8
  | Debian (192.168.0.3) | `usb_tether.sh` (bash) | `/home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh` |
  | Windows (192.168.0.8) | `usb_tether.ps1` (PowerShell) | `C:\Scripts\usb_tether.ps1` |
  
- **Esecuzione da remoto (Windows):**
- ```bash
- ssh -i /config/.ssh/win_key carlo_2@192.168.0.8 \
-   "powershell -ExecutionPolicy Bypass -File C:\Scripts\usb_tether.ps1 -Action status"
+ **Architettura attuale (Agosto 2026):**
+ 
+ Il package Home Assistant (`packages/usb_tether.yaml`) delega tutta la logica SSH a uno **script helper unificato** (`/config/helpers/usb_tether_ha.sh`) che gira nel container HA. Questo script:
+ - Usa **SSH Multiplexing** (`ControlMaster=auto`, `ControlPersist=60s`) su tutte le connessioni (Debian, Windows, Router) per eliminare l'overhead di handshake.
+ - Esegue comandi **async**: ritorna subito `{"state":"activating",...}` / `{"state":"restoring",...}` mentre il lavoro prosegue in background.
+ - Chiama gli script nativi sui due host:
+   - **Debian**: `/home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh` (bash)
+   - **Windows**: `C:\Scripts\usb_tether.ps1` (PowerShell)
+ - Gestisce lato **router OpenWrt** le transizioni graceful con **CONNMARK + ip rule table 88**:
+   - **Attivazione intranet (Windows)**: mantiene la WAN router `usb0 metric 10` per `ACTIVATE_GRACE_SECONDS` (default 120s), poi la rimuove in background (`router_cutover_windows`).
+   - **Restore (Windows)**: marca le connessioni ESTABLISHED/RELATED in ingresso su `br-lan` con mark `0x88`, le dirotta via tabella 88 verso l'IP Windows per `RESTORE_GRACE_SECONDS` (default 180s), poi pulisce mark/regole/tabella in background (`router_finish_restore_windows`).
+   - **Debian**: logica invariata (watchdog detached + route metric 50/100 + NAT router).
+ 
+ **Comandi disponibili da Home Assistant (via shell_command):**
+ 
+ ```yaml
+ shell_command:
+   usb_tether_activate: >
+     /config/helpers/usb_tether_ha.sh activate server "{{ states('input_select.usb_tether_host') }}" "{{ states('input_number.usb_tether_max_duration') | int(60) }}"
+   usb_tether_activate_intranet: >
+     /config/helpers/usb_tether_ha.sh activate intranet "{{ states('input_select.usb_tether_host') }}" "{{ states('input_number.usb_tether_max_duration') | int(60) }}"
+   usb_tether_restore: >
+     /config/helpers/usb_tether_ha.sh restore server "{{ states('input_select.usb_tether_host') }}" "{{ states('input_number.usb_tether_max_duration') | int(60) }}"
  ```
  
- ### Aggiornamento `usb_tether.ps1` (Windows 11) — 28 Luglio 2026
+ **Sensori:**
+ - `sensor.usb_tether_status` (command_line, poll 30s): stato JSON + attributi (mode, phone_if, phone_gw, remaining_min, active_since, auto_expire, message)
+ - `sensor.usb_tether_log` (command_line, poll 15s, python3 `/config/helpers/read_usb_tether_log.py`): espone il log file `/config/logs/usb_tether/usb_tether.log` con attributi `line_count`, `updated`, `text`, `lines`
  
- **Modifiche principali:**
- 
- 1. **Nuovo parametro `-Mode`** (`server|intranet`): permette di distinguere tra:
-    - `server`: solo il server Windows usa il tethering (NAT per IP singolo)
-    - `intranet`: tutta la LAN (192.168.0.0/24) passa via Windows (NAT per subnet + disabilita WAN router)
- 
- 2. **Gestione WAN Router (modalità intranet):**
-    - `Disable-RouterWAN`: rimuove la route default `usb0` metric 10 sul router OpenWrt via SSH
-    - `Enable-RouterWAN`: ripristina la route default `usb0` metric 10 sul router
-    - Chiave SSH usata: `C:\Users\carlo_2\.ssh\router_key` (copiata da `/config/.ssh/router_key`)
-    - Utente: `root@192.168.0.11`
- 
- 3. **Funzioni helper aggiunte:**
-    - `Router-SSH`: wrapper per comandi SSH verso il router con timeout 5s, LogLevel QUIET
-    - `Disable-RouterWAN` / `Enable-RouterWAN`: comandi `ip route del/replace` su interfaccia `usb0`
- 
- 4. **Persistenza stato:** salva `mode` nel file JSON di stato (`$env:LOCALAPPDATA\usb_tether\usb_tether_state.json`) per sapere se ripristinare la WAN router al `restore`.
- 
- **Comandi disponibili:**
- ```powershell
- # Status
- .\usb_tether.ps1 -Action status
- 
- # Attiva modalità server (solo Windows via tethering)
- .\usb_tether.ps1 -Action activate -MaxMinutes 60 -Mode server
- 
- # Attiva modalità intranet (tutta LAN via Windows + disabilita WAN router)
- .\usb_tether.ps1 -Action activate -MaxMinutes 60 -Mode intranet
- 
- # Ripristina routing normale (riabilita WAN router se era intranet)
- .\usb_tether.ps1 -Action restore
- 
- # Diagnostica interfacce, route, NAT, telefono
- .\usb_tether.ps1 -Action diagnose
- ```
- 
- **Esecuzione da Home Assistant (via SSH):**
- ```bash
- ssh -i /config/.ssh/win_key carlo_2@192.168.0.8 \
-   "powershell -ExecutionPolicy Bypass -File C:\Scripts\usb_tether.ps1 -Action activate -MaxMinutes 60 -Mode intranet"
- ```
+ **Dashboard "Tethering USB" (`dashboards/internet_traffic.yaml`, path `tethering-usb`):**
+ - Banner stato colorato (verde/arancio/rosso/grigio) con auto-ripristino countdown
+ - 3 bottoni: 🔄 Normale (restore), 📱 Server (activate server), 🌐 Intranet (activate intranet)
+ - 🔴 EMERGENCY RESTORE: chiama direttamente `shell_command.usb_tether_restore` bypassando script/logica
+ - Textbox log con timestamp, contatore righe, ultimo aggiornamento, contenuto completo (monospace, pre-wrap)
+ - Dettagli sensore, selezione host (Debian/Windows), durata safety-net
  
 ---
-*Ultimo aggiornamento: 28 Luglio 2026*
+*Ultimo aggiornamento: 1 Agosto 2026 (commit 28a1b44)*
 
 ### Note di sicurezza
 - Le chiavi sono NON password-protette (uso automation).
