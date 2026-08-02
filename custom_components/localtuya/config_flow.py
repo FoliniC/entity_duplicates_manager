@@ -1205,6 +1205,11 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         if cloud_load_error:
             return await self.async_step_add_device_manual_cloud()
 
+        # If cloud loaded successfully, check if we should offer cache/refresh choice
+        cache_path = Path(self.hass.config.config_dir) / ".tuya_cloud_manual_list_cache.json"
+        if cache_path.exists() and not cloud_load_error:
+            return await self.async_step_add_device_choose_source()
+
         allDevices = mergeDevicesList(
             self.discovered_devices, self.cloud_data.device_list
         )
@@ -1244,6 +1249,80 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             data_schema=devices_schema(devices, self.cloud_data.device_list),
             errors=errors,
             description_placeholders={"debug_payload": str(cloud_debug_info)} if cloud_debug_info else {},
+        )
+
+    async def async_step_add_device_choose_source(self, user_input=None):
+        """Offer choice between using cached cloud data, fetching fresh, or manual input."""
+        _LOGGER.debug("async_step_add_device_choose_source called, user_input=%s", user_input is not None)
+        errors = {}
+        
+        # Check for existing cache
+        cache_path = Path(self.hass.config.config_dir) / ".tuya_cloud_manual_list_cache.json"
+        cached_json = None
+        if cache_path.exists():
+            try:
+                cached_json = json.loads(cache_path.read_text())
+                _LOGGER.debug("Loaded existing cache from %s", cache_path)
+            except Exception as ex:
+                _LOGGER.warning("Failed to load cache from %s: %s", cache_path, ex)
+                cached_json = None
+        
+        if user_input is not None:
+            action = user_input.get("action")
+            _LOGGER.info("Choose source: action=%s", action)
+            
+            if action == "use_cached" and cached_json is not None:
+                _LOGGER.info("Branch: use cached cloud data")
+                # Parse cached JSON and proceed to device list
+                try:
+                    parsed = cached_json
+                    if parsed and "result" in parsed and "data" in parsed.get("result", {}):
+                        devices_data = parsed["result"]["data"]
+                        # Filter unconfigured
+                        configured_devices = set()
+                        for entry in self.hass.config_entries.async_entries(DOMAIN):
+                            for dev_id in entry.data.get(CONF_DEVICES, {}).keys():
+                                configured_devices.add(dev_id)
+                        unconfigured = [d for d in devices_data if d.get("res_id") not in configured_devices]
+                        self._manual_device_ids = [d.get("res_id") for d in unconfigured]
+                        return await self.async_step_add_device_manual_cloud_detail()
+                except Exception as ex:
+                    _LOGGER.exception("Error processing cached data")
+                    errors["base"] = str(ex)
+            elif action == "refresh_cloud":
+                _LOGGER.info("Branch: refresh from cloud")
+                # Force refresh cloud data and proceed
+                self.cloud_data.device_list.clear()
+                self.cloud_data._last_devices_update = 0
+                return await self.async_step_add_device()
+            elif action == "manual":
+                _LOGGER.info("Branch: manual input")
+                return await self.async_step_add_device_manual_cloud()
+        
+        # Build choice schema
+        import voluptuous as vol
+        from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig, SelectSelectorMode, SelectOptionDict
+        
+        options = [
+            SelectOptionDict(value="refresh_cloud", label="🔄 Aggiorna da Tuya Cloud (fetch fresco)"),
+            SelectOptionDict(value="manual", label="📝 Inserisci JSON manualmente"),
+        ]
+        if cached_json is not None:
+            options.insert(0, SelectOptionDict(value="use_cached", label="📂 Usa dati in cache"))
+        
+        schema = vol.Schema({
+            vol.Required("action", default="refresh_cloud"): SelectSelector(
+                SelectSelectorConfig(options=options, mode=SelectSelectorMode.DROPDOWN),
+            ),
+        })
+        
+        return self.async_show_form(
+            step_id="add_device_choose_source",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={
+                "note": "Scegli come ottenere la lista dispositivi da Tuya Cloud."
+            },
         )
 
     async def async_step_add_device_manual_cloud(self, user_input=None):
