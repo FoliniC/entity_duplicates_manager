@@ -2529,6 +2529,24 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                         description_placeholders=placeholders,
                     )
 
+                # Validate IP is a private/local IP (LocalTuya requires local LAN connection)
+                import ipaddress
+                new_host = user_input.get(CONF_HOST, "")
+                if new_host:
+                    try:
+                        ip_obj = ipaddress.ip_address(new_host)
+                        if not ip_obj.is_private:
+                            errors["base"] = "public_ip_not_allowed"
+                            placeholders["ip"] = new_host
+                            return self.async_show_form(
+                                step_id="configure_device",
+                                data_schema=schema_suggested_values(DEVICE_SCHEMA, **defaults),
+                                errors=errors,
+                                description_placeholders={"ip": new_host},
+                            )
+                    except ValueError:
+                        pass  # Invalid IP format, let validate_input handle it
+
                 if not hasattr(self, "_validate_task"):
                     self._validate_task = self.hass.async_create_task(
                         validate_input(

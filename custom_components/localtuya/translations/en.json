@@ -72,6 +72,7 @@
             "cloud_fetch_spaces_failed": "Failed to fetch spaces from Tuya Cloud.",
             "cloud_fetch_resources_failed": "Failed to fetch device resources from selected space.",
             "duplicate_device": "This device is already configured or shares an IP/MAC with an existing device.\n{device_info}",
+            "public_ip_not_allowed": "The IP address {ip} is a public/cloud IP. LocalTuya requires the device's local LAN IP (e.g., 192.168.x.x, 10.x.x.x).",
             "no_spaces_available": "No spaces available. Check your Tuya Cloud account."
         },
         "step": {
