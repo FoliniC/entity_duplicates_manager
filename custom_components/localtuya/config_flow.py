@@ -2609,7 +2609,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             defaults[CONF_FRIENDLY_NAME] = user_in.get(CONF_FRIENDLY_NAME, "")
             defaults[CONF_NODE_ID] = user_in.get(CONF_NODE_ID, "")
 
-            if defaults[CONF_DEVICE_ID] in [cloud_devs, self.selected_device]:
+            if defaults[CONF_DEVICE_ID] in cloud_devs:
                 dev_id = defaults[CONF_DEVICE_ID]
 
             if dev_id is not None and dev_id in self.discovered_devices:
