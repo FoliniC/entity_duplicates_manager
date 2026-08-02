@@ -1,0 +1,13 @@
+# Target labels
+ bootloader
+# Source files and their labels
+/home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/build/CMakeFiles/bootloader
+/home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/build/CMakeFiles/bootloader.rule
+/home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/build/CMakeFiles/bootloader-complete.rule
+/home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/build/bootloader-prefix/src/bootloader-stamp/bootloader-build.rule
+/home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/build/bootloader-prefix/src/bootloader-stamp/bootloader-configure.rule
+/home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/build/bootloader-prefix/src/bootloader-stamp/bootloader-download.rule
+/home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/build/bootloader-prefix/src/bootloader-stamp/bootloader-install.rule
+/home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/build/bootloader-prefix/src/bootloader-stamp/bootloader-mkdir.rule
+/home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/build/bootloader-prefix/src/bootloader-stamp/bootloader-patch.rule
+/home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/build/bootloader-prefix/src/bootloader-stamp/bootloader-update.rule

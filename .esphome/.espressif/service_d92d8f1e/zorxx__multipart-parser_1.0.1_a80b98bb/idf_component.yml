@@ -1,0 +1,4 @@
+description: HTTP multipart form data parser (MIME, web, event-driven)
+license: MIT
+url: https://github.com/zorxx/multipart-parser
+version: 1.0.1

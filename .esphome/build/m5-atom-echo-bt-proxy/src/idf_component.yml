@@ -1,0 +1,82 @@
+dependencies:
+  chmorgan/esp-libhelix-mp3:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/esp-libhelix-mp3
+  espressif/cbor:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/cbor
+  espressif/esp-dsp:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/esp-dsp
+  espressif/esp-modbus:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/esp-modbus
+  espressif/esp-sr:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/esp-sr
+  espressif/esp-zboss-lib:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/esp-zboss-lib
+  espressif/esp-zigbee-lib:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/esp-zigbee-lib
+  espressif/esp_diag_data_store:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/esp_diag_data_store
+  espressif/esp_diagnostics:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/esp_diagnostics
+  espressif/esp_hosted:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/esp_hosted
+  espressif/esp_insights:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/esp_insights
+  espressif/esp_modem:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/esp_modem
+  espressif/esp_rainmaker:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/esp_rainmaker
+  espressif/esp_rcp_update:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/esp_rcp_update
+  espressif/esp_schedule:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/esp_schedule
+  espressif/esp_secure_cert_mgr:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/esp_secure_cert_mgr
+  espressif/esp_wifi_remote:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/esp_wifi_remote
+  espressif/json_generator:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/json_generator
+  espressif/json_parser:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/json_parser
+  espressif/lan867x:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/lan867x
+  espressif/libsodium:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/libsodium
+  espressif/network_provisioning:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/network_provisioning
+  espressif/qrcode:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/qrcode
+  espressif/rmaker_common:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/rmaker_common
+  joltwallet/littlefs:
+    version: '*'
+    override_path: /home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/component_stubs/littlefs
+  espressif/mdns:
+    version: 1.11.0
+  zorxx/multipart-parser:
+    version: 1.0.1
+  espressif/arduino-esp32:
+    version: 3.3.10

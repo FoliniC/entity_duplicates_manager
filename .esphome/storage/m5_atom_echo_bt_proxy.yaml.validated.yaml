@@ -1,0 +1,180 @@
+esphome:
+  name: m5-atom-echo-bt-proxy
+  friendly_name: M5 Atom Echo BT Proxy
+  min_version: 2026.7.3
+  build_path: build/m5-atom-echo-bt-proxy
+  platformio_options: {}
+  build_flags: []
+  environment_variables: {}
+  includes: []
+  includes_c: []
+  libraries: []
+  name_add_mac_suffix: false
+  merge_warnings: true
+  debug_scheduler: false
+  areas: []
+  devices: []
+esp32:
+  board: m5stack-atom
+  framework:
+    type: arduino
+    version: 3.3.10
+    sdkconfig_options: {}
+    log_level: ERROR
+    advanced:
+      compiler_optimization: SIZE
+      enable_idf_experimental_features: false
+      enable_lwip_assert: true
+      ignore_efuse_custom_mac: false
+      ignore_efuse_mac_crc: false
+      sram1_as_iram: false
+      enable_lwip_mdns_queries: true
+      enable_lwip_bridge_interface: false
+      enable_lwip_tcpip_core_locking: true
+      enable_lwip_check_thread_safety: true
+      disable_libc_locks_in_iram: true
+      disable_vfs_support_termios: true
+      disable_vfs_support_select: true
+      disable_vfs_support_dir: true
+      freertos_in_iram: false
+      ringbuf_in_iram: false
+      heap_in_iram: false
+      execute_from_psram: false
+      loop_task_stack_size: 8192
+      enable_ota_rollback: true
+      enable_ota_downgrade_protection: false
+      use_full_certificate_bundle: false
+      include_builtin_idf_components: []
+      enable_full_printf: false
+      disable_debug_stubs: true
+      disable_ocd_aware: true
+      disable_usb_serial_jtag_secondary: true
+      disable_dev_null_vfs: true
+      disable_mbedtls_peer_cert: true
+      disable_mbedtls_pkcs7: true
+      disable_regi2c_in_iram: true
+      adc_oneshot_in_iram: false
+      disable_fatfs: true
+    components: []
+  flash_size: 4MB
+  watchdog_timeout: 5s
+  variant: ESP32
+  cpu_frequency: 240MHZ
+logger:
+  level: DEBUG
+  id: logger_logger_id
+  baud_rate: 115200
+  tx_buffer_size: 512
+  deassert_rts_dtr: false
+  task_log_buffer_size: 768
+  hardware_uart: UART0
+  logs: {}
+  runtime_tag_levels: false
+api:
+  id: api_apiserver_id
+  port: 6053
+  reboot_timeout: 15min
+  batch_delay: 100ms
+  custom_services: false
+  homeassistant_services: false
+  homeassistant_states: false
+  listen_backlog: 4
+  max_connections: 5
+  max_send_queue: 8
+ota:
+  - platform: web_server
+    id: web_server_webserverotacomponent_id
+  - platform: esphome
+    id: esphome_esphomeotacomponent_id
+    version: 2
+    port: 3232
+    allow_partition_access: false
+wifi:
+  ap:
+    ssid: M5-Atom-Echo-BT-Proxy Fallback
+    password: fallback123
+    id: wifi_wifiap_id
+    ap_timeout: 90s
+  id: wifi_wificomponent_id
+  domain: .local
+  reboot_timeout: 15min
+  power_save_mode: LIGHT
+  fast_connect:
+    enabled: false
+    storage: flash
+  enable_btm: false
+  enable_rrm: false
+  passive_scan: false
+  enable_on_boot: true
+  post_connect_roaming: true
+  min_auth_mode: WPA2
+  networks:
+    - ssid: YOUR_WIFI_SSID
+      password: YOUR_WIFI_PASSWORD
+      id: wifi_wifiap_id_2
+      priority: 0
+  use_address: m5-atom-echo-bt-proxy.local
+captive_portal:
+  id: captive_portal_captiveportal_id
+  web_server_base_id: web_server_base_webserverbase_id
+  compression: gzip
+bluetooth_proxy:
+  active: true
+  id: bluetooth_proxy_bluetoothproxy_id
+  cache_services: true
+  connection_slots: 3
+  esp32_ble_id: esp32_ble_tracker_esp32bletracker_id
+  connections:
+    - esp32_ble_id: esp32_ble_tracker_esp32bletracker_id
+      id: bluetooth_proxy_bluetoothconnection_id
+    - esp32_ble_id: esp32_ble_tracker_esp32bletracker_id
+      id: bluetooth_proxy_bluetoothconnection_id_2
+    - esp32_ble_id: esp32_ble_tracker_esp32bletracker_id
+      id: bluetooth_proxy_bluetoothconnection_id_3
+preferences:
+  id: preferences_intervalsyncer_id
+  flash_write_interval: 60s
+safe_mode:
+  id: safe_mode_safemodecomponent_id
+  boot_is_good_after: 1min
+  disabled: false
+  num_attempts: 10
+  reboot_timeout: 5min
+  storage: flash
+md5: {}
+watchdog: {}
+sha256: {}
+socket:
+  implementation: bsd_sockets
+network:
+  id: network_networkcomponent_id
+  enable_ipv6: false
+  min_ipv6_addr_count: 0
+web_server_base:
+  id: web_server_base_webserverbase_id
+esp32_ble_client: {}
+esp32_ble_tracker:
+  id: esp32_ble_tracker_esp32bletracker_id
+  ble_id: esp32_ble_esp32ble_id
+  scan_parameters:
+    duration: 5min
+    interval: 320ms
+    window: 30ms
+    active: true
+    continuous: true
+  software_coexistence: true
+mdns:
+  id: mdns_mdnscomponent_id
+  disabled: false
+  services: []
+web_server_idf: {}
+esp32_ble:
+  id: esp32_ble_esp32ble_id
+  io_capability: none
+  enable_on_boot: true
+  advertising: false
+  advertising_cycle_time: 10s
+  disable_bt_logs: true
+  connection_timeout: 20s
+  max_notifications: 12
+  max_connections: 3

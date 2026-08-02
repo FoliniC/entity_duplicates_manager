@@ -66,6 +66,17 @@
             "interval": 1,
             "backup_count": 100,
             "state_persistence": false
+        },
+        "usb_tether": {
+            "log_dir": "/config/logs/usb_tether",
+            "log_file": "usb_tether.log",
+            "archive": true,
+            "rotation_type": "both",
+            "max_bytes": 1048576,
+            "when": "midnight",
+            "interval": 1,
+            "backup_count": 30,
+            "state_persistence": false
         }
     }
 }

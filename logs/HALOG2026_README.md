@@ -67,6 +67,12 @@ You can modify the behavior of each log by editing `halog2026_config.json`:
 - **Features**: Active archiving (2MB or midnight), keeps 100 files. Logs every state change of `switch.luci_cucina_switch_1..4` (`on` / `off` / `unavailable` / `unknown`), classifying the reason (physical/RF, web UI/app, automation, Wi-Fi/cloud dropout). Uses `WARNING` level for anomalous transitions (arrival from `unavailable` / `unknown`).
 - **Updated**: 2026-07-08 - Added to track unexplained switch-offs after Power-on behavior was set to "Last State".
 
+### 7. USB Tether
+- **Writer**: `pyscript.halog2026_write` with `subsystem: usb_tether`
+- **Destination**: `/config/logs/usb_tether/usb_tether.log`
+- **Features**: Active archiving (1MB or midnight), keeps 30 files. Logs dashboard actions, guard blocks, state transitions, activation failures, and auto-restore events. The dashboard reads the latest lines through `sensor.usb_tether_log`, whose state stays short and whose attributes expose bounded log text. USB tether scripts call the writer service directly because they are user actions and do not run during HA boot validation.
+- **Updated**: 2026-08-01 - Migrated from `input_text`-based UI logging to HALog2026 file-backed logging.
+
 ---
 
 # HALog2026 — Sistema di Logging Unificato
@@ -137,6 +143,12 @@ Puoi modificare il comportamento di ogni log agendo su `halog2026_config.json`:
 - **Provenienza**: Script shell esterni (es: `ha_update.sh`) o automazioni di manutenzione.
 - **Caratteristiche**: Rotazione quotidiana, tiene 100 file. Registra esiti aggiornamenti container e task di sistema.
 - **Aggiornato**: 2026-06-03 - Aggiunto supporto per `ha_update.sh`.
+
+### 7. USB Tether
+- **Scrittura**: `pyscript.halog2026_write` con `subsystem: usb_tether`
+- **Destinazione**: `/config/logs/usb_tether/usb_tether.log`
+- **Caratteristiche**: Archiviazione attiva (1MB o mezzanotte), tiene 30 file. Registra azioni dashboard, blocchi di guardia, transizioni di stato, fallimenti di attivazione e auto-restore. La dashboard legge le ultime righe tramite `sensor.usb_tether_log`, con stato corto e attributi limitati per il testo del log. Gli script USB tether chiamano direttamente il servizio writer perché sono azioni utente e non vengono eseguiti durante la validazione al boot di HA.
+- **Aggiornato**: 2026-08-01 - Migrato dal logging UI basato su `input_text` al logging file-backed HALog2026.
 
 ---
 **Note for maintenance / Nota per la manutenzione**: JSON changes are loaded automatically at the next rotation event or restart. Le modifiche al file JSON vengono caricate automaticamente al prossimo evento di rotazione o al riavvio.

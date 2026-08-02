@@ -1,0 +1,33 @@
+esphome:
+  name: m5-atom-echo-bt-proxy
+  friendly_name: "M5 Atom Echo BT Proxy"
+
+esp32:
+  board: m5stack-atom
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+  level: DEBUG
+
+# Enable Home Assistant API
+api:
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: "YOUR_WIFI_SSID"
+  password: "YOUR_WIFI_PASSWORD"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "M5-Atom-Echo-BT-Proxy Fallback"
+    password: "fallback123"
+
+captive_portal:
+
+# Bluetooth Proxy configuration
+bluetooth_proxy:
+  active: true
