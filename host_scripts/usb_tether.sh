@@ -21,6 +21,12 @@
 #   usb_tether.sh restore              -> ripristina (idempotente, sicura a idle)
 #   usb_tether.sh status               -> JSON stato (active/idle/error)
 #   usb_tether.sh _watch <expire_at>   -> interno: loop del watcher
+#   usb_tether.sh _drain <table> <mark> [max_wait] -> interno: drenaggio grace
+#
+# Prerequisiti per la protezione stream lato router (Echo/Alexa ecc.):
+#   - apt install conntrack (su Debian, per il drenaggio locale)
+#   - installare tethering-graceful.sh su OpenWrt (vedi script separato)
+#   - impostare PROTECTED_DEVICE_IP qui sotto con l'IP riservato del device
 # ============================================================================
 
 set -u
@@ -34,6 +40,20 @@ ROUTER_IP="192.168.0.11"              # IP router OpenWrt (sorgente traffico da 
 ROUTER_SSH_KEY="/home/carlo/docker/homeassistant/config/.ssh/router_key"
 ROUTER_ROUTE_METRIC=30                # metric della route sul router (dopo wan=10, wwan=20)
 ROUTER_WAN_IF="usb0"                  # interfaccia WAN USB del router OpenWrt
+
+# --- Graceful transition: tabelle/mark dedicati per non collidere fra loro ---
+LOCAL_TABLE_ACTIVATE=81      # Debian: swap verso il telefono (mark 0x1, esistente)
+LOCAL_TABLE_RESTORE=82       # Debian: swap dal telefono alla LAN (mark 0x2, esistente)
+LOCAL_DRAIN_CEILING=1800     # 30 min - protegge TUTTE le connessioni stabilite, non solo una
+ROUTER_TABLE_LEAVE_WAN=88    # Router: lascia la propria WAN/tethering locale
+ROUTER_MARK_LEAVE_WAN=0x88
+ROUTER_TABLE_LEAVE_ANCHOR=89 # Router: lascia il fallback via Debian/Windows
+ROUTER_MARK_LEAVE_ANCHOR=0x89
+ROUTER_DRAIN_CEILING=21600   # 6h - scoped a un solo device, tetto piu' permissivo
+ROUTER_GRACEFUL_SCRIPT="/usr/bin/tethering-graceful.sh"
+# IP riservato (DHCP statico) del device da proteggere in modo prioritario
+# sul router, es. Echo. Vuoto = router_graceful_* diventano no-op sicuri.
+PROTECTED_DEVICE_IP="192.168.0.90"        # <-- IMPOSTARE (es. "192.168.0.50")
 # Pattern di interfacce da ESCLUDERE nella ricerca del telefono.
 # Le veth hanno suffisso @ifN (es. vethabc123@if2) che va gestito.
 EXCLUDE_RE='^(lo|docker[0-9]*|br-[a-f0-9]+|veth[a-f0-9]+(@.*)?|zt[a-z0-9]+|tun[0-9]*|enp2s0|sit[0-9]*|ip6tnl[0-9]*|wlan[0-9]+)$'
@@ -67,9 +87,13 @@ router_add_fallback_route() {
 }
 
 router_del_fallback_route() {
+    # Protegge (se PROTECTED_DEVICE_IP e' configurato) i flussi del device
+    # che stavano ancora usando l'anchor prima di toglierla.
+    router_graceful_begin "$ROUTER_TABLE_LEAVE_ANCHOR" "$ROUTER_MARK_LEAVE_ANCHOR" "192.168.0.3" "br-lan"
     router_ssh "ip route del default via 192.168.0.3 dev br-lan metric $ROUTER_ROUTE_METRIC 2>/dev/null; true" \
         && echo "Route fallback rimossa dal router." \
         || echo "WARN: impossibile rimuovere route fallback dal router (forse gia assente)." >&2
+    router_graceful_end "$ROUTER_TABLE_LEAVE_ANCHOR" "$ROUTER_MARK_LEAVE_ANCHOR" "$ROUTER_DRAIN_CEILING"
 }
 
 # Legge da netifd il gateway DHCP attuale della WAN USB del router.
@@ -78,11 +102,26 @@ router_wan_gateway() {
         | tr -d '\r'
 }
 
+# Legge il gateway ATTUALMENTE in uso sulla route WAN attiva (non lo stato
+# DHCP di netifd, la route vera - e' quella che va preservata in transizione).
+router_current_wan_gw() {
+    router_ssh "ip route show default dev $ROUTER_WAN_IF metric 10 2>/dev/null | awk '{print \$3; exit}'" \
+        | tr -d '\r'
+}
+
 # Toglie/ripristina la WAN primaria del router per forzare tutto il traffico via server.
 router_wan_down() {
+    local cur_gw
+    cur_gw=$(router_current_wan_gw)
+    if [[ "$cur_gw" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        router_graceful_begin "$ROUTER_TABLE_LEAVE_WAN" "$ROUTER_MARK_LEAVE_WAN" "$cur_gw" "$ROUTER_WAN_IF"
+    fi
     router_ssh "while ip route del default dev $ROUTER_WAN_IF metric 10 2>/dev/null; do :; done; true" \
         && echo "WAN router disattivata (route $ROUTER_WAN_IF rimossa)." \
         || echo "WARN: WAN router gia assente o errore." >&2
+    if [[ "$cur_gw" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        router_graceful_end "$ROUTER_TABLE_LEAVE_WAN" "$ROUTER_MARK_LEAVE_WAN" "$ROUTER_DRAIN_CEILING"
+    fi
 }
 
 router_wan_up() {
@@ -97,6 +136,70 @@ router_wan_up() {
             && echo "WAN router riattivata tramite ifup wan." \
             || echo "WARN: impossibile ripristinare WAN router." >&2
     fi
+}
+
+# ============================================================================
+# --- Graceful transition -----------------------------------------------------
+# Protegge le connessioni ESTABLISHED/RELATED durante uno swap di default
+# route, finche' non terminano davvero (o scade un tetto di sicurezza),
+# mentre le connessioni NUOVE usano subito il nuovo percorso.
+#
+# Due bug classici da evitare (entrambi presenti nella versione precedente):
+#  1. "ip rule fwmark X lookup main" non ha ALCUN effetto se 'main' ha piu'
+#     default route a metriche diverse: la scelta della rotta in una tabella
+#     dipende solo dalla metrica, mai dal mark. Serve una tabella dedicata.
+#  2. "CONNMARK --set-mark" da solo marca SOLO la connessione in conntrack,
+#     mai il pacchetto: senza un "CONNMARK --restore-mark" a monte, "ip rule
+#     fwmark" non scatta MAI (il meccanismo diventa un no-op silenzioso).
+#
+# Inoltre la tabella dedicata deve contenere anche la subnet LAN come route
+# on-link: altrimenti anche il traffico di ritorno verso host LAN (marcato,
+# perche' appartiene alla stessa connessione) cadrebbe sulla route di
+# default della tabella e uscirebbe dall'interfaccia sbagliata.
+# ============================================================================
+
+graceful_begin() {
+    local table_id="$1" mark="$2" old_gw="$3" old_dev="$4"
+    local chain="TETHER_LOCAL_${mark}"
+
+    iptables -t mangle -N "$chain" 2>/dev/null || true
+    iptables -t mangle -C PREROUTING -j "$chain" 2>/dev/null \
+        || iptables -t mangle -A PREROUTING -j "$chain"
+    iptables -t mangle -F "$chain"
+    iptables -t mangle -A "$chain" -j CONNMARK --restore-mark
+    iptables -t mangle -A "$chain" -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-mark "$mark"
+
+    ip route add "$LAN_NET" dev "$LAN_IF" table "$table_id" 2>/dev/null || true
+    ip route replace default via "$old_gw" dev "$old_dev" table "$table_id"
+    ip rule del fwmark "$mark" lookup "$table_id" 2>/dev/null || true
+    ip rule add fwmark "$mark" lookup "$table_id" pref 100
+}
+
+# Avvia il drenaggio in background (stesso pattern di auto-invocazione del
+# watchdog: setsid + self-exec) cosi' la chiamata ritorna subito anche se
+# il tetto di sicurezza e' di ore, non secondi.
+graceful_end_async() {
+    local table_id="$1" mark="$2" max_wait="${3:-1800}"
+    setsid bash "$0" _drain "$table_id" "$mark" "$max_wait" >/dev/null 2>&1 < /dev/null &
+}
+
+# --- SSH al router: stesso meccanismo begin/end, ma sul lato OpenWrt --------
+# Richiede /usr/bin/tethering-graceful.sh installato sul router (vedi script
+# separato). Se PROTECTED_DEVICE_IP e' vuota, non fa nulla (no-op sicuro).
+router_graceful_begin() {
+    local table_id="$1" mark="$2" old_gw="$3" old_dev="$4"
+    [ -z "$PROTECTED_DEVICE_IP" ] && return 0
+    router_ssh "$ROUTER_GRACEFUL_SCRIPT begin $table_id $mark $PROTECTED_DEVICE_IP $old_gw $old_dev" \
+        && echo "Router: protezione flussi attiva per $PROTECTED_DEVICE_IP (table $table_id)." \
+        || echo "WARN: router_graceful_begin fallito (script installato sul router?)." >&2
+}
+
+router_graceful_end() {
+    local table_id="$1" mark="$2" max_wait="${3:-21600}"
+    [ -z "$PROTECTED_DEVICE_IP" ] && return 0
+    router_ssh "$ROUTER_GRACEFUL_SCRIPT end $table_id $mark $max_wait" \
+        && echo "Router: drenaggio avviato (table $table_id, tetto ${max_wait}s)." \
+        || echo "WARN: router_graceful_end fallito." >&2
 }
 
 # --- NAT/Forwarding per traffico LAN router -> telefono ---
@@ -402,41 +505,23 @@ cmd_activate() {
     # Abilita NAT/forwarding per traffico router -> telefono.
     enable_nat_router "$iface"
 
-    # GRACEFUL TRANSITION: marca le connessioni gia' stabilite per tenerle sulla vecchia route.
-    # Usa CONNMARK per non rompere streaming/TCP esistenti (Alexa, ecc.).
-    local grace_period=60  # secondi per far defluire le connessioni
+    # GRACEFUL TRANSITION (locale): protegge le connessioni ESTABLISHED del
+    # server finche' non finiscono davvero (o scade il tetto), poi ripulisce.
+    # "Vecchio" percorso = LAN/router (quello in uso prima di questa activate).
     if command -v iptables >/dev/null 2>&1; then
-        # Marca connessioni ESTABLISHED/RELATED esistenti verso vecchi gateway
-        iptables -t mangle -A PREROUTING -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-mark 0x1 2>/dev/null || true
-        # Route marked connections via vecchio gateway LAN
-        ip rule add fwmark 0x1 lookup main pref 100 2>/dev/null || true
-        # (la route main ha ancora il vecchio gateway a metric 100)
-        
-        # Dopo grace_period, pulisci le regole e (se intranet) disabilita WAN router
-        (
-            sleep "$grace_period"
-            iptables -t mangle -D PREROUTING -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-mark 0x1 2>/dev/null || true
-            ip rule del fwmark 0x1 lookup main pref 100 2>/dev/null || true
-            # Se modalita' intranet, ORA disabilita WAN router (connessioni vecchie drenate)
-            if [ "$mode" = "intranet" ]; then
-                router_wan_down
-                echo "Modalita' INTRANET: WAN router disattivata dopo drenaggio connessioni (${grace_period}s)."
-            fi
-        ) &
-    else
-        # Fallback senza iptables: transizione immediata
-        if [ "$mode" = "intranet" ]; then
-            router_wan_down
-            echo "Modalita' INTRANET: WAN router disattivata (iptables non disponibile)."
-        fi
+        graceful_begin "$LOCAL_TABLE_ACTIVATE" 0x1 "$lan_gw" "$LAN_IF"
+        graceful_end_async "$LOCAL_TABLE_ACTIVATE" 0x1 "$LOCAL_DRAIN_CEILING"
     fi
 
-    # Se NON intranet, la WAN router resta attiva (route metric 100).
+    # Se modalita' intranet, disabilita SUBITO la WAN router: il router ha
+    # una propria protezione indipendente (router_graceful_*, dentro
+    # router_wan_down) per il device configurato in PROTECTED_DEVICE_IP -
+    # non serve piu' aspettare il drenaggio locale del server per farlo.
     local intranet_mode="false"
     if [ "$mode" = "intranet" ]; then
         intranet_mode="true"
-        # Messaggio iniziale - il vero switch avviene dopo grace_period in background
-        echo "Modalita' INTRANET avviata: switch graduale tra ${grace_period}s..."
+        router_wan_down
+        echo "Modalita' INTRANET: WAN router disattivata (protezione flussi lato router attiva)."
     fi
 
     # Salva stato (include la modalita' per ripristino corretto).
@@ -541,35 +626,21 @@ cmd_rndis_activate() {
 
     enable_nat_router "$iface"
 
-    # GRACEFUL TRANSITION: marca le connessioni gia' stabilite per tenerle sulla vecchia route.
-    local grace_period=60
+    # GRACEFUL TRANSITION (locale): vedi cmd_activate per i dettagli del perche'
+    # serve una tabella dedicata + restore-mark invece del vecchio "lookup main".
     if command -v iptables >/dev/null 2>&1; then
-        iptables -t mangle -A PREROUTING -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-mark 0x1 2>/dev/null || true
-        ip rule add fwmark 0x1 lookup main pref 100 2>/dev/null || true
-        
-        (
-            sleep "$grace_period"
-            iptables -t mangle -D PREROUTING -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-mark 0x1 2>/dev/null || true
-            ip rule del fwmark 0x1 lookup main pref 100 2>/dev/null || true
-            if [ "$mode_valid" = "intranet" ]; then
-                router_wan_down
-                echo "Modalita' INTRANET: WAN router disattivata dopo drenaggio connessioni (${grace_period}s)."
-            fi
-        ) &
-    else
-        if [ "$mode_valid" = "intranet" ]; then
-            router_wan_down
-            echo "Modalita' INTRANET: WAN router disattivata (iptables non disponibile)."
-        fi
+        graceful_begin "$LOCAL_TABLE_ACTIVATE" 0x1 "$lan_gw" "$LAN_IF"
+        graceful_end_async "$LOCAL_TABLE_ACTIVATE" 0x1 "$LOCAL_DRAIN_CEILING"
+    fi
+
+    if [ "$mode_valid" = "intranet" ]; then
+        router_wan_down
+        echo "Modalita' INTRANET: WAN router disattivata (protezione flussi lato router attiva)."
     fi
 
     local now expire
     now=$(now_epoch)
     expire=$((now + max_min_valid * 60))
-
-    if [ "$mode_valid" = "intranet" ]; then
-        echo "Modalita' INTRANET avviata: switch graduale tra ${grace_period}s..."
-    fi
 
     {
         echo "state=active"
@@ -615,42 +686,37 @@ cmd_restore() {
         phone_gw=$(grep -E '^phone_gw=' "$STATE_FILE" | cut -d= -f2-)
     fi
 
-    # GRACEFUL RESTORE: se c'era una route tethering, non rimuoverla subito.
-    # Marca le connessioni SULLA route tethering per continuare a usarla,
-    # mentre le nuove useranno la WAN ripristinata.
-    local grace_period=30
+    # GRACEFUL RESTORE: se c'era una route tethering, protegge le connessioni
+    # ESTABLISHED finche' non finiscono davvero (o scade il tetto), invece di
+    # un timer fisso - una radio in streaming non "finisce" mai da sola entro
+    # nessun timer ragionevole, quindi un timer fisso la interrompe comunque.
     if [ -n "$phone_if" ] && [ -n "$phone_gw" ] && ip route show | grep -q "default via $phone_gw dev $phone_if metric 50"; then
-        echo "Restore graceful: drenaggio connessioni tethering per ${grace_period}s..." >&2
-        
-        # 1. Ripristina WAN router SUBITO (le nuove connessioni useranno questa)
+        echo "Restore graceful: protezione connessioni tethering avviata..." >&2
+
+        # 1. Protegge le connessioni ESTABLISHED via telefono in una tabella
+        #    dedicata PRIMA di toccare la route in main (altrimenti per un
+        #    istante nessuno le protegge).
+        graceful_begin "$LOCAL_TABLE_RESTORE" 0x2 "$phone_gw" "$phone_if"
+
+        # 2. Ripristina la WAN del router (route del router, indipendente).
         router_wan_up
-        
-        # 2. Marca connessioni ESTABLISHED sulla route tethering per tenerle lì
-        iptables -t mangle -A PREROUTING -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-mark 0x2 2>/dev/null || true
-        ip rule add fwmark 0x2 lookup main pref 90 2>/dev/null || true
-        # main ha ancora la route tethering a metric 50 e WAN a metric 100
-        
-        # 3. Dopo grace_period, rimuovi route tethering e pulizia
-        (
-            sleep "$grace_period"
-            # Rimuovi route tethering
-            ip route del default via "$phone_gw" dev "$phone_if" metric 50 2>/dev/null || true
-            while ip route del default metric 50 2>/dev/null; do :; done
-            # Pulizia regole
-            iptables -t mangle -D PREROUTING -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-mark 0x2 2>/dev/null || true
-            ip rule del fwmark 0x2 lookup main pref 90 2>/dev/null || true
-        ) &
+
+        # 3. Rimuovi SUBITO la route telefono da main: le nuove connessioni
+        #    vedono solo la LAN/router come default. Quelle marcate restano
+        #    protette dalla tabella dedicata (ip rule fwmark 0x2).
+        ip route del default via "$phone_gw" dev "$phone_if" metric 50 2>/dev/null || true
+        while ip route del default metric 50 2>/dev/null; do :; done
+
+        # 4. Drena in background finche' i flussi marcati non finiscono
+        #    davvero (o scade il tetto), poi ripulisce tabella/rule/chain.
+        graceful_end_async "$LOCAL_TABLE_RESTORE" 0x2 "$LOCAL_DRAIN_CEILING"
     else
         # Nessuna route tethering attiva, restore immediato
         router_wan_up
     fi
 
-    # Tentativo generico: rimuovi ogni default route con metric 50 (pulizia finale).
-    # NOTA: la route vera viene rimossa dal background job sopra dopo grace_period.
-    # Qui puliamo solo se non c'era route tethering.
-    if [ -z "$phone_if" ] || [ -z "$phone_gw" ] || ! ip route show | grep -q "default via $phone_gw dev $phone_if metric 50"; then
-        while ip route del default metric 50 2>/dev/null; do :; done
-    fi
+    # Pulizia finale idempotente (no-op se il ramo sopra ha gia' rimosso tutto).
+    while ip route del default metric 50 2>/dev/null; do :; done
 
     # Rimuovi la connessione NM temporanea creata da bring_up_iface, se presente.
     if [ -n "$phone_if" ]; then
@@ -660,9 +726,11 @@ cmd_restore() {
     # Disabilita NAT/forwarding per traffico router.
     disable_nat_router "$phone_if"
 
-    # Cleanup regole graceful transition precedenti (mark 0x1).
-    iptables -t mangle -D PREROUTING -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-mark 0x1 2>/dev/null || true
-    ip rule del fwmark 0x1 lookup main pref 100 2>/dev/null || true
+    # Pulizia extra: se un drenaggio dell'ultima activate fosse ancora appeso,
+    # chiudilo subito - stiamo comunque tornando definitivamente alla LAN.
+    iptables -t mangle -F "TETHER_LOCAL_0x1" 2>/dev/null || true
+    ip rule del fwmark 0x1 lookup "$LOCAL_TABLE_ACTIVATE" 2>/dev/null || true
+    ip route flush table "$LOCAL_TABLE_ACTIVATE" 2>/dev/null || true
 
     rm -f "$STATE_FILE"
     echo "OK ripristinato: default route tornata alla LAN (graceful)."
@@ -685,6 +753,35 @@ cmd_watch() {
         [ -f "$STATE_FILE" ] || exit 0
         sleep 15
     done
+}
+
+# --- _drain (interno) --------------------------------------------------------
+# Aspetta che non ci siano piu' connessioni con quel mark (o scada il tetto),
+# poi ripulisce chain/rule/tabella. Lanciato via graceful_end_async (self-exec
+# con setsid, stesso pattern del watchdog: sopravvive a fine sessione SSH).
+cmd_drain() {
+    local table_id="$1" mark="$2" max_wait="${3:-1800}"
+    local chain="TETHER_LOCAL_${mark}"
+    local waited=0 count=1
+
+    if ! command -v conntrack >/dev/null 2>&1; then
+        # Senza conntrack-tools non sappiamo quando i flussi finiscono davvero:
+        # fallback al vecchio comportamento (tempo fisso). Consigliato:
+        # apt install conntrack
+        sleep "$max_wait"
+    else
+        while [ "$waited" -lt "$max_wait" ]; do
+            count=$(conntrack -L -m "$((mark))" 2>/dev/null | grep -Ec '^(tcp|udp|icmp|unknown|sctp)')
+            [ "${count:-0}" -eq 0 ] && break
+            sleep 20
+            waited=$((waited + 20))
+        done
+    fi
+
+    iptables -t mangle -F "$chain" 2>/dev/null || true
+    ip rule del fwmark "$mark" lookup "$table_id" 2>/dev/null || true
+    ip route flush table "$table_id" 2>/dev/null || true
+    logger -t usb_tether "drain table $table_id (mark $mark) completato dopo ${waited}s" 2>/dev/null || true
 }
 
 # --- status -----------------------------------------------------------------
@@ -800,6 +897,7 @@ case "${1:-status}" in
     status)      cmd_status ;;
     diagnose)    cmd_diagnose ;;
     _watch)      shift; cmd_watch "$@" ;;
+    _drain)      shift; cmd_drain "$@" ;;
     *)
         echo "Uso: $0 {detect|activate [max_min] [intranet|server]|rndis_activate [max_min] [intranet|server]|restore|status|diagnose}" >&2
         exit 64
