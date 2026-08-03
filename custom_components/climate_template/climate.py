@@ -75,7 +75,7 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.reload import async_setup_reload_service
 from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.helpers.script import Script
+from homeassistant.helpers.script import Script, SCRIPT_MODE_QUEUED
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 _LOGGER = logging.getLogger(__name__)
@@ -324,41 +324,47 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
         self._set_humidity_script = None
         if set_humidity_action := config.get(CONF_SET_HUMIDITY_ACTION):
             self._set_humidity_script = Script(
-                hass, set_humidity_action, self._attr_name, DOMAIN
+                hass, set_humidity_action, self._attr_name, DOMAIN,
+                script_mode=SCRIPT_MODE_QUEUED,
             )
             self._attr_supported_features |= ClimateEntityFeature.TARGET_HUMIDITY
 
         self._set_hvac_mode_script = None
         if set_hvac_mode_action := config.get(CONF_SET_HVAC_MODE_ACTION):
             self._set_hvac_mode_script = Script(
-                hass, set_hvac_mode_action, self._attr_name, DOMAIN
+                hass, set_hvac_mode_action, self._attr_name, DOMAIN,
+                script_mode=SCRIPT_MODE_QUEUED,
             )
 
         self._set_swing_mode_script = None
         if set_swing_mode_action := config.get(CONF_SET_SWING_MODE_ACTION):
             self._set_swing_mode_script = Script(
-                hass, set_swing_mode_action, self._attr_name, DOMAIN
+                hass, set_swing_mode_action, self._attr_name, DOMAIN,
+                script_mode=SCRIPT_MODE_QUEUED,
             )
             self._attr_supported_features |= ClimateEntityFeature.SWING_MODE
 
         self._set_fan_mode_script = None
         if set_fan_mode_action := config.get(CONF_SET_FAN_MODE_ACTION):
             self._set_fan_mode_script = Script(
-                hass, set_fan_mode_action, self._attr_name, DOMAIN
+                hass, set_fan_mode_action, self._attr_name, DOMAIN,
+                script_mode=SCRIPT_MODE_QUEUED,
             )
             self._attr_supported_features |= ClimateEntityFeature.FAN_MODE
 
         self._set_preset_mode_script = None
         if set_preset_mode_action := config.get(CONF_SET_PRESET_MODE_ACTION):
             self._set_preset_mode_script = Script(
-                hass, set_preset_mode_action, self._attr_name, DOMAIN
+                hass, set_preset_mode_action, self._attr_name, DOMAIN,
+                script_mode=SCRIPT_MODE_QUEUED,
             )
             self._attr_supported_features |= ClimateEntityFeature.PRESET_MODE
 
         self._set_temperature_script = None
         if set_temperature_action := config.get(CONF_SET_TEMPERATURE_ACTION):
             self._set_temperature_script = Script(
-                hass, set_temperature_action, self._attr_name, DOMAIN
+                hass, set_temperature_action, self._attr_name, DOMAIN,
+                script_mode=SCRIPT_MODE_QUEUED,
             )
             if HVACMode.HEAT_COOL in self._attr_hvac_modes:
                 self._attr_supported_features |= (
