@@ -1201,20 +1201,24 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                       len(self.cloud_data.device_list),
                       list(self.cloud_data.device_list.keys())[:3])
 
-        # If cloud load failed, ask user to provide device list JSON manually
-        if cloud_load_error:
-            return await self.async_step_add_device_manual_cloud()
-
-        # If cloud loaded successfully, check if we should offer cache/refresh choice
+        # If cloud load failed or cache exists, offer the 3-option choose_source dialog
         cache_path = Path(self.hass.config.config_dir) / ".tuya_cloud_manual_list_cache.json"
-        cache_exists = cache_path.exists()
         cache_abs = str(cache_path.absolute())
         _LOGGER.info("async_step_add_device: checking cache at %s, exists=%s, cloud_load_error=%s", cache_abs, cache_path.exists(), cloud_load_error)
-        if cache_path.exists() and not cloud_load_error:
+        if cloud_load_error:
+            if cache_path.exists():
+                _LOGGER.info("async_step_add_device: cloud failed but cache exists, showing choose_source dialog")
+                return await self.async_step_add_device_choose_source()
+            else:
+                _LOGGER.info("async_step_add_device: cloud failed and no cache, going to manual input")
+                return await self.async_step_add_device_manual_cloud()
+
+        # Cloud loaded successfully — also offer choose_source if cache exists
+        if cache_path.exists():
             _LOGGER.info("async_step_add_device: cache file exists, showing choose_source dialog")
             return await self.async_step_add_device_choose_source()
         else:
-            _LOGGER.info("async_step_add_device: skipping choose_source (cache_exists=%s, cloud_load_error=%s)", cache_path.exists(), cloud_load_error)
+            _LOGGER.info("async_step_add_device: no cache, skipping choose_source")
 
         allDevices = mergeDevicesList(
             self.discovered_devices, self.cloud_data.device_list
@@ -2454,7 +2458,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         _LOGGER.debug("async_step_configure_device called")
         """Handle input of basic info."""
         errors = {}
-        placeholders = {}
+        placeholders = {"for_device": ""}
         dev_id = self.selected_device
         cloud_devs = self.cloud_data.device_list if self.cloud_data else {}
         defaults = {}
@@ -2596,7 +2600,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                         existing_mac = existing_dev.get("mac", "")
                         existing_cloud_id = existing_dev.get("device_id", "")
 
-                        if new_host and existing_host == new_host and existing_dev_id != dev_id:
+                        if new_host and new_host != "0.0.0.0" and existing_host == new_host and existing_host != "0.0.0.0" and existing_dev_id != dev_id:
                             existing_errors.append(
                                 f"La IP {new_host} è già configurata per il dispositivo "
                                 f'"{existing_name}" (id: {existing_dev_id}).'
@@ -2624,6 +2628,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                     _LOGGER.warning("Duplicate device blocked: %s", existing_errors)
                     errors["base"] = "duplicate_device"
                     placeholders["device_info"] = " ".join(existing_errors)
+                    placeholders["for_device"] = f" for device `{dev_id}`" if dev_id else ""
                     return self.async_show_form(
                         step_id="configure_device",
                         data_schema=schema_suggested_values(DEVICE_SCHEMA, **defaults),
@@ -2634,20 +2639,59 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 # Validate IP is a private/local IP (LocalTuya requires local LAN connection)
                 import ipaddress
                 new_host = user_input.get(CONF_HOST, "")
-                if new_host:
+                is_sleepy_device = False
+
+                if not new_host or new_host == "0.0.0.0":
+                    is_sleepy_device = True
+                elif new_host:
                     try:
                         ip_obj = ipaddress.ip_address(new_host)
                         if not ip_obj.is_private:
-                            errors["base"] = "public_ip_not_allowed"
-                            placeholders["ip"] = new_host
-                            return self.async_show_form(
-                                step_id="configure_device",
-                                data_schema=schema_suggested_values(DEVICE_SCHEMA, **defaults),
-                                errors=errors,
-                                description_placeholders={"ip": new_host},
+                            _LOGGER.info(
+                                "[SLEEPY-DEVICE] IP %s is a public/cloud IP. "
+                                "Treating this as a sleepy device and registering with placeholder IP 0.0.0.0.",
+                                new_host
                             )
+                            is_sleepy_device = True
                     except ValueError:
-                        pass  # Invalid IP format, let validate_input handle it
+                        _LOGGER.info(
+                            "[SLEEPY-DEVICE] IP %s is invalid. "
+                            "Treating this as a sleepy device and registering with placeholder IP 0.0.0.0.",
+                            new_host
+                        )
+                        is_sleepy_device = True
+
+                # Special case: register now, discover IP at wake-up
+                if is_sleepy_device:
+                    _LOGGER.info(
+                        "[SLEEPY-DEVICE] Registering device %s with placeholder IP 0.0.0.0. "
+                        "IP will be auto-updated when device broadcasts its UDP discovery packet.",
+                        user_input.get(CONF_DEVICE_ID),
+                    )
+                    self.device_data = user_input.copy()
+                    self.device_data[CONF_HOST] = "0.0.0.0"  # Force placeholder IP
+                    self.device_data[CONF_DEVICE_ID] = user_input.get(CONF_DEVICE_ID)
+                    self.device_data[CONF_NODE_ID] = self.nodeID
+                    self.device_data[CONF_DPS_STRINGS] = []
+                    self.device_data["pending_discovery"] = True
+                    if not self.device_data.get(CONF_FRIENDLY_NAME):
+                        dev_id = user_input.get(CONF_DEVICE_ID, "")
+                        cloud_name = cloud_devs.get(dev_id, {}).get(CONF_NAME) if 'cloud_devs' in locals() and cloud_devs else None
+                        self.device_data[CONF_FRIENDLY_NAME] = cloud_name or f"Tuya {dev_id}"
+                    self.dps_strings = []
+                    self.entities = []
+                    dev_id = self.device_data[CONF_DEVICE_ID]
+                    config = {
+                        **self.device_data,
+                        CONF_DPS_STRINGS: [],
+                        CONF_ENTITIES: [],
+                    }
+                    new_data = self.config_entry.data.copy()
+                    new_data[CONF_DEVICES].update({dev_id: config})
+                    _LOGGER.info(
+                        "[SLEEPY-DEVICE] Saved device %s with pending_discovery=True", dev_id
+                    )
+                    return self._update_entry(new_data)
 
                 if not hasattr(self, "_validate_task"):
                     self._validate_task = self.hass.async_create_task(
@@ -2659,6 +2703,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                     )
                 
                 return await self.async_step_connecting()
+
 
             except (CannotConnect, InvalidAuth, EmptyDpsList):
                 errors["base"] = "cannot_connect"
@@ -2730,6 +2775,9 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 # Add cloud IP if available
                 if cloud_devs[dev_id].get("ip"):
                     defaults["cloud_ip"] = cloud_devs[dev_id]["ip"]
+
+            if not defaults.get(CONF_HOST):
+                defaults[CONF_HOST] = "0.0.0.0"
                 # Add product name and category if available
                 if cloud_devs[dev_id].get("product_name"):
                     defaults["cloud_product_name"] = cloud_devs[dev_id]["product_name"]
@@ -3083,6 +3131,32 @@ async def setup_localtuya_devices(
             total,
             f"Tentativo {index}/{total}: {name}",
         )
+
+        import ipaddress
+        host = device_data.get(CONF_HOST, "")
+        is_sleepy = False
+        if not host or host == "0.0.0.0":
+            is_sleepy = True
+        else:
+            try:
+                if not ipaddress.ip_address(host).is_private:
+                    is_sleepy = True
+            except ValueError:
+                is_sleepy = True
+
+        if is_sleepy:
+            device_data[CONF_HOST] = "0.0.0.0"
+            device_data["pending_discovery"] = True
+            device_data[CONF_ENTITIES] = []
+            device_data[CONF_DPS_STRINGS] = []
+            devices[dev_id] = device_data
+            _LOGGER.info("[SLEEPY-DEVICE] Mass configured sleepy device %s with 0.0.0.0", dev_id)
+            await report_progress(
+                index,
+                total,
+                f"Dispositivo Sleepy registrato ({index}/{total}): {name}",
+            )
+            continue
 
         try:
             valid_data = await validate_input(localtuya_data, device_data)

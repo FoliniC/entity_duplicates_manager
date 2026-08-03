@@ -35,8 +35,7 @@ rename_entities_to_base:
       description: List of entity IDs to rename back to base names.
       required: true
       selector:
-        entities:
+        entity:
           multiple: true
-          fields:
-            domain:
-              default: "sensor"
+          filter:
+            domain: sensor

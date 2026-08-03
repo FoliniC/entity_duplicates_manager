@@ -77,14 +77,29 @@
           # Window State
           - type: custom:mushroom-template-card
             primary: "🪟 Stato Finestra"
-            secondary: "{{ 'APERTA' if is_state('input_boolean.finestra_%%id%%_aperta', 'on') else 'CHIUSA' }}"
-            entity: input_boolean.finestra_%%id%%_aperta
+            secondary: >-
+              {% if window_contact_sensor %}
+                {{ 'APERTA' if is_state(window_contact_sensor, 'on') else 'CHIUSA' }}
+              {% else %}
+                {{ 'APERTA' if is_state('input_boolean.finestra_%%id%%_aperta', 'on') else 'CHIUSA' }}
+              {% endif %}
+            entity: >-
+              {% if window_contact_sensor %}
+                {{ window_contact_sensor }}
+              {% else %}
+                input_boolean.finestra_%%id%%_aperta
+              {% endif %}
             icon: mdi:window-open
             icon_color: orange
             tap_action:
               action: toggle
               target:
-                entity_id: input_boolean.finestra_%%id%%_aperta
+                entity_id: >-
+                  {% if window_contact_sensor %}
+                    {{ window_contact_sensor }}
+                  {% else %}
+                    input_boolean.finestra_%%id%%_aperta
+                  {% endif %}
           
           # Consiglia Attuale
           - type: custom:mushroom-template-card

@@ -18,6 +18,7 @@ from homeassistant.const import (
     CONF_DEVICES,
     CONF_DEVICE_ID,
     CONF_ENTITIES,
+    CONF_FRIENDLY_NAME,
     CONF_HOST,
     CONF_ID,
     CONF_PLATFORM,
@@ -36,9 +37,11 @@ from .const import (
     CONF_DOWNLOAD_CLOUD_INFO,
     CONF_GATEWAY_ID,
     CONF_MAC_RETRIEVAL,
+    CONF_MODEL,
     CONF_NODE_ID,
     CONF_NO_CLOUD,
     CONF_PRODUCT_KEY,
+    CONF_PROTOCOL_VERSION,
     CONF_USER_ID,
     DATA_DISCOVERY,
     DOMAIN,
@@ -145,6 +148,7 @@ async def async_setup(hass: HomeAssistant, config: dict):
         # hass.create_task(hass_data.cloud_data.async_get_devices_list())
         new_data = entry.data.copy()
         updated = False
+        pending_device_activated = False  # Track if a pending-discovery device got its IP
         for dev_id, host in device_cache[device_id].items():
             if dev_id not in entry.data[CONF_DEVICES]:
                 continue
@@ -153,6 +157,16 @@ async def async_setup(hass: HomeAssistant, config: dict):
                 updated = True
                 new_data[CONF_DEVICES][dev_id][CONF_HOST] = device_ip
                 device_cache[device_id][dev_id] = device_ip
+
+                # If device was registered with placeholder IP, clear the flag
+                if dev_entry.get("pending_discovery") and host == "0.0.0.0":
+                    new_data[CONF_DEVICES][dev_id].pop("pending_discovery", None)
+                    pending_device_activated = True
+                    _LOGGER.info(
+                        "[SLEEPY-DEVICE] Device %s woke up! Real IP resolved: %s → %s. "
+                        "Reloading config entry to connect.",
+                        dev_id, host, device_ip,
+                    )
 
             if (p_key := dev_entry.get(CONF_PRODUCT_KEY)) and p_key != product_key:
                 updated = True
@@ -166,6 +180,9 @@ async def async_setup(hass: HomeAssistant, config: dict):
             )
             new_data[ATTR_UPDATED_AT] = str(int(time.time() * 1000))
             hass.config_entries.async_update_entry(entry, data=new_data)
+            # Force a reload if a previously-sleeping device just got its real IP
+            if pending_device_activated:
+                hass.async_create_task(hass.config_entries.async_reload(entry.entry_id))
 
     def _shutdown(event):
         """Clean up resources when shutting down."""
@@ -369,6 +386,41 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     connect_to_devices = _setup_devices(entry.data[CONF_DEVICES])
 
+    # Ensure all devices in config entry are registered in HA DeviceRegistry immediately with their friendly names
+    device_registry = dr.async_get(hass)
+    for dev_id, dev_config in entry.data[CONF_DEVICES].items():
+        dev_name = (
+            dev_config.get(CONF_FRIENDLY_NAME)
+            or dev_config.get("name")
+            or dev_config.get("cloud_name")
+            or f"Tuya {dev_id}"
+        )
+        model_str = f"{dev_config.get(CONF_MODEL, 'Tuya generic')} ({dev_id})"
+        if cloud_prod := dev_config.get("cloud_product_name"):
+            model_str = f"{model_str} - {cloud_prod}"
+
+        connections = set()
+        if mac := (dev_config.get("mac") or dev_config.get("cloud_mac")):
+            connections.add(("mac", mac))
+        if (host := dev_config.get(CONF_HOST)) and host != "0.0.0.0":
+            connections.add(("ip", host))
+
+        via_device = None
+        if gateway_id := dev_config.get(CONF_GATEWAY_ID):
+            via_device = (DOMAIN, f"local_{gateway_id}")
+
+        device_registry.async_get_or_create(
+            config_entry_id=entry.entry_id,
+            identifiers={(DOMAIN, f"local_{dev_id}")},
+            name=dev_name,
+            manufacturer="Tuya",
+            model=model_str,
+            sw_version=str(dev_config.get(CONF_PROTOCOL_VERSION, "auto")),
+            configuration_url=f"http://{host}" if host and host != "0.0.0.0" else None,
+            via_device=via_device,
+            connections=connections if connections else None,
+        )
+
     await async_remove_orphan_entities(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS.values())
 
@@ -409,48 +461,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def update_listener(hass: HomeAssistant, config_entry: ConfigEntry):
-    """Update listener."""
-    # Check if MAC retrieval was enabled and trigger it for all devices
-    if config_entry.data.get(CONF_MAC_RETRIEVAL, False):
-        hass_data = hass.data[DOMAIN].get(config_entry.entry_id)
-        if hass_data:
-            for device in hass_data.devices.values():
-                if hasattr(device, '_retrieve_mac_for_all_devices'):
-                    await device._retrieve_mac_for_all_devices()
-    
-    # Check if cloud info download was enabled - only MAC retrieval to avoid 1106 permission errors
-    if config_entry.data.get(CONF_DOWNLOAD_CLOUD_INFO, False):
-        hass_data = hass.data[DOMAIN].get(config_entry.entry_id)
-        if hass_data and hass_data.cloud_data:
-            try:
-                _LOGGER.info("Downloading MAC addresses...")
-                # Get factory info for all devices (call one at a time like Tuya GUI does)
-                device_ids = list(config_entry.data.get(CONF_DEVICES, {}).keys())
-                for device_id in device_ids:
-                    factory_info = await hass_data.cloud_data.async_get_device_factory_info(device_id)
-                    if factory_info and "result" in factory_info and factory_info["result"]:
-                        for device_info in factory_info["result"]:
-                            dev_id = device_info.get("id") or device_info.get("device_id")
-                            mac = device_info.get("mac")
-                            sn = device_info.get("sn")
-                            uuid = device_info.get("uuid")
-                            if dev_id and mac and mac != "00:00:00:00:00:00" and dev_id in new_data.get(CONF_DEVICES, {}):
-                                new_data[CONF_DEVICES][dev_id][CONF_MAC] = mac
-                            if sn:
-                                new_data[CONF_DEVICES][dev_id]["cloud_sn"] = sn
-                            if uuid:
-                                new_data[CONF_DEVICES][dev_id]["cloud_uuid"] = uuid
-                            _LOGGER.info(f"MAC address retrieved for {dev_id}: {mac}")
-                            updated = True
-                    
-                    # Update the config entry
-                    new_data[ATTR_UPDATED_AT] = str(int(time.time() * 1000))
-                    hass.config_entries.async_update_entry(config_entry, data=new_data)
-                    _LOGGER.info("MAC addresses retrieved and updated for all devices")
-            except Exception as e:
-                _LOGGER.warning(f"Failed to download MAC addresses: {e}")
-        
-        await hass.config_entries.async_reload(config_entry.entry_id)
+    """Update listener: triggered whenever config entry data changes."""
+    _LOGGER.info("LocalTuya config entry updated for %s: reloading integration entry", config_entry.entry_id)
+    await hass.config_entries.async_reload(config_entry.entry_id)
 
 
 async def _download_cloud_info_on_startup(hass: HomeAssistant, entry: ConfigEntry):

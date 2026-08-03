@@ -1,4 +1,5 @@
 - alias: "TH Sensors Battery Low Notification"
+  id: th_sensors_battery_low_notification
   trigger:
     - platform: state
       entity_id:

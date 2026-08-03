@@ -413,14 +413,15 @@ logger:
     custom_components.localtuya: error
     fancoil_system: error
     homeassistant.components.shell_command: debug
-    homeassistant.components.script: debug
+    homeassistant.components.script: warning
     system_log.external: error
     homeassistant.components.mqtt: error
     homeassistant.components.automation: error
     custom_components.cronostar: error
     custom_components.azure_openai_sdk_conversation: error
+    custom_components.mg_saic: warning
     esphome: error
-    homeassistant.helpers.script: debug
+    homeassistant.helpers.script: warning
 # ============================================================================
 # LOGBOOK & RECORDER
 # ============================================================================
@@ -440,6 +441,15 @@ recorder:
       - automation.fancoil_sala_fanmode_dinamica
       - automation.fancoil_camera_fanmode_dinamica
       - sensor.lavastoviglie_wifi_digital_meter_lavastoviglie_voltaggio
+      - sensor.energia_inviata_rete_giornaliera_alfa
+      - sensor.energia_inviata_rete_mensile_alfa
+      - sensor.energia_inviata_rete_annuale_alfa
+      - sensor.energia_prelevata_rete_giornaliera_alfa
+      - sensor.energia_prelevata_rete_mensile_alfa
+      - sensor.energia_prelevata_rete_annuale_alfa
+      - sensor.produzione_solare_giornaliera_alfa
+      - sensor.produzione_solare_mensile_alfa
+      - sensor.produzione_solare_annuale_alfa
     entity_globs:
       - automation.fancoil_*sincronizza_switch_principale
       - sensor.watchman_*
@@ -610,7 +620,7 @@ mqtt: !include mqtt_config.yaml
 # ============================================================================
 # MODBUS INTEGRATION
 # ============================================================================
-# modbus: !include modbus_config.yaml
+# modbus: !include modbus_config.yaml  # TEMPORARILY DISABLED - blocking startup
 
 # ============================================================================
 # SCHEDULER

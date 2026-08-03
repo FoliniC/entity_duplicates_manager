@@ -1,4 +1,5 @@
 - alias: "Sala: Force Init Temp Source Options"
+  id: sala_force_init_temp_source_options
   trigger:
     - platform: homeassistant
       event: start
@@ -40,6 +41,7 @@
           {% endif %}
 
 - alias: "Sala: Sync Temp Source Options on Change"
+  id: sala_sync_temp_source_options_on_change
   trigger:
     - platform: state
       entity_id: sensor.fancoil_sala_temp_sources_history
@@ -59,6 +61,7 @@
           {{ ns.unique }}
 
 - alias: "Sala: Handle New Sensor Added"
+  id: sala_handle_new_sensor_added
   trigger:
     - platform: state
       entity_id: input_text.fancoil_sala_add_temp_entity

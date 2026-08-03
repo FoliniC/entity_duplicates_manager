@@ -18,13 +18,20 @@ ota:
   - platform: esphome
 
 wifi:
-  ssid: "YOUR_WIFI_SSID"
-  password: "YOUR_WIFI_PASSWORD"
+  ssid: "CPE_2.4G_112E90"
+  password: "Qv&#$SG8MGb1i"
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
     ssid: "M5-Atom-Echo-BT-Proxy Fallback"
     password: "fallback123"
+
+  manual_ip:
+    static_ip: 192.168.0.171
+    gateway: 192.168.0.11
+    subnet: 255.255.255.0
+    dns1: 8.8.8.8
+    dns2: 8.8.4.4
 
 captive_portal:
 

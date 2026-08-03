@@ -159,7 +159,7 @@ router_wan_up() {
 # ============================================================================
 
 graceful_begin() {
-    local table_id="$1" mark="$2" old_gw="$3" old_dev="$4"
+    local table_id="$1" mark="$2" old_gw="$3" old_dev="$4" snapshot_seconds="${5:-5}"
     local chain="TETHER_LOCAL_${mark}"
 
     iptables -t mangle -N "$chain" 2>/dev/null || true
@@ -167,12 +167,19 @@ graceful_begin() {
         || iptables -t mangle -A PREROUTING -j "$chain"
     iptables -t mangle -F "$chain"
     iptables -t mangle -A "$chain" -j CONNMARK --restore-mark
-    iptables -t mangle -A "$chain" -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-mark "$mark"
 
     ip route add "$LAN_NET" dev "$LAN_IF" table "$table_id" 2>/dev/null || true
     ip route replace default via "$old_gw" dev "$old_dev" table "$table_id"
     ip rule del fwmark "$mark" lookup "$table_id" 2>/dev/null || true
     ip rule add fwmark "$mark" lookup "$table_id" pref 100
+
+    # SNAPSHOT breve, poi rimuove la regola di marcatura (resta solo
+    # restore-mark): se restasse attiva per tutto il drenaggio, marcherebbe
+    # via via anche connessioni NUOVE che diventano ESTABLISHED nel
+    # frattempo, dirottandole per errore sul vecchio percorso.
+    iptables -t mangle -A "$chain" -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-mark "$mark"
+    sleep "$snapshot_seconds"
+    iptables -t mangle -D "$chain" -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-mark "$mark"
 }
 
 # Avvia il drenaggio in background (stesso pattern di auto-invocazione del
@@ -685,6 +692,17 @@ cmd_restore() {
         phone_if=$(grep -E '^phone_if=' "$STATE_FILE" | cut -d= -f2-)
         phone_gw=$(grep -E '^phone_gw=' "$STATE_FILE" | cut -d= -f2-)
     fi
+
+    # Protegge SUBITO (prima di router_wan_up) i flussi che sul router stanno
+    # ancora usando l'anchor. Se aspettassimo che lo faccia
+    # router_del_fallback_route (chiamata molto piu' avanti, dentro
+    # disable_nat_router), ci sarebbe una finestra in cui router_wan_up ha
+    # gia' fatto preferire la WAN locale nella tabella 'main' del router, ma
+    # nessuno protegge ancora i flussi vecchi sull'anchor: verrebbero
+    # silenziosamente dirottati prima che la marcatura sia pronta. E' un
+    # no-op sicuro se PROTECTED_DEVICE_IP non e' configurato, e idempotente
+    # se router_del_fallback_route la richiama poco dopo.
+    router_graceful_begin "$ROUTER_TABLE_LEAVE_ANCHOR" "$ROUTER_MARK_LEAVE_ANCHOR" "192.168.0.3" "br-lan"
 
     # GRACEFUL RESTORE: se c'era una route tethering, protegge le connessioni
     # ESTABLISHED finche' non finiscono davvero (o scade il tetto), invece di

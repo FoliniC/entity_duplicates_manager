@@ -1,2 +1,5 @@
 packages = ["pyodide_http","requests","pyodide.http"]
 
+# Folder configuration
+modules = "/config/pyscript/modules"
+apps = "/config/pyscript/apps"

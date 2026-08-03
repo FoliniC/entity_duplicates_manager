@@ -37,6 +37,18 @@ Le entita globali principali sono:
 - `binary_sensor.pdc_acqua_calda`: blocco/limitazione quando l'acqua PDC e calda.
 - `binary_sensor.fancoil_circuit_temp_invalid`: stato temperatura circuito non valida.
 
+## Rilevamento automatico finestra cucina
+
+La cucina utilizza un sensore di contatto automatico `binary_sensor.contact_sensor_doorcontact_state` per rilevare lo stato della finestra, eliminando la necessità dell'`input_boolean.finestra_cucina_aperta` manuale.
+
+Il sensore comunica di sua iniziativa solo quando la porta della finestra viene aperta o chiusa. In condizioni normali il sensore risulta non accessibile (unavailable).
+
+Quando `window_contact_sensor` è definito per una stanza in `fancoil_vars.yaml`:
+
+- non viene creato l'`input_boolean.finestra_<stanza>_aperta`;
+- tutte le automazioni e i sensori usano il `binary_sensor` di contatto come sorgente dello stato finestra;
+- il dashboard mostra lo stato del sensore di contatto direttamente.
+
 ## `system_enabled`
 
 `system_enabled` e una variabile interna alle automazioni stanza, non una entity Home Assistant.

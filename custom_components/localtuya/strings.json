@@ -67,6 +67,13 @@
                 "data": {
                     "cloud_device_json": "Cloud Device List JSON"
                 }
+            },
+            "add_device_choose_source": {
+                "title": "Choose device list source",
+                "description": "How do you want to retrieve the Tuya device list?",
+                "data": {
+                    "action": "Action"
+                }
             }
         }
     },

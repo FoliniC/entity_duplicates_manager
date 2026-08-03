@@ -7,17 +7,32 @@ HOST="${3:-Debian (192.168.0.3)}"
 DURATION="${4:-60}"
 
 LOG_FILE="/config/logs/usb_tether/usb_tether.log"
+RESTORE_MARKER="/config/logs/usb_tether/restoring_windows.marker"
 SSH_CM_DIR="/config/.ssh/cm"
 WINDOWS_GW="192.168.0.8"
 ROUTER_WAN_IF="usb0"
 ROUTER_WAN_METRIC="10"
 WINDOWS_ROUTE_METRIC="30"
-ACTIVATE_GRACE_SECONDS="${USB_TETHER_ACTIVATE_GRACE_SECONDS:-120}"
-RESTORE_GRACE_SECONDS="${USB_TETHER_RESTORE_GRACE_SECONDS:-180}"
-RESTORE_SNAPSHOT_SECONDS="${USB_TETHER_RESTORE_SNAPSHOT_SECONDS:-5}"
-RESTORE_MARK="0x88"
-RESTORE_MARK_MASK="0xff"
-RESTORE_TABLE="88"
+# Costanti per graceful transition router
+ROUTER_TABLE_LEAVE_WAN=87
+ROUTER_MARK_LEAVE_WAN=0x87
+ROUTER_TABLE_LEAVE_ANCHOR=89
+ROUTER_MARK_LEAVE_ANCHOR=0x89
+ROUTER_DRAIN_CEILING=21600
+ROUTER_GRACEFUL_SCRIPT="/usr/bin/tethering-graceful.sh"
+# IP riservato (DHCP statico) del device da proteggere in modo prioritario
+# sul router, es. Echo. Vuoto = router_graceful_* diventano no-op sicuri.
+PROTECTED_DEVICE_IP="192.168.0.90"
+
+# NOTA: la vecchia tabella 88 (timer fisso 180s, CONNMARK scritto a mano)
+# e' stata rimossa: restore_windows ora usa tethering-graceful.sh con
+# ROUTER_TABLE_LEAVE_ANCHOR/MARK sopra, drenaggio su conntrack invece di un
+# timer fisso. Se sul router e' rimasto stato residuo dalla vecchia tabella
+# 88 (es. da test precedenti), ripulirlo manualmente una tantum:
+#   ssh_router "iptables -t mangle -F PREROUTING 2>/dev/null; \
+#     ip rule del pref 88 2>/dev/null; ip route flush table 88 2>/dev/null"
+# (verificare prima con "iptables -t mangle -L PREROUTING" e "ip rule show"
+# che non ci sia altro di legittimo su quella catena/tabella).
 
 mkdir -p "$SSH_CM_DIR" /config/logs/usb_tether
 
@@ -71,11 +86,27 @@ ssh_router() {
 schedule_self() {
   local action="$1"
   local delay="$2"
-  nohup "$0" "$action" "$delay" "$HOST" "$DURATION" >/dev/null 2>&1 &
+  # setsid, non nohup: nohup blocca solo SIGHUP, non stacca dal process
+  # group. Se Home Assistant termina l'intero process group del comando
+  # shell_command quando questo finisce (comportamento comune per evitare
+  # processi orfani), un job in background con solo "nohup ... &" muore
+  # insieme al padre prima ancora di eseguire il suo sleep. setsid crea una
+  # nuova sessione, staccata da qualunque process group killing a monte.
+  setsid "$0" "$action" "$delay" "$HOST" "$DURATION" >/dev/null 2>&1 < /dev/null &
 }
 
 run_status() {
   local out rc line
+
+  # Se un restore Windows e' in attesa del drenaggio router (puo' durare
+  # minuti, anche ore), Windows non ha ancora richiamato il proprio
+  # -Action restore: il suo stato locale direbbe ancora "active", che
+  # sembrerebbe un blocco invece di un ripristino graduale in corso.
+  if [[ "$HOST" == *"Windows"* ]] && [[ -f "$RESTORE_MARKER" ]]; then
+    printf '{"state":"restoring","mode":"server","message":"Ripristino in corso (drenaggio flussi protetti sul router)..."}\n'
+    return 0
+  fi
+
   if [[ "$HOST" == *"Windows"* ]]; then
     out="$(ssh_windows "powershell -NoProfile -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 -Action status" 2>&1)"
     rc=$?
@@ -99,6 +130,9 @@ run_status() {
 
 activate_windows() {
   local out rc router_out router_rc
+  # Pulizia di sicurezza: un marker rimasto da un restore precedente
+  # interrotto bloccherebbe run_status su "restoring" per sempre.
+  rm -f "$RESTORE_MARKER" 2>/dev/null || true
   out="$(ssh_windows "powershell -NoProfile -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 -Action activate -MaxMinutes $DURATION -Mode $MODE" 2>&1)"
   rc=$?
   log_line INFO "EXEC Windows activate $MODE rc=$rc | $(printf '%s' "$out" | tail -c 500)"
@@ -108,6 +142,27 @@ activate_windows() {
   fi
 
   if [[ "$MODE" == "intranet" ]]; then
+    # 1. Prende il gateway WAN ATTUALE (route vera, non DHCP netifd)
+    local cur_gw
+    cur_gw=$(ssh_router "ip route show default dev $ROUTER_WAN_IF metric 10 2>/dev/null | awk '{print \$3; exit}'" 2>&1 | tr -d '\r')
+    if [[ ! "$cur_gw" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      log_line ERROR "Impossibile determinare gateway WAN attuale su $ROUTER_WAN_IF"
+      json_error "router via Windows fallito: gateway WAN non trovato"
+      return 0
+    fi
+
+    # 2. Protegge SUBITO i flussi che stanno usando la WAN locale (usb0)
+    #    Prima di aggiungere la route fallback via Windows, marca i flussi
+    #    ESTABLISHED/RELATED del device protetto e li dirotta via tabella dedicata.
+    router_out="$(ssh_router "$ROUTER_GRACEFUL_SCRIPT begin $ROUTER_TABLE_LEAVE_WAN $ROUTER_MARK_LEAVE_WAN $PROTECTED_DEVICE_IP $cur_gw $ROUTER_WAN_IF" 2>&1)"
+    router_rc=$?
+    log_line INFO "EXEC Router graceful begin leave-WAN rc=$router_rc | $(printf '%s' "$router_out" | tail -c 500)"
+    if (( router_rc != 0 )); then
+      json_error "router graceful begin leave-WAN fallito rc=$router_rc"
+      return 0
+    fi
+
+    # 3. Aggiunge la route fallback via Windows (metric 30)
     router_out="$(ssh_router "ip route replace default via $WINDOWS_GW dev br-lan metric $WINDOWS_ROUTE_METRIC; ip route show default; true" 2>&1)"
     router_rc=$?
     log_line INFO "EXEC Router prepare Windows rc=$router_rc | $(printf '%s' "$router_out" | tail -c 500)"
@@ -115,8 +170,8 @@ activate_windows() {
       json_error "router via Windows fallito rc=$router_rc"
       return 0
     fi
-    log_line INFO "TRANSIZIONE Windows intranet: WAN router $ROUTER_WAN_IF mantenuta per ${ACTIVATE_GRACE_SECONDS}s, poi cutover via $WINDOWS_GW"
-    schedule_self router_cutover_windows "$ACTIVATE_GRACE_SECONDS"
+    log_line INFO "TRANSIZIONE Windows intranet: WAN router $ROUTER_WAN_IF mantenuta (protezione flussi attiva), poi cutover graceful via $WINDOWS_GW"
+    schedule_self router_cutover_windows 2
   fi
 
   printf '{"state":"activating","mode":"%s","message":"Attivazione in corso..."}\n' "$MODE"
@@ -127,7 +182,13 @@ activate_debian() {
   if [[ "$MODE" == "intranet" ]]; then
     out="$(ssh_debian "nohup setsid sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh activate $DURATION intranet >/dev/null 2>&1 &" 2>&1)"
   else
-    out="$(ssh_debian "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh activate $DURATION server" 2>&1 &)"
+    # NOTA: niente "&" qui - "$(cmd &)" non stacca davvero il processo (la
+    # subshell di command substitution termina comunque appena lanciato il
+    # job, quindi non lo aspetta) e rende $? del tutto inaffidabile: rc
+    # sarebbe sempre ~0 anche se ssh_debian fallisse, nascondendo gli errori.
+    # usb_tether.sh in modalita' server ritorna comunque in fretta (il
+    # watchdog lo stacca lui internamente), quindi va bene sincrono.
+    out="$(ssh_debian "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh activate $DURATION server" 2>&1)"
   fi
   rc=$?
   log_line INFO "EXEC Debian activate $MODE rc=$rc | $(printf '%s' "$out" | tail -c 500)"
@@ -141,15 +202,21 @@ activate_debian() {
 restore_windows() {
   local out rc router_out router_rc
 
+  # 1. Protegge SUBITO (prima di toccare qualunque route) i flussi del
+  #    device protetto che stanno ancora usando l'anchor Windows - stessa
+  #    tabella/mark dedicati usati per l'altra direzione (87 vs 89), stesso
+  #    script tethering-graceful.sh invece della logica scritta a mano che
+  #    c'era qui prima (tabella 88, timer fisso 180s).
+  router_out="$(ssh_router "$ROUTER_GRACEFUL_SCRIPT begin $ROUTER_TABLE_LEAVE_ANCHOR $ROUTER_MARK_LEAVE_ANCHOR $PROTECTED_DEVICE_IP $WINDOWS_GW br-lan" 2>&1)"
+  router_rc=$?
+  log_line INFO "EXEC Router graceful begin leave-anchor rc=$router_rc | $(printf '%s' "$router_out" | tail -c 500)"
+  if (( router_rc != 0 )); then
+    json_error "router graceful begin leave-anchor fallito rc=$router_rc"
+    return 0
+  fi
+
+  # 2. Ripristina la WAN locale del router (route vera, non solo stato netifd).
   router_out="$(ssh_router "
-    ip route replace default via $WINDOWS_GW dev br-lan table $RESTORE_TABLE;
-    ip rule add fwmark $RESTORE_MARK lookup $RESTORE_TABLE pref $RESTORE_TABLE 2>/dev/null || true;
-    iptables -t mangle -D PREROUTING -i br-lan -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-xmark $RESTORE_MARK/$RESTORE_MARK_MASK 2>/dev/null || true;
-    iptables -t mangle -A PREROUTING -i br-lan -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-xmark $RESTORE_MARK/$RESTORE_MARK_MASK 2>/dev/null || true;
-    sleep $RESTORE_SNAPSHOT_SECONDS;
-    iptables -t mangle -D PREROUTING -i br-lan -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-xmark $RESTORE_MARK/$RESTORE_MARK_MASK 2>/dev/null || true;
-    iptables -t mangle -D PREROUTING -i br-lan -j CONNMARK --restore-mark --nfmask $RESTORE_MARK_MASK --ctmask $RESTORE_MARK_MASK 2>/dev/null || true;
-    iptables -t mangle -A PREROUTING -i br-lan -j CONNMARK --restore-mark --nfmask $RESTORE_MARK_MASK --ctmask $RESTORE_MARK_MASK;
     GW=\$(ifstatus wan 2>/dev/null | jsonfilter -e '@.route[0].nexthop' 2>/dev/null | head -1);
     if [ -n \"\$GW\" ]; then
       ip route replace default via \"\$GW\" dev $ROUTER_WAN_IF metric $ROUTER_WAN_METRIC 2>/dev/null;
@@ -159,56 +226,109 @@ restore_windows() {
       GW=\$(ifstatus wan 2>/dev/null | jsonfilter -e '@.route[0].nexthop' 2>/dev/null | head -1);
       [ -n \"\$GW\" ] && ip route replace default via \"\$GW\" dev $ROUTER_WAN_IF metric $ROUTER_WAN_METRIC 2>/dev/null;
     fi;
-    echo ROUTES;
-    ip route show default;
-    echo RULES;
-    ip rule show | grep -E 'fwmark $RESTORE_MARK|lookup $RESTORE_TABLE' || true;
-    true
+    echo ROUTES; ip route show default; true
   " 2>&1)"
   router_rc=$?
-  log_line INFO "EXEC Router restore WAN with Windows flow preservation rc=$router_rc | $(printf '%s' "$router_out" | tail -c 700)"
+  log_line INFO "EXEC Router restore WAN rc=$router_rc | $(printf '%s' "$router_out" | tail -c 500)"
 
-  if (( router_rc != 0 )); then
-    json_error "restore router WAN fallito rc=$router_rc"
-    return 0
-  fi
-  log_line INFO "TRANSIZIONE restore Windows: connessioni esistenti marcate via $WINDOWS_GW per ${RESTORE_GRACE_SECONDS}s, nuove connessioni via $ROUTER_WAN_IF"
-  schedule_self router_finish_restore_windows "$RESTORE_GRACE_SECONDS"
+  # 3. Rimuovi SUBITO la route fallback via Windows da main: le nuove
+  #    connessioni vedono solo la WAN locale. Quelle marcate restano
+  #    protette dalla tabella dedicata (fwmark, gia' attiva dal punto 1).
+  router_out="$(ssh_router "ip route del default via $WINDOWS_GW dev br-lan metric $WINDOWS_ROUTE_METRIC 2>/dev/null; true" 2>&1)"
+  router_rc=$?
+  log_line INFO "EXEC Router remove Windows fallback route rc=$router_rc | $(printf '%s' "$router_out" | tail -c 300)"
+
+  # 4. Avvia il drenaggio in background sul router (basato su conntrack, non
+  #    a tempo fisso: uno stream continuo non "finisce" mai entro nessun
+  #    timer, quindi un timer fisso lo interrompe comunque, prima o poi).
+  router_out="$(ssh_router "$ROUTER_GRACEFUL_SCRIPT end $ROUTER_TABLE_LEAVE_ANCHOR $ROUTER_MARK_LEAVE_ANCHOR $ROUTER_DRAIN_CEILING" 2>&1)"
+  router_rc=$?
+  log_line INFO "EXEC Router graceful end leave-anchor (drain avviato) rc=$router_rc | $(printf '%s' "$router_out" | tail -c 300)"
+
+  log_line INFO "TRANSIZIONE restore Windows: flussi esistenti protetti su tabella $ROUTER_TABLE_LEAVE_ANCHOR finche' non finiscono davvero (o scade il tetto), NAT Windows spento solo a drenaggio confermato"
+
+  # Segna che un restore Windows e' in attesa del drenaggio: run_status lo
+  # legge per riportare "restoring" invece di lasciar credere che sia bloccato.
+  touch "$RESTORE_MARKER" 2>/dev/null || true
+
+  # 5. Il NAT Windows va spento SOLO quando il router conferma che il
+  #    drenaggio e' davvero finito: se lo spegnessimo prima, i flussi ancora
+  #    instradati verso Windows via tabella dedicata resterebbero senza NAT
+  #    a valle e si romperebbero comunque (il problema originale, spostato
+  #    di un passo invece che risolto).
+  schedule_self router_finish_restore_windows 0
+
   printf '{"state":"restoring","mode":"server","message":"Ripristino in corso..."}\n'
 }
 
 router_cutover_windows() {
-  local delay="${MODE:-$ACTIVATE_GRACE_SECONDS}" out rc
-  case "$delay" in ''|*[!0-9]*) delay="$ACTIVATE_GRACE_SECONDS" ;; esac
+  # Attende che la route fallback sia attiva e stabile (default 2s, configurabile)
+  local delay="${MODE:-2}"
+  case "$delay" in ''|*[!0-9]*) delay=2 ;; esac
   sleep "$delay"
+
+  local out rc
+  # Rimuove ORA la route WAN locale (usb0): senza questo passaggio 'main'
+  # continuerebbe a preferirla per sempre (metric 10 < 30), e il cutover
+  # verso Windows non si completerebbe mai per le connessioni nuove -
+  # indipendentemente da quanto bene funzioni il drenaggio qui sotto.
   out="$(ssh_router "while ip route del default dev $ROUTER_WAN_IF metric $ROUTER_WAN_METRIC 2>/dev/null; do :; done; ip route show default; true" 2>&1)"
   rc=$?
-  log_line INFO "EXEC Router delayed cutover Windows rc=$rc | $(printf '%s' "$out" | tail -c 500)"
+  log_line INFO "EXEC Router remove local WAN route rc=$rc | $(printf '%s' "$out" | tail -c 300)"
+
+  # Cutover graceful: avvia il drenaggio dei flussi marcati via tabella
+  # dedicata (ROUTER_TABLE_LEAVE_WAN, mark ROUTER_MARK_LEAVE_WAN). Il
+  # drenaggio attende che i flussi marcati finiscano davvero (conntrack)
+  # o scade il tetto di sicurezza (ROUTER_DRAIN_CEILING).
+  out="$(ssh_router "$ROUTER_GRACEFUL_SCRIPT end $ROUTER_TABLE_LEAVE_WAN $ROUTER_MARK_LEAVE_WAN $ROUTER_DRAIN_CEILING" 2>&1)"
+  rc=$?
+  log_line INFO "EXEC Router graceful cutover Windows (drain avviato) rc=$rc | $(printf '%s' "$out" | tail -c 500)"
 }
 
 router_finish_restore_windows() {
-  local delay="${MODE:-$RESTORE_GRACE_SECONDS}" out rc router_out router_rc
-  case "$delay" in ''|*[!0-9]*) delay="$RESTORE_GRACE_SECONDS" ;; esac
-  sleep "$delay"
+  local waited=0 max_wait="$ROUTER_DRAIN_CEILING" still_active="1" out rc router_out router_rc
+
+  # Aspetta che il drenaggio sul router sia DAVVERO finito (tethering-graceful.sh
+  # end gira in background li') prima di dire a Windows di spegnere il proprio
+  # NAT: finche' il router instrada ancora flussi marcati verso Windows via
+  # tabella dedicata, quei flussi hanno bisogno del NAT Windows per uscire
+  # su internet - spegnerlo prima li romperebbe comunque.
+  while [ "$waited" -lt "$max_wait" ]; do
+    still_active="$(ssh_router "iptables -t mangle -S TETHER_${ROUTER_MARK_LEAVE_ANCHOR} >/dev/null 2>&1 && echo 1 || echo 0" 2>/dev/null | tr -d '\r' | tail -1)"
+    [ "$still_active" = "0" ] && break
+    sleep 20
+    waited=$((waited + 20))
+  done
+  log_line INFO "Router drenaggio leave-anchor confermato dopo ${waited}s (still_active=$still_active)"
+
   out="$(ssh_windows "powershell -NoProfile -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 -Action restore" 2>&1)"
   rc=$?
   log_line INFO "EXEC Windows delayed restore rc=$rc | $(printf '%s' "$out" | tail -c 500)"
-  router_out="$(ssh_router "
-    iptables -t mangle -D PREROUTING -i br-lan -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-xmark $RESTORE_MARK/$RESTORE_MARK_MASK 2>/dev/null || true;
-    iptables -t mangle -D PREROUTING -i br-lan -j CONNMARK --restore-mark --nfmask $RESTORE_MARK_MASK --ctmask $RESTORE_MARK_MASK 2>/dev/null || true;
-    ip rule del fwmark $RESTORE_MARK lookup $RESTORE_TABLE pref $RESTORE_TABLE 2>/dev/null || true;
-    ip route flush table $RESTORE_TABLE 2>/dev/null || true;
-    ip route del default via $WINDOWS_GW dev br-lan metric $WINDOWS_ROUTE_METRIC 2>/dev/null;
-    ip route show default;
-    true
-  " 2>&1)"
+
+  # Pulizia finale: tabella/rule/chain le ha gia' tolte tethering-graceful.sh
+  # end quando ha confermato il drenaggio; qui resta solo l'eventuale route
+  # fallback via Windows, gia' rimossa al punto 3 di restore_windows ma
+  # ripetuta qui per idempotenza (no-op se gia' assente).
+  router_out="$(ssh_router "ip route del default via $WINDOWS_GW dev br-lan metric $WINDOWS_ROUTE_METRIC 2>/dev/null; ip route show default; true" 2>&1)"
   router_rc=$?
-  log_line INFO "EXEC Router delayed cleanup Windows route/marks rc=$router_rc | $(printf '%s' "$router_out" | tail -c 700)"
+  log_line INFO "EXEC Router delayed cleanup Windows route rc=$router_rc | $(printf '%s' "$router_out" | tail -c 500)"
+
+  # Rete di sicurezza per il caso limite (tetto raggiunto invece di drenaggio
+  # pulito): forza la rinegoziazione di eventuali entry conntrack rimaste
+  # appese su un path ormai morto.
+  if [[ -n "$PROTECTED_DEVICE_IP" ]]; then
+    local ct_out ct_rc
+    ct_out="$(ssh_router "conntrack -D -s $PROTECTED_DEVICE_IP 2>/dev/null; conntrack -D -d $PROTECTED_DEVICE_IP 2>/dev/null; echo 'conntrack flush done'" 2>&1)"
+    ct_rc=$?
+    log_line INFO "EXEC Router conntrack flush $PROTECTED_DEVICE_IP rc=$ct_rc | $(printf '%s' "$ct_out" | tail -c 200)"
+  fi
+
+  rm -f "$RESTORE_MARKER" 2>/dev/null || true
 }
 
 restore_debian() {
   local out rc
-  out="$(ssh_debian "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh restore" 2>&1 &)"
+  out="$(ssh_debian "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh restore" 2>&1)"
   rc=$?
   log_line INFO "EXEC Debian restore rc=$rc | $(printf '%s' "$out" | tail -c 500)"
   if (( rc != 0 )); then

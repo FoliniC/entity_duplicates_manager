@@ -102,7 +102,7 @@ MANUAL_ADVICE_TEMPLATE_PATH = (
 
 # Outputs (generated)
 CLIMATE_OUTPUT_DIR = "yaml_generator/generated_climates"
-AUTOMATION_OUTPUT_DIR = "automations/fancoil_generated_automations"
+AUTOMATION_OUTPUT_DIR = "automations"
 SENSORS_OUTPUT_DIR = "yaml_generator/managed_sensors"
 TRIGGER_SENSORS_OUTPUT_DIR = "yaml_generator/managed_trigger_sensors"
 CLIMATE_COMFORT_PER_ROOM_OUTPUT_FILE = os.path.join(
@@ -476,6 +476,8 @@ def generate_master_and_rooms(
 
     room_text = read_template(room_template_path)
     common_room_ctx = get_common_context(room_template_path)
+    # First pass: substitute_tags for %%...%% placeholders
+    # Then use Jinja2 for conditionals
     for key, context in vars_map.items():
         # Setup local context
         local_room_ctx = {**context, **common_room_ctx}
@@ -495,8 +497,14 @@ def generate_master_and_rooms(
         # Format as YAML list string
         local_room_ctx["TEMP_SOURCE_OPTIONS"] = "[" + ", ".join([f'"{o}"' for o in unique_opts]) + "]"
 
+        # First pass: substitute %%...%% tags
+        rendered = substitute_tags(room_text, local_room_ctx)
+        # Second pass: Jinja2 render for conditionals
+        room_template = _jinja_env.from_string(rendered)
+        rendered = room_template.render(**local_room_ctx)
+        
         append_text_file(
-            output_file, substitute_tags(room_text, local_room_ctx).strip() + "\n"
+            output_file, rendered.strip() + "\n"
         )
 
 # ------------------------ DASHBOARD GENERATION ------------------------
@@ -762,10 +770,14 @@ def main():
             f"sensor.trend_umidita_{room_id}",
         ]
         if has_win:
-            trigger_entities.append(f"input_boolean.finestra_{room_id}_aperta")
+            if local_ctx.get("window_contact_sensor"):
+                trigger_entities.append(local_ctx["window_contact_sensor"])
+            else:
+                trigger_entities.append(f"input_boolean.finestra_{room_id}_aperta")
         trigger_entities.append("sensor.castionetto_precipitazione")
         
         local_ctx["TRIGGER_ENTITIES"] = "\n      - " + "\n      - ".join(trigger_entities)
+        local_ctx["WINDOW_CONTACT_SENSOR"] = local_ctx.get("window_contact_sensor", "")
         window_advice_vars[key] = local_ctx
     
     generate_from_template(
@@ -792,10 +804,30 @@ def main():
     )
 
     # Fase 8 - Per-room window logger (logs window state & advice changes)
+    window_logger_vars = {}
+    for key, context in vars_map.items():
+        local_ctx = dict(context)
+        room_id = local_ctx.get("id", key)
+        has_win = local_ctx.get("has_window", True)
+        
+        # Build trigger entities for this room
+        trigger_entities = [
+            f"sensor.consiglio_finestra_{room_id}",
+        ]
+        if has_win:
+            if local_ctx.get("window_contact_sensor"):
+                trigger_entities.append(local_ctx["window_contact_sensor"])
+            else:
+                trigger_entities.append(f"input_boolean.finestra_{room_id}_aperta")
+        
+        local_ctx["TRIGGER_ENTITIES"] = "\n      - " + "\n      - ".join(trigger_entities)
+        local_ctx["window_contact_sensor"] = local_ctx.get("window_contact_sensor", "")
+        local_ctx["WINDOW_CONTACT_SENSOR"] = local_ctx.get("window_contact_sensor", "")
+        window_logger_vars[key] = local_ctx
     generate_from_template(
         WINDOW_LOGGER_TEMPLATE_PATH,
         TRIGGER_SENSORS_OUTPUT_DIR,
-        vars_map,
+        window_logger_vars,
         "_window_logger",
     )
 
@@ -818,7 +850,10 @@ def main():
             {"platform": "state", "entity_id": f"sensor.consiglio_finestra_{room_id}", "id": "advice_changed"},
         ]
         if has_win:
-            triggers.append({"platform": "state", "entity_id": f"input_boolean.finestra_{room_id}_aperta", "id": "window_changed"})
+            if local_ctx.get("window_contact_sensor"):
+                triggers.append({"platform": "state", "entity_id": local_ctx["window_contact_sensor"], "id": "window_changed"})
+            else:
+                triggers.append({"platform": "state", "entity_id": f"input_boolean.finestra_{room_id}_aperta", "id": "window_changed"})
         triggers.append({"platform": "time_pattern", "minutes": "/1", "id": "time_tick"})
         
         # Convert triggers to YAML string
@@ -830,6 +865,7 @@ def main():
             for t in triggers
         )
         local_ctx["TRIGGERS_YAML"] = trigger_yaml
+        local_ctx["WINDOW_CONTACT_SENSOR"] = local_ctx.get("window_contact_sensor", "")
         
         window_efficiency_vars[key] = local_ctx
     
@@ -851,10 +887,24 @@ def main():
     # Fase 13 - Per-room verification mode logging automations (only for rooms with windows)
     for key, context in vars_map.items():
         if context.get("has_window", True):  # Default true, only skip if explicitly false
+            local_ctx = dict(context)
+            room_id = local_ctx.get("id", key)
+            has_win = local_ctx.get("has_window", True)
+            
+            # Build trigger entities for this room
+            trigger_entities = []
+            if has_win:
+                if local_ctx.get("window_contact_sensor"):
+                    trigger_entities.append(local_ctx["window_contact_sensor"])
+                else:
+                    trigger_entities.append(f"input_boolean.finestra_{room_id}_aperta")
+            
+            local_ctx["WINDOW_CONTACT_SENSOR"] = local_ctx.get("window_contact_sensor", "")
+            local_ctx["WINDOW_TRIGGER_ENTITY"] = trigger_entities[0] if trigger_entities else ""
             generate_from_template(
                 WINDOW_VERIFICATION_MODE_TEMPLATE_PATH,
                 AUTOMATION_OUTPUT_DIR,
-                {key: context},
+                {key: local_ctx},
                 "_verification",
             )
 
@@ -867,13 +917,12 @@ def main():
     )
 
     # Aggregated helpers
-    # Input booleans - skip rooms without windows for finestra_* input_booleans
-    filtered_vars_map = {k: v for k, v in vars_map.items() if v.get("has_window", True)}
+    # Input booleans - use all rooms; template handles window_contact_sensor condition
     generate_master_and_rooms(
         MASTER_INPUT_BOOLEAN_TEMPLATE_PATH,
         ROOM_INPUT_BOOLEAN_TEMPLATE_PATH,
         INPUT_BOOLEAN_OUTPUT_FILE,
-        filtered_vars_map,
+        vars_map,
         extra_context=None,
     )
     generate_master_and_rooms(

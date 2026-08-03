@@ -1,4 +1,5 @@
 - alias: "Corridoio: Force Init Temp Source Options"
+  id: corridoio_force_init_temp_source_options
   trigger:
     - platform: homeassistant
       event: start
@@ -40,6 +41,7 @@
           {% endif %}
 
 - alias: "Corridoio: Sync Temp Source Options on Change"
+  id: corridoio_sync_temp_source_options_on_change
   trigger:
     - platform: state
       entity_id: sensor.fancoil_corridoio_temp_sources_history
@@ -59,6 +61,7 @@
           {{ ns.unique }}
 
 - alias: "Corridoio: Handle New Sensor Added"
+  id: corridoio_handle_new_sensor_added
   trigger:
     - platform: state
       entity_id: input_text.fancoil_corridoio_add_temp_entity

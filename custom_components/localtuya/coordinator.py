@@ -191,6 +191,17 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         # If protocol_version is "auto", we'll iterate through supported versions
         protocol_versions = SUPPORTED_PROTOCOL_VERSIONS if self._device_config.protocol_version == "auto" else [self._device_config.protocol_version]
 
+        # Pending discovery: device registered with placeholder IP 0.0.0.0.
+        # Do not attempt connection — _device_discovered() in __init__.py will
+        # update the IP and trigger a config entry reload when the device wakes up.
+        if host == "0.0.0.0":
+            self.info(
+                "Device is registered with placeholder IP 0.0.0.0 — "
+                "waiting for UDP discovery broadcast to resolve real IP."
+            )
+            self._task_connect = None
+            return
+
         self.debug(f"Trying to connect to: {host}...", force=True)
         # Connect to the device, interface should be connected for next steps.
         connected = False

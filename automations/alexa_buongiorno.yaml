@@ -1,4 +1,5 @@
 - alias: "Alexa: Risposta al Buongiorno"
+  id: alexa_risposta_buongiorno
   trigger:
     - platform: state
       entity_id: input_boolean.buongiorno_alexa

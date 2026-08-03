@@ -500,7 +500,7 @@ views:
                 card_mod:
                   style: "ha-card { margin: 4px 0; border: none; background: none; }"
 
-              # 3 BOTTONI - SINGOLO CLICK
+              # 4 BOTTONI - SINGOLO CLICK
               - type: horizontal-stack
                 cards:
                   - type: button
@@ -555,11 +555,8 @@ views:
                           --mdc-theme-primary: white;
                         }
 
-              # BOTTONE EMERGENCY RESTORE - ripristino diretto senza logica script
-              - type: horizontal-stack
-                cards:
                   - type: button
-                    name: "🔴 EMERGENCY RESTORE"
+                    name: "🔴"
                     icon: mdi:alert-circle-outline
                     tap_action:
                       action: call-service
@@ -575,6 +572,42 @@ views:
                           border: 2px solid #ff5252;
                         }
 
+              # Durata
+              - type: entities
+                title: "Durata (safety-net)"
+                entities:
+                  - entity: input_number.usb_tether_max_duration
+                    name: "Minuti prima ripristino automatico"
+                card_mod:
+                  style: |
+                    ha-card {
+                      {% if is_state('sensor.usb_tether_status', 'active') %}
+                        background: rgba(46, 125, 50, 0.1);
+                        border: 1px solid #2e7d32;
+                      {% endif %}
+                    }
+
+              # Dettagli tecnici
+              - type: entities
+                title: "Dettagli"
+                entities:
+                  - entity: sensor.usb_tether_dashboard
+                    name: "Stato"
+                    attribute: mode
+                  - entity: input_select.usb_tether_host
+                    name: "Server (tethering host)"
+                  - entity: sensor.usb_tether_status
+                    name: "Interfaccia telefono"
+                    attribute: phone_if
+                  - entity: sensor.usb_tether_status
+                    name: "Gateway telefono"
+                    attribute: phone_gw
+                  - entity: sensor.usb_tether_status
+                    name: "Attivo dalle"
+                    attribute: active_since
+                card_mod:
+                  style: "ha-card { user-select: text !important; }"
+
               # LOG OPERAZIONI TETHERING
               - type: markdown
                 title: "📋 Log Operazioni Tethering"
@@ -583,14 +616,6 @@ views:
                   
                   **Messaggio:** {{ states('input_text.usb_tether_status_message') }}
                   
-                  **Log storico:** {{ state_attr('sensor.usb_tether_log', 'line_count') | int(0) }} righe, aggiornato {{ state_attr('sensor.usb_tether_log', 'updated') | default('N/A') }}
-                  {% set log_text = state_attr('sensor.usb_tether_log', 'text') %}
-                  {% if log_text %}
-                  {{ log_text }}
-                  {% else %}
-                  _Nessun log disponibile_
-                  {% endif %}
-                  
                   **Dettagli sensore:**
                   - Stato: {{ states('sensor.usb_tether_status') }}
                   - Modalità: {{ state_attr('sensor.usb_tether_status', 'mode') | default('N/A') }}
@@ -598,6 +623,14 @@ views:
                   - Gateway: {{ state_attr('sensor.usb_tether_status', 'phone_gw') | default('N/A') }}
                   - Attivo da: {{ state_attr('sensor.usb_tether_status', 'active_since') | default('N/A') }}
                   - Minuti rimanenti: {{ state_attr('sensor.usb_tether_status', 'remaining_min') | int(0) }}
+                  
+                  **Log storico:** {{ state_attr('sensor.usb_tether_log', 'line_count') | int(0) }} righe, aggiornato {{ state_attr('sensor.usb_tether_log', 'updated') | default('N/A') }}
+                  {% set log_text = state_attr('sensor.usb_tether_log', 'text') %}
+                  {% if log_text %}
+                  {{ log_text }}
+                  {% else %}
+                  _Nessun log disponibile_
+                  {% endif %}
                 card_mod:
                   style: |
                     ha-card {

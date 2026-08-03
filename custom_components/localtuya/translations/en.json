@@ -347,6 +347,13 @@
                 "data_description": {
                     "cloud_device_json": "Paste the full JSON response from Tuya Cloud API here. Example format shown in the description placeholder."
                 }
+            },
+            "add_device_choose_source": {
+                "title": "Choose device list source",
+                "description": "{note}",
+                "data": {
+                    "action": "Source"
+                }
             }
         }
     },

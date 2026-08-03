@@ -5,12 +5,14 @@
 # Alexa Echo) quando il router cambia backhaul internet (locale <-> anchor).
 #
 # Chiamato via SSH dal server Debian/Windows (root@router):
-#   tethering-graceful.sh begin <table_id> <mark_hex> <device_ip> <old_gw> <old_dev>
+#   tethering-graceful.sh begin <table_id> <mark_hex> <device_ip> <old_gw> <old_dev> [snapshot_seconds]
 #   tethering-graceful.sh end   <table_id> <mark_hex> [max_wait_seconds]
 #
-# 'begin' e' sincrona e veloce (solo iptables/ip route/ip rule, niente sleep).
-# 'end' ritorna SUBITO: il drenaggio vero gira in un processo staccato
-# (setsid), cosi' la sessione SSH che la invoca non resta appesa per ore.
+# 'begin' blocca per un tempo BREVE e fisso (snapshot_seconds, default 5s -
+# niente a che vedere col drenaggio, che puo' durare ore): il tempo minimo
+# per catturare le connessioni GIA' stabilite in quel momento. 'end' ritorna
+# SUBITO: il drenaggio vero gira in un processo staccato (setsid), cosi' la
+# sessione SSH che la invoca non resta appesa per ore.
 #
 # Prerequisiti (opkg):
 #   opkg update && opkg install conntrack iptables-mod-conntrack-extra \
@@ -29,6 +31,12 @@
 #     (che e' marcato, perche' appartiene alla stessa connessione) cadrebbe
 #     sulla route di default della tabella e uscirebbe dall'interfaccia
 #     sbagliata invece di essere consegnato direttamente sulla LAN.
+#  4. La regola "set-mark ESTABLISHED,RELATED" NON puo' restare attiva per
+#     tutta la durata del drenaggio (fino a ore): marcherebbe man mano anche
+#     le connessioni NUOVE che nel frattempo diventano ESTABLISHED,
+#     dirottandole per errore sul vecchio path. Va tenuta attiva solo per
+#     una finestra breve ("snapshot" delle connessioni gia' in corso), poi
+#     rimossa - restando solo "restore-mark" a propagare il mark gia' dato.
 # ============================================================================
 
 set -eu
@@ -46,6 +54,7 @@ ensure_chain() {
 case "${1:-}" in
   begin)
     TABLE_ID="$2"; MARK="$3"; DEV_IP="$4"; OLD_GW="$5"; OLD_DEV="$6"
+    SNAPSHOT_SECONDS="${7:-5}"
     if [ -z "${OLD_GW:-}" ] || [ -z "${OLD_DEV:-}" ]; then
         echo "begin: old_gw/old_dev mancanti" >&2
         exit 1
@@ -55,18 +64,26 @@ case "${1:-}" in
     ensure_chain "$CHAIN"
     iptables -t mangle -F "$CHAIN"
 
-    # restore-mark PRIMA di set-mark: propaga il ct->mark gia' noto sul
-    # pacchetto (necessario anche per i pacchetti successivi della stessa
-    # connessione, non solo per il primo che l'ha marcata).
+    # restore-mark: propaga il ct->mark gia' noto sul pacchetto, per TUTTA
+    # la durata del drenaggio (necessario anche per i pacchetti successivi
+    # delle connessioni marcate durante lo snapshot qui sotto).
     iptables -t mangle -A "$CHAIN" -j CONNMARK --restore-mark
-    iptables -t mangle -A "$CHAIN" -s "$DEV_IP" -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-mark "$MARK"
 
     ip route add "$LAN_NET" dev "$LAN_DEV" table "$TABLE_ID" 2>/dev/null || true
     ip route replace default via "$OLD_GW" dev "$OLD_DEV" table "$TABLE_ID"
     ip rule del fwmark "$MARK" lookup "$TABLE_ID" 2>/dev/null || true
     ip rule add fwmark "$MARK" lookup "$TABLE_ID" pref 100
 
-    echo "OK begin: table $TABLE_ID via $OLD_GW dev $OLD_DEV, mark $MARK, device $DEV_IP"
+    # SNAPSHOT: marca le connessioni ESTABLISHED/RELATED del device protetto
+    # SOLO per una finestra breve, poi rimuove questa regola specifica
+    # (restore-mark sopra resta attivo e continua a proteggere chi e' stato
+    # marcato qui). Senza questa rimozione, la regola resterebbe attiva per
+    # tutto il drenaggio e "catturerebbe" anche connessioni nuove.
+    iptables -t mangle -A "$CHAIN" -s "$DEV_IP" -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-mark "$MARK"
+    sleep "$SNAPSHOT_SECONDS"
+    iptables -t mangle -D "$CHAIN" -s "$DEV_IP" -m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --set-mark "$MARK"
+
+    echo "OK begin: table $TABLE_ID via $OLD_GW dev $OLD_DEV, mark $MARK, device $DEV_IP (snapshot ${SNAPSHOT_SECONDS}s)"
     ;;
 
   end)
