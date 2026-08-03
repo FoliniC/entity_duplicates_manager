@@ -1207,7 +1207,9 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
 
         # If cloud loaded successfully, check if we should offer cache/refresh choice
         cache_path = Path(self.hass.config.config_dir) / ".tuya_cloud_manual_list_cache.json"
+        _LOGGER.info("async_step_add_device: checking cache file at %s, exists=%s", cache_path, cache_path.exists())
         if cache_path.exists() and not cloud_load_error:
+            _LOGGER.info("async_step_add_device: cache file exists, showing choose_source dialog")
             return await self.async_step_add_device_choose_source()
 
         allDevices = mergeDevicesList(
@@ -1253,6 +1255,9 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
 
     async def async_step_add_device_choose_source(self, user_input=None):
         """Offer choice between using cached cloud data, fetching fresh, or manual input."""
+        _LOGGER.setLevel(logging.DEBUG)
+        cl_logger = logging.getLogger("cloud_api")
+        cl_logger.setLevel(logging.DEBUG)
         _LOGGER.debug("async_step_add_device_choose_source called, user_input=%s", user_input is not None)
         errors = {}
         
@@ -1262,10 +1267,12 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         if cache_path.exists():
             try:
                 cached_json = json.loads(cache_path.read_text())
-                _LOGGER.debug("Loaded existing cache from %s", cache_path)
+                _LOGGER.info("add_device_choose_source: loaded cached JSON from %s", cache_path)
             except Exception as ex:
                 _LOGGER.warning("Failed to load cache from %s: %s", cache_path, ex)
                 cached_json = None
+        else:
+            _LOGGER.warning("add_device_choose_source: cache file NOT found at %s", cache_path)
         
         if user_input is not None:
             action = user_input.get("action")
@@ -1295,12 +1302,16 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 self.cloud_data.device_list.clear()
                 self.cloud_data._last_devices_update = 0
                 cache_path = Path(self.hass.config.config_dir) / ".tuya_cloud_manual_list_cache.json"
+                _LOGGER.info("refresh_cloud: checking cache at %s, exists=%s", cache_path, cache_path.exists())
                 if cache_path.exists():
                     try:
                         cache_path.unlink()
                         _LOGGER.info("Removed cache file for fresh fetch")
                     except Exception as ex:
                         _LOGGER.warning("Failed to remove cache file: %s", ex)
+                else:
+                    _LOGGER.info("refresh_cloud: cache file already does not exist")
+                _LOGGER.info("refresh_cloud: calling async_step_add_device()")
                 return await self.async_step_add_device()
             elif action == "manual":
                 _LOGGER.info("Branch: manual input")
