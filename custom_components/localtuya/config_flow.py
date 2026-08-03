@@ -1291,9 +1291,16 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                     errors["base"] = str(ex)
             elif action == "refresh_cloud":
                 _LOGGER.info("Branch: refresh from cloud")
-                # Force refresh cloud data and proceed
+                # Force refresh cloud data and proceed - also remove cache since we want fresh data
                 self.cloud_data.device_list.clear()
                 self.cloud_data._last_devices_update = 0
+                cache_path = Path(self.hass.config.config_dir) / ".tuya_cloud_manual_list_cache.json"
+                if cache_path.exists():
+                    try:
+                        cache_path.unlink()
+                        _LOGGER.info("Removed cache file for fresh fetch")
+                    except Exception as ex:
+                        _LOGGER.warning("Failed to remove cache file: %s", ex)
                 return await self.async_step_add_device()
             elif action == "manual":
                 _LOGGER.info("Branch: manual input")
