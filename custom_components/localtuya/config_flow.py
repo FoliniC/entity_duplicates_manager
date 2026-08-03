@@ -2456,10 +2456,11 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         errors = {}
         placeholders = {}
         dev_id = self.selected_device
-        cloud_devs = self.cloud_data.device_list
+        cloud_devs = self.cloud_data.device_list if self.cloud_data else {}
+        defaults = {}
+        _LOGGER.debug("async_step_configure_device: defaults initialized, user_input=%s, editing_device=%s", user_input is not None, self.editing_device)
         if user_input is not None:
             try:
-                defaults = {}
                 self.device_data = user_input.copy()
                 self.selected_device: str = dev_id or user_input.get(CONF_DEVICE_ID)
                 self.nodeID: str = self.nodeID or user_input.get(CONF_NODE_ID)
@@ -2662,11 +2663,11 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             except (CannotConnect, InvalidAuth, EmptyDpsList):
                 errors["base"] = "cannot_connect"
             except (OSError, ValueError, pytuya.parser.DecodeError) as ex:
-                _LOGGER.debug("Unexpected exception: %s", ex)
+                _LOGGER.debug("Unexpected exception in configure_device: %s", ex)
                 placeholders["ex"] = str(ex)
                 errors["base"] = "unknown"
             except Exception as ex:
-                _LOGGER.debug("Unexpected exception: %s", ex)
+                _LOGGER.debug("Unexpected exception in configure_device: %s", ex)
                 raise ex
 
         if self.editing_device:
