@@ -67,33 +67,45 @@
         w_surplus_puro: "{{ (prism_p - grid_p_w) - b_discharge + b_charge }}"
         surplus: "{{ [0, w_surplus_puro - 200] | max }}"
     - variables:
-        # Calcolo policy BYD (copiato dal dashboard)
         byd_policy: >
           {% if byd_soc < p_prot %}
-            {% set w_to_battery = [surplus, w_max_c] | min %}
-            {% set w_disponibile = surplus - w_to_battery %}
-            {% set bonus_ratio = 0.0 %}
-            {% set byd_support_w = 0.0 %}
             Protezione batteria casa
+          {% elif byd_soc < p_inv %}
+            Ripartizione graduale
+          {% else %}
+            Auto prioritaria con supporto BYD
+          {% endif %}
+        w_disponibile: >
+          {% if byd_soc < p_prot %}
+            {% set w_to_battery = [surplus, w_max_c] | min %}
+            {{ surplus - w_to_battery }}
           {% elif byd_soc < p_inv %}
             {% set byd_span = [1, p_inv - p_prot] | max %}
             {% set ratio = (byd_soc - p_prot) / byd_span %}
             {% set w_auto_raw = surplus * ratio %}
             {% set w_to_battery = [surplus - w_auto_raw, w_max_c] | min %}
-            {% set w_disponibile = surplus - w_to_battery %}
-            {% set bonus_ratio = 0.0 %}
-            {% set byd_support_w = 0.0 %}
-            Ripartizione graduale
+            {{ surplus - w_to_battery }}
           {% else %}
             {% set span = [1, p_max_d - p_inv] | max %}
             {% set bonus_ratio = [(byd_soc - p_inv) / span, 1.0] | min %}
             {% set byd_support_w = bonus_ratio * w_max_d %}
-            {% set w_disponibile = surplus + byd_support_w %}
-            Auto prioritaria con supporto BYD
+            {{ surplus + byd_support_w }}
           {% endif %}
-        w_disponibile: "{{ w_disponibile }}"
-        byd_support_w: "{{ byd_support_w }}"
-        bonus_ratio: "{{ bonus_ratio }}"
+        byd_support_w: >
+          {% if byd_soc >= p_inv %}
+            {% set span = [1, p_max_d - p_inv] | max %}
+            {% set bonus_ratio = [(byd_soc - p_inv) / span, 1.0] | min %}
+            {{ bonus_ratio * w_max_d }}
+          {% else %}
+            0.0
+          {% endif %}
+        bonus_ratio: >
+          {% if byd_soc >= p_inv %}
+            {% set span = [1, p_max_d - p_inv] | max %}
+            {{ [(byd_soc - p_inv) / span, 1.0] | min }}
+          {% else %}
+            0.0
+          {% endif %}
     - variables:
         # Calcolo target ampere (come nel dashboard)
         target_amp_raw: >
