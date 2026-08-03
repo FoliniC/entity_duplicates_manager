@@ -1207,10 +1207,14 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
 
         # If cloud loaded successfully, check if we should offer cache/refresh choice
         cache_path = Path(self.hass.config.config_dir) / ".tuya_cloud_manual_list_cache.json"
-        _LOGGER.info("async_step_add_device: checking cache file at %s, exists=%s", cache_path, cache_path.exists())
+        cache_exists = cache_path.exists()
+        cache_abs = str(cache_path.absolute())
+        _LOGGER.info("async_step_add_device: checking cache at %s, exists=%s, cloud_load_error=%s", cache_abs, cache_path.exists(), cloud_load_error)
         if cache_path.exists() and not cloud_load_error:
             _LOGGER.info("async_step_add_device: cache file exists, showing choose_source dialog")
             return await self.async_step_add_device_choose_source()
+        else:
+            _LOGGER.info("async_step_add_device: skipping choose_source (cache_exists=%s, cloud_load_error=%s)", cache_path.exists(), cloud_load_error)
 
         allDevices = mergeDevicesList(
             self.discovered_devices, self.cloud_data.device_list
@@ -1297,7 +1301,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                     _LOGGER.exception("Error processing cached data")
                     errors["base"] = str(ex)
             elif action == "refresh_cloud":
-                _LOGGER.info("Branch: refresh from cloud")
+                _LOGGER.info("Branch: refresh from cloud (user selected refresh_cloud)")
                 # Force refresh cloud data and proceed - also remove cache since we want fresh data
                 self.cloud_data.device_list.clear()
                 self.cloud_data._last_devices_update = 0
@@ -1306,12 +1310,12 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 if cache_path.exists():
                     try:
                         cache_path.unlink()
-                        _LOGGER.info("Removed cache file for fresh fetch")
+                        _LOGGER.info("refresh_cloud: Removed cache file for fresh fetch")
                     except Exception as ex:
                         _LOGGER.warning("Failed to remove cache file: %s", ex)
                 else:
                     _LOGGER.info("refresh_cloud: cache file already does not exist")
-                _LOGGER.info("refresh_cloud: calling async_step_add_device()")
+                _LOGGER.info("refresh_cloud: calling async_step_add_device() - this will re-enter async_step_add_device()")
                 return await self.async_step_add_device()
             elif action == "manual":
                 _LOGGER.info("Branch: manual input")
