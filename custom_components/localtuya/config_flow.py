@@ -2459,6 +2459,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         cloud_devs = self.cloud_data.device_list
         if user_input is not None:
             try:
+                defaults = {}
                 self.device_data = user_input.copy()
                 self.selected_device: str = dev_id or user_input.get(CONF_DEVICE_ID)
                 self.nodeID: str = self.nodeID or user_input.get(CONF_NODE_ID)
@@ -2668,7 +2669,6 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 _LOGGER.debug("Unexpected exception: %s", ex)
                 raise ex
 
-        defaults = {}
         if self.editing_device:
             # If selected device exists as a config entry, load config from it
             defaults = (
