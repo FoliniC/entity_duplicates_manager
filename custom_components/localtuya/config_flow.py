@@ -1917,15 +1917,14 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 errors["base"] = "all_devices_configured"
                 return await self.async_step_update_cache_select_space()
             
-            parsed = {"result": {"data": devices_list}}
-            
-            # Save to cache
-            cache_path = Path(self.hass.config.config_dir) / ".tuya_cloud_manual_list_cache.json"
-            try:
-                cache_path.write_text(json.dumps(parsed))
-                _LOGGER.info("Updated cache with %d fresh devices from space %s", len(devices_list), space_id)
-            except Exception as ex:
-                _LOGGER.warning("Failed to write cache: %s", ex)
+            # Don't write cache during refresh flow - cache is only for manual cloud import dialog
+            # parsed = {"result": {"data": devices_list}}
+            # cache_path = Path(self.hass.config.config_dir) / ".tuya_cloud_manual_list_cache.json"
+            # try:
+            #     cache_path.write_text(json.dumps(parsed))
+            #     _LOGGER.info("Updated cache with %d fresh devices from space %s", len(devices_list), space_id)
+            # except Exception as ex:
+            #     _LOGGER.warning("Failed to write cache: %s", ex)
             
             # Clean up temp attributes
             if hasattr(self, "_update_cache_spaces"):
