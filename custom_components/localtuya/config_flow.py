@@ -2580,7 +2580,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 new_mac_from_cloud = (cloud_devs.get(new_cloud_id, {}).get("mac")
                                       if new_cloud_id else "")
                 existing_errors = []
-                entries = hass.config_entries.async_entries(DOMAIN)
+                entries = self.hass.config_entries.async_entries(DOMAIN)
 
                 def _norm_mac(m):
                     return (m or "").lower().replace(":", "").replace("-", "").replace(" ", "")
