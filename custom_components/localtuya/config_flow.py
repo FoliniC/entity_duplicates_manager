@@ -2504,6 +2504,9 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                         if dev_config.get(res_conf):
                             self.device_data[res_conf] = dev_config.get(res_conf)
                     
+                    # Restore entities from existing device config
+                    self.entities = dev_config.get(CONF_ENTITIES, []).copy()
+                    
                     self.dps_strings = merge_dps_manual_strings(
                         self.device_data.get(CONF_MANUAL_DPS, ""), self.dps_strings
                     )
@@ -3049,7 +3052,16 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
     @property
     def current_entity(self):
         """Existing configuration for entity currently being edited."""
-        return self.entities[len(self.device_data[CONF_ENTITIES])]
+        idx = len(self.device_data[CONF_ENTITIES])
+        if idx < len(self.entities):
+            return self.entities[idx]
+        # Return a default empty entity config if index out of range
+        return {
+            CONF_ID: len(self.device_data[CONF_ENTITIES]),
+            CONF_PLATFORM: "binary_sensor",
+            CONF_FRIENDLY_NAME: "",
+            CONF_ICON: "",
+        }
 
 
 class CannotConnect(exceptions.HomeAssistantError):
