@@ -2522,6 +2522,19 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                         )
                         return await self.async_step_pick_entity_type()
 
+                    # If editing device and it already has entities, skip to saving
+                    if self.entities:
+                        _LOGGER.info("async_step_configure_device: editing device with existing entities (%d), skipping to save", len(self.entities))
+                        self.device_data.update(
+                            {
+                                CONF_DEVICE_ID: dev_id,
+                                CONF_NODE_ID: self.nodeID,
+                                CONF_DPS_STRINGS: self.dps_strings,
+                                CONF_ENTITIES: self.entities,
+                            }
+                        )
+                        return self._update_entry(self.config_entry.data)
+                    
                     self.device_data.update(
                         {
                             CONF_DEVICE_ID: dev_id,
