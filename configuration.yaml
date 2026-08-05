@@ -410,7 +410,7 @@ logger:
       - "Entity not found"
       - "Entity not exposed"
   logs:
-    custom_components.localtuya: error
+    custom_components.localtuya: debug
     fancoil_system: error
     homeassistant.components.shell_command: debug
     homeassistant.components.script: warning

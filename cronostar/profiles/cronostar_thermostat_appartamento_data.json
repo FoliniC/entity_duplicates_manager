@@ -2,7 +2,7 @@
   "meta": {
     "preset_type": "thermostat",
     "global_prefix": "cronostar_thermostat_appartamento_",
-    "updated_at": "2026-07-27T19:45:30.941247",
+    "updated_at": "2026-08-04T19:10:04.042205",
     "title": "CronoStar Thermostat",
     "y_axis_label": "Temperature",
     "unit_of_measurement": "°C",
@@ -14,7 +14,7 @@
     "enabled_entity": "switch.appartamento",
     "profiles_select_entity": "select.cronostar_thermostat_appartamento_current_profile",
     "language": "en",
-    "last_active_profile": "Comfort",
+    "last_active_profile": "Laura",
     "entities": [
       "climate.climatizzazione_appartamento",
       "switch.appartamento",
@@ -53,7 +53,7 @@
           "value": 23.5
         }
       ],
-      "updated_at": "2026-07-24T11:20:53.764002",
+      "updated_at": "2026-08-04T16:44:10.652842",
       "enabled_entity": "switch.appartamento",
       "profiles_select_entity": "select.cronostar_thermostat_appartamento_current_profile",
       "target_entity": "climate.climatizzazione_appartamento",
@@ -129,6 +129,35 @@
       ],
       "updated_at": "2026-03-18T15:28:12.724258",
       "entities": []
+    },
+    "Laura": {
+      "schedule": [
+        {
+          "time": "00:00",
+          "value": 24.03331021727968
+        },
+        {
+          "time": "19:05",
+          "value": 24.03331021727968
+        },
+        {
+          "time": "20:55",
+          "value": 26.563132345414385
+        },
+        {
+          "time": "23:59",
+          "value": 27.195587877448062
+        }
+      ],
+      "updated_at": "2026-08-04T19:10:04.042241",
+      "enabled_entity": "switch.appartamento",
+      "profiles_select_entity": "select.cronostar_thermostat_appartamento_current_profile",
+      "target_entity": "climate.climatizzazione_appartamento",
+      "entities": [
+        "climate.climatizzazione_appartamento",
+        "switch.appartamento",
+        "select.cronostar_thermostat_appartamento_current_profile"
+      ]
     }
   }
 }

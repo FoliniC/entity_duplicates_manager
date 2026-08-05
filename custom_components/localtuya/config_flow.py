@@ -2524,12 +2524,17 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                             CONF_DEVICE_ID: dev_id,
                             CONF_NODE_ID: self.nodeID,
                             CONF_DPS_STRINGS: self.dps_strings,
-                            CONF_ENTITIES: [],
+                            # Don't overwrite existing entities when editing - keep existing ones
+                            CONF_ENTITIES: self.device_data.get(CONF_ENTITIES, []),
                         }
                     )
 
-                    if len(user_input[CONF_ENTITIES]) == 0:
+                    _LOGGER.debug("async_step_configure_device: editing_device=%s, user_input[CONF_ENTITIES]=%s, existing entities count=%d",
+                                 self.editing_device, user_input.get(CONF_ENTITIES, []), len(self.device_data.get(CONF_ENTITIES, [])))
+
+                    if len(user_input.get(CONF_ENTITIES, [])) == 0:
                         # If user unchecked all entities.
+                        _LOGGER.warning("async_step_configure_device: no entities selected, aborting with no_entities")
                         return self.async_abort(reason="no_entities")
 
                     if user_input[CONF_ENTITIES]:
