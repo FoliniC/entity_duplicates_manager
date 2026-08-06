@@ -83,6 +83,11 @@ CONF_RESET_DPIDS = "reset_dpids"
 CONF_PASSIVE_ENTITY = "is_passive_entity"
 CONF_DEVICE_SLEEP_TIME = "device_sleep_time"
 
+# Cloud polling configuration for cloud-only devices
+CONF_CLOUD_POLLING_ENABLED = "cloud_polling_enabled"
+CONF_CLOUD_POLL_DELAY = "cloud_poll_delay"
+CONF_CLOUD_POLL_COOLDOWN = "cloud_poll_cooldown"
+
 # ALARM
 CONF_ALARM_SUPPORTED_STATES = "alarm_supported_states"
 

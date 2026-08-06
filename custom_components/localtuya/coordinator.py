@@ -786,3 +786,114 @@ class TuyaDevice(TuyaListener, ContextualLogger):
                 self.warning(f"Sub-device is offline {node_id}")
             elif off_count == MIN_OFFLINE_EVENTS:
                 self.disconnected("Device is offline")
+
+    async def async_poll_cloud_state(self, device_id: str) -> dict:
+        """Query Tuya Cloud for current device state.
+        
+        Args:
+            device_id: The Tuya device ID
+            
+        Returns:
+            Dictionary of DPS values (dp_id -> value)
+        """
+        if self._entry.data.get(CONF_NO_CLOUD, True):
+            self.warning(f"Cloud not configured for device {device_id}")
+            return {}
+        
+        cloud_api = self._hass_entry.cloud_data
+        
+        try:
+            # Get device properties from cloud
+            result, status = await cloud_api.async_get_device_query_properties(device_id)
+            if status != "ok":
+                self.warning(f"Failed to query cloud state for {device_id}: {status}")
+                return {}
+            
+            # Parse cloud response into DPS format
+            properties = result.get("properties", [])
+            dps_state = {}
+            for prop in properties:
+                dp_id = str(prop.get("dp_id", ""))
+                value = prop.get("value")
+                if dp_id and value is not None:
+                    dps_state[dp_id] = value
+            
+            self.debug(f"Cloud poll for {device_id}: {dps_state}")
+            return dps_state
+            
+        except Exception as e:
+            self.warning(f"Failed to poll cloud state for {device_id}: {e}")
+            return {}
+
+    async def async_update_from_cloud(self, device_id: str) -> None:
+        """Update local device state from cloud query.
+        
+        Args:
+            device_id: The Tuya device ID
+        """
+        if device_id not in self.devices:
+            self.warning(f"Device {device_id} not found in local devices")
+            return
+            
+        device = self.devices[device_id]
+        dps_state = await self.async_poll_cloud_state(device_id)
+        
+        if dps_state:
+            # Update the device status with cloud data
+            device.status_updated(dps_state)
+            self.info(f"Updated {device_id} from cloud: {dps_state}")
+        else:
+            self.debug(f"No cloud data received for {device_id}")
+
+    async def async_handle_network_event(self, event_data: dict) -> None:
+        """Handle network activity event from network watcher.
+        
+        Args:
+            event_data: Dictionary containing event data
+        """
+        device_id = event_data.get("device_id")
+        event_type = event_data.get("event_type", "unknown")
+        
+        if not device_id:
+            self.debug("Received network event without device_id")
+            return
+            
+        # Check if device is cloud-only (sleep_time > 0 or host == "0.0.0.0")
+        device_config = self.config_entry.data.get("devices", {}).get(device_id, {})
+        if not device_config.get("cloud_polling_enabled", True):
+            self.debug(f"Cloud polling disabled for {device_id}")
+            return
+            
+        # Check cooldown
+        cooldown = self.config_entry.data.get("devices", {}).get(device_id, {}).get("cloud_poll_cooldown", 30)
+        if hasattr(self, "_last_cloud_poll") and device_id in self._last_cloud_poll:
+            if time.time() - self._last_cloud_poll[device_id] < cooldown:
+                self.debug(f"Skipping cloud poll for {device_id} (cooldown)")
+                return
+        
+        # Get delay
+        delay = self.config_entry.data.get("devices", {}).get(device_id, {}).get("cloud_poll_delay", 5)
+        
+        self.info(f"Network activity detected for {device_id} ({event_data.get('event_type')}), scheduling cloud poll in {delay}s")
+        
+        # Schedule delayed cloud poll
+        async def delayed_poll():
+            await asyncio.sleep(delay)
+            await self.async_update_from_cloud(device_id)
+            self._last_cloud_poll[device_id] = time.time()
+        
+        asyncio.create_task(delayed_poll())
+
+    async def async_register_cloud_device(self, mac: str, device_id: str) -> None:
+        """Register a cloud-only device for network monitoring."""
+        # Store MAC for network monitoring
+        if not hasattr(self, "_cloud_device_macs"):
+            self._cloud_device_macs = {}
+        self._cloud_device_macs[mac] = device_id
+        self.debug(f"Registered cloud-only device {device_id} with MAC {mac}")
+
+    async def async_unregister_cloud_device(self, mac: str) -> None:
+        """Unregister a cloud-only device from network monitoring."""
+        if hasattr(self, "_cloud_device_macs") and mac in self._cloud_device_macs:
+            del self._cloud_device_macs[mac]
+            self.debug(f"Unregistered cloud device MAC: {mac}")

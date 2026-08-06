@@ -61,6 +61,9 @@ from .core import pytuya
 from .core.cloud_api import TUYA_ENDPOINTS, TuyaCloudApi
 from .core.helpers import templates, get_gateway_by_deviceid, gen_localtuya_entities
 from .const import (
+    CONF_CLOUD_POLLING_ENABLED,
+    CONF_CLOUD_POLL_DELAY,
+    CONF_CLOUD_POLL_COOLDOWN,
     ATTR_UPDATED_AT,
     CONF_ADD_DEVICE,
     CONF_CONFIGURE_CLOUD,

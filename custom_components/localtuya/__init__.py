@@ -47,6 +47,7 @@ from .const import (
     DOMAIN,
     PLATFORMS,
 )
+from .network_manager import async_setup_network_manager
 
 from .discovery import TuyaDiscovery
 
@@ -429,6 +430,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     for dev in connect_to_devices:
         entry.async_create_task(hass, dev.async_connect())
         entry.async_on_unload(dev.close)
+
+    # Initialize network manager for cloud-only devices
+    network_manager = await async_setup_network_manager(hass, hass.data[DOMAIN][entry.entry_id])
+    entry.async_on_unload(network_manager.async_stop)
 
     entry.async_on_unload(entry.add_update_listener(update_listener))
 
