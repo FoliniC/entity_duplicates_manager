@@ -424,6 +424,9 @@ DEVICE_SCHEMA = vol.Schema(
         vol.Optional(CONF_MANUAL_DPS): cv.string,
         vol.Optional(CONF_RESET_DPIDS): str,
         vol.Optional(CONF_DEVICE_SLEEP_TIME): int,
+        vol.Optional(CONF_CLOUD_POLLING_ENABLED, default=True): bool,
+        vol.Optional(CONF_CLOUD_POLL_DELAY, default=5): vol.All(vol.Coerce(int), vol.Range(min=0, max=300)),
+        vol.Optional(CONF_CLOUD_POLL_COOLDOWN, default=30): vol.All(vol.Coerce(int), vol.Range(min=5, max=3600)),
         vol.Optional(CONF_NODE_ID, default=None): vol.Any(None, cv.string),
         # Read-only info fields
         vol.Optional("local_ip"): cv.string,

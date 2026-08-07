@@ -32,6 +32,7 @@ from .core.pytuya.parser import DecodeError
 
 from .const import (
     ATTR_UPDATED_AT,
+    CONF_DEVICE_SLEEP_TIME,
     CONF_GATEWAY_ID,
     CONF_LOCAL_KEY,
     CONF_NODE_ID,
@@ -137,19 +138,18 @@ class TuyaDevice(TuyaListener, ContextualLogger):
     @property
     def is_sleep(self):
         """Return whether the device is sleep or not."""
-        if (device_sleep := self._device_config.sleep_time) > 0:
+        # Read sleep_time from config entry to get current value
+        dev_config = self._entry.data.get("devices", {}).get(self.id, {})
+        device_sleep = dev_config.get(CONF_DEVICE_SLEEP_TIME, 0)
+        if device_sleep > 0:
             setattr(self, "low_power", True)
             last_update = time.monotonic() - self._last_update_time
             return last_update < device_sleep
-
         return False
 
     @property
     def is_write_only(self):
-        """Return if this sub-device is BLE. We uses 0 in manual dps as mark for BLE devices.
-
-        NOTE: this may not be the best way to detect if this device is BLE
-        """
+        """Return if this sub-device is BLE."""
         return self.is_subdevice and "0" in self._device_config.manual_dps.split(",")
 
     def add_entities(self, entities):
@@ -163,6 +163,18 @@ class TuyaDevice(TuyaListener, ContextualLogger):
 
         if self.connected:
             return self._dispatch_status()
+
+        # Skip local connection for cloud-only devices (sleepy devices or placeholder IP)
+        # Read from config entry to get current value
+        dev_config = self._entry.data.get("devices", {}).get(self.id, {})
+        is_cloud_only = dev_config.get(CONF_HOST) == "0.0.0.0" or dev_config.get(CONF_DEVICE_SLEEP_TIME, 0) > 0
+        if is_cloud_only:
+            self.info(
+                "Device is cloud-only (sleep_time > 0 or placeholder IP 0.0.0.0) — "
+                "skipping local connection, will use cloud polling."
+            )
+            self._task_connect = None
+            return
 
         self._task_connect = asyncio.create_task(self._make_connection())
         if not self.is_sleep:
@@ -191,13 +203,15 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         # If protocol_version is "auto", we'll iterate through supported versions
         protocol_versions = SUPPORTED_PROTOCOL_VERSIONS if self._device_config.protocol_version == "auto" else [self._device_config.protocol_version]
 
-        # Pending discovery: device registered with placeholder IP 0.0.0.0.
-        # Do not attempt connection — _device_discovered() in __init__.py will
-        # update the IP and trigger a config entry reload when the device wakes up.
-        if host == "0.0.0.0":
+        # Skip local connection for cloud-only devices (sleepy devices with device_sleep_time > 0
+        # or placeholder IP 0.0.0.0). These devices communicate only via cloud.
+        # Read from config entry to get current sleep_time (not cached self._device_config.sleep_time)
+        dev_config = self._entry.data.get("devices", {}).get(self.id, {})
+        is_cloud_only = host == "0.0.0.0" or dev_config.get(CONF_DEVICE_SLEEP_TIME, 0) > 0
+        if is_cloud_only:
             self.info(
-                "Device is registered with placeholder IP 0.0.0.0 — "
-                "waiting for UDP discovery broadcast to resolve real IP."
+                "Device is cloud-only (sleep_time > 0 or placeholder IP 0.0.0.0) — "
+                "skipping local connection, will use cloud polling."
             )
             self._task_connect = None
             return

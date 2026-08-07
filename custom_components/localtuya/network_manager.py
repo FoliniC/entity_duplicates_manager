@@ -19,15 +19,17 @@ SIGNAL_TUYA_DEVICE_NETWORK_ACTIVITY = "tuya_device_network_activity"
 class TuyaNetworkManager:
     """Manages network monitoring for cloud-only devices."""
 
-    def __init__(self, hass: HomeAssistant, coordinator):
+    def __init__(self, hass: HomeAssistant, coordinator, config_entry):
         """Initialize the network manager.
         
         Args:
             hass: Home Assistant instance
             coordinator: The LocalTuya coordinator instance
+            config_entry: The config entry for this integration
         """
         self.hass = hass
         self.coordinator = coordinator
+        self._config_entry = config_entry
         self._watcher = None
         self._device_macs: dict[str, str] = {}  # device_id -> mac
         self._unsub_dispatcher = None
@@ -39,21 +41,36 @@ class TuyaNetworkManager:
         
         if self._device_macs:
             from .network_watcher import create_network_watcher
-            
-            self._watcher = await create_network_watcher(
-                self.hass,
-                self._device_macs,
-                self._handle_network_event,
-            )
-            _LOGGER.info("Network manager started with %d cloud-only devices", len(self._device_macs))
+
+            try:
+                self._watcher = await create_network_watcher(
+                    self.hass,
+                    self._device_macs,
+                    self._handle_network_event,
+                )
+            except FileNotFoundError as err:
+                self._watcher = None
+                _LOGGER.warning(
+                    "Network watcher disabled because a required command is missing: %s",
+                    err,
+                )
+            except OSError as err:
+                self._watcher = None
+                _LOGGER.warning("Network watcher disabled: %s", err)
+            else:
+                _LOGGER.info(
+                    "Network manager started with %d cloud-only devices",
+                    len(self._device_macs),
+                )
         else:
             _LOGGER.info("No cloud-only devices to monitor")
 
     async def _register_cloud_only_devices(self) -> None:
         """Register cloud-only devices from config entry."""
-        devices = self.coordinator.config_entry.data.get("devices", {})
+        config_entry = self._config_entry
+        devices = config_entry.data.get("devices", {})
         
-        for device_id, dev_config in self.coordinator.config_entry.data.get("devices", {}).items():
+        for device_id, dev_config in config_entry.data.get("devices", {}).items():
             # Check if device is cloud-only (sleep time > 0 or placeholder IP)
             is_cloud_only = (
                 dev_config.get("device_sleep_time", 0) > 0 
@@ -63,7 +80,7 @@ class TuyaNetworkManager:
             if is_cloud_only:
                 mac = dev_config.get("mac") or dev_config.get("cloud_mac")
                 if mac:
-                    self._device_macs[dev_id] = mac
+                    self._device_macs[device_id] = mac
                     _LOGGER.debug("Registered cloud-only device: %s (MAC: %s)", device_id, mac)
                 else:
                     _LOGGER.warning("Cloud-only device %s has no MAC address", device_id)
@@ -103,11 +120,15 @@ class TuyaNetworkManager:
             await self._watcher.stop()
         
         from .network_watcher import create_network_watcher
-        self._watcher = await create_network_watcher(
-            self.hass,
-            self._device_macs,
-            self._handle_network_event,
-        )
+        try:
+            self._watcher = await create_network_watcher(
+                self.hass,
+                self._device_macs,
+                self._handle_network_event,
+            )
+        except OSError as err:
+            self._watcher = None
+            _LOGGER.warning("Network watcher disabled after registering %s: %s", device_id, err)
 
     async def async_unregister_device(self, device_id: str) -> None:
         """Unregister a device from monitoring."""
@@ -122,11 +143,15 @@ class TuyaNetworkManager:
         
         if self._device_macs:
             from .network_watcher import create_network_watcher
-            self._watcher = await create_network_watcher(
-                self.hass,
-                self._device_macs,
-                self._handle_network_event,
-            )
+            try:
+                self._watcher = await create_network_watcher(
+                    self.hass,
+                    self._device_macs,
+                    self._handle_network_event,
+                )
+            except OSError as err:
+                self._watcher = None
+                _LOGGER.warning("Network watcher disabled after unregistering %s: %s", device_id, err)
         else:
             self._watcher = None
 
@@ -144,8 +169,8 @@ class TuyaNetworkManager:
         return self._device_macs.copy()
 
 
-async def async_setup_network_manager(hass, coordinator):
+async def async_setup_network_manager(hass, coordinator, config_entry):
     """Set up the network manager for a config entry."""
-    manager = TuyaNetworkManager(hass, coordinator)
+    manager = TuyaNetworkManager(hass, coordinator, config_entry)
     await manager.async_start()
     return manager

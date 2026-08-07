@@ -7,6 +7,8 @@ devices (sleepy/battery devices) wake up and communicate with Tuya Cloud.
 import asyncio
 import logging
 import re
+import shutil
+import subprocess
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable, Optional
@@ -15,6 +17,10 @@ from pathlib import Path
 from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
+
+# Router OpenWrt per disabilitare il flow offloading (usato solo dal network watcher)
+ROUTER_IP = "192.168.0.11"
+ROUTER_SSH_KEY = "/config/.ssh/router_key"
 
 
 @dataclass
@@ -52,35 +58,81 @@ class TuyaNetworkWatcher:
         """
         self.hass = hass
         self._device_macs = device_macs  # device_id -> mac
-        self._mac_to_device_id = {mac: dev_id for dev_id, mac in device_macs.items()}
+        # Support MAC addresses both with and without colons
+        self._mac_to_device_id = {}
+        for dev_id, mac in device_macs.items():
+            clean_mac = mac.lower().replace(":", "").replace("-", "")
+            colon_mac = ":".join(clean_mac[i:i+2] for i in range(0, len(clean_mac), 2))
+            self._mac_to_device_id[clean_mac] = dev_id
+            self._mac_to_device_id[colon_mac] = dev_id
         self._callback = callback
         self._process: Optional[asyncio.subprocess.Process] = None
         self._running = False
         self._tcpdump_task: Optional[asyncio.Task] = None
 
     def _build_bpf_filter(self) -> str:
-        """Build BPF filter for tcpdump to capture traffic from/to registered MACs."""
+        """Build BPF filter for tcpdump to capture traffic from/to registered MACs.
+        
+        For the specific device BC:35:1E:FF:4A:B9, capture ALL traffic (all ports/protocols).
+        For other devices, use the standard Tuya cloud filtering.
+        """
         if not self._device_macs:
             return "ether host 00:00:00:00:00:00"  # match nothing
         
-        mac_filters = " or ".join(f"ether host {mac}" for mac in self._device_macs.values())
+        # For BC:35:1E:FF:4A:B9, capture all traffic
+        # For all other devices, use Tuya cloud filtering
+        filter_parts = []
         
-        # Filter for relevant protocols:
-        # - TCP to Tuya Cloud ports (8883, 443, 8886, 8884, 8885)
-        # - UDP 6666, 6667 (Tuya LAN discovery)
-        # - DNS (port 53) - for cloud domain resolution
-        # - ARP (for device wake-up detection)
-        port_filter = " or ".join(f"port {port}" for port in self.TUYA_CLOUD_PORTS)
+        for mac in self._device_macs.values():
+            mac_normalized = mac.lower()
+            if mac_normalized == "bc:35:1e:ff:4a:b9":
+                # Special case: capture ALL traffic for this device - no port restrictions
+                filter_parts.append(f"(ether host {mac})")
+            else:
+                # Standard Tuya filtering for other devices
+                port_filter = " or ".join(f"port {port}" for port in self.TUYA_CLOUD_PORTS)
+                other_ports = "udp port 6667 or udp port 6666 or udp port 5353 or udp port 1900 or udp port 123 or arp"
+                filter_parts.append(f"(ether host {mac} and ({port_filter} or {other_ports}))")
         
-        filter_parts = [
-            f"({mac_filters})",
-            f"({port_filter} or udp port 6667 or udp port 6666 or udp port 5353 or udp port 1900 or udp port 123 or arp)",
+        return " or ".join(filter_parts)
+
+    @staticmethod
+    def _router_ssh_base() -> list[str]:
+        """Return the base SSH command list to connect to the router."""
+        return [
+            "ssh",
+            "-i", ROUTER_SSH_KEY,
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "UserKnownHostsFile=/dev/null",
+            "-o", "BatchMode=yes",
+            "-o", "ConnectTimeout=5",
+            f"root@{ROUTER_IP}",
         ]
-        
-        return " and ".join(f"({part})" for part in filter_parts)
+
+    async def _router_run(self, cmd: str) -> tuple[int, str, str]:
+        """Run a single command on the router via SSH and return (returncode, stdout, stderr)."""
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *self._router_ssh_base(),
+                cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=15)
+            return (
+                process.returncode,
+                stdout.decode("utf-8", errors="ignore") if stdout else "",
+                stderr.decode("utf-8", errors="ignore") if stderr else "",
+            )
+        except asyncio.TimeoutError:
+            _LOGGER.error("Timeout SSH router for command: %s", cmd)
+            return -1, "", "Timeout"
+        except Exception as e:
+            _LOGGER.warning("SSH router error for command %s: %s", cmd, e)
+            return -1, "", str(e)
 
     async def start(self) -> None:
-        """Start the network watcher."""
+        """Start the network watcher — runs tcpdump on the OpenWrt router via SSH."""
         if self._running:
             _LOGGER.warning("Network watcher already running")
             return
@@ -89,78 +141,61 @@ class TuyaNetworkWatcher:
             _LOGGER.info("No cloud-only devices registered, skipping network watcher")
             return
 
-        # Disable flow offloading to ensure packets reach CPU
+        # Check if network watcher is disabled via file
+        disable_file = Path("/config/disable_network_watcher")
+        if disable_file.is_file():
+            _LOGGER.info("Network watcher disabled by presence of %s", disable_file)
+            return
+
+        # Disable flow offloading on the router so packets reach the CPU (and tcpdump)
         await self._disable_flow_offloading()
 
         bpf_filter = self._build_bpf_filter()
-        _LOGGER.info("Starting network watcher with filter: %s", bpf_filter)
 
-        # Build tcpdump command
-        # -i br-lan: listen on LAN bridge
-        # -nn: don't resolve names
-        # -e: print link-level header (MAC addresses)
-        # -s 0: capture full packet
-        # -U: packet-buffered mode (write immediately)
-        # -w -: write to stdout
-        # -i br-lan: interface
-        cmd = [
-            "tcpdump",
-            "-i", "br-lan",
-            "-nn",
-            "-e",
-            "-s", "0",
-            "-U",
-            "-w", "-",
-            "ether host " + " or ether host ".join(self._device_macs.values()),
-        ]
+        # Build the tcpdump command to run ON THE ROUTER (via SSH pipe).
+        # The router's br-lan bridge sees ALL traffic from WiFi and wired LAN devices.
+        # -i br-lan : OpenWrt LAN bridge (WiFi + cabled)
+        # -nn       : no name/port resolution
+        # -e        : print MAC addresses (link-level header)
+        # -l        : line-buffered text output (readable by readline())
+        # -s 96     : capture only first 96 bytes (enough for Ethernet+IP+TCP headers)
+        router_tcpdump_cmd = (
+            f"tcpdump -i br-lan -nn -e -l -s 96 '{bpf_filter}'"
+        )
 
-        _LOGGER.info("Starting tcpdump with command: %s", " ".join(cmd))
+        _LOGGER.info(
+            "Starting network watcher: SSH to %s, running: %s",
+            ROUTER_IP, router_tcpdump_cmd,
+        )
 
+        # The SSH process streams tcpdump stdout back to HA — we read it with readline()
         self._process = await asyncio.create_subprocess_exec(
-            *cmd,
+            *self._router_ssh_base(),
+            router_tcpdump_cmd,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
         )
 
         self._running = True
         self._tcpdump_task = asyncio.create_task(self._read_tcpdump_output())
-        _LOGGER.info("Network watcher started")
+        _LOGGER.info("Network watcher started (tcpdump on router %s br-lan)", ROUTER_IP)
 
     async def _disable_flow_offloading(self) -> None:
-        """Disable flow offloading to ensure packets reach CPU for capture."""
-        try:
-            # Disable flow offloading via uci
-            proc = await asyncio.create_subprocess_exec(
-                "uci", "set", "firewall.@defaults[0].flow_offloading=0",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            await proc.wait()
-            
-            proc = await asyncio.create_subprocess_exec(
-                "uci", "set", "firewall.@defaults[0].flow_offloading_hw=0",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            await proc.wait()
-            
-            proc = await asyncio.create_subprocess_exec(
-                "uci", "commit", "firewall",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            await proc.wait()
-            
-            proc = await asyncio.create_subprocess_exec(
-                "/etc/init.d/firewall", "restart",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            await proc.wait()
-            
-            _LOGGER.info("Disabled flow offloading for packet capture")
-        except Exception as e:
-            _LOGGER.warning("Failed to disable flow offloading: %s", e)
+        """Disable flow offloading on the OpenWrt router so packets reach the CPU for capture."""
+        _LOGGER.info("Disabling flow offloading on OpenWrt router via SSH...")
+        commands = [
+            "uci set firewall.@defaults[0].flow_offloading=0",
+            "uci set firewall.@defaults[0].flow_offloading_hw=0",
+            "uci commit firewall",
+            "/etc/init.d/firewall restart",
+        ]
+        for cmd in commands:
+            code, stdout, stderr = await self._router_run(cmd)
+            if code != 0:
+                _LOGGER.warning("Router command failed (may already be set): %s — %s", cmd, stderr.strip())
+            else:
+                _LOGGER.debug("Router command OK: %s", cmd)
+        _LOGGER.info("Flow offloading disabled on OpenWrt router")
 
     async def _read_tcpdump_output(self) -> None:
         """Read and parse tcpdump output."""
@@ -202,10 +237,14 @@ class TuyaNetworkWatcher:
                 if not line:
                     continue
 
+                _LOGGER.debug("[TCPDUMP-RAW] %s", line)
+
                 # Parse the packet
                 event = self._parse_packet(line)
                 if event:
-                    await self._callback(event)
+                    res = self._callback(event)
+                    if asyncio.iscoroutine(res):
+                        await res
 
             except asyncio.CancelledError:
                 break
@@ -286,7 +325,7 @@ class TuyaNetworkWatcher:
                     destination_port = int(ip_match.group(2))
             
             return NetworkEvent(
-                device_id="",  # Will be filled by caller
+                device_id=device_id,
                 mac=mac,
                 ip="",  # Would need more parsing
                 timestamp=datetime.now(),

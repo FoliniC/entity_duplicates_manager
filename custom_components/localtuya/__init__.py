@@ -34,6 +34,7 @@ from .coordinator import TuyaDevice, HassLocalTuyaData, TuyaCloudApi
 from .config_flow import ENTRIES_VERSION
 from .const import (
     ATTR_UPDATED_AT,
+    CONF_DEVICE_SLEEP_TIME,
     CONF_DOWNLOAD_CLOUD_INFO,
     CONF_GATEWAY_ID,
     CONF_MAC_RETRIEVAL,
@@ -48,6 +49,7 @@ from .const import (
     PLATFORMS,
 )
 from .network_manager import async_setup_network_manager
+from .event_processor import async_setup_event_processor
 
 from .discovery import TuyaDiscovery
 
@@ -367,6 +369,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
             host = config.get(CONF_HOST)
 
+            # Skip local connection for cloud-only devices (sleepy devices or placeholder IP)
+            is_cloud_only = (
+                config.get(CONF_DEVICE_SLEEP_TIME, 0) > 0 
+                or config.get(CONF_HOST) == "0.0.0.0"
+            )
+            if is_cloud_only:
+                _LOGGER.info(
+                    "Device %s is cloud-only (sleep_time > 0 or placeholder IP) — skipping local connection",
+                    dev_id
+                )
+                # Still create device object for entity setup but don't connect locally
+                if not (node_id := config.get(CONF_NODE_ID)):
+                    devices[config.get(CONF_HOST, dev_id)] = TuyaDevice(hass, entry, config)
+                continue
+
+            host = config.get(CONF_HOST)
+
             # Parent Devices.
             if not (node_id := config.get(CONF_NODE_ID)):
                 devices[host] = (dev := TuyaDevice(hass, entry, config))
@@ -432,8 +451,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         entry.async_on_unload(dev.close)
 
     # Initialize network manager for cloud-only devices
-    network_manager = await async_setup_network_manager(hass, hass.data[DOMAIN][entry.entry_id])
+    network_manager = await async_setup_network_manager(hass, hass.data[DOMAIN][entry.entry_id], entry)
     entry.async_on_unload(network_manager.async_stop)
+
+    # Initialize event processor for cloud-only device cloud polling
+    from .event_processor import async_setup_event_processor
+    event_processor = await async_setup_event_processor(hass, hass.data[DOMAIN][entry.entry_id], entry)
+    entry.async_on_unload(lambda: None)  # Keep reference
 
     entry.async_on_unload(entry.add_update_listener(update_listener))
 
