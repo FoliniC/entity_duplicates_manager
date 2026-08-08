@@ -66,6 +66,9 @@ async def async_setup_entry(
     entities = []
     hass_entry_data: HassLocalTuyaData = hass.data[DOMAIN][config_entry.entry_id]
 
+    _LOGGER.debug(f"[{domain}] Setting up entities for config entry: {config_entry.entry_id}")
+    _LOGGER.debug(f"[{domain}] Available devices in coordinator: {list(hass_entry_data.devices.keys())}")
+
     for dev_id in config_entry.data[CONF_DEVICES]:
         dev_entry: dict = config_entry.data[CONF_DEVICES][dev_id]
 
@@ -73,8 +76,13 @@ async def async_setup_entry(
         node_id = dev_entry.get(CONF_NODE_ID)
         device_key = f"{host}_{node_id}" if node_id else host
 
+        _LOGGER.debug(f"[{domain}] Checking device: {dev_id} (host={host}, node_id={node_id}, device_key={device_key})")
+
         if device_key not in hass_entry_data.devices:
+            _LOGGER.debug(f"[{domain}] Device {dev_id} not found in coordinator (key={device_key}), skipping")
             continue
+
+        _LOGGER.debug(f"[{domain}] Found device {dev_id} in coordinator")
 
         entities_to_setup = [
             entity
@@ -82,17 +90,21 @@ async def async_setup_entry(
             if entity[CONF_PLATFORM] == domain
         ]
 
+        _LOGGER.debug(f"[{domain}] Entities to setup for {dev_id}: {len(entities_to_setup)}")
+
         if entities_to_setup:
             device: TuyaDevice = hass_entry_data.devices[device_key]
+            _LOGGER.debug(f"[{domain}] Creating entities for device {dev_id}: {[(e.get('friendly_name'), e.get('id')) for e in entities_to_setup]}")
             dps_config_fields = list(get_dps_for_platform(flow_schema))
 
+            device_entities = []
             for entity_config in entities_to_setup:
                 # Add DPS used by this platform to the request list
                 for dp_conf in dps_config_fields:
                     if dp_conf in entity_config:
                         device.dps_to_request[entity_config[dp_conf]] = None
 
-                entities.append(
+                device_entities.append(
                     entity_class(
                         device,
                         dev_entry,
@@ -101,10 +113,13 @@ async def async_setup_entry(
                         add_entities_callback=async_add_entities,
                     )
                 )
-    # Once the entities have been created, add to the TuyaDevice instance
-    if entities:
-        device.add_entities(entities)
-        async_add_entities(entities)
+            
+            # Once the entities have been created, add to the TuyaDevice instance
+            if device_entities:
+                device.add_entities(device_entities)
+                async_add_entities(device_entities)
+                _LOGGER.debug(f"[{domain}] Added {len(device_entities)} entities for device {dev_id}")
+                entities.extend(device_entities)
 
         if async_setup_services:
             await async_setup_services(hass, entities)

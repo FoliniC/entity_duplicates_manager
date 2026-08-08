@@ -831,6 +831,11 @@ class TuyaDevice(TuyaListener, ContextualLogger):
                 value = prop.get("value")
                 if dp_id and value is not None:
                     dps_state[dp_id] = value
+                    # Map 3-digit cloud DP IDs (e.g. 101, 102) to 1-digit/2-digit local DP IDs (1, 2)
+                    if dp_id.isdigit() and int(dp_id) >= 100:
+                        short_id = str(int(dp_id) % 100)
+                        if short_id not in dps_state:
+                            dps_state[short_id] = value
             
             self.debug(f"Cloud poll for {device_id}: {dps_state}")
             return dps_state
@@ -845,11 +850,17 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         Args:
             device_id: The Tuya device ID
         """
-        if device_id not in self.devices:
+        # Find device by its id attribute (devices dict uses host IP as key)
+        device = None
+        for dev in self._hass_entry.devices.values():
+            if dev.id == device_id:
+                device = dev
+                break
+                
+        if not device:
             self.warning(f"Device {device_id} not found in local devices")
             return
             
-        device = self.devices[device_id]
         dps_state = await self.async_poll_cloud_state(device_id)
         
         if dps_state:

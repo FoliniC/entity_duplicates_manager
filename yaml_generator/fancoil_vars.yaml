@@ -18,7 +18,7 @@ fancoil_vars:
     # il rilevamento della finestra completamente automatico senza intervento manuale.
     # Il sensore risulta generalmente unavailable e invia aggiornamenti solo quando la
     # finestra viene aperta o chiusa.
-    window_contact_sensor: binary_sensor.contact_sensor_doorcontact_state
+    window_contact_sensor: binary_sensor.contact_cucina_contact_cucina
     # Fase 13 - Soglie di verifica (opzionale, può essere sovrascritte da utente)
     verifica_thresholds:
       delta_omega_apertura: 1.5

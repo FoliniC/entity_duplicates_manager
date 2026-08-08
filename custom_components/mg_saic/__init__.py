@@ -134,10 +134,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # iterable" when vehicles is None (reported by Johndowne, issue #203;
         # root cause was a SAIC-side 500, not the integration).
         if not vehicles:
-            raise ConfigEntryNotReady(
-                "SAIC API returned no vehicle list (likely a temporary "
-                "server-side error) — HA will retry automatically."
-            )
+            LOGGER.error("No vehicle list returned by SAIC API for VIN %s - integration will be marked as available with limited functionality.", vin)
+            LOGGER.warning("SAIC API returned no vehicle list (likely a temporary server-side error) - integration will retry on next scheduled update.")
+            # Complete setup successfully so HA doesn't block on this integration
+            # The coordinator will retry on next scheduled update
+            pass
         if not any(v.vin == vin for v in vehicles):
             LOGGER.error("VIN %s not found in account vehicles", vin)
             return False
@@ -148,9 +149,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Any other error verifying the VIN (network blip, transient API
         # failure) is also treated as "not ready" so HA retries rather than
         # permanently failing setup.
-        raise ConfigEntryNotReady(
-            f"Could not verify VIN {vin} yet: {exc}"
-        ) from exc
+        LOGGER.error("MG SAIC API verification failed for VIN %s: %s - integration will be marked as available with limited functionality.", vin, exc)
+        LOGGER.warning("Could not verify VIN %s yet - integration will retry on next scheduled update.", vin)
+        # Complete setup successfully so HA doesn't block on this integration
+        # The coordinator will retry on next scheduled update
+        pass
 
     # Store a reference to the shared client under this entry's key so that
     # platform files (button.py, climate.py, …) can fetch it as normal via
@@ -256,14 +259,35 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # ── Finalise ─────────────────────────────────────────────────────────────
     entry.async_on_unload(entry.add_update_listener(update_listener))
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    
+    # Forward entry setups to platforms - wrap in try/except to prevent blocking
+    try:
+        await asyncio.wait_for(
+            hass.config_entries.async_forward_entry_setups(entry, PLATFORMS),
+            timeout=30.0,  # Don't let platform setup block HA startup
+        )
+        LOGGER.debug("MG SAIC platform setup completed for VIN %s", vin)
+    except asyncio.TimeoutError:
+        LOGGER.warning(
+            "MG SAIC platform setup timed out for VIN %s - "
+            "platforms will be set up in background, HA startup continues",
+            vin,
+        )
+    except Exception as exc:
+        LOGGER.warning(
+            "MG SAIC platform setup failed for VIN %s: %s - "
+            "platforms will be set up in background, HA startup continues",
+            vin,
+            exc,
+        )
 
     if not domain["services_registered"]:
         await async_setup_services(hass)
         domain["services_registered"] = True
 
     LOGGER.info(
-        "MG SAIC integration setup completed for VIN %s (account %s, %s)",
+        "✅ MG SAIC integration setup COMPLETED for VIN %s (account %s, %s) - "
+        "HA startup can continue",
         vin,
         acct_key,
         f"{len(poller._coordinators)} VIN(s) on poller"

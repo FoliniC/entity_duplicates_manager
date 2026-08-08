@@ -601,7 +601,11 @@ def generate_dashboard(vars_map):
 
         termostati_cards.append(substitute_tags(termostati_tpl, {**local_ctx, **common_termostati_ctx}))
         impostazioni_cards.append(substitute_tags(impostazioni_tpl, {**local_ctx, **common_impostazioni_ctx}))
-        room_subviews.append(substitute_tags(room_details_tpl, {**local_ctx, **common_room_details_ctx}))
+        
+        # Two-pass rendering for room details: first substitute_tags, then Jinja2 for conditionals
+        room_rendered = substitute_tags(room_details_tpl, {**local_ctx, **common_room_details_ctx})
+        room_template = _jinja_env.from_string(room_rendered)
+        room_subviews.append(room_template.render(**{**local_ctx, **common_room_details_ctx}))
         
         # We need two separate passes for coherence because they belong to different domains
         # We'll use coherence_cards for dashboard, and generate two separate files for HA

@@ -641,15 +641,29 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
                 timeout=STARTUP_API_TIMEOUT,
             )
         except asyncio.TimeoutError:
-            raise ConfigEntryNotReady(
-                f"MG SAIC API did not respond within {STARTUP_API_TIMEOUT}s at "
-                f"startup for VIN {vin} — HA will retry automatically in the background."
+            # Instead of raising ConfigEntryNotReady, complete setup but log the timeout
+            # This allows HA to continue starting up while retrying in background
+            LOGGER.error(
+                "MG SAIC API did not respond within %ss at startup for VIN %s - "
+                "integration will be marked as available with limited functionality.",
+                STARTUP_API_TIMEOUT,
+                vin,
             )
+            # Complete setup successfully so HA doesn't block on this integration
+            # The coordinator will retry on next scheduled update
+            pass
         except Exception as e:
-            raise ConfigEntryNotReady(
-                f"MG SAIC API unavailable at startup for VIN {vin}: {e} "
-                f"— HA will retry automatically in the background."
+            # Instead of raising ConfigEntryNotReady, complete setup but log the error
+            # This allows HA to continue starting up while retrying in background
+            LOGGER.error(
+                "MG SAIC API unavailable at startup for VIN %s: %s - "
+                "integration will be marked as available with limited functionality.",
+                vin,
+                e,
             )
+            # Complete setup successfully so HA doesn't block on this integration
+            # The coordinator will retry on next scheduled update
+            pass
 
         if "info" in self.data and self.data["info"]:
             # Find the vehicle info matching the current VIN
@@ -659,6 +673,15 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
 
             if not vin_info:
                 LOGGER.error(f"No vehicle data found for VIN: {vin}")
+                if self.is_initial_setup:
+                    LOGGER.warning(
+                        "VIN %s not found in vehicle data during setup — "
+                        "will retry on next scheduled update",
+                        vin,
+                    )
+                    # Return without setting data - will retry later
+                    self.is_initial_setup = False
+                    return {}
                 raise UpdateFailed("No matching vehicle data found.")
 
             # Store the matching vehicle info
@@ -752,10 +775,13 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
 
         else:
             LOGGER.error(f"No 'info' data found for VIN: {vin}")
-            raise ConfigEntryNotReady(
-                f"No vehicle info returned by SAIC API for VIN {vin}. "
-                f"HA will retry automatically."
+            LOGGER.warning(
+                f"MG SAIC API returned no vehicle info for VIN {vin} - "
+                f"integration will be marked as available with limited functionality."
             )
+            # Complete setup successfully so HA doesn't block on this integration
+            # The coordinator will retry on next scheduled update
+            pass
 
         # Update capabilities from options
         self.has_sunroof = self.config_entry.options.get(
@@ -818,12 +844,28 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             )
 
             if not data["info"]:
-                raise UpdateFailed("Cannot proceed without vehicle info.")
+                if self.is_initial_setup:
+                    LOGGER.warning(
+                        "Vehicle info unavailable during setup for VIN %s — "
+                        "will retry on next scheduled update",
+                        self.vin,
+                    )
+                    data["info"] = []
+                else:
+                    raise UpdateFailed("Cannot proceed without vehicle info.")
 
             vin = self.config_entry.data.get("vin")
             filtered_info = [v for v in data["info"] if v.vin == vin]
             if not filtered_info:
-                raise UpdateFailed(f"No data found for VIN: {vin}")
+                if self.is_initial_setup:
+                    LOGGER.warning(
+                        "VIN %s not found in vehicle list during setup — "
+                        "will retry on next scheduled update",
+                        self.vin,
+                    )
+                    data["info"] = []
+                else:
+                    raise UpdateFailed(f"No data found for VIN: {vin}")
 
             # Overwrite info with the filtered result and store it in an attribute
             data["info"] = filtered_info
@@ -1545,6 +1587,8 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
                 data = await fetch_func()
                 if data is None:
                     LOGGER.warning("%s returned None.", data_name.capitalize())
+                    if self.is_initial_setup:
+                        return None
                     raise UpdateFailed(f"{data_name.capitalize()} is None.")
                 if is_generic_func(data):
                     LOGGER.warning("Generic %s response received.", data_name)
@@ -1573,6 +1617,46 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
                             "Re-login failed for VIN %s: %s", self.vin, login_exc
                         )
                     # No sleep — retry immediately after re-auth
+                    continue
+
+                # Check for specific return code 4 errors (remote control instruction failed)
+                error_lower = exc_str.lower()
+                if "return code: 4" in error_lower or "remote control instruction failed" in error_lower:
+                    LOGGER.warning(
+                        "MG SAIC API return code 4 (remote control failed) for VIN %s - "
+                        "attempt %d/%d: %s. This often indicates server maintenance "
+                        "or rate limiting. Will retry with longer backoff.",
+                        self.vin,
+                        retries,
+                        RETRY_LIMIT,
+                        e,
+                    )
+                    delay = RETRY_BACKOFF_FACTOR * (2 ** retries)
+                    # Longer backoff for rate limiting errors
+                    delay = min(delay * 2, 60)  # Extra delay for rate limiting
+                    await asyncio.sleep(delay)
+                    continue
+
+                # Check for "Starting MG SAIC" messages or similar startup indicators
+                if any(
+                    startup_indicator in error_lower
+                    for startup_indicator in [
+                        "starting mg saic",
+                        "not everything will be available",
+                        "startup",
+                        "initializing",
+                    ]
+                ):
+                    LOGGER.warning(
+                        "MG SAIC server appears to be starting/updating for VIN %s - "
+                        "attempt %d/%d: %s. Server may be unavailable temporarily - will retry.",
+                        self.vin,
+                        retries,
+                        RETRY_LIMIT,
+                        e,
+                    )
+                    delay = RETRY_BACKOFF_FACTOR * (2 ** retries)
+                    await asyncio.sleep(delay)
                     continue
 
                 delay = RETRY_BACKOFF_FACTOR

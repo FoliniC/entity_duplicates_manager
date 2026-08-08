@@ -90,6 +90,7 @@ from .const import (
     CONF_SCALING,
     CONF_STATE_CLASS,
     CONF_STEPSIZE,
+    CONF_STARTUP_CLOUD_POLL,
     CONF_TUYA_GWID,
     CONF_TUYA_IP,
     CONF_TUYA_VERSION,
@@ -407,6 +408,7 @@ CLOUD_CONFIGURE_SCHEMA = vol.Schema(
         vol.Required(CONF_NO_CLOUD, default=False): bool,
         vol.Optional(CONF_MAC_RETRIEVAL, default=False): bool,
         vol.Optional(CONF_DOWNLOAD_CLOUD_INFO, default=False): bool,
+        vol.Optional(CONF_STARTUP_CLOUD_POLL, default=True): bool,
     }
 )
 
@@ -917,6 +919,9 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 # Save download_cloud_info setting
                 if CONF_DOWNLOAD_CLOUD_INFO in user_input:
                     new_data[CONF_DOWNLOAD_CLOUD_INFO] = user_input[CONF_DOWNLOAD_CLOUD_INFO]
+                # Save startup_cloud_poll setting
+                if CONF_STARTUP_CLOUD_POLL in user_input:
+                    new_data[CONF_STARTUP_CLOUD_POLL] = user_input[CONF_STARTUP_CLOUD_POLL]
                 cloud_devs = cloud_api.device_list
                 for dev_id, dev in new_data[CONF_DEVICES].items():
                     if CONF_MODEL not in dev and dev_id in cloud_devs:

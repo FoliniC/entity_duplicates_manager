@@ -87,6 +87,7 @@ CONF_DEVICE_SLEEP_TIME = "device_sleep_time"
 CONF_CLOUD_POLLING_ENABLED = "cloud_polling_enabled"
 CONF_CLOUD_POLL_DELAY = "cloud_poll_delay"
 CONF_CLOUD_POLL_COOLDOWN = "cloud_poll_cooldown"
+CONF_STARTUP_CLOUD_POLL = "startup_cloud_poll"
 
 # ALARM
 CONF_ALARM_SUPPORTED_STATES = "alarm_supported_states"

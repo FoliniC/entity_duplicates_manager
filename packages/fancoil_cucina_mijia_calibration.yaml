@@ -84,6 +84,50 @@ template:
               Raccolta dati in corso... ({{ temp_cnt }} campioni T)
             {% endif %}
 
+      # ---------------------------------------------------------------------------
+      # Sensori Calibrati (Template) - Valori Corretti
+      # ---------------------------------------------------------------------------
+      - name: "Cucina Temperatura Calibrata"
+        unique_id: fancoil_cucina_temp_calibrated
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        icon: mdi:thermometer-check
+        state: >-
+          {% set Tf = states('sensor.fancoil_cucina_temperature') | float(none) %}
+          {% if Tf is none %}
+            unknown
+          {% elif Tf <= 24.5 %}
+            {{ Tf | round(1) }}
+          {% else %}
+            {% set delta = Tf - 24.5 %}
+            {% set corr = 0.042 * delta * delta - 0.15 * delta %}
+            {{ (Tf + corr) | round(1) }}
+          {% endif %}
+        availability: >-
+          {{ states('sensor.fancoil_cucina_temperature') not in ['unavailable', 'unknown', 'none', ''] }}
+
+      - name: "Cucina Umidità Calibrata"
+        unique_id: fancoil_cucina_hum_calibrated
+        unit_of_measurement: "%"
+        device_class: humidity
+        state_class: measurement
+        icon: mdi:water-percent
+        state: >-
+          {% set RHf = states('sensor.fancoil_cucina_humidity') | float(none) %}
+          {% set Tf = states('sensor.fancoil_cucina_temperature') | float(none) %}
+          {% if RHf is none %}
+            unknown
+          {% elif RHf >= 60 %}
+            {{ RHf | round(0) }}
+          {% else %}
+            {% set corr = 0.45 * (60 - RHf) %}
+            {% set temp_factor = 1 + 0.02 * [0, Tf - 24] | max %}
+            {{ (RHf + corr * temp_factor) | round(0) }}
+          {% endif %}
+        availability: >-
+          {{ states('sensor.fancoil_cucina_humidity') not in ['unavailable', 'unknown', 'none', ''] }}
+
 # ---------------------------------------------------------------------------
 # Statistics Sensors for Rolling Averages (using HA Statistics integration)
 # Only 'mean', 'median', 'change', 'count', 'total' are supported

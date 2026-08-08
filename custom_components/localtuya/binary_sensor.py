@@ -47,6 +47,7 @@ class LocalTuyaBinarySensor(LocalTuyaEntity, BinarySensorEntity):
         **kwargs,
     ):
         """Initialize the Tuya binary sensor."""
+        _LOGGER.debug(f"[binary_sensor] Initializing entity for device {device.id}, sensorid={sensorid}")
         super().__init__(device, config_entry, sensorid, _LOGGER, **kwargs)
         self._is_on = False
 
@@ -60,15 +61,19 @@ class LocalTuyaBinarySensor(LocalTuyaEntity, BinarySensorEntity):
 
     def status_updated(self):
         """Device status was updated."""
+        _LOGGER.debug(f"[binary_sensor] status_updated for {self.entity_id} (dp={self._dp_id}) - status: {self._status}")
         super().status_updated()
 
         state = str(self.dp_value(self._dp_id)).lower()
+        _LOGGER.debug(f"[binary_sensor] {self.entity_id} - dp_value({self._dp_id}) = {state}")
         # users may set wrong on states, But we assume that must devices use this on states.
         state_on = self._config.get(CONF_STATE_ON, "true,1,pir,on")
         if state in state_on.lower().split(","):
             self._is_on = True
         else:
             self._is_on = False
+
+        _LOGGER.debug(f"[binary_sensor] {self.entity_id} - _is_on = {self._is_on}")
 
         if self._reset_timer and self._is_on:
             if self._reset_timer_interval is not None:

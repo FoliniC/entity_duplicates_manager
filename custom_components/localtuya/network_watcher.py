@@ -181,7 +181,33 @@ class TuyaNetworkWatcher:
         _LOGGER.info("Network watcher started (tcpdump on router %s br-lan)", ROUTER_IP)
 
     async def _disable_flow_offloading(self) -> None:
-        """Disable flow offloading on the OpenWrt router so packets reach the CPU for capture."""
+        """Disable flow offloading on the OpenWrt router so packets reach the CPU for capture.
+        
+        Only applies settings if they differ from the desired state, to avoid unnecessary
+        firewall restarts which cause brief internet interruptions.
+        """
+        # First, check current settings
+        check_commands = [
+            "uci get firewall.@defaults[0].flow_offloading",
+            "uci get firewall.@defaults[0].flow_offloading_hw",
+        ]
+        
+        needs_change = False
+        for cmd in check_commands:
+            code, stdout, stderr = await self._router_run(cmd)
+            if code == 0:
+                current_value = stdout.strip()
+                if current_value != "0":
+                    needs_change = True
+                    _LOGGER.debug("Flow offloading setting needs change: %s = %s (want 0)", cmd, current_value)
+            else:
+                _LOGGER.debug("Could not read current flow offloading setting: %s", cmd)
+                needs_change = True  # Assume we need to set it if we can't read
+        
+        if not needs_change:
+            _LOGGER.info("Flow offloading already disabled on OpenWrt router, skipping")
+            return
+            
         _LOGGER.info("Disabling flow offloading on OpenWrt router via SSH...")
         commands = [
             "uci set firewall.@defaults[0].flow_offloading=0",
@@ -192,7 +218,7 @@ class TuyaNetworkWatcher:
         for cmd in commands:
             code, stdout, stderr = await self._router_run(cmd)
             if code != 0:
-                _LOGGER.warning("Router command failed (may already be set): %s — %s", cmd, stderr.strip())
+                _LOGGER.warning("Router command failed: %s — %s", cmd, stderr.strip())
             else:
                 _LOGGER.debug("Router command OK: %s", cmd)
         _LOGGER.info("Flow offloading disabled on OpenWrt router")

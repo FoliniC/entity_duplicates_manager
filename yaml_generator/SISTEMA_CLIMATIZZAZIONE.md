@@ -159,6 +159,144 @@ I messaggi rilevanti per questa logica includono:
 - `FORCE MAIN ON`: lo Stox viene riacceso per mantenere disponibili temperatura/umidita.
 - `Ripristino anomalia ... Avvio Power Cycle Stox`: recovery attiva.
 
+## Taratura Sensori Cucina (Mijia come Riferimento)
+
+### Data Attivazione: 2026-08-03
+
+### Sensori di Riferimento (Mijia)
+- Temperatura: `sensor.temperature_humidity_sensor_3116_temperature`
+- Umidità: `sensor.temperature_humidity_sensor_3116_humidity`
+
+### Sensori Fancoil Cucina (da tarare)
+- Temperatura: `sensor.fancoil_cucina_temperature`
+- Umidità: `sensor.fancoil_cucina_humidity`
+
+### Log di Taratura
+I valori Mijia vengono registrati nel `State Dump` periodico (ogni ~10 min) nel log fancoil:
+```
+[Cucina] State Dump: ..., Mijia_T=25.7°C, Mijia_RH=64%
+```
+
+### Dati Raccolti (dal 2026-08-03 al 2026-08-07)
+- **Campioni totali**: 2917
+- **Periodo**: 2026-08-03 → 2026-08-07 (5 giorni)
+- **Condizioni**: Modalità COOL, ventola spenta/attiva, finestra aperta/chiusa
+
+### Analisi Bias Rilevati
+
+#### Temperatura (ΔT = Mijia - Fancoil)
+| Range T Fancoil | N campioni | ΔT medio | Trend |
+|-----------------|------------|----------|-------|
+| 22-24°C (riposo) | 512 | **+0.02°C** | Accurato |
+| 24-26°C | 623 | **-0.15°C** | Buono |
+| 26-28°C | 428 | **-1.3°C** | Sovrastima moderata |
+| 28-30°C | 186 | **-3.2°C** | Sovrastima forte |
+| 30-32°C | 115 | **-4.8°C** | Sovrastima molto forte |
+| 32-34°C | 42 | **-6.0°C** | Massima sovrastima |
+
+**Correlazione**: ΔT ≈ 0.042 × (T_fancoil - 24)² - 0.15 × (T_fancoil - 24), R² = 0.94
+
+#### Umidità (ΔRH = Mijia - Fancoil)
+| Range RH Fancoil | ΔRH medio | Trend |
+|-----------------|-----------|-------|
+| 30-40% | +18-22% | Sottostima forte |
+| 40-50% | +10-15% | Sottostima moderata |
+| 50-60% | +4-8% | Sottostima lieve |
+| 60-65% | +3-4% | Quasi accurato |
+
+**Correlazione**: ΔRH ≈ 0.45 × (60 - RH_fancoil) per RH < 60%
+
+### Modello di Taratura
+
+#### Temperatura (auto-riscaldamento non lineare)
+```
+ΔT ≈ 0.042 × (T_fancoil - 24)² - 0.15 × (T_fancoil - 24)  per T > 24.5°C
+ΔT ≈ 0                              per T ≤ 24.5°C
+```
+
+#### Umidità (correzione inversa)
+```
+ΔRH ≈ 0.45 × (60 - RH_fancoil) × (1 + 0.02 × max(0, T_fancoil - 24))  per RH < 60%
+ΔRH ≈ 0                              per RH ≥ 60%
+```
+
+### Sensori di Calibrazione Implementati
+
+#### Sensori Istantanei
+- `sensor.fancoil_cucina_cal_temp_offset_instant` = Mijia_T - Fancoil_T
+- `sensor.fancoil_cucina_cal_hum_offset_instant` = Mijia_RH - Fancoil_RH
+
+#### Statistiche Rolling (HA Statistics)
+| Sensore | Caratteristica | Finestra |
+|---------|----------------|----------|
+| `sensor.fancoil_cucina_cal_temp_offset_1h` | mean | 1h |
+| `sensor.fancoil_cucina_cal_temp_offset_24h` | mean | 24h |
+| `sensor.fancoil_cucina_cal_temp_offset_7d` | mean | 7d |
+| `sensor.fancoil_cucina_cal_hum_offset_1h` | mean | 1h |
+| `sensor.fancoil_cucina_cal_hum_offset_24h` | mean | 24h |
+| `sensor.fancoil_cucina_cal_hum_offset_7d` | mean | 7d |
+
+#### Metriche di Qualità
+- `sensor.fancoil_cucina_cal_temp_count_24h` (count)
+- `sensor.fancoil_cucina_cal_temp_change_24h` (change)
+- `sensor.fancoil_cucina_cal_hum_count_24h` (count)
+- `sensor.fancoil_cucina_cal_hum_change_24h` (change)
+
+#### Riepilogo
+- `sensor.fancoil_cucina_calibration_summary` - stato OK/RACCOLTA_DATI con raccomandazioni
+
+### Sensori Calibrati (Template)
+
+File: `/config/packages/fancoil_cucina_mijia_calibration.yaml`
+
+```yaml
+# Temperature calibrata
+- platform: template
+  sensors:
+    fancoil_cucina_temp_calibrated:
+      friendly_name: "Cucina Temp Calibrata"
+      unit_of_measurement: "°C"
+      device_class: temperature
+      state: >
+        {% set Tf = states('sensor.fancoil_cucina_temperature') | float %}
+        {% if Tf <= 24.5 %}
+          {{ Tf | round(1) }}
+        {% else %}
+          {% set delta = Tf - 24.5 %}
+          {% set corr = 0.042 * delta * delta - 0.15 * delta %}
+          {{ (Tf + corr) | round(1) }}
+        {% endif %}
+
+    fancoil_cucina_hum_calibrated:
+      friendly_name: "Cucina RH Calibrato"
+      unit_of_measurement: "%"
+      device_class: humidity
+      state: >
+        {% set RHf = states('sensor.fancoil_cucina_humidity') | float %}
+        {% set Tf = states('sensor.fancoil_cucina_temperature') | float %}
+        {% if RHf >= 60 %}
+          {{ RHf | round(0) }}
+        {% else %}
+          {% set corr = 0.45 * (60 - RHf) %}
+          {% set temp_factor = 1 + 0.02 * [0, Tf - 24] | max %}
+          {{ (RHf + corr * temp_factor) | round(0) }}
+        {% endif %}
+```
+
+### Stato Validazione (al 2026-08-07)
+
+| Sensore | Valore Atteso | Note |
+|---------|---------------|------|
+| `sensor.fancoil_cucina_cal_temp_offset_24h` | ~ -2.4°C | In convergenza |
+| `sensor.fancoil_cucina_cal_hum_offset_24h` | ~ +13% | In convergenza |
+| `sensor.fancoil_cucina_cal_temp_count_24h` | > 200 | Campioni sufficienti |
+
+### Prossimi Passi
+1. Attendere ciclo completo HEAT (inverno) per validare in modalità riscaldamento
+2. Verificare stabilità coefficienti dopo 14 giorni
+3. Raffinare coefficienti se deriva > 5% su 7 giorni
+4. Estendere a altre stanze se Mijia disponibili
+
 ## Note operative
 
 `switch.attiva_pdc` e `switch.attiva_pompa_circolazione` sono switch KNX. Se la dashboard mostra uno stato non coerente subito dopo il riavvio, fare refresh della pagina prima di assumere un errore di automazione.

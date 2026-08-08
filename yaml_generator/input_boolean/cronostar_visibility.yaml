@@ -6,6 +6,10 @@ cronostar_thermostat_appartamento_show_chart:
   name: "Mostra Grafico Termostato Appartamento"
   icon: mdi:chart-bell-curve
 
+cronostar_thermostat_appartamento_paused:
+  name: "Termostato Appartamento in Pausa"
+  icon: mdi:pause-circle
+
 cronostar_generic_switch_growlight_show_chart:
   name: "Mostra Grafico Growlight"
   icon: mdi:chart-bell-curve

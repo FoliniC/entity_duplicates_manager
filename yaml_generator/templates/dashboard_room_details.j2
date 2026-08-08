@@ -72,6 +72,17 @@
                 name: Logging Locale Abilitato
                 icon: mdi:file-document-outline
 
+          {% if window_contact_sensor %}
+          - type: entities
+            title: Stato Finestra
+            show_header_toggle: false
+            entities:
+              - entity: %%window_contact_sensor%%
+                name: Contatto Finestra
+                icon: mdi:window-open
+                device_class: door
+          {% endif %}
+
           - type: vertical-stack
             title: Offset Rispetto al Master
             cards:

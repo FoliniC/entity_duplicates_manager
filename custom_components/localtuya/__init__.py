@@ -34,6 +34,7 @@ from .coordinator import TuyaDevice, HassLocalTuyaData, TuyaCloudApi
 from .config_flow import ENTRIES_VERSION
 from .const import (
     ATTR_UPDATED_AT,
+    CONF_CLOUD_POLLING_ENABLED,
     CONF_DEVICE_SLEEP_TIME,
     CONF_DOWNLOAD_CLOUD_INFO,
     CONF_GATEWAY_ID,
@@ -43,6 +44,7 @@ from .const import (
     CONF_NO_CLOUD,
     CONF_PRODUCT_KEY,
     CONF_PROTOCOL_VERSION,
+    CONF_STARTUP_CLOUD_POLL,
     CONF_USER_ID,
     DATA_DISCOVERY,
     DOMAIN,
@@ -465,6 +467,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     if entry.data.get(CONF_DOWNLOAD_CLOUD_INFO, False):
         entry.async_create_task(hass, _download_cloud_info_on_startup(hass, entry))
 
+    # Initial cloud state polling for cloud-only devices
+    if entry.data.get(CONF_STARTUP_CLOUD_POLL, True):
+        entry.async_create_task(hass, _poll_cloud_devices_on_startup(hass, entry))
+
     async def _shutdown(event):
         """Clean up resources when shutting down."""
         await asyncio.gather(*[dev.close() for dev in connect_to_devices])
@@ -546,6 +552,68 @@ async def _download_cloud_info_on_startup(hass: HomeAssistant, entry: ConfigEntr
             _LOGGER.info("MAC retrieval skipped - API permission required in Tuya IoT platform (enable 'Device Factory Info' API in project settings)")
         else:
             _LOGGER.warning(f"Failed to download MAC addresses on startup: {e}")
+
+
+async def _poll_cloud_devices_on_startup(hass: HomeAssistant, entry: ConfigEntry):
+    """Query Tuya Cloud for current state of cloud-only devices on startup.
+    
+    Cloud-only devices (sleepy devices with device_sleep_time > 0 or placeholder IP 0.0.0.0)
+    need a cloud handshake to enable their local port. This function proactively queries
+    the cloud for their latest state so entities are available immediately after HA startup.
+    """
+    hass_data = hass.data[DOMAIN].get(entry.entry_id)
+    if not hass_data or not hass_data.cloud_data:
+        _LOGGER.debug("Cloud data not available, skipping startup cloud poll")
+        return
+    
+    if entry.data.get(CONF_NO_CLOUD, True):
+        _LOGGER.debug("Cloud not configured, skipping startup cloud poll")
+        return
+
+    try:
+        _LOGGER.info("Polling Tuya Cloud for cloud-only device states on startup...")
+        
+        # Find all cloud-only devices
+        cloud_only_devices = []
+        for device_id, dev_config in entry.data.get(CONF_DEVICES, {}).items():
+            is_cloud_only = (
+                dev_config.get(CONF_DEVICE_SLEEP_TIME, 0) > 0 
+                or dev_config.get(CONF_HOST) == "0.0.0.0"
+            )
+            # Also check if cloud polling is enabled for this device
+            if is_cloud_only and dev_config.get(CONF_CLOUD_POLLING_ENABLED, True):
+                cloud_only_devices.append(device_id)
+        
+        if not cloud_only_devices:
+            _LOGGER.debug("No cloud-only devices with cloud polling enabled found")
+            return
+        
+        _LOGGER.info(f"Found {len(cloud_only_devices)} cloud-only device(s) to poll: {', '.join(cloud_only_devices)}")
+        
+        # Query each device from cloud
+        for device_id in cloud_only_devices:
+            try:
+                # Check if device exists in local coordinator
+                device = None
+                for key, dev in hass_data.devices.items():
+                    if dev._device_config.id == device_id:
+                        device = dev
+                        break
+                
+                if device:
+                    _LOGGER.info(f"Querying cloud state for cloud-only device: {device_id}")
+                    # Use the device's method to poll cloud and update status
+                    await device.async_update_from_cloud(device_id)
+                else:
+                    _LOGGER.debug(f"Device {device_id} not yet in coordinator, skipping cloud poll")
+                    
+            except Exception as e:
+                _LOGGER.warning(f"Failed to poll cloud state for {device_id} on startup: {e}")
+                
+        _LOGGER.info("Startup cloud polling completed for cloud-only devices")
+        
+    except Exception as e:
+        _LOGGER.warning(f"Failed to poll cloud devices on startup: {e}")
 
 
 async def async_remove_config_entry_device(

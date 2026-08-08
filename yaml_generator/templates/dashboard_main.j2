@@ -465,7 +465,7 @@ views:
                   value: 0
                   determined: false
                 logging_enabled: true
-                pause_entity: switch.cronostar_thermostat_appartamento_paused
+                pause_entity: input_boolean.cronostar_thermostat_appartamento_paused
                 profiles_select_entity: select.cronostar_thermostat_appartamento_current_profile
                 target_entity: climate.climatizzazione_appartamento
                 allow_max_value: false
@@ -895,7 +895,7 @@ views:
                       show_header_toggle: false
                       state_color: true
                       entities:
-                        - entity: binary_sensor.contact_sensor_doorcontact_state
+                        - entity: binary_sensor.contact_cucina_contact_cucina
                           name: Finestra aperta
                           icon: mdi:window-open
                       card_mod: *row_style
@@ -911,7 +911,7 @@ views:
                             show_header_toggle: false
                             state_color: true
                             entities:
-                              - entity: binary_sensor.contact_sensor_doorcontact_state
+                              - entity: binary_sensor.contact_cucina_contact_cucina
                                 name: Finestra cucina
                                 icon: mdi:window-open
                                 state_color: true
