@@ -5,10 +5,10 @@
       entity_id: input_boolean.buongiorno_alexa
       to: "on"
   action:
-    # 1. Messaggio di benvenuto
+    # 1. Messaggio di benvenuto su Alexa Cucina (alexa_media)
     - service: notify.send_message
       target:
-        entity_id: notify.cucina_speak
+        entity_id: notify.alexa_media_echo_dot_di_carlo
       data:
         message: "Buongiorno Carlo! Spero che tu abbia passato una splendida notte. Tutto è pronto in casa per iniziare la giornata."
     
@@ -17,10 +17,10 @@
       target:
         entity_id: cover.camera_grande_tapparella_knx
     
-    # 3. Riproduzione Radio m2o su Alexa
+    # 3. Riproduzione Radio m2o su Alexa Cucina (alexa_media)
     - service: media_player.play_media
       target:
-        entity_id: media_player.cucina
+        entity_id: media_player.alexa_media_echo_dot_di_carlo
       data:
         media_content_id: "radio m2o"
         media_content_type: "TUNEIN"

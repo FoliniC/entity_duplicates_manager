@@ -1131,68 +1131,55 @@ TEST PRESTAZIONI:
 
 ---
 
-## 14. Logging e Analisi dei Dati
+## 12.4 Verifiche di Funzionalità – Schema di Riferimento
 
-### 14.1 Dati da Registrare
+### 12.4.1 State Dump Fancoil (cucina)
 
-Home Assistant registra automaticamente nella history database. Configurare la retention e identificare le entità chiave:
+I log di stato periodici contengono i dati di calibrazione completi:
 
-```yaml
-# configuration.yaml
-recorder:
-  purge_keep_days: 90   # 3 mesi di storico
-  include:
-    entities:
-      - sensor.temperatura_interna
-      - sensor.umidita_relativa_interna
-      - sensor.punto_di_rugiada_interno
-      - sensor.temperatura_esterna
-      - sensor.umidita_relativa_esterna
-      - sensor.delta_omega
-      - sensor.temperatura_superficie_batteria
-      - sensor.temperatura_valle_batteria
-      - switch.fancoil_valvola_acqua
-      - sensor.stato_comfort
+```
+[Cucina] State Dump: Trigger=periodic/time (?->?), Temp=24.8°C, KNX=N/A°C, Hum=57.0% (Var: 8.0), Setpoint=23.5°C (Raw: 23.5), MasterSP=23.5°C, Delta=1.3°C (RawDiff: 1.3), Offset=0.0°C, Target=off, HvacMode=cool, StopCond=False, System=False, PDC_H2O=off, Comm=unavailable, T_Circ=18.0°C, Main=on, Soglie=[S:-0.8, I:-0.6, L:-0.2, M:0.1, H:0.5], SW=[0,0,0,0], Mijia_T=24.7°C, Mijia_RH=61%, Cal_T=24.8°C, Cal_RH=58%, Off_T_24h=0.0°C, Off_RH_24h=5.27%
 ```
 
-### 14.2 Analisi Utili dallo Storico
+**Indicazioni chiave nel log (cucina)**:
+- `Mijia_T`, `Mijia_RH` – misurazioni del sensore di riferimento Xiaomi Mijia
+- `Cal_T`, `Cal_RH` – valori corretti del fancoil (temperatura e umidità calibrate)
+- `Off_T_24h`, `Off_RH_24h` – offset medi calibrati (24 ore)
 
-**Ore in zona di comfort (%)**:
-```
-KPI = (ore con T 23-26°C E UR 45-60%) / ore_totali × 100%
-Obiettivo: > 85% nelle ore di presenza
-```
+**A partire da oggi (2026-08-08) — Le letture della calibrazione sono funzionanti**
 
-**Consumo energetico per deumidificazione**:
-```
-Ore_fancoil_attivo × potenza_gruppo_refrigeratore (W) = Wh consumati
-Confrontare mese su mese per valutare l'efficacia delle ottimizzazioni
-```
+**Data e ora di riferimento per i test futuri**: `2026-08-08 22:14:06`
 
-**Pattern di umidità**:
-- Individuare le ore del giorno con UR più alta → fonte di vapore ricorrente
-- Confrontare UR interna vs esterna nel tempo → quantificare infiltrazioni
+**Come usare i log per i test**:
 
-### 14.3 Alert Statistici (settimanali)
+1. **Verifica integrità dei dati** – Assicurarsi che ogni log contenga:
+   - `Mijia_T`, `Mijia_RH` ≠ unavailables
+   - `Cal_T`, `Cal_RH` ≠ unknown
+   - `Off_T_24h`, `Off_RH_24h` ≠ unknown
 
-```yaml
-automation:
-  - alias: "Report settimanale comfort"
-    trigger:
-      platform: time
-      at: "08:00:00"
-    condition:
-      condition: time
-      weekday: [mon]
-    action:
-      - service: notify.mobile_app
-        data:
-          title: "📊 Report comfort settimanale"
-          message: >
-            Temperatura media: {{ states('sensor.temperatura_interna') }}°C
-            UR media: {{ states('sensor.umidita_relativa_interna') }}%
-            Stato attuale: {{ states('sensor.stato_comfort') }}
-```
+2. **Annulla continuità degli offset** – Utilizzare il delta 24 ore in `Off_T_24h` / `Off_RH_24h` per:
+   - Calcolare i correttivi applicabili agli istanti del fancoil: `T_corretto = T_raw + Off_T_24h`
+   - Mappare i valori della temperatura e umidità calibrate per il tuning manuale
+
+3. **Validazione sensori di calibrazione** – Verificare periodicamente il ciclo di deumidificazione:
+   - `sensor.cucina_calibrazione_temp_offset_instantaneo`
+   - `sensor.cucina_calibrazione_umidita_offset_instantaneo`
+   - `sensor.cucina_temperatura_calibrata` / `sensor.cucina_umidita_calibrata`
+   - `sensor.statistiche_cucina_calibrazione_temp_offset_24h`
+   - `sensor.statistiche_cucina_calibrazione_umidita_offset_24h`
+
+### 12.4.2 Attivazione sistema di calibrazione
+
+Per avviare un nuovo test di calibrazione:
+
+1. Assicurarsi che il file **`packages/fancoil_cucina_mijia_calibration.yaml`** sia presente in **/config/packages/**
+2. Regenerate i files fancoil: `python3 yaml_generator/generate_fancoil_climates.py`
+3. Riavviare Home Assistant: `docker restart homeassistant`
+4. Verificare la scrittura dei log di stato: `/config/logs/fancoil_events/fancoil_events.log`
+
+**I log mostreranno Mijia_T, Mijia_RH, Cal_T, Cal_RH solo per la cucina**
+
+---
 
 ---
 

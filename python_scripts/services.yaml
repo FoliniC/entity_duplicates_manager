@@ -13,3 +13,16 @@ set_state:
       example: false
     other:
       description: Qualunque altro valore verrà impostato negli attributi dell'entità. Se l'attributo non esiste verrà creato.
+
+# capture_balcone.py
+capture_balcone_start:
+  description: Avvia la cattura dei messaggi LocalTuya per il dispositivo balcone (bfbf8ab6b500e77408pupf)
+  fields: {}
+
+capture_balcone_stop:
+  description: Ferma la cattura dei messaggi LocalTuya per il dispositivo balcone
+  fields: {}
+
+capture_balcone_status:
+  description: Mostra lo stato della cattura messaggi balcone
+  fields: {}

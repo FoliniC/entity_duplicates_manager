@@ -9,8 +9,8 @@
     - trigger: event
       event_type: system_log_event
   actions:
-    - action: pyscript.halog2026_write
-      data:
+    - event: halog2026_write_event
+      event_data:
         subsystem: system
         level: "{{ trigger.event.data.level }}"
         message: "{{ trigger.event.data.message }}"

@@ -68,10 +68,10 @@ You can modify the behavior of each log by editing `halog2026_config.json`:
 - **Updated**: 2026-07-08 - Added to track unexplained switch-offs after Power-on behavior was set to "Last State".
 
 ### 7. USB Tether
-- **Writer**: `pyscript.halog2026_write` with `subsystem: usb_tether`
+- **Event**: `halog2026_write_event` with `subsystem: usb_tether` (fired from scripts and automations)
 - **Destination**: `/config/logs/usb_tether/usb_tether.log`
-- **Features**: Active archiving (1MB or midnight), keeps 30 files. Logs dashboard actions, guard blocks, state transitions, activation failures, and auto-restore events. The dashboard reads the latest lines through `sensor.usb_tether_log`, whose state stays short and whose attributes expose bounded log text. USB tether scripts call the writer service directly because they are user actions and do not run during HA boot validation.
-- **Updated**: 2026-08-01 - Migrated from `input_text`-based UI logging to HALog2026 file-backed logging.
+- **Features**: Active archiving (1MB or midnight), keeps 30 files. Logs dashboard actions, guard blocks, state transitions, activation failures, and auto-restore events. The dashboard reads the latest lines through `sensor.usb_tether_log`, whose state stays short and whose attributes expose bounded log text. Like all other subsystems, USB tether scripts and automations fire the `halog2026_write_event` event instead of calling `pyscript.halog2026_write`, avoiding "service not found" validation errors at boot.
+- **Updated**: 2026-08-08 - Scripts and automations now fire `halog2026_write_event` instead of calling the `pyscript.halog2026_write` service directly (fixes boot validation error).
 
 ---
 
@@ -145,10 +145,10 @@ Puoi modificare il comportamento di ogni log agendo su `halog2026_config.json`:
 - **Aggiornato**: 2026-06-03 - Aggiunto supporto per `ha_update.sh`.
 
 ### 7. USB Tether
-- **Scrittura**: `pyscript.halog2026_write` con `subsystem: usb_tether`
+- **Evento**: `halog2026_write_event` con `subsystem: usb_tether` (inviato da script e automazioni)
 - **Destinazione**: `/config/logs/usb_tether/usb_tether.log`
-- **Caratteristiche**: Archiviazione attiva (1MB o mezzanotte), tiene 30 file. Registra azioni dashboard, blocchi di guardia, transizioni di stato, fallimenti di attivazione e auto-restore. La dashboard legge le ultime righe tramite `sensor.usb_tether_log`, con stato corto e attributi limitati per il testo del log. Gli script USB tether chiamano direttamente il servizio writer perché sono azioni utente e non vengono eseguiti durante la validazione al boot di HA.
-- **Aggiornato**: 2026-08-01 - Migrato dal logging UI basato su `input_text` al logging file-backed HALog2026.
+- **Caratteristiche**: Archiviazione attiva (1MB o mezzanotte), tiene 30 file. Registra azioni dashboard, blocchi di guardia, transizioni di stato, fallimenti di attivazione e auto-restore. La dashboard legge le ultime righe tramite `sensor.usb_tether_log`, con stato corto e attributi limitati per il testo del log. Come tutti gli altri sottosistemi, gli script e le automazioni USB tether inviano l'evento `halog2026_write_event` invece di chiamare `pyscript.halog2026_write`, evitando errori di validazione "servizio non trovato" al boot.
+- **Aggiornato**: 2026-08-08 - Script e automazioni ora inviano `halog2026_write_event` invece di chiamare direttamente il servizio `pyscript.halog2026_write` (corregge l'errore di validazione al boot).
 
 ---
 **Note for maintenance / Nota per la manutenzione**: JSON changes are loaded automatically at the next rotation event or restart. Le modifiche al file JSON vengono caricate automaticamente al prossimo evento di rotazione o al riavvio.

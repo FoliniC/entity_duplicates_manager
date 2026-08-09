@@ -1,0 +1,9 @@
+# Input Boolean: Capture Balcone Device Messages
+# 
+# Controls the capture of LocalTuya messages for the balcony switch device
+# (bfbf8ab6b500e77408pupf / switch.luce_balcone_switch_1) to debug unexpected turn-ons.
+
+capture_balcone_messages:
+  name: "Cattura Messaggi Balcone"
+  icon: "mdi:shield-alert"
+  initial: false

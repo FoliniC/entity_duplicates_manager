@@ -127,8 +127,8 @@ script:
           entity_id: input_text.usb_tether_status_message
         data:
           value: "ripristino routing normale in corso..."
-      - action: pyscript.halog2026_write
-        data:
+      - event: halog2026_write_event
+        event_data:
           subsystem: usb_tether
           level: INFO
           message: "AVVIO: Ripristino routing normale (host: {{ states('input_select.usb_tether_host') }})"
@@ -151,8 +151,8 @@ script:
               entity_id: input_text.usb_tether_status_message
             data:
               value: "ERRORE: routing normale non ripristinate - controlla log"
-          - action: pyscript.halog2026_write
-            data:
+          - event: halog2026_write_event
+            event_data:
               subsystem: usb_tether
               level: ERROR
               message: "ERRORE: Ripristino fallito (timeout)"
@@ -171,8 +171,8 @@ script:
           entity_id: input_text.usb_tether_status_message
         data:
           value: "attivazione modalita' server in corso..."
-      - action: pyscript.halog2026_write
-        data:
+      - event: halog2026_write_event
+        event_data:
           subsystem: usb_tether
           level: INFO
           message: "AVVIO: Attivazione modalità Server (host: {{ states('input_select.usb_tether_host') }})"
@@ -195,8 +195,8 @@ script:
               entity_id: input_text.usb_tether_status_message
             data:
               value: "ERRORE: tethering server non attivato - controlla log"
-          - action: pyscript.halog2026_write
-            data:
+          - event: halog2026_write_event
+            event_data:
               subsystem: usb_tether
               level: ERROR
               message: "ERRORE: Attivazione Server fallita"
@@ -215,8 +215,8 @@ script:
           entity_id: input_text.usb_tether_status_message
         data:
           value: "attivazione modalita' intranet in corso..."
-      - action: pyscript.halog2026_write
-        data:
+      - event: halog2026_write_event
+        event_data:
           subsystem: usb_tether
           level: INFO
           message: "AVVIO: Attivazione modalità Intranet (host: {{ states('input_select.usb_tether_host') }})"
@@ -239,8 +239,8 @@ script:
               entity_id: input_text.usb_tether_status_message
             data:
               value: "ERRORE: intranet non attivata - controlla log"
-          - action: pyscript.halog2026_write
-            data:
+          - event: halog2026_write_event
+            event_data:
               subsystem: usb_tether
               level: ERROR
               message: "ERRORE: Attivazione Intranet fallita"
@@ -259,8 +259,8 @@ automation:
           entity_id: input_text.usb_tether_status_message
         data:
           value: ""
-      - action: pyscript.halog2026_write
-        data:
+      - event: halog2026_write_event
+        event_data:
           subsystem: usb_tether
           level: INFO
           message: "Stato: {{ states('sensor.usb_tether_status') }}, Modalità: {{ state_attr('sensor.usb_tether_status', 'mode') | default('N/A') }}"
@@ -282,8 +282,8 @@ automation:
           message: >-
             Il tethering e' scaduto automaticamente alle
             {{ now().strftime('%H:%M:%S') }}. Route e WAN router ripristinate.
-      - action: pyscript.halog2026_write
-        data:
+      - event: halog2026_write_event
+        event_data:
           subsystem: usb_tether
           level: SYSTEM
           message: "AUTO-RESTORE: Tethering scaduto, routing normale ripristinato"
@@ -325,8 +325,8 @@ automation:
       - platform: state
         entity_id: input_select.usb_tether_host
     action:
-      - action: pyscript.halog2026_write
-        data:
+      - event: halog2026_write_event
+        event_data:
           subsystem: usb_tether
           level: INFO
           message: "Host tethering cambiato: {{ states('input_select.usb_tether_host') }}"
