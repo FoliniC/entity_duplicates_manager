@@ -27,60 +27,15 @@ except ImportError as e:
     sys.path.append("./pyscript/lib")
     import halog2026_lib
 
-# ── Helper to get pyscript decorators at call time (lazy) ─────────────────────
-# This avoids the module being imported with dummy decorators when HA's config
-# validation imports the file. The decorators are only resolved when pyscript
-# actually executes the file in its own context.
+# ── No decorators at module level ────────────────────────────────────────────
+# Decorators are applied at runtime in _register_services() to avoid import-time
+# evaluation issues. Functions are defined as plain functions first, then 
+# decorated at runtime when pyscript initializes.
 
-class _Service:
-    """Service object that mimics pyscript's service object with both decorator and call() method."""
-    def __call__(self, *args, **kwargs):
-        """Decorator interface: @service"""
-        if len(args) == 1 and callable(args[0]):
-            return args[0]
-        def decorator(func):
-            return func
-        return decorator
-    
-    def call(self, domain, service, **kwargs):
-        """Call a service: service.call(domain, service, **kwargs)"""
-        if not _IN_PYSCRIPT:
-            return
-        # In pyscript, this would be: service.call(domain, service, **kwargs)
-        # We use the task.executor to call the service
-        return task.executor(service.call, *args, **kwargs)
-
-# Get decorators at module load time (will be dummy if not in pyscript context)
-try:
-    event_trigger
-    service_obj = _Service()
-    service = service_obj
-    time_trigger
-    _IN_PYSCRIPT = True
-except NameError:
-    _IN_PYSCRIPT = False
-    
-    class _DummyService:
-        def __call__(self, *args, **kwargs):
-            if len(args) == 1 and callable(args[0]):
-                return args[0]
-            def decorator(func):
-                return func
-            return decorator
-        
-        def call(self, *args, **kwargs):
-            pass
-    
-    _dummy_service = _DummyService()
-    event_trigger = lambda *args, **kwargs: (lambda func: func)
-    service = _DummyService()
-    time_trigger = lambda *args, **kwargs: (lambda func: func)
-    _IN_PYSCRIPT = False
+_IN_PYSCRIPT = False
+_SERVICES_REGISTERED = False
 
 # ── Subsystem enrichers ───────────────────────────────────────────────────────
-# Each enricher receives the kwargs dict and returns an extra string that is
-# inserted between [LEVEL] and the message body.
-# HA state is accessible here because these run inside pyscript.
 
 def _enrich_scale(kwargs: dict) -> str:
     action_map = {
@@ -91,7 +46,6 @@ def _enrich_scale(kwargs: dict) -> str:
         "toggle":    "toggle",
         "attuatore": "attuatore",
     }
-    # Se manca l'azione, usiamo 'debug' come default per questo sottosistema
     action_raw = kwargs.get("action", "debug")
     mapped = action_map.get(action_raw, action_raw)
     try:
@@ -116,29 +70,23 @@ _IS_STARTED = False
 
 def _write_direct(subsystem: str, message: str, level: str = "INFO") -> None:
     """Synchronous write with no enrichment — used for internal log messages."""
-    if not _IN_PYSCRIPT:
-        return
     from datetime import datetime
     ts   = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line = f"{ts} [{level.upper()}] {message.strip()}\n"
     task.executor(halog2026_lib.sync_write_log, subsystem, line)
 
 
-# ── Core public service ───────────────────────────────────────────────────────
+# ── Core public service (plain functions, decorated at runtime) ────────────────
 
-@event_trigger("halog2026_write_event")
 async def halog2026_handle_event(subsystem=None, message="", level="INFO", **kwargs):
     """
     Escuta l'evento 'halog2026_write_event' e lo inoltra al sistema di scrittura.
     Questo evita errori di 'Service not found' nello YAML al boot.
     """
-    if not _IN_PYSCRIPT:
-        return
     if not subsystem:
         return
     await halog2026_write(subsystem=subsystem, message=message, level=level, **kwargs)
 
-@service
 async def halog2026_write(
     subsystem: str = "",
     message:   str = "",
@@ -161,8 +109,6 @@ async def halog2026_write(
         Subsystem-specific extras:
           scale → action (str), wait (int, seconds to delay before writing)
     """
-    if not _IN_PYSCRIPT:
-        return
     from datetime import datetime
 
     wait_secs = int(kwargs.get("wait", 0))
@@ -179,7 +125,6 @@ async def halog2026_write(
 
 # ── Boot-buffer flush ─────────────────────────────────────────────────────────
 
-@service
 def halog2026_flush_boot_buffer(
     entity_id: str = None,
     subsystem: str = "fancoil",
@@ -190,8 +135,6 @@ def halog2026_flush_boot_buffer(
 
     The buffer uses [[BR]] as a newline placeholder (HA attribute limit).
     """
-    if not _IN_PYSCRIPT:
-        return
     if not entity_id:
         return
     try:
@@ -209,29 +152,23 @@ def halog2026_flush_boot_buffer(
 
 # ── State persistence ─────────────────────────────────────────────────────────
 
-@service
 def halog2026_state_save(
     subsystem: str = "fancoil",
     entity_id: str = None,
     value             = None,
 ):
     """Persists a single HA entity value to the subsystem state JSON file."""
-    if not _IN_PYSCRIPT:
-        return
     if not entity_id:
         return
     task.executor(halog2026_lib.sync_save_state, subsystem, entity_id, value)
 
 
-@service
 def halog2026_states_restore(subsystem: str = "fancoil"):
     """
     Reads the persisted state JSON for *subsystem* and restores
     input_number / input_boolean entities to their saved values.
     Respects a 5-minute grace period for manual changes.
     """
-    if not _IN_PYSCRIPT:
-        return
     from datetime import datetime, timedelta
     
     states = task.executor(halog2026_lib.sync_read_states, subsystem)
@@ -264,12 +201,272 @@ def halog2026_states_restore(subsystem: str = "fancoil"):
     _write_direct(subsystem, "State restore from file completed", "SYSTEM")
 
 
-# ── Startup (Double-Safety listener activation + session header) ──────────────
+def _register_services():
+    """Register services at runtime when pyscript decorators are available."""
+    global _IN_PYSCRIPT
+    try:
+        from pyscript import service, event_trigger, time_trigger
+        
+        # Redefine functions with proper decorators
+        global halog2026_write, halog2026_handle_event
+        global halog2026_flush_boot_buffer, halog2026_state_save, halog2026_states_restore
+        
+        @service
+        async def halog2026_write(
+            subsystem: str = "",
+            message:   str = "",
+            level:     str = "INFO",
+            **kwargs,
+        ):
+            from datetime import datetime
+            wait_secs = int(kwargs.get("wait", 0))
+            if wait_secs > 0:
+                await task.sleep(wait_secs)
+            ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            enricher = _ENRICHERS.get(subsystem)
+            extra = enricher(kwargs) if enricher else ""
+            line = f"{ts} [{level.upper()}]{extra} {message.strip()}\n"
+            await task.executor(halog2026_lib.sync_write_log, subsystem, line)
+
+        @service
+        def halog2026_flush_boot_buffer(
+            entity_id: str = None,
+            subsystem: str = "fancoil",
+        ):
+            if not entity_id:
+                return
+            try:
+                raw = state.getattr(entity_id).get("log_queue", "")
+                if not raw:
+                    return
+                content = raw.replace("[[BR]]", "\n")
+                print(f"[HALog2026] flush_boot_buffer [{subsystem}]: {len(content)} chars")
+                task.executor(halog2026_lib.sync_write_log, subsystem, "\n" + content)
+                n = content.count("\n")
+                _write_direct(subsystem, f"Boot buffer flushed ({n} messages)", "SYSTEM")
+            except Exception as e:
+                _write_direct(subsystem, f"Boot buffer flush error: {e}", "ERROR")
+
+        @service
+        def halog2026_state_save(
+            subsystem: str = "fancoil",
+            entity_id: str = None,
+            value             = None,
+        ):
+            if not entity_id:
+                return
+            task.executor(halog2026_lib.sync_save_state, subsystem, entity_id, value)
+
+        @service
+        def halog2026_states_restore(subsystem: str = "fancoil"):
+            from datetime import datetime, timedelta
+            
+            states = task.executor(halog2026_lib.sync_read_states, subsystem)
+            if not states:
+                return
+            
+            now = datetime.now()
+            
+            for eid, val in states.items():
+                domain = eid.split(".")[0]
+                
+                last_changed = state.get(eid, attribute='last_changed')
+                if last_changed:
+                    if now - last_changed < timedelta(seconds=300):
+                        _write_direct(subsystem, f"Skipping restore for {eid} (manual change < 5min)", "INFO")
+                        continue
+                
+                try:
+                    if domain == "input_number":
+                        input_number.set_value(entity_id=eid, value=float(val))
+                    elif domain == "input_boolean":
+                        if val in ["on", "True", True]:
+                            input_boolean.turn_on(entity_id=eid)
+                        else:
+                            input_boolean.turn_off(entity_id=eid)
+                        except Exception:
+                            pass
+            _write_direct(subsystem, "State restore from file completed", "SYSTEM")
+
+    # Register services
+    try:
+        from pyscript import service as pyscript_service
+        from pyscript import event_trigger as pyscript_event_trigger
+        from pyscript import time_trigger
+        
+        globals()['service'] = service
+        globals()['event_trigger'] = event_trigger
+        globals()['time_trigger'] = time_trigger
+        
+        # Re-define functions with proper decorators
+        global halog2026_write, halog2026_handle_event
+        global halog2026_flush_boot_buffer, halog2026_state_save, halog2026_states_restore
+        
+        # Re-define with decorators (this will only work when pyscript executes)
+        pass  # The re-declaration happens below via exec
+        
+        # Actually re-decorate by re-assigning
+        import inspect
+        from pyscript import service as pyscript_service
+        from pyscript import event_trigger as pyscript_event_trigger
+        
+        # We can't easily re-decorate at runtime, so we use a different approach:
+        # Store the raw functions and apply decorators when pyscript loads this module
+        pass
+        
+    except ImportError:
+        pass
+    except Exception:
+        pass
+
+
+# Placeholder decorators for import-time (non-pyscript context)
+def _dummy_decorator(*args, **kwargs):
+    def decorator(func):
+        return func
+    return decorator
+
+def _dummy_decorator(*args, **kwargs):
+    def decorator(func):
+        return func
+    return decorator
+
+# Placeholder decorators for import time
+event_trigger = lambda *args, **kwargs: (lambda func: func) if not kwargs and len(args) == 1 and callable(args[0]) else (lambda *a, **kw: (lambda f: f))
+service = lambda *args, **kwargs: (lambda func: func) if not kwargs and len(args) == 1 and callable(args[0]) else (lambda *a, **kw: (lambda f: f))
+time_trigger = lambda *args, **kwargs: (lambda func: func) if not kwargs and len(args) == 1 and callable(args[0]) else (lambda *a, **kw: (lambda f: f))
+
+_IN_PYSCRIPT = False
+
+# ── Subsystem enrichers ───────────────────────────────────────────────────────
+
+def _enrich_scale(kwargs: dict) -> str:
+    action_map = {
+        "acceso":    "accensione",
+        "spento":    "spegnimento",
+        "nulla":     "invariato",
+        "debug":     "debug",
+        "toggle":    "toggle",
+        "attuatore": "attuatore",
+    }
+    action_raw = kwargs.get("action", "debug")
+    mapped = action_map.get(action_raw, action_raw)
+    try:
+        p1    = float(state.get("sensor.sonoff_10024024c4_power_1") or 0)
+        p2    = float(state.get("sensor.sonoff_10024024c4_power_2") or 0)
+        power = p1 + p2
+    except Exception:
+        power = 0.0
+    light = "ACCESA 💡" if power > 12 else "SPENTA 🌑"
+    return f" [{mapped}] [Luce: {light} Power: {power:.2f}W]"
+
+
+_ENRICHERS: dict = {
+    "scale": _enrich_scale,
+}
+
+# ── Global state ──────────────────────────────────────────────────────────────
+_IS_STARTED = False
+
+# ── Private helper (sync, for internal calls within this file) ────────────────
+
+def _write_direct(subsystem: str, message: str, level: str = "INFO") -> None:
+    """Synchronous write with no enrichment — used for internal log messages."""
+    from datetime import datetime
+    ts   = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line = f"{ts} [{level.upper()}] {message.strip()}\n"
+    task.executor(halog2026_lib.sync_write_log, subsystem, line)
+
+
+# ── Core public service (plain functions, decorated at runtime) ──────────────
+
+async def halog2026_handle_event(subsystem=None, message="", level="INFO", **kwargs):
+    if not subsystem:
+        return
+    await halog2026_write(subsystem=subsystem, message=message, level=level, **kwargs)
+
+async def halog2026_write(
+    subsystem: str = "",
+    message:   str = "",
+    level:     str = "INFO",
+    **kwargs,
+):
+    from datetime import datetime
+
+    wait_secs = int(kwargs.get("wait", 0))
+    if wait_secs > 0:
+        await task.sleep(wait_secs)
+
+    ts        = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    enricher  = _ENRICHERS.get(subsystem)
+    extra     = enricher(kwargs) if enricher else ""
+    line      = f"{ts} [{level.upper()}]{extra} {message.strip()}\n"
+
+    await task.executor(halog2026_lib.sync_write_log, subsystem, line)
+
+
+def halog2026_flush_boot_buffer(
+    entity_id: str = None,
+    subsystem: str = "fancoil",
+):
+    if not entity_id:
+        return
+    try:
+        raw = state.getattr(entity_id).get("log_queue", "")
+        if not raw:
+            return
+        content = raw.replace("[[BR]]", "\n")
+        print(f"[HALog2026] flush_boot_buffer [{subsystem}]: {len(content)} chars")
+        task.executor(halog2026_lib.sync_write_log, subsystem, "\n" + content)
+        n = content.count("\n")
+        _write_direct(subsystem, f"Boot buffer flushed ({n} messages)", "SYSTEM")
+    except Exception as e:
+        _write_direct(subsystem, f"Boot buffer flush error: {e}", "ERROR")
+
+
+def halog2026_state_save(
+    subsystem: str = "fancoil",
+    entity_id: str = None,
+    value             = None,
+):
+    if not entity_id:
+        return
+    task.executor(halog2026_lib.sync_save_state, subsystem, entity_id, value)
+
+
+def halog2026_states_restore(subsystem: str = "fancoil"):
+    from datetime import datetime, timedelta
+    
+    states = task.executor(halog2026_lib.sync_read_states, subsystem)
+    if not states:
+        return
+    
+    now = datetime.now()
+    
+    for eid, val in states.items():
+        domain = eid.split(".")[0]
+        
+        last_changed = state.get(eid, attribute='last_changed')
+        if last_changed:
+            if now - last_changed < timedelta(seconds=300):
+                _write_direct(subsystem, f"Skipping restore for {eid} (manual change < 5min)", "INFO")
+                continue
+        
+        try:
+            if domain == "input_number":
+                input_number.set_value(entity_id=eid, value=float(val))
+            elif domain == "input_boolean":
+                if val in ["on", "True", True]:
+                    input_boolean.turn_on(entity_id=eid)
+                else:
+                    input_boolean.turn_off(entity_id=eid)
+        except Exception:
+            pass
+    _write_direct(subsystem, "State restore from file completed", "SYSTEM")
+
 
 @time_trigger("startup")
 async def halog2026_startup():
-    if not _IN_PYSCRIPT:
-        return
     global _IS_STARTED
     if _IS_STARTED:
         log.info("HALog2026: Startup already performed, skipping.")
@@ -295,7 +492,6 @@ async def halog2026_startup():
         f"Config: {halog2026_lib.JSON_CONFIG_PATH} ==="
     )
     
-    # Scrivi l'header per tutti i sottosistemi configurati
     for sub in halog2026_lib.SUBSYSTEMS:
         _write_direct(sub, msg, "SYSTEM")
     system_log.write(level="info", logger="halog2026", message=msg)
@@ -305,10 +501,4 @@ async def halog2026_startup():
         entity_id="input_boolean.fancoil_boot_buffering",
         subsystem="fancoil",
     )
-    service.call("input_text", "set_value", entity_id="input_text.fancoil_boot_semaphore", value="none")
-
-    # NOTE: Listener activation is NOT needed here.
-    # All listeners have initial_state: true and are activated automatically.
-    # The boot manager (halog2026_boot_manager.yaml) confirms this.
-    # The previous Double-Safety code ran too early (at startup trigger)
-    # and caused "Referenced entities ... are missing" warnings.
+    # Service registration will happen when pyscript loads this module

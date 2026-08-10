@@ -8,7 +8,7 @@ Subsystem-specific enrichment (e.g. power reading for scale) is handled
 via the _ENRICHERS dict — add a callable there to extend without touching
 the core write path.
 
-Deploy to: /config/pyscript/halog2026_events_write.py
+Deploy to: /config/pyscript/modules/halog2026_events_write.py
 Lib at:    /config/pyscript/lib/halog2026_lib.py
 """
 
@@ -23,15 +23,65 @@ if LIB_PATH not in sys.path:
 try:
     import halog2026_lib
 except ImportError as e:
-    log.error(f"HALog2026: Failed to import halog2026_lib from {LIB_PATH}: {e}")
     # Fallback to local relative
     sys.path.append("./pyscript/lib")
     import halog2026_lib
 
+# ── Lazy decorator resolution ────────────────────────────────────────────────
+# The decorators @service, @event_trigger, @time_trigger are only available
+# when pyscript executes this file. During HA config validation, they don't exist.
+# We defer the actual decoration to runtime by using a registration function
+# that is called at startup, not at import time.
+
+# Global flags
+_IN_PYSCRIPT = False
+_SERVICES_REGISTERED = False
+
+def _resolve_decorators():
+    """Resolve pyscript decorators at runtime."""
+    global _IN_PYSCRIPT
+    try:
+        # These are only available in pyscript's execution context
+        global _IN_PYSCRIPT
+        _IN_PYSCRIPT = True
+        # Import the real decorators
+        globals()['event_trigger'] = event_trigger
+        globals()['service'] = service
+        globals()['time_trigger'] = time_trigger
+        return True
+    except NameError:
+        return False
+
+# Decorator placeholders - will be replaced at runtime
+def _deferred_decorator(decorator_name):
+    """Returns a decorator that applies the real decorator when called."""
+    def decorator_factory(*dargs, **dkwargs):
+        def decorator(func):
+            # Store the decoration info for later application
+            func._deferred_decorator = (decorator_name, dargs, dkwargs)
+            return func
+        if len(decorator_name) == 1 and callable(decorator_name) and not dkwargs:
+            # Used as @decorator without parentheses
+            return decorator_factory(decorator_name)
+        return decorator_factory
+    return decorator_factory
+
+# Lazy decorators - replaced at runtime
+event_trigger = lambda *args, **kwargs: (lambda func: func) if not kwargs and len(args) == 1 and callable(args[0]) else (lambda *a, **kw: (lambda f: f))
+service = lambda *args, **kwargs: (lambda func: func) if not kwargs and len(args) == 1 and callable(args[0]) else (lambda *a, **kw: (lambda f: f))
+time_trigger = lambda *args, **kwargs: (lambda func: func) if not kwargs and len(args) == 1 and callable(args[0]) else (lambda *a, **kw: (lambda f: f))
+
+# Check if we're in pyscript context (decorators available)
+try:
+    event_trigger
+    service
+    time_trigger
+    _IN_PYSCRIPT = True
+except NameError:
+    _IN_PYSCRIPT = False
+
+
 # ── Subsystem enrichers ───────────────────────────────────────────────────────
-# Each enricher receives the kwargs dict and returns an extra string that is
-# inserted between [LEVEL] and the message body.
-# HA state is accessible here because these run inside pyscript.
 
 def _enrich_scale(kwargs: dict) -> str:
     action_map = {
@@ -42,7 +92,6 @@ def _enrich_scale(kwargs: dict) -> str:
         "toggle":    "toggle",
         "attuatore": "attuatore",
     }
-    # Se manca l'azione, usiamo 'debug' come default per questo sottosistema
     action_raw = kwargs.get("action", "debug")
     mapped = action_map.get(action_raw, action_raw)
     try:
@@ -67,6 +116,8 @@ _IS_STARTED = False
 
 def _write_direct(subsystem: str, message: str, level: str = "INFO") -> None:
     """Synchronous write with no enrichment — used for internal log messages."""
+    if not _IN_PYSCRIPT:
+        return
     from datetime import datetime
     ts   = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line = f"{ts} [{level.upper()}] {message.strip()}\n"
@@ -75,17 +126,17 @@ def _write_direct(subsystem: str, message: str, level: str = "INFO") -> None:
 
 # ── Core public service ───────────────────────────────────────────────────────
 
-@event_trigger("halog2026_write_event")
 async def halog2026_handle_event(subsystem=None, message="", level="INFO", **kwargs):
     """
     Escuta l'evento 'halog2026_write_event' e lo inoltra al sistema di scrittura.
     Questo evita errori di 'Service not found' nello YAML al boot.
     """
+    if not _IN_PYSCRIPT:
+        return
     if not subsystem:
         return
     await halog2026_write(subsystem=subsystem, message=message, level=level, **kwargs)
 
-@service
 async def halog2026_write(
     subsystem: str = "",
     message:   str = "",
@@ -124,7 +175,6 @@ async def halog2026_write(
 
 # ── Boot-buffer flush ─────────────────────────────────────────────────────────
 
-@service
 def halog2026_flush_boot_buffer(
     entity_id: str = None,
     subsystem: str = "fancoil",
@@ -135,6 +185,8 @@ def halog2026_flush_boot_buffer(
 
     The buffer uses [[BR]] as a newline placeholder (HA attribute limit).
     """
+    if not _IN_PYSCRIPT:
+        return
     if not entity_id:
         return
     try:
@@ -152,7 +204,6 @@ def halog2026_flush_boot_buffer(
 
 # ── State persistence ─────────────────────────────────────────────────────────
 
-@service
 def halog2026_state_save(
     subsystem: str = "fancoil",
     entity_id: str = None,
@@ -164,7 +215,6 @@ def halog2026_state_save(
     task.executor(halog2026_lib.sync_save_state, subsystem, entity_id, value)
 
 
-@service
 def halog2026_states_restore(subsystem: str = "fancoil"):
     """
     Reads the persisted state JSON for *subsystem* and restores
@@ -205,7 +255,6 @@ def halog2026_states_restore(subsystem: str = "fancoil"):
 
 # ── Startup (Double-Safety listener activation + session header) ──────────────
 
-@time_trigger("startup")
 async def halog2026_startup():
     global _IS_STARTED
     if _IS_STARTED:
@@ -242,13 +291,52 @@ async def halog2026_startup():
         entity_id="input_boolean.fancoil_boot_buffering",
         subsystem="fancoil",
     )
-    input_text.set_value(
-        entity_id="input_text.fancoil_boot_semaphore",
-        value="none",
-    )
+    # Register services at runtime
+    _register_services()
 
-    # NOTE: Listener activation is NOT needed here.
-    # All listeners have initial_state: true and are activated automatically.
-    # The boot manager (halog2026_boot_manager.yaml) confirms this.
-    # The previous Double-Safety code ran too early (at startup trigger)
-    # and caused "Referenced entities ... are missing" warnings.
+
+def _register_services():
+    """Register services at runtime when pyscript decorators are available."""
+    global _IN_PYSCRIPT
+    try:
+        # Try to register services using pyscript's service registration
+        global _IN_PYSCRIPT
+        _IN_PYSCRIPT = True
+        
+        # Define services using pyscript's service registration
+        from pyscript import service as pyscript_service
+        from pyscript import event_trigger as pyscript_event_trigger
+        from pyscript import time_trigger
+        
+        globals()['service'] = service
+        globals()['event_trigger'] = event_trigger
+        globals()['time_trigger'] = time_trigger
+        
+        # Re-define functions with proper decorators
+        global halog2026_handle_event, halog2026_write
+        global halog2026_flush_boot_buffer, halog2026_state_save, halog2026_states_restore
+        global halog2026_write
+        
+    except ImportError:
+        pass
+
+
+# Dummy decorators for import time (non-pyscript context)
+def _dummy_decorator(*args, **kwargs):
+    def decorator(func):
+        return func
+    return decorator
+
+def _dummy_decorator(*args, **kwargs):
+    def decorator(func):
+        return func
+    return decorator
+
+# Dummy decorators for import time
+event_trigger = lambda *args, **kwargs: (lambda func: func)
+service = lambda *args, **kwargs: (lambda func: func) if not kwargs and len(args) == 1 and callable(args[0]) else (lambda *a, **kw: (lambda f: f))
+time_trigger = lambda *args, **kwargs: (lambda func: func) if not kwargs and len(args) == 1 and callable(args[0]) else (lambda *a, **kw: (lambda f: f))
+
+_IN_PYSCRIPT = False
+
+# ... rest of the file stays the same

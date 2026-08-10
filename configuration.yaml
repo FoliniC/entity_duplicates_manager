@@ -409,7 +409,7 @@ logger:
       - "Entity not found"
       - "Entity not exposed"
   logs:
-    custom_components.localtuya: debug
+    custom_components.localtuya: info
     fancoil_system: error
     homeassistant.components.shell_command: debug
     homeassistant.components.script: warning
@@ -475,8 +475,10 @@ lovelace:
   resources:
     - url: /local/cronostar_card/cronostar-card.js?v=6.6.6
       type: module
-    # - url: /local/community/entity-duplicates-manager-card/entity-duplicates-manager-card.js
-    # type: module
+    - url: /entity_duplicates_manager_card/entity-duplicates-manager-card.js?v=1.0.31
+      type: module
+    - url: /entity_duplicates_manager_card/card-picker-metadata.js?v=1.0.31
+      type: module
     - url: /local/power-wheel-card.js?v=2
       type: module
     - url: /hacsfiles/mini-graph-card/mini-graph-card-bundle.js
@@ -535,7 +537,7 @@ lovelace:
     fix-entities:
       mode: yaml
       title: fix entities
-      icon: mdi:hvac
+      icon: mdi:content-duplicate
       show_in_sidebar: true
       filename: ui/fix_entities.yaml
     developer-tools:

@@ -1146,9 +1146,31 @@ I log di stato periodici contengono i dati di calibrazione completi:
 - `Cal_T`, `Cal_RH` – valori corretti del fancoil (temperatura e umidità calibrate)
 - `Off_T_24h`, `Off_RH_24h` – offset medi calibrati (24 ore)
 
-**A partire da oggi (2026-08-08) — Le letture della calibrazione sono funzionanti**
+**⚠️ IMPORTANTE: Due fasi di avvio della calibrazione**
 
-**Data e ora di riferimento per i test futuri**: `2026-08-08 22:14:06`
+**Fase 1 (2026-08-08 22:14:06)** — File package creato, template generato, ma **entity ID errati nel template j2** → `Cal_T=unknown`, `Cal_RH=unknown` (non funzionante)
+
+**Fase 2 (2026-08-09 11:56:30) — VALORI CORRETTI OPERATIVI** — Corretti gli entity ID nel template `fancoil_automation.j2` per usare i veri entity ID HA (`sensor.cucina_temperatura_calibrata`, `sensor.cucina_umidita_calibrata`, `sensor.statistiche_cucina_calibrazione_temp_offset_24h`, `sensor.statistiche_cucina_calibrazione_umidita_offset_24h`) → **Calibrazione FUNZIONANTE**
+
+**Data e ora di riferimento per i test futuri (valori corretti)**: `2026-08-09 11:56:30`
+
+**Primo log con valori corretti (2026-08-09 11:56:30)**:
+```
+[Cucina] State Dump: Trigger=periodic/time (?->?), Temp=24.6°C, ..., Mijia_T=24.8°C, Mijia_RH=63%, Cal_T=24.6°C, Cal_RH=59%, Off_T_24h=-0.34°C, Off_RH_24h=3.93%
+```
+
+**Valori di riferimento per verifica statistiche future (2026-08-09 11:56-12:40)**:
+
+| Parametro | Valore iniziale | Note |
+|---|---|---|
+| **Mijia_T** | 24.8°C → 24.3°C | Sensore riferimento stabile |
+| **Mijia_RH** | 63% costante | Sensore riferimento stabile |
+| **Raw Temp** | 24.6°C → 24.2°C | Fancoil grezzo |
+| **Cal_T** | 24.6°C → 24.2°C | Corretto: segue raw (≤24.5 = nessuna correzione) |
+| **Raw Hum** | 59% → 58% | Fancoil grezzo |
+| **Cal_RH** | 59% costante | Corretto: +1% per raw < 60% |
+| **Off_T_24h** | -0.34°C → -0.36°C | Offset temp 24h (Mijia - Fancoil) |
+| **Off_RH_24h** | 3.93% → 3.92% | Offset umidità 24h (Mijia - Fancoil) |
 
 **Come usare i log per i test**:
 

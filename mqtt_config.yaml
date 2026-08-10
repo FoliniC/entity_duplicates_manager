@@ -10,13 +10,6 @@ sensor:
       {% set map = {'1': 'Unplugged', '2': 'Waiting', '3': 'Charging', '4': 'Pause'} %}
       {{ map[value] if value in map else 'Error' }}
 
-  - state_topic: "home/prism/1/amp"
-    name: "Prism Corrente"
-    unique_id: prism_current_sensor
-    unit_of_measurement: "mA"
-    device_class: current
-    state_class: measurement
-
   - state_topic: "home/prism/1/wh"
     name: "Prism Energia Erogata Sessione"
     unique_id: prism_session_wh

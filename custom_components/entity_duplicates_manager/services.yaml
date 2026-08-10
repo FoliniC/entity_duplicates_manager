@@ -37,5 +37,3 @@ rename_entities_to_base:
       selector:
         entity:
           multiple: true
-          filter:
-            domain: sensor

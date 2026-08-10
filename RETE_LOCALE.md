@@ -1224,3 +1224,20 @@ switch ($Action) {
     default    { Write-Host "Uso: .\usb_tether.ps1 -Action {detect|activate|restore|status|diagnose} [-MaxMinutes N] [-Mode server|intranet]" }
 }
 ```
+
+---
+
+## Mappatura Unità di Rete Z: (Windows)
+
+**Data:** 9 Agosto 2026
+
+L'unità di rete `Z:` è stata mappata su `\\192.168.0.3\config` (Home Assistant Config) tramite **Gestione Risorse / File Explorer** (GUI).
+
+**Nota tecnica:** Il comando `net use` da terminale restituiva `Errore di sistema 67` ("Impossibile trovare il nome della rete") nonostante:
+- Ping a `192.168.0.3` funzionasse correttamente
+- `net view \\192.168.0.3` mostrasse la condivisione `config`
+- Le credenziali per `carlo@192.168.0.3` fossero salvate in Credential Manager (`Domain:target=192.168.0.3`)
+
+**Workaround usato:** Mappatura tramite interfaccia grafica (File Explorer → Questo PC → Connetti unità di rete) che ha funzionato correttamente al primo tentativo.
+
+**Verifica:** `dir Z:` conferma l'accesso completo alla configurazione Home Assistant (es. `configuration.yaml`, `automations.yaml`, `packages/`, ecc.).
