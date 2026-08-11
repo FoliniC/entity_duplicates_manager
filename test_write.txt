@@ -1,0 +1,3 @@
+python -c "import os; from pathlib import Path; print(Path(os.environ.get('HERMES_HOME', '')).expanduser())" 
+
+Crea una nuova dashboard e una entità con un nome "ha_clipboards" che terrà i testi inseriti. In alto un bottone per creare un nuovo attributo dell'entità "ha_clipboards". QUindi nella textbox della dashboard tutto quello che viene scritto verrà memorizzato nell'attributo attivo. Prevedi una listbox con l'elenco degli attributi per poter cambiare da un attributo all'altro. Prevedi anche un tasto per salvare.

@@ -1,0 +1,46 @@
+# HA Clipboards Services
+
+create_attribute:
+  name: Crea attributo
+  description: Crea un nuovo attributo (clipboard) vuoto
+  fields:
+    name:
+      name: Nome
+      description: Nome del nuovo attributo
+      required: true
+      selector:
+        text: {}
+
+set_active:
+  name: Imposta attributo attivo
+  description: Imposta l'attributo attivo per la modifica
+  fields:
+    name:
+      name: Nome
+      description: Nome dell'attributo da attivare
+      required: true
+      selector:
+        text: {}
+
+save_text:
+  name: Salva testo
+  description: Salva il testo nell'attributo attualmente attivo
+  fields:
+    text:
+      name: Testo
+      description: Testo da salvare nell'attributo attivo
+      required: false
+      selector:
+        text:
+          multiline: true
+
+delete_attribute:
+  name: Elimina attributo
+  description: Elimina un attributo esistente
+  fields:
+    name:
+      name: Nome
+      description: Nome dell'attributo da eliminare
+      required: true
+      selector:
+        text: {}

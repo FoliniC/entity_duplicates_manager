@@ -1,0 +1,11 @@
+{
+  "domain": "ha_clipboards",
+  "name": "HA Clipboards",
+  "version": "1.0.0",
+  "documentation": "https://github.com/your-repo/ha_clipboards",
+  "requirements": [],
+  "dependencies": [],
+  "codeowners": ["@your-github"],
+  "config_flow": true,
+  "iot_class": "local_polling"
+}

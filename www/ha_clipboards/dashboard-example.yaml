@@ -1,0 +1,63 @@
+---
+# HA Clipboards - Dashboard Example
+# Copia questo nel tuo file Lovelace (Dashboard) o usa l'editor UI
+
+title: Clipboards
+icon: mdi:clipboard-text-multiple
+path: clipboards
+cards:
+  # Risorsa JavaScript - AGGIUNGI QUESTA IN IMPOSTAZIONI > RISORSE
+  # URL: /local/ha_clipboards/ha-clipboards-card.js
+  # Tipo: JavaScript Module
+  
+  - type: custom:ha-clipboards-card
+    entity: sensor.ha_clipboards
+
+# --- ISTRUZIONI COMPLETE ---
+# 1. Riavvia Home Assistant dopo aver copiato i file
+# 2. Vai in Impostazioni > Dispositivi e Servizi > Integrazioni > + AGGIUNGI INTEGRAZIONE
+# 3. Cerca "HA Clipboards" e aggiungilo
+# 4. Vai in Impostazioni > Dashboard > Risorse
+# 5. Clicca + AGGIUNGI RISORSA
+#    URL: /local/ha_clipboards/ha-clipboards-card.js
+#    Tipo: JavaScript Module
+# 6. Crea una nuova dashboard o modifica una esistente
+# 7. Aggiungi scheda > Personalizzata > ha-clipboards-card
+# 8. Entity: sensor.ha_clipboards
+
+# --- FUNZIONALITÀ DELLA CARD ---
+# ✅ Bottone "+ Nuovo Attributo" in alto per creare clipboard
+# ✅ Dropdown (select) con elenco attributi per cambiare
+# ✅ Lista visuale attributi con pulsanti "Attiva" / "Elimina"
+# ✅ Textarea grande per scrivere/testo
+# ✅ Bottone "Salva" per memorizzare nell'attributo attivo
+# ✅ Indicatore attributo attivo
+# ✅ Persistenza automatica (survive riavvii)
+
+# --- SERVIZI DISPONIBILI (per automazioni/scripts) ---
+# ha_clipboards.create_attribute      - name: "nome"
+# ha_clipboards.set_active            - name: "nome"  
+# ha_clipboards.save_text             - text: "contenuto"
+# ha_clipboards.delete_attribute      - name: "nome"
+
+# --- ESEMPIO AUTOMAZIONE ---
+# automation:
+#   - alias: "Salva note vocali in clipboard"
+#     trigger:
+#       - platform: state
+#         entity_id: input_text.note_vocale
+#     action:
+#       - service: ha_clipboards.save_text
+#         data_template:
+#           text: "{{ states('input_text.note_vocale') }}"
+
+# --- ESEMPIO SCRIPT ---
+# script:
+#   nuovo_clipboard:
+#     sequence:
+#       - service: ha_clipboards.create_attribute
+#         data:
+#           name: "{{ nome }}"
+#       - service: ha_clipboards.set_active
+#         data:
+#           name: "{{ nome }}"
