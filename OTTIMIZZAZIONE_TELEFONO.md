@@ -238,10 +238,77 @@ adb_local shell pm disable-user --user 0 com.facebook.katana/com.facebook.video.
 | **Temperatura** | 33.5°C | 30.7°C | ↓ 2.8°C |
 | **Swap** | 2.5 GB | ~1.5 GB | ↓ |
 
----
+## �� 📅 Sessione Ottimizzazione - 2026-08-11
 
-### Prossimi interventi consigliati
+### Stato iniziale (pre-ottimizzazione)
+- **Batteria**: 90% (in carica USB 500mA)
+- **RAM**: 11.2 GB totali, 99.5% usata (62 MB liberi), Swap 4.8 GB
+- **CPU**: Motorola IoV 1.0 GB RAM (top), Microsoft AppManager 126%, WeWard 53%
+- **Temperatura**: 32.9°C
+- **kswapd0**: 3.3% CPU (pressione memoria)
 
+### Interventi eseguiti (ordinati per impatto)
+
+#### 1. Motorola IoV Europe (`com.saicmotor.iov.europe`) - **TOP CONSUMER 1 GB RAM**
+```bash
+adb_local shell am force-stop com.saicmotor.iov.europe
+adb_local shell cmd appops set com.saicmotor.iov.europe RUN_ANY_IN_BACKGROUND ignore
+adb_local shell am set-standby-bucket com.saicmotor.iov.europe restricted
+```
+**Risultato**: Eliminato 1 GB RAM, processo terminato.
+
+#### 2. Microsoft AppManager
+```bash
+adb_local shell am force-stop com.microsoft.appmanager
+adb_local shell cmd appops set com.microsoft.appmanager RUN_ANY_IN_BACKGROUND ignore
+adb_local shell am set-standby-bucket com.microsoft.appmanager restricted
+```
+**Risultato**: CPU 126% → 2%, RAM 434 MB → 157 MB.
+
+#### 3. WeWard
+```bash
+adb_local shell am force-stop com.weward
+adb_local shell cmd appops set com.weward RUN_ANY_IN_BACKGROUND ignore
+adb_local shell am set-standby-bucket com.weward restricted
+```
+**Risultato**: CPU 53% → 0%, processo terminato.
+
+#### 4. App pesanti terminate + background revocato
+| App | Package | RAM liberata | Azioni |
+|-----|---------|--------------|--------|
+| Facebook | `com.facebook.katana` | force-stop | AppOps RUN_ANY_IN_BACKGROUND ignore |
+| Instagram | `com.instagram.android` | force-stop | AppOps RUN_ANY_IN_BACKGROUND ignore |
+| AliExpress | `com.alibaba.aliexpresshd` | force-stop tutti i processi | AppOps RUN_ANY_IN_BACKGROUND ignore |
+| Investing | `com.fusionmedia.investing` | force-stop | AppOps RUN_ANY_IN_BACKGROUND ignore |
+| APKPure | `com.apkpure.aegon` | force-stop | AppOps RUN_ANY_IN_BACKGROUND ignore |
+| Tile | `com.thetileapp.tile` | force-stop | AppOps RUN_ANY_IN_BACKGROUND ignore |
+| Twitter/X | `com.twitter.android` | force-stop | AppOps RUN_ANY_IN_BACKGROUND ignore |
+
+#### 5. Whitelist Doze Utente - Pulizia completata
+```bash
+adb_local shell cmd deviceidle whitelist -user
+# Risultato: lista vuota (tutte le eccezioni rimosse)
+```
+
+### Stato finale (post-ottimizzazione)
+
+| Metrica | Prima | Dopo | Δ |
+|---------|-------|------|---|
+| **RAM usata** | ~11.2 GB (99.5%) | ~10.8 GB (93.5%) | ������ ��↓ ~400 MB |
+| **RAM libera** | 62 MB | 425 MB | ������ ��↑ 363 MB |
+| **MemAvailable** | ~500 MB | 4.9 GB | ������ ��↑ 4.4 GB |
+| **Swap usato** | 4.8 GB | 3.15 GB | ������ ��↓ 1.65 GB |
+| **Swap libero** | 7.5 GB | 9.1 GB | ������ ��↑ 1.6 GB |
+| **Motorola IoV** | 1.0 GB RAM attivo | Terminato | ��� � � ✅ Eliminato |
+| **Microsoft AppManager** | 126% CPU, 434 MB | 2% CPU, 157 MB | ��� � � ✅ Limitato |
+| **WeWard** | 53% CPU, 420 MB | 0% CPU | ��� � � ✅ Terminato |
+| **kswapd0 CPU** | 3.3% | 0% (non in top) | ��� � � ✅ Pressione alleviata |
+| **Batteria** | 90% | 93% | ���� �� �� 🔋 In carica |
+| **Temperatura** | 32.9°C | 31.8°C | ���� �� �� 🟢 ������ ��↓ 1.1°C |
+| **Processi totali** | 927 | 881 | ���� �� �� 🟢 ������ ��↓ 46 |
+
+
+---\n\n### Prossimi interventi consigliati\n
 1. **WhatsApp** - 156 mAh CPU bg + radio mobile bg → `RUN_ANY_IN_BACKGROUND ignore` + whitelist remove
 2. **Tile** (`com.thetileapp.tile`) - 201 MB RAM, whitelist attiva → rimuovi se non usato
 3. **Komoot** (`de.komoot.android`) - 255 MB RAM, whitelist attiva → rimuovi se non tracci GPS
@@ -265,6 +332,30 @@ adb_local shell cmd deviceidle whitelist -user
 # Verifica appops Facebook
 adb_local shell cmd appops get com.facebook.katana RUN_ANY_IN_BACKGROUND
 adb_local shell cmd appops get com.facebook.katana WAKE_LOCK
+```
+
+
+## ���� �� �� 📅 Aggiornamento 2026-08-11 (dopo utilizzo)
+
+Dopo alcune ore di utilizzo, ecco lo stato attuale:
+
+- **Motorola IoV**: terminato, nessun processo attivo, AppOps ignore, bucket RESTRICTED (50)
+- **WeWard**: terminato, nessun processo attivo, AppOps ignore, bucket RESTRICTED (50)
+- **Microsoft AppManager**: ancora in bucket WORKING_SET (5) nonostante tentativi di impostarlo a RESTRICTED, ma consumo CPU basso (~0-2%) e RAM contenuta (~350 MB totale)
+- **MemAvailable**: 4.2 GB (ancora sopra il livello critico di 500 MB)
+- **Swap usato**: ~3.3 GB (in miglioramento)
+- **kswapd0**: assente dai top → pressione memoria alleviata
+- **Batteria**: 48% (in uso, non in carica)
+- **Temperatura**: 32.6°C (normale sotto utilizzo)
+
+Conclusioni: le ottimizzazioni sulle app più pesanti (Motorola IoV, WeWard) rimane efficace. Microsoft AppManager è fastidioso ma non impattante. Il sistema rimane stabile con buon headroom di memoria.
+
+```bash
+# Verifica rapida stato attuale
+adb_local shell "ps -A | grep -E 'saicmotor|microsoft.appmanager|weward'"
+adb_local shell "cmd appops get com.microsoft.appmanager RUN_ANY_IN_BACKGROUND"
+adb_local shell "am get-standby-bucket com.microsoft.appmanager"
+adb_local shell "cat /proc/meminfo | grep -E 'MemAvailable|SwapFree'"
 ```
 
 

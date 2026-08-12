@@ -635,6 +635,9 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
         else:
             self.last_powered_on_time = datetime.now(timezone.utc) - timedelta(hours=24)
 
+        # Initialize self.data to empty dict to avoid NoneType errors on timeout/failure
+        self.data = {}
+
         try:
             await asyncio.wait_for(
                 self.async_config_entry_first_refresh(),
@@ -665,7 +668,7 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             # The coordinator will retry on next scheduled update
             pass
 
-        if "info" in self.data and self.data["info"]:
+        if self.data and "info" in self.data and self.data["info"]:
             # Find the vehicle info matching the current VIN
             vin_info = next(
                 (v for v in self.data.get("info", []) if v.vin == vin), None

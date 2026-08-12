@@ -22,10 +22,11 @@ MANUAL_NAMES = {
 }
 
 def run_ssh(cmd):
+    # Try with SSH multiplexing first, fallback to direct if it fails
     full_cmd = [
-        "ssh", "-i", SSH_KEY, 
-        "-o", "StrictHostKeyChecking=no", 
-        "-o", "UserKnownHostsFile=/dev/null", 
+        "ssh", "-i", SSH_KEY,
+        "-o", "StrictHostKeyChecking=no",
+        "-o", "UserKnownHostsFile=/dev/null",
         "-o", "ControlMaster=auto",
         "-o", f"ControlPath={BASE_DIR}/temp/ssh_mux_%h_%p_%r",
         "-o", "ControlPersist=60s",
@@ -35,7 +36,18 @@ def run_ssh(cmd):
     try:
         return subprocess.check_output(full_cmd, stderr=subprocess.DEVNULL).decode('utf-8')
     except:
-        return ""
+        # Fallback without multiplexing
+        fallback_cmd = [
+            "ssh", "-i", SSH_KEY,
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "UserKnownHostsFile=/dev/null",
+            "-o", "ConnectTimeout=5",
+            f"root@{ROUTER_IP}", cmd
+        ]
+        try:
+            return subprocess.check_output(fallback_cmd, stderr=subprocess.DEVNULL).decode('utf-8')
+        except:
+            return ""
 
 def get_active_ips():
     # Get IPs from ARP table to find live devices

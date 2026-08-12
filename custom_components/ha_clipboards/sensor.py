@@ -1,9 +1,10 @@
 """HA Clipboards Sensor Entity."""
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from homeassistant.components.sensor import SensorEntity
-from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.storage import Store
 import voluptuous as vol
@@ -28,19 +29,6 @@ SAVE_TEXT_SCHEMA = vol.Schema({
 DELETE_ATTRIBUTE_SCHEMA = vol.Schema({
     vol.Required("name"): vol.All(str, vol.Length(min=1)),
 })
-
-async def async_setup_platform(
-    hass: HomeAssistant,
-    config,
-    async_add_entities: AddEntitiesCallback,
-    discovery_info: Optional[DiscoveryInfoType] = None,
-) -> None:
-    """Set up the HA Clipboards sensor platform."""
-    store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
-    data = await store.async_load() or {"attributes": {}, "active_attribute": None}
-    
-    entity = HAClipboardsSensor(hass, store, data)
-    async_add_entities([entity], True)
 
 
 class HAClipboardsSensor(SensorEntity):
@@ -79,12 +67,19 @@ class HAClipboardsSensor(SensorEntity):
         self._attr_native_value = self._get_state()
         self.async_write_ha_state()
 
-    @callback
-    def async_added_to_hass(self) -> None:
+    async def async_added_to_hass(self) -> None:
         """Register callbacks."""
         pass
 
 
-async def async_register_services(hass: HomeAssistant) -> None:
-    """Register services for HA Clipboards."""
-    pass
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up the HA Clipboards sensor platform from config entry."""
+    store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
+    data = await store.async_load() or {"attributes": {}, "active_attribute": None}
+    
+    entity = HAClipboardsSensor(hass, store, data)
+    async_add_entities([entity], True)

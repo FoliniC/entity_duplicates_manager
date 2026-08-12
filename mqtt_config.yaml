@@ -30,6 +30,8 @@ sensor:
     unit_of_measurement: "A"
     device_class: current
     state_class: measurement
+    value_template: >-
+      {{ value_json.get("amp", value) if value_json is mapping else value }}
 
   - state_topic: "home/prism/1/volt"
     name: "Prism Tensione Attuale"

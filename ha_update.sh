@@ -9,9 +9,12 @@
 # CONFIGURAZIONE
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 DOCKER_DIR="/home/carlo/docker"
-HA_URL="http://localhost:8123"
+HA_URL="@url:`http://localhost:8123`"
 # TOKEN PRESERVATO
 HA_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkZDQ0ZGFmMDk1MDk0ZmI3OGU5YmFiNDFlNTA1YTE4OCIsImlhdCI6MTc4MDY2MTc4MiwiZXhwIjoyMDk2MDIxNzgyfQ.FNSWdfYbUxxX7h0CZpfSCZ9GGos5NYJoN4t7H3P_Bt0"
+
+# VERSIONE DA AGGIORNARE (opzionale: se non specificata, usa 'stable')
+HA_VERSION="${1:-stable}"
 
 cd "$DOCKER_DIR" || exit 1
 
@@ -40,12 +43,12 @@ fi
 
 echo "Versione attuale: $OLD_VERSION (Image ID: ${CURRENT_IMAGE_ID:0:12})"
 
-# 2. Pull dell'immagine 'stable'
-echo "Controllo nuove immagini (docker compose pull)..."
+# 2. Pull dell'immagine specificata (o 'stable' di default)
+echo "Controllo nuove immagini (docker compose pull $HA_VERSION)..."
 docker compose pull homeassistant > /dev/null 2>&1
 
 # 3. Recupera ID della nuova immagine scaricata
-LATEST_IMAGE_ID=$(docker inspect ghcr.io/home-assistant/home-assistant:stable --format='{{.Id}}' 2>/dev/null)
+LATEST_IMAGE_ID=$(docker inspect ghcr.io/home-assistant/home-assistant:$HA_VERSION --format='{{.Id}}' 2>/dev/null)
 
 # 4. Confronto ID per decidere se aggiornare
 if [ "$CURRENT_IMAGE_ID" == "$LATEST_IMAGE_ID" ]; then

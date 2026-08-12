@@ -572,6 +572,8 @@ pyscript:
   allow_all_imports: true
   hass_is_global: true
   config: pyscript.toml
+  apps:
+    halog2026_app: null
 
 # ============================================================================
 # SAVER
