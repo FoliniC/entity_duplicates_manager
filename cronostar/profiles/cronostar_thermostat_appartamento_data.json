@@ -2,7 +2,7 @@
   "meta": {
     "preset_type": "thermostat",
     "global_prefix": "cronostar_thermostat_appartamento_",
-    "updated_at": "2026-08-10T18:54:27.167995",
+    "updated_at": "2026-08-12T20:30:01.092070",
     "title": "CronoStar Thermostat",
     "y_axis_label": "Temperature",
     "unit_of_measurement": "°C",
@@ -14,7 +14,7 @@
     "enabled_entity": "switch.appartamento",
     "profiles_select_entity": "select.cronostar_thermostat_appartamento_current_profile",
     "language": "en",
-    "last_active_profile": "Comfort",
+    "last_active_profile": "Default",
     "entities": [
       "climate.climatizzazione_appartamento",
       "switch.appartamento",
@@ -26,34 +26,34 @@
       "schedule": [
         {
           "time": "00:00",
-          "value": 23.5
+          "value": 24.4
         },
         {
           "time": "11:00",
-          "value": 23.5
+          "value": 24.4
         },
         {
           "time": "11:01",
-          "value": 23.5
+          "value": 24.4
         },
         {
           "time": "18:00",
-          "value": 23.5
+          "value": 24.4
         },
         {
           "time": "18:35",
-          "value": 23.5
+          "value": 24.4
         },
         {
           "time": "18:36",
-          "value": 23.5
+          "value": 24.4
         },
         {
           "time": "23:59",
-          "value": 23.5
+          "value": 24.4
         }
       ],
-      "updated_at": "2026-08-10T17:08:24.579205",
+      "updated_at": "2026-08-12T16:16:34.512587",
       "enabled_entity": "switch.appartamento",
       "profiles_select_entity": "select.cronostar_thermostat_appartamento_current_profile",
       "target_entity": "climate.climatizzazione_appartamento",
@@ -94,7 +94,7 @@
           "value": 21.5
         }
       ],
-      "updated_at": "2026-07-27T19:45:30.941284",
+      "updated_at": "2026-08-12T18:55:59.194526",
       "enabled_entity": "switch.appartamento",
       "profiles_select_entity": "select.cronostar_thermostat_appartamento_current_profile",
       "target_entity": "climate.climatizzazione_appartamento",

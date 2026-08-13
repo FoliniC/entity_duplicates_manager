@@ -359,5 +359,28 @@ adb_local shell "cat /proc/meminfo | grep -E 'MemAvailable|SwapFree'"
 ```
 
 
+## �������� ������ ������ ���� ������ ���� ���� �� ������ ���� ���� �� ���� �� �� 📅 Aggiornamento 2026-08-12 (dopo un giorno)
+
+Dopo circa 24 ore di utilizzo intermittente, lo stato è:
+
+- **Motorola IoV**: nessun processo attivo, AppOps ignore, bucket RESTRICTED (50)
+- **WeWard**: nessun processo attivo, AppOps ignore, bucket RARE (40) – processo terminato
+- **Microsoft AppManager**: ancora presente (PID ~10xxx, ~24xxx) con consumo basso (CPU <1%, RAM ~220 MB totale), AppOps ignore, bucket WORKING_SET (5) – impatto minimo
+- **MemAvailable**: ~4.96 GB (sopra soglia critica di 500 MB)
+- **Swap usato**: ~3.06 GB (in miglioramento rispetto a ieri)
+- **kswapd0**: assente dai top → pressione memoria alleviata
+- **Batteria**: ~48% (in uso, non in carica)
+- **Temperatura**: ~32.6°C (normale)
+
+Conclusioni: le ottimizzazioni sulle app più pesanti rimangono efficaci. Microsoft AppManager è persistente ma non impattante. Il sistema rimane stabile.
+
+```bash
+# Verifica rapida
+adb_local="/home/carlo/.gemini/antigravity/brain/460ac445-8d6c-4746-86b2-27f169bf3966/scratch/platform-tools/adb"
+$adb_local shell "ps -A | grep -E 'saicmotor|microsoft.appmanager|weward'"
+$adb_local shell "cmd appops get com.microsoft.appmanager RUN_ANY_IN_BACKGROUND"
+$adb_local shell "am get-standby-bucket com.microsoft.appmanager"
+$adb_local shell "cat /proc/meminfo | grep -E 'MemAvailable|SwapFree'"
+```
 
 

@@ -77,10 +77,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         filtered_results = [d for d in results if d["entity_id"] not in excluded_entities]
         scanner._duplicates = filtered_results
         
-        hass.bus.async_fire(EVENT_SCAN_COMPLETE, {
-            "duplicates": filtered_results,
-            "config": storage.config
-        })
+        scanner.fire_scan_complete(filtered_results, storage.config)
 
     async def handle_save_settings(call: ServiceCall):
         """Save settings without scanning."""
@@ -98,10 +95,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await storage.async_save({"excluded_entities": new_list})
         _LOGGER.info(f"Entities added to exclusions: {entity_ids}")
         # Trigger a refresh event
-        hass.bus.async_fire(EVENT_SCAN_COMPLETE, {
-            "duplicates": [d for d in scanner._duplicates if d["entity_id"] not in new_list],
-            "config": storage.config
-        })
+        scanner.fire_scan_complete(
+            [d for d in scanner._duplicates if d["entity_id"] not in new_list],
+            storage.config,
+        )
 
     async def handle_fix(call: ServiceCall):
         entity_id = call.data.get("entity_id")
@@ -121,14 +118,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def handle_rename_entities(call: ServiceCall):
         entity_ids = call.data.get("entity_ids", [])
         all_dups = scanner._duplicates
+        renamed_count = 0
+        skipped_count = 0
         for eid in entity_ids:
             item = next((d for d in all_dups if d["entity_id"] == eid), None)
             if item:
-                await scanner.async_fix_entity_id(eid, item["base_entity"])
-        hass.bus.async_fire(EVENT_SCAN_COMPLETE, {
-            "duplicates": scanner._duplicates,
-            "config": storage.config
-        })
+                if not item.get("can_rename", True):
+                    skipped_count += 1
+                    _LOGGER.warning(
+                        "Skipping rename for %s because it is not in the entity registry",
+                        eid,
+                    )
+                    continue
+
+                if await scanner.async_fix_entity_id(eid, item["base_entity"]):
+                    renamed_count += 1
+                else:
+                    skipped_count += 1
+        _LOGGER.info(
+            "Rename to base complete: renamed=%s skipped=%s requested=%s",
+            renamed_count,
+            skipped_count,
+            len(entity_ids),
+        )
+        scanner.fire_scan_complete(scanner._duplicates, storage.config)
 
     hass.services.async_register(DOMAIN, SERVICE_SCAN, handle_scan)
     hass.services.async_register(DOMAIN, SERVICE_FIX, handle_fix)

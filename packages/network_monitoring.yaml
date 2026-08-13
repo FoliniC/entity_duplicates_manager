@@ -21,13 +21,16 @@ command_line:
       name: WAN Traffic Realtime
       unique_id: wan_traffic_realtime
       command: "python3 /config/helpers/wan_traffic_realtime.py"
+      command_timeout: 9
       value_template: "{{ value_json.rx_kbps | default(0) }}"
       json_attributes:
         - rx_kbps
         - tx_kbps
         - rx_bytes
         - tx_bytes
-      scan_interval: 10
+        - stale
+        - error
+      scan_interval: 15
 
   - sensor:
       name: Internet Ping CLI

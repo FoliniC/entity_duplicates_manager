@@ -410,6 +410,7 @@ logger:
       - "Entity not exposed"
   logs:
     custom_components.localtuya: info
+    custom_components.entity_duplicates_manager: info
     fancoil_system: error
     homeassistant.components.shell_command: debug
     homeassistant.components.script: warning
@@ -474,8 +475,6 @@ lovelace:
   resource_mode: yaml
   resources:
     - url: /local/cronostar_card/cronostar-card.js?v=6.6.6
-      type: module
-    - url: /entity_duplicates_manager_card/entity-duplicates-manager-card.js?v=1.0.31
       type: module
     - url: /entity_duplicates_manager_card/card-picker-metadata.js?v=1.0.31
       type: module

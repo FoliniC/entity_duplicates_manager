@@ -106,6 +106,8 @@ class TuyaNetworkWatcher:
             "-o", "UserKnownHostsFile=/dev/null",
             "-o", "BatchMode=yes",
             "-o", "ConnectTimeout=5",
+            "-o", "ServerAliveInterval=2",
+            "-o", "ServerAliveCountMax=1",
             f"root@{ROUTER_IP}",
         ]
 
@@ -118,7 +120,7 @@ class TuyaNetworkWatcher:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=15)
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=8)
             return (
                 process.returncode,
                 stdout.decode("utf-8", errors="ignore") if stdout else "",
@@ -193,6 +195,7 @@ class TuyaNetworkWatcher:
         ]
         
         needs_change = False
+        check_failed = False
         for cmd in check_commands:
             code, stdout, stderr = await self._router_run(cmd)
             if code == 0:
@@ -201,8 +204,18 @@ class TuyaNetworkWatcher:
                     needs_change = True
                     _LOGGER.debug("Flow offloading setting needs change: %s = %s (want 0)", cmd, current_value)
             else:
-                _LOGGER.debug("Could not read current flow offloading setting: %s", cmd)
-                needs_change = True  # Assume we need to set it if we can't read
+                check_failed = True
+                _LOGGER.warning(
+                    "Could not read current flow offloading setting with command %s: %s",
+                    cmd,
+                    stderr.strip() if stderr else "unknown error",
+                )
+
+        if check_failed:
+            _LOGGER.warning(
+                "Skipping flow offloading changes because router SSH settings check failed"
+            )
+            return
         
         if not needs_change:
             _LOGGER.info("Flow offloading already disabled on OpenWrt router, skipping")

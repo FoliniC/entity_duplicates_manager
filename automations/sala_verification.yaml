@@ -188,7 +188,7 @@
                   {% set finestra_aperta = is_state(window_contact_sensor, 'on') if window_contact_sensor else is_state('input_boolean.finestra_sala_aperta', 'on') %}
                   {{ finestra_aperta
                      and states('sensor.umidita_sala_pilota') | float(none) is not none
-                     and temp_ok }}
+                     and states('sensor.temperatura_sala_reale_calcolata') | float(none) is not none }}
                 prediction_ok: >-
                   {% set h_err = humidity_error | float(none) %}
                   {% set t_err = temperature_error | float(none) %}

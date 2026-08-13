@@ -30,6 +30,7 @@ class DuplicatesCountSensor(RestoreEntity, SensorEntity):
     def __init__(self, hass):
         self.hass = hass
         self._attr_native_value = 0
+        self._total_duplicates = 0
         self._duplicates = []
 
     async def async_added_to_hass(self) -> None:
@@ -38,6 +39,7 @@ class DuplicatesCountSensor(RestoreEntity, SensorEntity):
         if (last_state := await self.async_get_last_state()) is not None:
             try:
                 self._attr_native_value = int(last_state.state)
+                self._total_duplicates = self._attr_native_value
                 self._duplicates = last_state.attributes.get("duplicates", [])
             except (ValueError, TypeError):
                 pass
@@ -53,15 +55,18 @@ class DuplicatesCountSensor(RestoreEntity, SensorEntity):
         config = storage.config if storage else {}
         # Limit the list of duplicates to prevent recorder warnings (max 16KB)
         return {
-            "total_duplicates": len(self._duplicates),
+            "total_duplicates": self._total_duplicates,
+            "stored_duplicates": len(self._duplicates),
             "duplicates": self._duplicates[:15],
             "config": config,
-            "truncated": len(self._duplicates) > 15
+            "truncated": self._total_duplicates > len(self._duplicates)
+            or len(self._duplicates) > 15
         }
 
     @callback
     def _handle_scan_complete(self, event):
         """Update state when scan is complete."""
         self._duplicates = event.data.get("duplicates", [])
-        self._attr_native_value = len(self._duplicates)
+        self._total_duplicates = event.data.get("count", len(self._duplicates))
+        self._attr_native_value = self._total_duplicates
         self.async_write_ha_state()
