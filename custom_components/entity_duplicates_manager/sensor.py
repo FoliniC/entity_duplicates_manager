@@ -59,6 +59,9 @@ class DuplicatesCountSensor(RestoreEntity, SensorEntity):
             "stored_duplicates": len(self._duplicates),
             "duplicates": self._duplicates[:15],
             "config": config,
+            "excluded_entities": config.get("excluded_entities", []),
+            "exclusion_patterns": config.get("exclusion_patterns", ""),
+            "max_suffix": config.get("max_suffix", 9),
             "truncated": self._total_duplicates > len(self._duplicates)
             or len(self._duplicates) > 15
         }

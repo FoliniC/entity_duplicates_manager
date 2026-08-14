@@ -263,10 +263,11 @@ class DuplicatesScanner:
         if config is None:
             return None
 
+        # Include the full excluded_entities list so the UI can show exclusion status
         return {
             "max_suffix": config.get("max_suffix"),
             "exclusion_patterns": config.get("exclusion_patterns", ""),
-            "excluded_entities_count": len(config.get("excluded_entities", [])),
+            "excluded_entities": config.get("excluded_entities", []),
         }
 
     def _event_data_size(self, payload: dict) -> int:

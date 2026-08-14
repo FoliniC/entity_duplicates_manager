@@ -476,7 +476,7 @@ lovelace:
   resources:
     - url: /local/cronostar_card/cronostar-card.js?v=6.6.6
       type: module
-    - url: /entity_duplicates_manager_card/card-picker-metadata.js?v=1.0.31
+    - url: /entity_duplicates_manager_card/card-picker-metadata.js?v=1.0.32
       type: module
     - url: /local/power-wheel-card.js?v=2
       type: module

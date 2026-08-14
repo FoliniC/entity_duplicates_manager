@@ -318,8 +318,35 @@ adb_local shell cmd deviceidle whitelist -user
 ---
 
 ### Comandi di verifica rapida
+## ���������� �������� �������� ������ �������� �������� �������� ���� ���������� ���������� �������� ������ ���������� �������� �������� ���� �������� ���� ���� �� �������� ������ ������ ���� ������ ������ ������ �� �������� �������� ������ ���� �������� ������ ������ �� ������ �� �� 📅 Aggiornamento 2026-08-13 (dopo applicazione raccomandazioni aggiuntive)
+
+Dopo aver applicato le restrizioni sui servizi foreground (dove supportato) e aver chiuso tutte le app in foreground, lo stato è:
+
+- **Motorola IoV**: nessun processo attivo, AppOps ignore, bucket RESTRICTED (50)
+- **WeWard**: nessun processo attivo, AppOps ignore, bucket RARE (40) – processo terminato
+- **Microsoft AppManager**: ancora presente con consumo ridotto (CPU ~?%, RAM ~?? MB), AppOps ignore per RUN_ANY_IN_BACKGROUND e START_FOREGROUND, bucket WORKING_SET (5) – impatto ridotto rispetto a prima
+- **Facebook**: ancora alto consumo a causa di servizi foreground attivi (HeroKeepAliveService, PreloadedFbnsService) nonostante restrizioni AppOps sui servizi background (il comando RUN_SERVICE_IN_BACKGROUND non è supportato su questa versione di Android)
+- **MemAvailable**: ~5.04 GB (sopra soglia critica)
+- **Swap usato**: ~3.32 GB (in miglioramento)
+- **kswapd0**: assente dai top → pressione memoria alleviata
+- **Batteria**: ~100% (in carica USB)
+- **Temperatura**: ~33.6°C (durante la carica)
+
+Conclusioni: le ottimizzazioni sulle app più pesanti rimangono efficaci. Microsoft AppManager mostra un miglioramento significativo nel consumo grazie alle restrizioni AppOps. Facebook rimane il principale consumatore a causa di servizi foreground progettati per riavviare l'app; ulteriori limitazioni richiederebbero di disattivare i servizi (possibilmente non permessi) o di accettare il consumo come parte dell'utilizzo normale.
+
 ```bash
-# CPU/RAM attuali
+# Verifica rapida stato attuale
+adb_local="/home/carlo/.gemini/antigravity/brain/460ac445-8d6c-4746-86b2-27f169bf3966/scratch/platform-tools/adb"
+$adb_local shell "ps -A | grep -E 'saicmotor|microsoft.appmanager|weward'"
+$adb_local shell "cmd appops get com.microsoft.appmanager RUN_ANY_IN_BACKGROUND"
+$adb_local shell "cmd appops get com.microsoft.appmanager START_FOREGROUND"
+$adb_local shell "am get-standby-bucket com.microsoft.appmanager"
+$adb_local shell "cat /proc/meminfo | grep -E 'MemAvailable|SwapFree'"
+```
+
+
+```bash
+# Verifica rapida
 adb_local shell ps -A -o pid,user,%cpu,%mem,cmd --sort=-%cpu | head -20
 adb_local shell ps -A -o pid,user,%cpu,%mem,cmd --sort=-%mem | head -20
 
@@ -346,7 +373,7 @@ Dopo alcune ore di utilizzo, ecco lo stato attuale:
 - **Swap usato**: ~3.3 GB (in miglioramento)
 - **kswapd0**: assente dai top → pressione memoria alleviata
 - **Batteria**: 48% (in uso, non in carica)
-- **Temperatura**: 32.6°C (normale sotto utilizzo)
+- **Temperatura**: 32.6°C (normale)
 
 Conclusioni: le ottimizzazioni sulle app più pesanti (Motorola IoV, WeWard) rimane efficace. Microsoft AppManager è fastidioso ma non impattante. Il sistema rimane stabile con buon headroom di memoria.
 
@@ -359,6 +386,29 @@ adb_local shell "cat /proc/meminfo | grep -E 'MemAvailable|SwapFree'"
 ```
 
 
+## ���������� �������� �������� ������ �������� ������ ������ ���� �������� ������ ������ ���� ������ ���� ���� �� �������� ������ ������ ���� ������ ���� ���� �� ������ ���� ���� �� ���� �� �� 📅 Aggiornamento 2026-08-12 (dopo un giorno)
+
+Dopo circa 24 ore di utilizzo intermittente, lo stato è:
+
+- **Motorola IoV**: nessun processo attivo, AppOps ignore, bucket RESTRICTED (50)
+- **WeWard**: nessun processo attivo, AppOps ignore, bucket RARE (40) – processo terminato
+- **Microsoft AppManager**: ancora presente (PID ~10xxx, ~24xxx) con consumo basso (CPU <1%, RAM ~220 MB totale), AppOps ignore, bucket WORKING_SET (5) – impatto minimo
+- **MemAvailable**: ~4.96 GB (sopra soglia critica di 500 MB)
+- **Swap usato**: ~3.06 GB (in miglioramento rispetto a ieri)
+- **kswapd0**: assente dai top → pressione memoria alleviata
+- **Batteria**: ~48% (in uso, non in carica)
+- **Temperatura**: ~32.6°C (normale)
+
+Conclusioni: le ottimizzazioni sulle app più pesanti rimangono efficaci. Microsoft AppManager è persistente ma non impattante. Il sistema rimane stabile.
+
+```bash
+# Verifica rapida
+adb_local="/home/carlo/.gemini/antigravity/brain/460ac445-8d6c-4746-86b2-27f169bf3966/scratch/platform-tools/adb"
+$adb_local shell "ps -A | grep -E 'saicmotor|microsoft.appmanager|weward'"
+$adb_local shell "cmd appops get com.microsoft.appmanager RUN_ANY_IN_BACKGROUND"
+$adb_local shell "am get-standby-bucket com.microsoft.appmanager"
+$adb_local shell "cat /proc/meminfo | grep -E 'MemAvailable|SwapFree'"
+```
 ## �������� ������ ������ ���� ������ ���� ���� �� ������ ���� ���� �� ���� �� �� 📅 Aggiornamento 2026-08-12 (dopo un giorno)
 
 Dopo circa 24 ore di utilizzo intermittente, lo stato è:
