@@ -36,7 +36,7 @@ Documentazione della configurazione di rete per l'ambiente Home Assistant.
   - **Satellite 1 (Camera):** Collegamento mesh wireless.
   - **Satellite 2 (Balcone):** Collegamento mesh wireless.
 - **Funzione:** Estensione della copertura Wi-Fi per aree non raggiunte direttamente dal router.
-- **Canale 2.4GHz:** Fisso su **Canale 1** (evita roaming che destabilizza i dispositivi Tuya IoT). Vedi [`tuya_handshake.md`](./tuya_handshake.md#6-ottimizzazione-wi-fi-e-roaming-prevenzione-wake-up-failed-e-heartbeat-timeout) per heartbeat timeout e gestione canali.
+- **Canale 2.4GHz:** Automatico su **Canale 6** (non-overlapping con il **Canale 1** del router OpenWrt, evita roaming instabile dei dispositivi Tuya). Vedi [`tuya_handshake.md`](./tuya_handshake.md#6-ottimizzazione-wi-fi-e-roaming-prevenzione-wake-up-failed-e-heartbeat-timeout) per heartbeat timeout e gestione canali.
 
 ### Dispositivi IoT (Amazon Echo)
 - **alexa-cucina**
@@ -59,8 +59,8 @@ L'integrazione del sistema Tenda Mesh5 e la gestione dei canali su OpenWrt hanno
     *   **Configurazione:** Inserita in **Blacklist** su OpenWrt (sia 2.4GHz che 5GHz) per forzare il collegamento al sistema Mesh locale e prevenire instabilità dovute a "missing ACKs".
 4.  **Interferenza Canali 5GHz:** Il router OpenWrt utilizza il **canale 149 (5GHz)** in modalità **VHT80** (fisso), mentre il Tenda Mesh opera sui canali bassi (es. 40), eliminando le sovrapposizioni.
 5.  **Interferenza Canali 2.4GHz & Stabilità Tuya:**
-    *   **Configurazione:** Il router OpenWrt è impostato sul **Canale 1 (2.4GHz)** fisso, mentre il sistema Tenda Mesh è impostato sul **Canale 11 (2.4GHz)** fisso per eliminare le sovrapposizioni di banda 2.4GHz.
-    *   **Mitigazione Roaming Tuya:** Il MAC address di `luci-cucina` (`50:8b:b9:44:fe:4e`, IP `192.168.0.25`) non e' piu' in blacklist sulla 2.4GHz del router OpenWrt. Il dispositivo puo' quindi associarsi anche all'AP OpenWrt; l'accesso WAN resta limitato dalle regole Tuya selettive. Maggiori dettagli in [tuya_handshake.md](file:///home/carlo/docker/homeassistant/config/tuya_handshake.md#L45-L60).
+    *   **Configurazione:** Il router OpenWrt è impostato sul **Canale 1 (2.4GHz)** fisso, mentre il sistema Tenda Mesh opera sul **Canale 6 (2.4GHz)** (gestito automaticamente dal Tenda) per eliminare le sovrapposizioni di banda 2.4GHz (canali non-overlapping 1 e 6).
+    *   **Mitigazione Roaming Tuya:** Il MAC address di `luci-cucina` (`50:8b:b9:44:fe:4e`, IP `192.168.0.25`) non e' piu' in blacklist sulla 2.4GHz del router OpenWrt. Il dispositivo puo' quindi associarsi anche all'AP OpenWrt; l'accesso WAN resta limitato dalle regole Tuya selettive. Maggiori dettagli in [tuya_handshake.md](file:///home/carlo/docker/homeassistant/config/tuya_handshake.md#L45-L60).L60).
 
 ## Note di Configurazione
 - Il server Debian (`192.168.0.3`) funge da centro di controllo sia per la domotica che per i servizi di rete critici (DNS/DHCP tramite AdGuard).
@@ -208,6 +208,21 @@ ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no carlo_2@192.168.0.8
  - Textbox log con timestamp, contatore righe, ultimo aggiornamento, contenuto completo (monospace, pre-wrap)
  - Dettagli sensore, selezione host (Debian/Windows), durata safety-net
  
+---
+*Ultimo aggiornamento: 14 Agosto 2026*
+
+### Controllo e Riattivazione Tethering USB via ADB (OpenWrt Router)
+Sul router OpenWrt (`192.168.0.11`) è stato installato l'ambiente **ADB nativo (MIPS)** per la gestione automatica del telefono Android (Redmi Note 11 Pro 5G) collegato alla porta USB del router:
+- **Pacchetti ADB locali:** `/etc/adb_pkgs/adb.ipk` e `/etc/adb_pkgs/libcrypto.ipk` (conservati in flash, decompressi in RAM all'esecuzione per non saturare la ROM).
+- **Wrapper ADB:** `/usr/bin/adb_router` (esegue ADB su architettura MIPS caricando le librerie da RAM).
+- **Script di riattivazione:** `/usr/bin/enable_usb_tether.sh` (forza lo switch automatico del telefono a modalità RNDIS/Tethering USB via ADB).
+- **Hotplug USB:** `/etc/hotplug.d/usb/99-usb-tethering` (riattiva automaticamente il tethering ad ogni ricollegamento USB o reboot).
+
+**Comando di ripristino manuale da HA / SSH Router:**
+```bash
+ssh -i /config/.ssh/router_key root@192.168.0.11 "/usr/bin/enable_usb_tether.sh"
+```
+
 ---
 *Ultimo aggiornamento: 1 Agosto 2026 (commit 28a1b44)*
 

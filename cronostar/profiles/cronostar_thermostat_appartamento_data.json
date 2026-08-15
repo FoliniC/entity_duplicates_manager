@@ -2,7 +2,7 @@
   "meta": {
     "preset_type": "thermostat",
     "global_prefix": "cronostar_thermostat_appartamento_",
-    "updated_at": "2026-08-13T15:38:20.227670",
+    "updated_at": "2026-08-14T20:16:51.221985",
     "title": "CronoStar Thermostat",
     "y_axis_label": "Temperature",
     "unit_of_measurement": "°C",
@@ -137,19 +137,23 @@
           "value": 24.03331021727968
         },
         {
-          "time": "19:05",
+          "time": "17:15",
           "value": 24.03331021727968
         },
         {
+          "time": "18:05",
+          "value": 24.981993515330196
+        },
+        {
           "time": "20:55",
-          "value": 26.563132345414385
+          "value": 25.61444904736387
         },
         {
           "time": "23:59",
-          "value": 27.195587877448062
+          "value": 25.61444904736387
         }
       ],
-      "updated_at": "2026-08-04T19:10:04.042241",
+      "updated_at": "2026-08-14T19:39:27.003000",
       "enabled_entity": "switch.appartamento",
       "profiles_select_entity": "select.cronostar_thermostat_appartamento_current_profile",
       "target_entity": "climate.climatizzazione_appartamento",

@@ -116,6 +116,9 @@ shell_command:
   usb_tether_restore: >
     /config/helpers/usb_tether_ha.sh restore server "{{ states('input_select.usb_tether_host') }}" "{{ states('input_number.usb_tether_max_duration') | int(60) }}"
 
+  usb_tether_reactivate_router: >
+    ssh -i /config/.ssh/router_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@192.168.0.11 "/usr/bin/enable_usb_tether.sh"
+
 # --- Script: azioni con messaggio e gestione errori ----------
 script:
   usb_tether_normale:
@@ -244,6 +247,31 @@ script:
               subsystem: usb_tether
               level: ERROR
               message: "ERRORE: Attivazione Intranet fallita"
+
+  usb_tether_riattiva_router:
+    alias: "Tethering: Riattiva Router (ADB)"
+    icon: mdi:cellphone-link
+    sequence:
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.usb_tether_status_message
+        data:
+          value: "riattivazione tethering router via ADB in corso..."
+      - event: halog2026_write_event
+        event_data:
+          subsystem: usb_tether
+          level: INFO
+          message: "AVVIO: Riattivazione USB Tethering sul Router via ADB"
+      - action: shell_command.usb_tether_reactivate_router
+      - delay: "00:00:03"
+      - action: homeassistant.update_entity
+        target:
+          entity_id: sensor.usb_tether_status
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.usb_tether_status_message
+        data:
+          value: "Tethering router riattivato via ADB"
 
 # --- Automazione: aggiorna messaggio dopo cambio stato ----------------------
 automation:

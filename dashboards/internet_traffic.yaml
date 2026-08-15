@@ -572,6 +572,22 @@ views:
                           border: 2px solid #ff5252;
                         }
 
+              # BOTTONE RIATTIVAZIONE ROUTER ADB
+              - type: button
+                name: "⚡ RIATTIVA TETHERING ROUTER (ADB)"
+                icon: mdi:cellphone-link
+                tap_action:
+                  action: perform-action
+                  perform_action: script.usb_tether_riattiva_router
+                card_mod:
+                  style: |
+                    ha-card {
+                      background: #0288d1 !important;
+                      --mdc-theme-primary: white;
+                      font-weight: bold;
+                      margin-top: 6px;
+                    }
+
               # Durata
               - type: entities
                 title: "Durata (safety-net)"
