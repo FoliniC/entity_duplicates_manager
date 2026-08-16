@@ -1,0 +1,77 @@
+input_text:
+  alexa_custom_command:
+    name: "Comando Alexa"
+    max: 200
+    initial: ""
+    icon: mdi:microphone
+
+script:
+  alexa_send_custom:
+    alias: "Alexa: Invia comando (Testuale)"
+    sequence:
+      - action: system_log.write
+        data:
+          level: info
+          message: "Alexa comando testuale: {{ states('input_text.alexa_custom_command') }}"
+      - action: alexa_devices.send_text_command
+        data:
+          device_id: "9f7fa85d1597bcdd4948d75d1524dad8"
+          text_command: "{{ states('input_text.alexa_custom_command') }}"
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.alexa_custom_command
+        data:
+          value: ""
+
+  alexa_radio_m2o_custom:
+    alias: "Alexa: Accendi radio m2o (Testuale)"
+    sequence:
+      - action: system_log.write
+        data:
+          level: info
+          message: "Alexa comando testuale: radio m2o"
+      - action: alexa_devices.send_text_command
+        data:
+          device_id: "9f7fa85d1597bcdd4948d75d1524dad8"
+          text_command: "radio m2o"
+
+  alexa_radio_m2o_tunein:
+    alias: "Alexa: Accendi radio m2o (TuneIn)"
+    sequence:
+      - action: system_log.write
+        data:
+          level: info
+          message: "Alexa TuneIn: radio m2o"
+      # NOTA: media_content_type "TUNEIN" non è documentato ufficialmente per
+      # l'integrazione "alexa_devices". Se questo script non funziona/da errore,
+      # usa lo script "alexa_radio_m2o_custom" sopra (via comando testuale),
+      # che è il metodo garantito e documentato da Home Assistant.
+      - action: media_player.play_media
+        target:
+          entity_id: media_player.cucina
+        data:
+          media_content_id: "radio m2o"
+          media_content_type: "TUNEIN"
+
+  alexa_timer_9min_custom:
+    alias: "Alexa: Timer 9 min (Testuale)"
+    sequence:
+      - action: system_log.write
+        data:
+          level: info
+          message: "Alexa comando testuale: attiva un timer da 9 minuti"
+      - action: alexa_devices.send_text_command
+        data:
+          device_id: "9f7fa85d1597bcdd4948d75d1524dad8"
+          text_command: "attiva un timer da 9 minuti"
+
+  alexa_stop:
+    alias: "Alexa: Stop"
+    sequence:
+      - action: system_log.write
+        data:
+          level: info
+          message: "Alexa Stop: interrompi riproduzione"
+      - action: media_player.media_stop
+        target:
+          entity_id: media_player.cucina

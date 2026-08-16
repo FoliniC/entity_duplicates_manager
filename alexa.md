@@ -89,4 +89,21 @@ service.call("notify", "send_message",
 | TTS su Cucina (legacy) | `alexa_media` | `notify.alexa_media_echo_dot_di_carlo` |
 | Annuncio su tutti (legacy) | `alexa_media` | `notify.alexa_media` + target `media_player.all` |
 | Controllo volume musica | Entrambe | `media_player.volume_set` su media_player |
-| Controllo volume TTS | `alexa_devices` | Solo da app Alexa (volume annunci) |
+|| Controllo volume TTS | `alexa_devices` | Solo da app Alexa (volume annunci) |
+
+---
+
+## Log
+
+Tutti gli script e le automazioni Alexa scrivono messaggi di `info` nei log di Home Assistant tramite l'azione `system_log.write`, per tracciare quale comando viene eseguito:
+
+| Script/Automazione | Messaggio log |
+|-------------------|---------------|
+| `script.alexa_send_custom` | `Alexa comando testuale: <valore input_text>` |
+| `script.alexa_radio_m2o_custom` | `Alexa comando testuale: radio m2o` |
+| `script.alexa_radio_m2o_tunein` | `Alexa TuneIn: radio m2o` |
+| `script.alexa_timer_9min_custom` | `Alexa comando testuale: attiva un timer da 9 minuti` |
+| `script.alexa_stop` | `Alexa Stop: interrompi riproduzione` |
+| `automation.alexa_risposta_buongiorno` | `Alexa Buongiorno: avvio sequenza mattutina` |
+
+Per visualizzare i log: **Developer Tools → Log** oppure nei log di HA in Docker.

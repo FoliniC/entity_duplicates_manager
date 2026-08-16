@@ -82,11 +82,17 @@
         - condition: template
           value_template: "{{ to_state in ['on', 'off'] }}"
       then:
-        - action: notify.send_message
-          target:
-            entity_id:
-              - notify.mobile_app_redmi_note_9s
-              - notify.mobile_app_redmi_note_13_pro_5g
+        # Notifica per Redmi Note 9S
+        - action: notify.mobile_app_redmi_note_9s
+          data:
+            title: "💡 Cucina {{ friendly_name }} {{ action_word }}{% if anomalous %} ⚠️{% endif %}"
+            message: "Motivo: {{ reason }}"
+            data:
+              tag: cucina_{{ debug_entity.split('.')[-1] }}
+              importance: "{{ 'high' if (to_state == 'on' or anomalous) else 'normal' }}"
+              notification_icon: "mdi:lightbulb"
+        # Notifica per Redmi Note 13 Pro 5G
+        - action: notify.mobile_app_redmi_note_13_pro_5g
           data:
             title: "💡 Cucina {{ friendly_name }} {{ action_word }}{% if anomalous %} ⚠️{% endif %}"
             message: "Motivo: {{ reason }}"

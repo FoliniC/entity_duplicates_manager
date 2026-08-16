@@ -1,0 +1,76 @@
+title: Alexa Control
+views:
+  - title: Alexa Control
+    path: alexa-control
+    icon: mdi:amazon-alexa
+    type: masonry
+    cards:
+      - type: heading
+        heading: Comando Personalizzato
+      - type: entities
+        show_header_toggle: false
+        entities:
+          - entity: input_text.alexa_custom_command
+            name: Scrivi comando per Alexa
+            icon: mdi:microphone
+      - type: horizontal-stack
+        cards:
+          - type: button
+            name: "⚡ Invia Comando Testuale"
+            icon: mdi:send
+            tap_action:
+              action: perform-action
+              perform_action: script.turn_on
+              target:
+                entity_id: script.alexa_send_custom
+      - type: heading
+        heading: Comandi Preimpostati
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: button
+            name: "📻 Radio m2o (TuneIn)"
+            icon: mdi:radio
+            tap_action:
+              action: perform-action
+              perform_action: script.turn_on
+              target:
+                entity_id: script.alexa_radio_m2o_tunein
+          - type: button
+            name: "📻 Radio m2o (Testuale)"
+            icon: mdi:radio
+            tap_action:
+              action: perform-action
+              perform_action: script.turn_on
+              target:
+                entity_id: script.alexa_radio_m2o_custom
+          - type: button
+            name: "⏱️ Timer 9 min (Testuale)"
+            icon: mdi:timer
+            tap_action:
+              action: perform-action
+              perform_action: script.turn_on
+              target:
+                entity_id: script.alexa_timer_9min_custom
+          - type: button
+            name: "🛑 STOP"
+            icon: mdi:stop-circle
+            tap_action:
+              action: perform-action
+              perform_action: script.turn_on
+              target:
+                entity_id: script.alexa_stop
+      - type: entities
+        title: Dispositivo Alexa Cucina
+        show_header_toggle: false
+        entities:
+          - entity: media_player.cucina
+            name: Alexa Cucina
+      - type: markdown
+        content: |
+          **Target:** `media_player.cucina` (Integrazione Ufficiale `alexa_devices`)
+
+          - **Comando Testuale:** Utilizza `alexa_devices.send_text_command` per inviare qualsiasi frase direttamente ad Alexa (es: timer, comandi vocali).
+          - **TuneIn:** Riproduzione diretta del flusso audio tramite la piattaforma radio di Alexa (sperimentale, da verificare).
+          - **STOP:** Interrompe la riproduzione in corso.

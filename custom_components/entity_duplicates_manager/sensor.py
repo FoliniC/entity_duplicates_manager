@@ -54,12 +54,11 @@ class DuplicatesCountSensor(RestoreEntity, SensorEntity):
         storage = self.hass.data.get(DOMAIN, {}).get("storage")
         config = storage.config if storage else {}
         # Limit the list of duplicates to prevent recorder warnings (max 16KB)
+        # Do NOT include excluded_entities here - it's large and available in storage/event
         return {
             "total_duplicates": self._total_duplicates,
             "stored_duplicates": len(self._duplicates),
             "duplicates": self._duplicates[:15],
-            "config": config,
-            "excluded_entities": config.get("excluded_entities", []),
             "exclusion_patterns": config.get("exclusion_patterns", ""),
             "max_suffix": config.get("max_suffix", 9),
             "truncated": self._total_duplicates > len(self._duplicates)

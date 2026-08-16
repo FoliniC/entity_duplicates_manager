@@ -450,6 +450,7 @@ recorder:
       - sensor.produzione_solare_giornaliera_alfa
       - sensor.produzione_solare_mensile_alfa
       - sensor.produzione_solare_annuale_alfa
+      - sensor.duplicates_found
     entity_globs:
       - automation.fancoil_*sincronizza_switch_principale
       - sensor.watchman_*
@@ -472,6 +473,7 @@ influxdb:
 # LOVELACE
 # ============================================================================
 lovelace:
+  mode: yaml
   resource_mode: yaml
   resources:
     - url: /local/cronostar_card/cronostar-card.js?v=6.6.6
@@ -503,6 +505,12 @@ lovelace:
     - url: /local/flex-table-card.js
       type: module
   dashboards:
+    alexa-control:
+      mode: yaml
+      title: Alexa Control
+      icon: mdi:amazon-alexa
+      show_in_sidebar: true
+      filename: dashboards/alexa_control.yaml
     internet-traffic:
       mode: yaml
       title: Traffico internet
