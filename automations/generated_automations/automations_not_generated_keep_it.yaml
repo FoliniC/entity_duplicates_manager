@@ -412,47 +412,57 @@
             - condition: template
               value_template: "{{ 'bagno' in trigger.entity_id }}"
           sequence:
-            - data:
+            - action: notify.send_message
+              target:
+                entity_id: notify.redmi_note_13_pro_5g
+              data:
                 message: TTS
                 data:
                   tts_text: Probabilmente la finestra del bagno è aperta.
-              action: notify.mobile_app_redmi_note_13_pro_5g
         - conditions:
             - condition: template
               value_template: "{{ 'cucina' in trigger.entity_id }}"
           sequence:
-            - data:
+            - action: notify.send_message
+              target:
+                entity_id: notify.redmi_note_13_pro_5g
+              data:
                 message: TTS
                 data:
                   tts_text: Probabilmente la finestra della cucina è aperta.
-              action: notify.mobile_app_redmi_note_13_pro_5g
         - conditions:
             - condition: template
               value_template: "{{ 'camera_grande' in trigger.entity_id }}"
           sequence:
-            - data:
+            - action: notify.send_message
+              target:
+                entity_id: notify.redmi_note_13_pro_5g
+              data:
                 message: TTS
                 data:
                   tts_text: Probabilmente la finestra della camera grande è aperta.
-              action: notify.mobile_app_redmi_note_13_pro_5g
         - conditions:
             - condition: template
               value_template: "{{ 'camera' in trigger.entity_id and 'camera_grande' not in trigger.entity_id }}"
           sequence:
-            - data:
+            - action: notify.send_message
+              target:
+                entity_id: notify.redmi_note_13_pro_5g
+              data:
                 message: TTS
                 data:
                   tts_text: Probabilmente la finestra della camera è aperta.
-              action: notify.mobile_app_redmi_note_13_pro_5g
         - conditions:
             - condition: template
               value_template: "{{ 'sala' in trigger.entity_id }}"
           sequence:
-            - data:
+            - action: notify.send_message
+              target:
+                entity_id: notify.redmi_note_13_pro_5g
+              data:
                 message: TTS
                 data:
                   tts_text: Probabilmente la finestra della sala è aperta.
-              action: notify.mobile_app_redmi_note_13_pro_5g
   mode: single
 # - id: "1712908929755"
 #   alias: Example Automation When Condition Is False
@@ -505,7 +515,9 @@
     - trigger: event
       event_type: google_cloud_speech_to_text.result
   actions:
-    - action: notify.mobile_app_redmi_note_13_pro_5g
+    - action: notify.send_message
+      target:
+        entity_id: notify.redmi_note_13_pro_5g
       data:
         message: TTS
         data: Google calling
@@ -623,7 +635,9 @@
                   S1: {{ states('switch.sonoff_10024024c4_1') }}, 
                   S2: {{ states('switch.sonoff_10024024c4_2') }},
                   Power: {{ (states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0)) }}W
-            - action: notify.mobile_app_redmi_note_13_pro_5g
+            - action: notify.send_message
+              target:
+                entity_id: notify.redmi_note_13_pro_5g
               data:
                 title: "⚠️ Deviatore Scale Corretto"
                 message: >-
@@ -666,7 +680,9 @@
                   S1: {{ states('switch.sonoff_10024024c4_1') }}, 
                   S2: {{ states('switch.sonoff_10024024c4_2') }},
                   Power: {{ (states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0)) }}W
-            - action: notify.mobile_app_redmi_note_13_pro_5g
+            - action: notify.send_message
+              target:
+                entity_id: notify.redmi_note_13_pro_5g
               data:
                 title: "⚠️ Deviatore Scale Corretto"
                 message: >-
@@ -698,7 +714,9 @@
                   Stato problematico rilevato - 
                   Switch1: {{ states('switch.sonoff_10024024c4_1') }}, Switch2: {{ states('switch.sonoff_10024024c4_2') }},
                   Power: {{ power_total }}W
-            - action: notify.mobile_app_redmi_note_13_pro_5g
+            - action: notify.send_message
+              target:
+                entity_id: notify.redmi_note_13_pro_5g
               data:
                 title: "❌ Problema Deviatore Scale"
                 message: "Stato problematico: S1={{ states('switch.sonoff_10024024c4_1') }}, S2={{ states('switch.sonoff_10024024c4_2') }}"
@@ -782,7 +800,9 @@
             - condition: template
               value_template: "{{ we_turned_it_off }}"
           sequence:
-            - action: notify.mobile_app_redmi_note_13_pro_5g
+            - action: notify.send_message
+              target:
+                entity_id: notify.redmi_note_13_pro_5g
               data:
                 title: "Luce Scale"
                 message: "Luce scale spenta automaticamente dopo 4 minuti. Consumo: {{ states('sensor.luce_scale_switch_infos') }}W"
@@ -793,14 +813,18 @@
               entity_id: light.luce_scale
               state: "off"
           sequence:
-            - action: notify.mobile_app_redmi_note_13_pro_5g
+            - action: notify.send_message
+              target:
+                entity_id: notify.redmi_note_13_pro_5g
               data:
                 title: "Luce Scale"
                 message: "Luce scale era già spenta (spenta da altra automazione). Consumo: {{ states('sensor.luce_scale_switch_infos') }}W"
                 data:
                   tts_text: "La luce scale era già spenta"
       default:
-        - action: notify.mobile_app_redmi_note_13_pro_5g
+        - action: notify.send_message
+          target:
+            entity_id: notify.redmi_note_13_pro_5g
           data:
             title: "⚠️ Errore Luce Scale"
             message: "La luce non si è spenta correttamente dopo il timeout"
@@ -1128,7 +1152,9 @@
       value_template: "{{ trigger.to_state.state != trigger.from_state.state }}"
   actions:
     - alias: Invia notifica
-      action: notify.mobile_app_redmi_note_13_pro_5g
+      action: notify.send_message
+      target:
+        entity_id: notify.redmi_note_13_pro_5g
       data:
         message:
           "{%- if trigger.to_state.state == 'home' -%}           Rilevato ingresso

@@ -82,22 +82,16 @@
         - condition: template
           value_template: "{{ to_state in ['on', 'off'] }}"
       then:
-        # Notifica per Redmi Note 9S
-        - action: notify.mobile_app_redmi_note_9s
+        # notify.send_message è il pattern corretto in HA 2024.x+
+        # (notify.redmi_note_13_pro_5g esiste come entità, non come servizio legacy)
+        - action: notify.send_message
+          target:
+            entity_id: notify.redmi_note_13_pro_5g
           data:
             title: "💡 Cucina {{ friendly_name }} {{ action_word }}{% if anomalous %} ⚠️{% endif %}"
             message: "Motivo: {{ reason }}"
             data:
-              tag: cucina_{{ debug_entity.split('.')[-1] }}
-              importance: "{{ 'high' if (to_state == 'on' or anomalous) else 'normal' }}"
-              notification_icon: "mdi:lightbulb"
-        # Notifica per Redmi Note 13 Pro 5G
-        - action: notify.mobile_app_redmi_note_13_pro_5g
-          data:
-            title: "💡 Cucina {{ friendly_name }} {{ action_word }}{% if anomalous %} ⚠️{% endif %}"
-            message: "Motivo: {{ reason }}"
-            data:
-              tag: cucina_{{ debug_entity.split('.')[-1] }}
+              tag: "cucina_{{ debug_entity.split('.')[-1] }}"
               importance: "{{ 'high' if (to_state == 'on' or anomalous) else 'normal' }}"
               notification_icon: "mdi:lightbulb"
       # else: (non fare nulla se non on/off)

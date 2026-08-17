@@ -715,49 +715,37 @@ views:
                 card_mod:
                   style: "ha-card { user-select: text !important; }"
 
-              # Grafico di rete
+              # --- FLUSSO ARCHITETTURA DI RETE (SVG dinamico) ---
+              - type: markdown
+                content: >-
+                  ![Architettura rete]({% if states('sensor.usb_tether_status') == 'active' and 'Debian' in states('input_select.usb_tether_host') %}/local/architettura-rete-debian.svg{% elif states('sensor.usb_tether_status') == 'active' and 'Windows' in states('input_select.usb_tether_host') %}/local/architettura-rete-win11.svg{% else %}/local/architettura-rete-normale.svg{% endif %})
+                card_mod:
+                  style: |
+                    ha-card {
+                      background: none;
+                      border: none;
+                      box-shadow: none;
+                      padding: 8px 12px;
+                    }
+                    .md-block {
+                      padding: 0 !important;
+                    }
+
+              # Tabella stato
               - type: markdown
                 content: >
-                  ## Architettura di Rete
+                  ### 📊 Tabella Stato Attuale
 
-
-                  ```
-                      +------------------------------------+
-                      |             INTERNET                |
-                      +----+----------------------+---------+
-                           |                      |
-                       +---v----+            +----v----+
-                       | Router |WAN fallback| Telefono|
-                       |OpenWrt |<---------->|   USB   |
-                       |192.168.0.11 metric 30| (giga) |
-                       +---+----+            +----^----+
-                           | LAN (192.168.0.0/24)   |
-                           |                         |
-                       +---v-------+            +----v----+
-                       | Host      |            | USB     |
-                       | HA + AdG  |<-----------+ Tether  |
-                       |.3 / .8    |            |10.22..45|
-                       +---+-------+            +---------+
-                           |
-                           |
-                       +---v-------+
-                       | LAN       |
-                       | Desktop   |
-                       | Alexa ... |
-                       +-----------+
-                  ```
-
-
-                  **Flusso traffico (modalita'):**
-
-
-                  | Modalita | Percorso |
-                  |---|---|
-                  | Normale | LAN -> Router -> WAN (usb0) |
-                  | Server | Server -> USB telefono; LAN -> Router -> WAN |
-                  | Intranet | LAN -> Router -> Host selezionato -> USB telefono -> Internet |
+                  | Nodo | IP LAN | Stato Tethering | Percorso Internet |
+                  |---|---|---|---|
+                  | 📡 **Router OpenWrt** | `192.168.0.11` | {% if states('sensor.usb_tether_status') == 'active' and state_attr('sensor.usb_tether_status', 'mode') == 'intranet' %}⚠️ WAN Offline{% else %}🟢 WAN usb0 Attiva{% endif %} | {% if states('sensor.usb_tether_status') == 'active' and state_attr('sensor.usb_tether_status', 'mode') == 'intranet' %}Redirect su {{ 'Debian' if 'Debian' in states('input_select.usb_tether_host') else 'Win11' }}{% else %}Diretto su 4G/5G{% endif %} |
+                  | 🐧 **Server Debian** | `192.168.0.3` | {% if 'Debian' in states('input_select.usb_tether_host') and states('sensor.usb_tether_status') == 'active' %}🟢 **ATTIVO**{% else %}⚪ Standby{% endif %} | {% if 'Debian' in states('input_select.usb_tether_host') and states('sensor.usb_tether_status') == 'active' %}USB Telefono{% else %}Via Router (`.11`){% endif %} |
+                  | 💻 **PC Windows 11** | `192.168.0.8` | {% if 'Windows' in states('input_select.usb_tether_host') and states('sensor.usb_tether_status') == 'active' %}🟢 **ATTIVO**{% else %}⚪ Standby{% endif %} | {% if 'Windows' in states('input_select.usb_tether_host') and states('sensor.usb_tether_status') == 'active' %}USB Telefono{% else %}Via Router (`.11`){% endif %} |
+                  | 🏠 **Client LAN** | `192.168.0.x` | {% if states('sensor.usb_tether_status') == 'active' and state_attr('sensor.usb_tether_status', 'mode') == 'intranet' %}🔥 **INTRANET**{% else %}🟢 **NORMALE**{% endif %} | {% if states('sensor.usb_tether_status') == 'active' and state_attr('sensor.usb_tether_status', 'mode') == 'intranet' %}LAN ➔ Router ➔ Host ➔ USB{% else %}LAN ➔ Router ➔ USB{% endif %} |
                 card_mod:
                   style: "ha-card { user-select: text !important; }"
+
+              # Ultimo errore (se presente)
 
               # Ultimo errore (se presente)
               - type: conditional

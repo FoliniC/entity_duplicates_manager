@@ -8,7 +8,15 @@
       entity_id: binary_sensor.pioggia_imminente_1h
       to: "on"
   action:
-    - action: notify.mobile_app_redmi_note_13_pro_5g
-      data:
-        message: >
-          🌧️ Finestra chiusa — {% if is_state('binary_sensor.sta_piovendo_a_castionetto','on') %} pioggia in corso ({{ states('sensor.castionetto_precipitazione') }} mm/h) {% else %} pioggia prevista entro 1h ({{ states('sensor.castionetto_prob_pioggia_1h') }}%) {% endif %}
+    # 2) Notifica push (solo per on/off, non per unavailable/unknown)
+    - if:
+        - condition: template
+          value_template: "{{ to_state in ['on', 'off'] }}"
+      then:
+        - action: notify.send_message
+          target:
+            entity_id: notify.redmi_note_13_pro_5g
+          data:
+            message: >
+              🌧️ Finestra chiusa — {% if is_state('binary_sensor.sta_piovendo_a_castionetto','on') %} pioggia in corso ({{ states('sensor.castionetto_precipitazione') }} mm/h) {% else %} pioggia prevista entro 1h ({{ states('sensor.castionetto_prob_pioggia_1h') }}%) {% endif %}
+      # else: (non fare nulla se non on/off)

@@ -41,7 +41,9 @@
       target:
         entity_id: switch.luce_balcone_switch_1
     # 3) Notifica push ad alta priorita'
-    - action: notify.mobile_app_redmi_note_13_pro_5g
+    - action: notify.send_message
+      target:
+        entity_id: notify.redmi_note_13_pro_5g
       data:
         title: "🚫 Luce balcone spenta (anti-accensione)"
         message: "Rilevata accensione esterna non voluta → spenta automaticamente"

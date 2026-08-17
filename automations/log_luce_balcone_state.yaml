@@ -78,7 +78,9 @@
         - condition: template
           value_template: "{{ to_state in ['on', 'off'] }}"
       then:
-        - action: notify.mobile_app_redmi_note_13_pro_5g
+        - action: notify.send_message
+          target:
+            entity_id: notify.redmi_note_13_pro_5g
           data:
             title: "💡 Luce balcone {{ action_word }}{% if anomalous %} ⚠️{% endif %}"
             message: "Motivo: {{ reason }}"

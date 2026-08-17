@@ -1256,3 +1256,141 @@ L'unità di rete `Z:` è stata mappata su `\\192.168.0.3\config` (Home Assistant
 **Workaround usato:** Mappatura tramite interfaccia grafica (File Explorer → Questo PC → Connetti unità di rete) che ha funzionato correttamente al primo tentativo.
 
 **Verifica:** `dir Z:` conferma l'accesso completo alla configurazione Home Assistant (es. `configuration.yaml`, `automations.yaml`, `packages/`, ecc.).
+
+---
+
+## Troubleshooting Passaggio Modalità "Normale" (16 Agosto 2026)
+
+### Problema riscontrato
+
+Il passaggio dalla modalità **Intranet** (tethering via Debian) alla modalità **Normale** (WAN via Redmi Note 11 Pro 5G → router OpenWrt) causava la **perdita totale di connettività** per tutti i dispositivi LAN (incluso Windows 11 `192.168.0.8`). Era necessario attivare "Intranet" due volte per ripristinare la connessione.
+
+### Root Cause
+
+Il problema è **duplice**:
+
+#### 1. Android: NAT tethering desincronizzato
+
+Il Redmi Note 11 Pro 5G (collegato via USB al router), pur mostrando l'interfaccia `usb0` attiva sul router e rispondendo ai ping interni (`10.16.x.x` → 2ms), **non instradava i pacchetti su internet**. Il demone di tethering Android si è desincronizzato: l'interfaccia RNDIS era up ma le regole `iptables` interne di Android per il NAT/forwarding non erano attive.
+
+**Diagnostica chiave:**
+```bash
+# Dal router - il telefono risponde internamente ma non instrada:
+ping -c 1 10.16.159.126      → OK (2ms)
+ping -c 1 -I usb0 8.8.8.8   → 100% packet loss
+
+# Via ADB - stato rete dati Android:
+adb_router shell dumpsys telephony.registry | grep mDataConnectionState
+# → mDataConnectionState=0  (DISCONNECTED)
+```
+
+**Cause possibili del desync Android:**
+- Inattività prolungata del dispositivo (standby aggressivo MIUI)
+- Disconnessione/riconnessione rapida dell'interfaccia USB durante i passaggi di modalità
+- La MIUI gestisce il NAT tethering in modo non atomico con l'interfaccia RNDIS
+
+**Fix temporaneo:** Toggle manuale "Tethering USB" in Impostazioni → Hotspot (spegni + riaccendi). Se non basta, riavvio completo del telefono.
+
+#### 2. mwan3: `initial_state online` causa rotta immediata senza verifica
+
+**mwan3** (multi-WAN manager installato sul router) aveva `initial_state 'online'` per l'interfaccia `wan`. Questo significa che al `ifup` di `usb0`, mwan3 inseriva immediatamente la rotta `default via usb0 metric 10` **senza aspettare l'esito del tracking** (ping verso `1.1.1.1`, `8.8.8.8`, ecc.). 
+
+Poiché il tracking parte in parallelo, nei ~40 secondi necessari per le 8 conferme consecutive (`up '8'`), il router aveva già la rotta rotta come primaria e tutta la LAN perdeva internet.
+
+**Stessa condizione si verificava anche nei test diagnostici**: il comando `ifdown wan / ifup wan` eseguito per diagnostica ha scatenato la reinserzione immediata della rotta.
+
+### Soluzioni Applicate
+
+#### Fix 1: mwan3 `initial_state offline`
+
+```bash
+uci set mwan3.wan.initial_state='offline'
+uci commit mwan3
+/etc/init.d/mwan3 restart
+```
+
+Con `initial_state 'offline'`, mwan3 NON inserisce la rotta al `ifup` ma aspetta che il tracking confermi la connettività (8 ping positivi × 5s = ~40s). Solo allora la rotta diventa attiva.
+
+> **Nota:** mwan3 è configurato con `down '3'` e `up '8'` — tre ping falliti consecutivi bastano a dichiarare `wan offline` e rimuovere la rotta, otto positivi consecutivi per dichiararla `online`.
+
+#### Fix 2: Hotplug guard `98-wan-verify`
+
+Script installato in `/etc/hotplug.d/iface/98-wan-verify` sul router OpenWrt:
+
+```sh
+#!/bin/sh
+# Verifica connettivita' usb0 prima di lasciare la rotta default attiva.
+# Se il ping fallisce, rimuove la rotta: il fallback via br-lan (192.168.0.3)
+# resta attivo e i client LAN non perdono internet.
+
+[ "$ACTION" = "ifup" ] || exit 0
+[ "$INTERFACE" = "wan" ] || exit 0
+
+logger -t wan-verify "wan ifup su $DEVICE - verifica connettivita' usb0..."
+sleep 3
+
+if ping -c 3 -W 4 -I "$DEVICE" 8.8.8.8 > /dev/null 2>&1; then
+    logger -t wan-verify "OK: usb0 raggiunge internet, rotta default mantenuta"
+    exit 0
+fi
+
+logger -t wan-verify "WARN: usb0 non raggiunge internet - rimuovo rotta default"
+while ip route del default dev "$DEVICE" 2>/dev/null; do :; done
+logger -t wan-verify "Rotta default usb0 rimossa. Fallback su br-lan attivo."
+```
+
+Questo script agisce come **guardia di sicurezza**: anche se netifd/mwan3 inseriscono la rotta prima che il telefono sia pronto, lo script la rimuove entro ~6 secondi se i ping falliscono.
+
+**Verifica log:**
+```bash
+docker exec homeassistant ssh -i /config/.ssh/router_key -o StrictHostKeyChecking=no root@192.168.0.11 "logread | grep wan-verify"
+```
+
+### Architettura Routing OpenWrt (Riepilogo)
+
+| Modalità | Rotta default primaria | Rotta fallback |
+|---|---|---|
+| **Normale** (Redmi OK) | `default via 10.x.x.x dev usb0 metric 10` | `default via 192.168.0.3 dev br-lan metric 30` |
+| **Redmi offline/rotto** | *(rimossa da wan-verify)* | `default via 192.168.0.3 dev br-lan metric 30` ✅ |
+| **Intranet (Debian)** | `default via 192.168.0.3 dev br-lan metric 30` | — |
+
+### Diagnostica Rapida
+
+```bash
+# Stato mwan3
+docker exec homeassistant ssh -i /config/.ssh/router_key -o StrictHostKeyChecking=no root@192.168.0.11 "mwan3 status"
+
+# Ping internet via usb0 (test diretto Redmi)
+docker exec homeassistant ssh -i /config/.ssh/router_key -o StrictHostKeyChecking=no root@192.168.0.11 "ping -c 2 -I usb0 8.8.8.8"
+
+# Stato dati Android via ADB
+docker exec homeassistant ssh -i /config/.ssh/router_key -o StrictHostKeyChecking=no root@192.168.0.11 "adb_router shell dumpsys telephony.registry | grep mDataConnectionState"
+
+# Rimozione emergenza rotta usb0 bloccante
+docker exec homeassistant ssh -i /config/.ssh/router_key -o StrictHostKeyChecking=no root@192.168.0.11 "while ip route del default dev usb0 2>/dev/null; do :; done; ip route show"
+
+# Riattivazione manuale tethering
+docker exec homeassistant ssh -i /config/.ssh/router_key -o StrictHostKeyChecking=no root@192.168.0.11 "/usr/bin/enable_usb_tether.sh"
+```
+
+---
+*Ultimo aggiornamento: 16 Agosto 2026*
+
+#### 3. Configurazione Definitiva: Wi-Fi Attivo con IP Statico (Senza Gateway)
+
+**Soluzione applicata e testata con successo (16/08/2026 14:35):**
+Per mantenere sia il Wi-Fi che i Dati Mobili attivi sul Redmi 11 senza creare loop di routing, è stata applicata la **Soluzione A (IP Statico senza Gateway)** direttamente nelle impostazioni della rete Wi-Fi di casa (`CPE_2.4G_112E90`) sul telefono:
+
+1. **Privacy Wi-Fi:** Impostato su *"Usa MAC dispositivo"* (MAC fisso `16:76:57:ba:d3:64`).
+2. **Indirizzo IP Statico:** `192.168.0.14` (Netmask `/24`).
+3. **Gateway:** `0.0.0.0` (oppure svuotato).
+4. **DNS:** `192.168.0.3` (o `192.168.0.11`).
+
+**Esito e Vantaggi:**
+- **Traffico LAN:** Il Redmi resta connesso alla LAN di casa con IP `192.168.0.14` per tutte le comunicazioni locali.
+- **Tethering USB / WAN:** Non avendo una rotta di default per internet sul Wi-Fi, Android assegna automaticamente ed al 100% il Tethering USB (`usb0`) alla rete dati mobile 4G/5G (**`rmnet_data1` / Tabella 1015**).
+- **Prestazioni:** Latenza 19ms-22ms su `usb0`, 0% pacchetti persi.
+- **Transizione HA:** Ripristino in modalità **Normale** completato con successo (`wan-verify OK`, `mwan3 online`, `Stato: idle / Modalità: server`).
+
+
+

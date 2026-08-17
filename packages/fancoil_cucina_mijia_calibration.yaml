@@ -116,7 +116,7 @@ template:
         state: >-
           {% set RHf = states('sensor.fancoil_cucina_humidity') | float(none) %}
           {% set Tf = states('sensor.fancoil_cucina_temperature') | float(none) %}
-          {% if RHf is none %}
+          {% if RHf is none or Tf is none %}
             unknown
           {% elif RHf >= 60 %}
             {{ RHf | round(0) }}
@@ -126,7 +126,8 @@ template:
             {{ (RHf + corr * temp_factor) | round(0) }}
           {% endif %}
         availability: >-
-          {{ states('sensor.fancoil_cucina_humidity') not in ['unavailable', 'unknown', 'none', ''] }}
+          {{ states('sensor.fancoil_cucina_humidity') not in ['unavailable', 'unknown', 'none', ''] and
+             states('sensor.fancoil_cucina_temperature') not in ['unavailable', 'unknown', 'none', ''] }}
 
 # ---------------------------------------------------------------------------
 # Statistics Sensors for Rolling Averages (using HA Statistics integration)

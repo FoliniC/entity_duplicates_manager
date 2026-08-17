@@ -140,14 +140,18 @@ script:
       - action: homeassistant.update_entity
         target:
           entity_id: sensor.usb_tether_status
-      - wait_template: "{{ is_state('sensor.usb_tether_status', 'idle') or is_state('sensor.usb_tether_status', 'restoring') }}"
+      # Aspetta che il sensore esca dallo stato 'active'.
+      # 'restoring' = drenaggio flussi in corso sul router (può durare ore): è uno
+      # stato valido, non un errore. L'errore reale è se il sensore resta 'active'
+      # oltre il timeout (nessuna transizione avvenuta), che indica un problema
+      # nell'esecuzione del comando restore stesso.
+      - wait_template: "{{ not is_state('sensor.usb_tether_status', 'active') }}"
         timeout: "00:04:00"
       - if:
-          - condition: not
-            conditions:
-              - condition: state
-                entity_id: sensor.usb_tether_status
-                state: "idle"
+          - condition: template
+            # Errore SOLO se il sensore è ancora 'active' dopo il timeout
+            # (il restore non è nemmeno partito). 'restoring' e 'idle' sono entrambi OK.
+            value_template: "{{ is_state('sensor.usb_tether_status', 'active') }}"
         then:
           - action: input_text.set_value
             target:
@@ -184,7 +188,7 @@ script:
       - action: homeassistant.update_entity
         target:
           entity_id: sensor.usb_tether_status
-      - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') or is_state('sensor.usb_tether_status', 'activating') }}"
+      - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') }}"
         timeout: "00:01:30"
       - if:
           - condition: not
@@ -228,7 +232,7 @@ script:
       - action: homeassistant.update_entity
         target:
           entity_id: sensor.usb_tether_status
-      - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') or is_state('sensor.usb_tether_status', 'activating') }}"
+      - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') }}"
         timeout: "00:01:30"
       - if:
           - condition: not

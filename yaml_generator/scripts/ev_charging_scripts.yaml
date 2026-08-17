@@ -190,7 +190,9 @@ notify_charging_status:
   description: "Invia notifica dettagliata dello stato ricarica"
   mode: single
   sequence:
-    - action: notify.mobile_app_redmi_note_13_pro_5g
+    - action: notify.send_message
+      target:
+        entity_id: notify.redmi_note_13_pro_5g
       data:
         title: "🔌 Stato Ricarica EV ab123"
         message: |
@@ -242,7 +244,9 @@ emergency_stop_charging:
           - input_boolean.ev_charging_manual_mode
 
     # Notifica urgente
-    - action: notify.mobile_app_redmi_note_13_pro_5g
+    - action: notify.send_message
+      target:
+        entity_id: notify.redmi_note_13_pro_5g
       data:
         title: "🚨 STOP EMERGENZA"
         message: |
@@ -277,7 +281,9 @@ restore_after_emergency:
           - automation.ev_charging_mode_sync
 
     # Notifica
-    - action: notify.mobile_app_redmi_note_13_pro_5g
+    - action: notify.send_message
+      target:
+        entity_id: notify.redmi_note_13_pro_5g
       data:
         title: "✅ Sistema Ripristinato"
         message: |
