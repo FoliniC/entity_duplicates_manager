@@ -281,16 +281,23 @@ script:
 automation:
   - alias: "USB Tether - aggiorna messaggio dashboard"
     id: usb_tether_aggiorna_messaggio
-    description: "Pulisce il messaggio temporaneo quando il sensore si aggiorna e aggiunge al log."
+    description: "Pulisce il messaggio temporaneo quando il sensore si aggiorna e aggiunge al log. NON pulisce se c'è un errore nel messaggio."
     trigger:
       - platform: state
         entity_id: sensor.usb_tether_status
     action:
-      - action: input_text.set_value
-        target:
-          entity_id: input_text.usb_tether_status_message
-        data:
-          value: ""
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ 'ERRORE' in states('input_text.usb_tether_status_message') }}"
+            sequence: []
+          - conditions: []
+            sequence:
+              - action: input_text.set_value
+                target:
+                  entity_id: input_text.usb_tether_status_message
+                data:
+                  value: ""
       - event: halog2026_write_event
         event_data:
           subsystem: usb_tether

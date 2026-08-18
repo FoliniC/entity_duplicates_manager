@@ -36,6 +36,9 @@ PROTECTED_DEVICE_IP="192.168.0.90"
 
 mkdir -p "$SSH_CM_DIR" /config/logs/usb_tether
 
+# Error marker file for pre-flight check failures
+ERROR_MARKER="/config/logs/usb_tether/last_error.marker"
+
 log_line() {
   local level="$1"
   local msg="$2"
@@ -98,6 +101,17 @@ schedule_self() {
 run_status() {
   local out rc line
 
+  # Check for pre-flight error marker first
+  if [[ -f "$ERROR_MARKER" ]]; then
+    local err_msg err_time
+    err_msg=$(head -1 "$ERROR_MARKER" 2>/dev/null)
+    err_time=$(sed -n '2p' "$ERROR_MARKER" 2>/dev/null)
+    if [[ -n "$err_msg" ]]; then
+      printf '{"state":"error","mode":"%s","message":"%s (pre-flight fallito alle %s)"}\n' "$MODE" "$err_msg" "$err_time"
+      return 0
+    fi
+  fi
+
   # Se un restore Windows e' in attesa del drenaggio router (puo' durare
   # minuti, anche ore), Windows non ha ancora richiamato il proprio
   # -Action restore: il suo stato locale direbbe ancora "active", che
@@ -130,6 +144,22 @@ run_status() {
 
 activate_windows() {
   local out rc router_out router_rc
+  
+  # PRE-FLIGHT CHECK: Verifica che il tethering USB sia disponibile su Windows
+  local detect_out
+  detect_out="$(ssh_windows \"powershell -NoProfile -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 -Action detect\" 2>&1)"
+  local detect_rc=$?
+  if (( detect_rc != 0 )) || [[ -z "$detect_out" ]]; then
+    log_line ERROR "PRE-FLIGHT FALLITO: Nessun tethering USB rilevato su Windows. Output: $detect_out"
+    # Write error marker for sensor to pick up
+    printf '%s\n%s\n' "Tethering USB non disponibile su Windows: collega il telefono e attiva il tethering USB prima di procedere" "$(date '+%Y-%m-%d %H:%M:%S')" > "$ERROR_MARKER"
+    json_error "Tethering USB non disponibile su Windows: collega il telefono e attiva il tethering USB prima di procedere"
+    return 0
+  fi
+  # Clear error marker on success
+  rm -f "$ERROR_MARKER" 2>/dev/null || true
+  log_line INFO "PRE-FLIGHT OK: Tethering USB rilevato su Windows -> $detect_out"
+  
   # Pulizia di sicurezza: un marker rimasto da un restore precedente
   # interrotto bloccherebbe run_status su "restoring" per sempre.
   rm -f "$RESTORE_MARKER" 2>/dev/null || true
@@ -179,6 +209,23 @@ activate_windows() {
 
 activate_debian() {
   local out rc
+  
+  # PRE-FLIGHT CHECK: Verifica che il tethering USB sia disponibile su Debian
+  # Prima di tentare l'attivazione (specialmente per intranet che gira in background)
+  local detect_out
+  detect_out="$(ssh_debian "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh detect" 2>&1)"
+  local detect_rc=$?
+  if (( detect_rc != 0 )) || [[ -z "$detect_out" ]]; then
+    log_line ERROR "PRE-FLIGHT FALLITO: Nessun tethering USB rilevato su Debian. Output: $detect_out"
+    # Write error marker for sensor to pick up
+    printf '%s\n%s\n' "Tethering USB non disponibile su Debian: collega il telefono e attiva il tethering USB prima di procedere" "$(date '+%Y-%m-%d %H:%M:%S')" > "$ERROR_MARKER"
+    json_error "Tethering USB non disponibile su Debian: collega il telefono e attiva il tethering USB prima di procedere"
+    return 0
+  fi
+  # Clear error marker on success
+  rm -f "$ERROR_MARKER" 2>/dev/null || true
+  log_line INFO "PRE-FLIGHT OK: Tethering USB rilevato su Debian -> $detect_out"
+
   if [[ "$MODE" == "intranet" ]]; then
     out="$(ssh_debian "nohup setsid sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh activate $DURATION intranet >/dev/null 2>&1 &" 2>&1)"
   else
