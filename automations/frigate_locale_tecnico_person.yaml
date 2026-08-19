@@ -1,0 +1,18 @@
+- id: 'frigate_locale_tecnico_person'
+  alias: 'Frigate: Persona rilevata locale tecnico'
+  description: Notifica su Redmi Note 13 Pro 5G quando Frigate rileva una persona nel locale tecnico
+  triggers:
+    - platform: mqtt
+      topic: frigate/events
+      value_template: '{{ value_json.type == "new" and value_json.label == "person" and value_json.camera == "locale_tecnico" }}'
+  conditions: []
+  action:
+    - action: notify.mobile_app_redmi_note_13_pro_5g
+      data:
+        title: "🚨 Persona rilevata - Locale Tecnico"
+        message: "Persona rilevata dalla camera **Locale Tecnico** alle {{ now().strftime('%H:%M:%S') }} del {{ now().strftime('%d/%m/%Y') }}"
+        data:
+          tag: frigate_locale_tecnico_person
+          importance: high
+          notification_icon: "mdi:shield-alert"
+  mode: single

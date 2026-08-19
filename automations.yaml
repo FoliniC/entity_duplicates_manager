@@ -75,6 +75,7 @@
   - webhook_id: tuya_activity
     allowed_methods:
     - POST
+    - GET
     local_only: true
     trigger: webhook
   conditions: []
@@ -87,4 +88,20 @@
     data:
       title: "Tuya Device Activity"
       message: "Tuya device BC:35:1E:FF:4A:B9 detected network activity"
+  mode: single
+- id: 'frigate_locale_tecnico_person'
+  alias: 'Frigate: Persona rilevata locale tecnico'
+  description: Notifica su Redmi Note 13 Pro 5G quando Frigate rileva una persona nel locale tecnico
+  triggers:
+    - platform: mqtt
+      topic: frigate/events
+      value_template: '{{ value_json.type == "new" and value_json.label == "person" and value_json.camera == "locale_tecnico" }}'
+  conditions: []
+  actions:
+    - service: notify.redmi_note_13_pro_5g
+      data:
+        title: "🚨 Persona rilevata - Locale Tecnico"
+        message: "Persona rilevata dalla camera **Locale Tecnico** alle {{ now().strftime('%H:%M:%S') }} del {{ now().strftime('%d/%m/%Y') }}"
+        notification_id: frigate_locale_tecnico_person
+      target: []
   mode: single

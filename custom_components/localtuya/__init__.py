@@ -410,6 +410,51 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     # Ensure all devices in config entry are registered in HA DeviceRegistry immediately with their friendly names
     device_registry = dr.async_get(hass)
+
+    # First, collect all current IPs from config to detect stale device registry entries
+    current_ips = {}
+    for dev_id, dev_config in entry.data[CONF_DEVICES].items():
+        if (host := dev_config.get(CONF_HOST)) and host != "0.0.0.0":
+            current_ips[host] = dev_id
+
+    # Remove stale IP connections from device registry (IPs that belong to different devices in config)
+    for dev_id, dev_config in entry.data[CONF_DEVICES].items():
+        if (host := dev_config.get(CONF_HOST)) and host != "0.0.0.0":
+            # Check if this IP is registered to a different device in the registry
+            existing_device = None
+            for device_entry in dr.async_entries_for_config_entry(device_registry, entry.entry_id):
+                for conn_type, conn_value in device_entry.connections:
+                    if conn_type == "ip" and conn_value == host:
+                        # Check if this device has the correct identifier
+                        has_correct_id = any(
+                            id_type == DOMAIN and id_value == f"local_{dev_id}"
+                            for id_type, id_value in device_entry.identifiers
+                        )
+                        if not has_correct_id:
+                            existing_device = device_entry
+                            break
+                if existing_device:
+                    break
+
+            if existing_device:
+                _LOGGER.warning(
+                    "Removing stale IP connection %s from device %s (belongs to %s in config)",
+                    host,
+                    existing_device.name,
+                    dev_id,
+                )
+                # Remove the stale IP connection
+                new_connections = {
+                    (conn_type, conn_value)
+                    for conn_type, conn_value in existing_device.connections
+                    if not (conn_type == "ip" and conn_value == host)
+                }
+                device_registry.async_update_device(
+                    existing_device.id,
+                    new_connections=new_connections if new_connections else None,
+                )
+
+    # Now register/update devices with current config
     for dev_id, dev_config in entry.data[CONF_DEVICES].items():
         dev_name = (
             dev_config.get(CONF_FRIENDLY_NAME)

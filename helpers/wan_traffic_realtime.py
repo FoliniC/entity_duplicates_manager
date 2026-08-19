@@ -3,10 +3,11 @@ import subprocess
 import time
 import os
 
-ROUTER_IP = "192.168.0.11"
+ROUTER_IP = "192.168.0.3"  # Debian HA server (has USB tethering)
 # Path handling for both HA and local testing
 CONFIG_DIR = "/config" if os.path.exists("/config") else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SSH_KEY = os.path.join(CONFIG_DIR, ".ssh/router_key")
+SSH_KEY = os.path.join(CONFIG_DIR, ".ssh/host_key")  # Debian key (carlo user)
+SSH_USER = "carlo"
 CACHE_FILE = os.path.join(CONFIG_DIR, "temp/wan_traffic_realtime.json") if os.path.exists("/config") else os.path.join(os.path.dirname(CONFIG_DIR), "temp/wan_traffic_realtime.json")
 SSH_TIMEOUT = 6
 
@@ -44,7 +45,7 @@ def load_cached_result(error=None):
 
 
 def run_router_command(remote_command):
-    """Run a bounded SSH command against the router."""
+    """Run a bounded SSH command against Debian."""
     cmd = [
         "ssh",
         "-i", SSH_KEY,
@@ -57,7 +58,7 @@ def run_router_command(remote_command):
         "-o", f"ConnectTimeout={SSH_TIMEOUT}",
         "-o", "ServerAliveInterval=2",
         "-o", "ServerAliveCountMax=1",
-        "root@" + ROUTER_IP,
+        SSH_USER + "@" + ROUTER_IP,
         remote_command,
     ]
 
@@ -69,18 +70,22 @@ def run_router_command(remote_command):
 
 
 def fetch_raw_bytes():
-    """Fetch WAN byte counters from the router with one SSH round trip."""
+    """Fetch WAN byte counters from DEBIAN's USB tethering interface with one SSH round trip."""
     remote_command = r"""
-for iface in usb0 wan eth0 pppoe-wan; do
+# Try to find active interface with IPv4 address
+for iface in enx* enp* usb0 eth0 pppoe-wan; do
   [ -e "/sys/class/net/$iface" ] || continue
   carrier="$(cat "/sys/class/net/$iface/carrier" 2>/dev/null || echo 1)"
   [ "$carrier" = "1" ] || continue
   if ip -4 addr show dev "$iface" 2>/dev/null | grep -q 'inet '; then
+    # Get the interface stats from /proc/net/dev
     awk -v iface="$iface" '$1 ~ iface":" {print iface, $2, $10; exit}' /proc/net/dev
     exit
   fi
 done
-awk '$1 ~ "usb0:" {print "usb0", $2, $10; exit}' /proc/net/dev
+
+# Fallback: any active interface with IPv4 (same as realtime_per_device.py)
+awk '$1 ~ /^(enx|enp|usb|eth|ppp):/ && $2 > 0 {print $1, $2, $10; exit}' /proc/net/dev
 """
     try:
         output = run_router_command(remote_command)

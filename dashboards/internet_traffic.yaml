@@ -374,19 +374,19 @@ views:
                       graph_span: 15m
                       header: { show: true, show_states: true, colorize_states: true, title: "Top 5 Devices (15m)" }
                       series: &series_config
-                        - entity: sensor.top_device_1_speed
+                        - entity: sensor.top_device_1_kbps
                           type: area
                           group_by: { func: avg, duration: 1m }
-                        - entity: sensor.top_device_2_speed
+                        - entity: sensor.top_device_2_kbps
                           type: area
                           group_by: { func: avg, duration: 1m }
-                        - entity: sensor.top_device_3_speed
+                        - entity: sensor.top_device_3_kbps
                           type: area
                           group_by: { func: avg, duration: 1m }
-                        - entity: sensor.top_device_4_speed
+                        - entity: sensor.top_device_4_kbps
                           type: area
                           group_by: { func: avg, duration: 1m }
-                        - entity: sensor.top_device_5_speed
+                        - entity: sensor.top_device_5_kbps
                           type: area
                           group_by: { func: avg, duration: 1m }
                       yaxis: [{ min: 0, apex_config: { forceNiceScale: true } }]

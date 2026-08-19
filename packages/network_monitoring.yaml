@@ -508,67 +508,172 @@ template:
             {{ top[4].name if top and top|length > 4 else 'N/A' }}
         unit_of_measurement: "MB"
 
-      - name: >
-          {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
-          {{ devices[0].name if devices and devices|length > 0 else 'Top Device 1 Speed' }}
+      - name: "Top Device 1 Speed"
         unique_id: top_device_1_kbps
         state: >
           {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
-          {{ devices[0].rx_kbps if devices and devices|length > 0 else 0 }}
+          {% if devices and devices|length > 0 %}
+          {{ (devices[0].rx_kbps + devices[0].tx_kbps) / 2 }}
+          {% else %}
+          0
+          {% endif %}
         attributes:
           device_name: >
             {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
-            {{ devices[0].name if devices and devices|length > 0 else 'N/A' }}
+            {% if devices and devices|length > 0 %}
+            {{ devices[0].name }}
+            {% else %}
+            N/A
+            {% endif %}
+          rx_kbps: >
+            {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+            {% if devices and devices|length > 0 %}
+            {{ devices[0].rx_kbps }}
+            {% else %}
+            0
+            {% endif %}
+          tx_kbps: >
+            {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+            {% if devices and devices|length > 0 %}
+            {{ devices[0].tx_kbps }}
+            {% else %}
+            0
+            {% endif %}
         unit_of_measurement: "kbps"
+        icon: mdi:router-wireless
 
-      - name: >
-          {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
-          {{ devices[1].name if devices and devices|length > 1 else 'Top Device 2 Speed' }}
+      - name: "Top Device 2 Speed"
         unique_id: top_device_2_kbps
         state: >
           {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
-          {{ devices[1].rx_kbps if devices and devices|length > 1 else 0 }}
+          {% if devices and devices|length > 1 %}
+          {{ (devices[1].rx_kbps + devices[1].tx_kbps) / 2 }}
+          {% else %}
+          0
+          {% endif %}
         attributes:
           device_name: >
             {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
-            {{ devices[1].name if devices and devices|length > 1 else 'N/A' }}
+            {% if devices and devices|length > 1 %}
+            {{ devices[1].name }}
+            {% else %}
+            N/A
+            {% endif %}
+          rx_kbps: >
+            {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+            {% if devices and devices|length > 1 %}
+            {{ devices[1].rx_kbps }}
+            {% else %}
+            0
+            {% endif %}
+          tx_kbps: >
+            {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+            {% if devices and devices|length > 1 %}
+            {{ devices[1].tx_kbps }}
+            {% else %}
+            0
+            {% endif %}
         unit_of_measurement: "kbps"
+        icon: mdi:router-wireless
 
-      - name: >
-          {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
-          {{ devices[2].name if devices and devices|length > 2 else 'Top Device 3 Speed' }}
+      - name: "Top Device 3 Speed"
         unique_id: top_device_3_kbps
         state: >
           {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
-          {{ devices[2].rx_kbps if devices and devices|length > 2 else 0 }}
+          {% if devices and devices|length > 2 %}
+          {{ (devices[2].rx_kbps + devices[2].tx_kbps) / 2 }}
+          {% else %}
+          0
+          {% endif %}
         attributes:
           device_name: >
             {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
-            {{ devices[2].name if devices and devices|length > 2 else 'N/A' }}
+            {% if devices and devices|length > 2 %}
+            {{ devices[2].name }}
+            {% else %}
+            N/A
+            {% endif %}
+          rx_kbps: >
+            {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+            {% if devices and devices|length > 2 %}
+            {{ devices[2].rx_kbps }}
+            {% else %}
+            0
+            {% endif %}
+          tx_kbps: >
+            {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+            {% if devices and devices|length > 2 %}
+            {{ devices[2].tx_kbps }}
+            {% else %}
+            0
+            {% endif %}
         unit_of_measurement: "kbps"
+        icon: mdi:router-wireless
 
-      - name: >
-          {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
-          {{ devices[3].name if devices and devices|length > 3 else 'Top Device 4 Speed' }}
+      - name: "Top Device 4 Speed"
         unique_id: top_device_4_kbps
         state: >
           {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
-          {{ devices[3].rx_kbps if devices and devices|length > 3 else 0 }}
+          {% if devices and devices|length > 3 %}
+          {{ (devices[3].rx_kbps + devices[3].tx_kbps) / 2 }}
+          {% else %}
+          0
+          {% endif %}
         attributes:
           device_name: >
             {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
-            {{ devices[3].name if devices and devices|length > 3 else 'N/A' }}
+            {% if devices and devices|length > 3 %}
+            {{ devices[3].name }}
+            {% else %}
+            N/A
+            {% endif %}
+          rx_kbps: >
+            {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+            {% if devices and devices|length > 3 %}
+            {{ devices[3].rx_kbps }}
+            {% else %}
+            0
+            {% endif %}
+          tx_kbps: >
+            {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+            {% if devices and devices|length > 3 %}
+            {{ devices[3].tx_kbps }}
+            {% else %}
+            0
+            {% endif %}
         unit_of_measurement: "kbps"
+        icon: mdi:router-wireless
 
-      - name: >
-          {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
-          {{ devices[4].name if devices and devices|length > 4 else 'Top Device 5 Speed' }}
+      - name: "Top Device 5 Speed"
         unique_id: top_device_5_kbps
         state: >
           {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
-          {{ devices[4].rx_kbps if devices and devices|length > 4 else 0 }}
+          {% if devices and devices|length > 4 %}
+          {{ (devices[4].rx_kbps + devices[4].tx_kbps) / 2 }}
+          {% else %}
+          0
+          {% endif %}
         attributes:
           device_name: >
             {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
-            {{ devices[4].name if devices and devices|length > 4 else 'N/A' }}
+            {% if devices and devices|length > 4 %}
+            {{ devices[4].name }}
+            {% else %}
+            N/A
+            {% endif %}
+          rx_kbps: >
+            {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+            {% if devices and devices|length > 4 %}
+            {{ devices[4].rx_kbps }}
+            {% else %}
+            0
+            {% endif %}
+          tx_kbps: >
+            {% set devices = state_attr('sensor.realtime_per_device_speed', 'devices') %}
+            {% if devices and devices|length > 4 %}
+            {{ devices[4].tx_kbps }}
+            {% else %}
+            0
+            {% endif %}
         unit_of_measurement: "kbps"
+        icon: mdi:router-wireless
