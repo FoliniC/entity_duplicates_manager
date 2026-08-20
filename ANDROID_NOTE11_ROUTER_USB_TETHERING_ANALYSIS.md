@@ -1,6 +1,6 @@
 # Android USB Tethering & IP Webcam Analysis
 
-**Date:** 2026-08-17
+**Date:** 2026-08-19 (last updated)
 **Environment:** Home Assistant on Debian 13 (192.168.0.3) + OpenWrt Router (192.168.0.11)
 
 ---
@@ -11,11 +11,14 @@ Two Android devices are present in the network:
 1. **Local device** (connected to HA server): `c9977cf0` - **2312DRA50G (garnet)** with DeviceAsWebcam
 2. **Router device** (connected to OpenWrt): `69a47f6d3a61` - **Redmi Note 11 Pro 5G (veux)** - USB tethering ACTIVE, IP Webcam WORKING
 
+**Current deployment (Aug 19, 2026):** The router phone (`veux`) has been moved to the HA server (Debian) for direct management via USB and WiFi ADB. All services (IP Webcam, scrcpy) now run via WiFi LAN (`192.168.0.14`).
+
 ---
 
 ## 🔌 Device Inventory
 
 ### Device 1: Local Android (Connected to HA Server via USB)
+
 | Property | Value |
 |----------|-------|
 | **ADB Serial** | `c9977cf0` |
@@ -37,25 +40,34 @@ Two Android devices are present in the network:
 **Network:** Device IP `192.168.0.159` (WiFi)
 **IP Webcam Stream:** ✅ **WORKING** at `http://192.168.0.159:8080/videofeed`
 
+> **Note:** `2312DRA50G` is a **Redmi Note 11 Pro 5G** (model name `garnet`, codename garnet_eea).
+> Verified via `adb shell getprop`: `ro.product.device=garnet`, `ro.product.model=2312DRA50G`.
+
 ---
 
 ### Device 2: Router Android (Connected to OpenWrt Router via USB) — **Redmi Note 11 Pro 5G (veux)**
+
 | Property | Value |
 |----------|-------|
 | **ADB Serial** | `69a47f6d3a61` |
-| **Transport** | `usb:2-1` (on router) |
+| **Transport** | `usb:2-1` (on router) / `usb:1-9` (on Debian HA) |
 | **Product** | `veux_eea` |
 | **Model** | `2201116SG` / **Redmi Note 11 Pro 5G** |
 | **Device** | `veux` |
 | **ADB Status** | ✅ `device` (authorized) |
 
+> **Note:** This is a **different phone** from the local device. While local is `garnet`/`2312DRA50G`,
+> the router phone is `veux`/`2201116SG` (both are Redmi Note 11 Pro 5G but different regional variants/codenames).
+> Verified via `adb_router shell getprop`:
+> `ro.product.device=veux`, `ro.product.model=2201116SG`, `ro.product.name=veux_eea`.
+
 **IP Webcam Status:**
 - ✅ **INSTALLED** (`com.pas.webcam` found)
-- ✅ **STREAMING** on USB tethering interface
+- ✅ **STREAMING** on WiFi LAN (`192.168.0.14:8080`)
 
-**USB Tethering (ACTIVE ✅):**
+**USB Tethering (ACTIVE ✅ when enabled manually):**
 - Router interface: `usb0`
-- Router USB IP: `10.123.72.105/24` (DHCP from phone, changes on reconnect)
+- Router USB IP: `10.16.159.174/24` (DHCP from phone, changes on reconnect)
 - Phone IP (gateway): `10.123.72.65`
 - Default route: via `usb0` metric 10
 
@@ -108,15 +120,19 @@ Two Android devices are present in the network:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+> **IP variability note:** The phone assigns IPs via DHCP over the `usb0` tethering link; both the phone gateway IP
+> and the router's USB IP change on USB re-enumeration. The current values shown above are a snapshot. Always probe
+> with `ip -br addr show dev usb0` and `ip route` on the router for the live addresses.
+
 ---
 
 ## 🎯 Key Findings
 
 ### 1. **Router-Connected Phone (Redmi Note 11 Pro 5G / veux) — FULLY OPERATIONAL**
-- ✅ **ADB Authorized**: `69a47f6d3a61 device usb:2-1`
-- ✅ **USB Tethering Active**: `usb0` interface up with IP `10.16.159.174/24`
+- ✅ **ADB Authorized**: `69a47f6d3a61 device usb:2-1` (router) / `usb:1-9` (Debian)
+- ✅ **USB Tethering Active**: `usb0` interface up with IP `10.16.159.174/24` (when manually enabled)
 - ✅ **IP Webcam Installed**: `com.pas.webcam` package present
-- ✅ **IP Webcam Streaming**: 
+- ✅ **IP Webcam Streaming**:
   - `http://10.16.159.126:8080/video` → HTTP 200
   - `http://10.16.159.126:8080/videofeed` → HTTP 200
 - ✅ **Ready for Agent DVR**
@@ -265,8 +281,17 @@ Authentication: None
 - [x] **Verify local device stream** (192.168.0.159:8080/videofeed)
 - [x] **Add pre-flight check** in `usb_tether_ha.sh` for intranet mode - validates USB tethering availability before attempting activation
 - [x] **Fix dashboard error message display** - automation preserves error messages instead of clearing them
+- [x] **Move phone to HA server** for direct USB + WiFi ADB management
+- [x] **Install scrcpy 4.1** from GitHub releases
+- [x] **Enable ADB over WiFi** (port 5555) via USB
+- [x] **Activate IP Webcam** via ADB + manual UI
+- [x] **Disable TeamViewer** (unwanted background processes)
+- [x] **Optimize scrcpy** for LAN (8M bitrate, max-size 1080, 30 FPS)
+- [x] **Validate scrcpy production config** (60fps, 20M, H.264 HW encoder, --ignore-video-encoder-constraints, max-size 1080)
+- [x] **Verify resource cleanup** on scrcpy exit
 - [ ] **Configure Agent DVR** with stream URL
 - [ ] **Test continuous streaming** stability
+- [ ] **Apply manual phone optimizations** (IP Webcam FPS 15, Audio off, Battery "No restrictions")
 
 ---
 
@@ -353,15 +378,253 @@ This is a **MIUI theme framework bug** on Redmi Note 11 Pro 5G — the `svc usb`
 
 ---
 
+## 🆕 scrcpy 4.1 Deployment (Aug 19, 2026)
+
+### Installation
+```bash
+# Download from GitHub releases
+cd /tmp
+wget https://github.com/Genymobile/scrcpy/releases/download/v4.1/scrcpy-linux-x86_64-v4.1.tar.gz
+tar -xzf scrcpy-linux-x86_64-v4.1.tar.gz
+sudo cp scrcpy-linux-x86_64-v4.1/scrcpy /usr/local/bin/scrcpy
+sudo cp scrcpy-linux-x86_64-v4.1/scrcpy-server /usr/local/bin/scrcpy-server
+sudo chmod +x /usr/local/bin/scrcpy /usr/local/bin/scrcpy-server
+
+# Verify
+scrcpy --version
+# scrcpy 4.1
+# SDL: 3.4.12, libavcodec: 62.28.102, libusb: 1.0.30
+```
+
+### ADB over WiFi Setup (via USB)
+```bash
+# Enable TCP mode on phone via USB
+adb -s 69a47f6d3a61 tcpip 5555
+# restarting in TCP mode port: 5555
+
+# Connect via WiFi
+adb connect 192.168.0.14:5555
+# connected to 192.168.0.14:5555
+
+# Verify
+adb devices -l
+# 69a47f6d3a61           device usb:1-9 ...
+# 192.168.0.14:5555      device product:veux_eea model:2201116SG device:veux ...
+```
+
+### Optimized scrcpy Commands (LAN) — **VALIDATED Aug 19, 2026**
+
+**Production — Maximum Responsiveness (60fps, H.264 HW encoder, low latency):**
+```bash
+scrcpy -s 192.168.0.14:5555 \
+  --max-fps 60 \
+  --video-bit-rate 20M \
+  --max-size 1080 \
+  --video-codec h264 \
+  --ignore-video-encoder-constraints \
+  --stay-awake \
+  --turn-screen-off
+```
+*Tested: 60fps, 20Mbps, H.264 HW encoder (media.hwcodec 30% CPU), exit code 0, clean resource release.*
+
+**Standard (balanced quality/performance, 30fps):**
+```bash
+scrcpy -s 192.168.0.14:5555 --max-fps 30 --video-bit-rate 8M --max-size 1080 --stay-awake
+```
+
+**Headless / control only (screen off, saves battery):**
+```bash
+scrcpy -s 192.168.0.14:5555 --max-fps 60 --video-bit-rate 20M --max-size 1080 --video-codec h264 --ignore-video-encoder-constraints --stay-awake --turn-screen-off
+```
+
+**With audio (Opus 128k):**
+```bash
+scrcpy -s 192.168.0.14:5555 --max-fps 30 --video-bit-rate 8M --max-size 1080 --audio-bit-rate 128K --audio-codec opus --stay-awake
+```
+
+### Key scrcpy 4.1 Flag Changes
+
+| Old flag (v3.x) | New flag (v4.1+) |
+|-----------------|------------------|
+| `--bit-rate` | `--video-bit-rate` / `-b` |
+| `--max-fps` | `--max-fps` (unchanged) |
+| `--stay-awake` | `--stay-awake` / `-w` (unchanged) |
+| `--turn-screen-off` | `--turn-screen-off` / `-S` (unchanged) |
+| N/A | `--max-size` (critical for 1080x2400 displays) |
+
+### Why `--max-size 1080` is Required
+The phone's native resolution (1080x2400) causes `java.lang.IllegalArgumentException: null` encoder error at high bitrates. Limiting to 1080p height resolves this.
+
+---
+
+## 🆕 IP Webcam Activation via ADB (Aug 19, 2026)
+
+### Activity Resolution
+```bash
+# Find launcher activity
+adb -s 192.168.0.14:5555 shell 'cmd package resolve-activity -a android.intent.action.MAIN -c android.intent.category.LAUNCHER com.pas.webcam'
+# Result: com.pas.webcam.Configuration
+
+# Launch
+adb -s 192.168.0.14:5555 shell 'am start -n com.pas.webcam/com.pas.webcam.Configuration'
+```
+
+### Manual Step Required
+The IP Webcam app **requires manual "Start server" tap** in the UI after launching the activity. The ADB launch opens the config screen; user must tap the play button.
+
+### Verified Endpoints
+```bash
+curl -I http://192.168.0.14:8080/videofeed  # HTTP 200
+curl -I http://192.168.0.14:8080/video      # HTTP 200
+```
+
+---
+
+## 🆕 TeamViewer Disabling (Aug 19, 2026)
+
+### Problem
+TeamViewer Host (`com.teamviewer.host.market`) and QuickSupport addon (`com.teamviewer.quicksupport.addon.universal`) were running but:
+- No "Don't ask again" checkbox appeared on connection popup
+- Connection required manual acceptance every time
+- Background processes consumed resources
+
+### Solution: Disable via ADB
+```bash
+# Force stop
+adb -s 192.168.0.14:5555 shell 'am force-stop com.teamviewer.host.market'
+adb -s 192.168.0.14:5555 shell 'am force-stop com.teamviewer.quicksupport.addon.universal'
+
+# Disable for current user (persists across reboots)
+adb -s 192.168.0.14:5555 shell 'pm disable-user com.teamviewer.host.market'
+adb -s 192.168.0.14:5555 shell 'pm disable-user com.teamviewer.quicksupport.addon.universal'
+
+# Verify
+adb -s 192.168.0.14:5555 shell 'ps -A | grep -iE "teamviewer|host"'
+# (no output = success)
+```
+
+### Why Not "Auto-accept"?
+TeamViewer's "auto-accept" (LAN confirmation) requires the user to **manually check "Don't ask again" on first connection popup**. This cannot be set via ADB/settings — it's stored in encrypted `shared_prefs` only writable by the app UI. Since scrcpy provides full LAN control with lower latency, TeamViewer is unnecessary.
+
+---
+
+## 🆕 CPU / Memory Optimization Analysis (Aug 19, 2026)
+
+### Baseline (before optimization)
+| Process | CPU% | RAM% |
+|---------|------|------|
+| cameraserver | 127% | 2.5% |
+| IP Webcam | 48% | 6.1% |
+| scrcpy (16M) | 24% | 2.5% |
+| mediacodec | 17-24% | 0.1-0.3% |
+
+### After scrcpy Optimization (8M + max-size 1080)
+| Process | CPU% | RAM% |
+|---------|------|------|
+| cameraserver | 130% | 2.5% |
+| IP Webcam | 50% | 6.3% |
+| **scrcpy (8M)** | **30%** | **2.8%** |
+| mediacodec | 23-26% | 0.1-0.3% |
+
+### System Specs
+- **RAM**: 5.5 GB total, 2.2 GB available (40%)
+- **Swap**: 4 GB (2.8 GB free)
+- **Storage**: 102 GB (76 GB free)
+- **CPU**: 8 cores (6× efficiency @ 1.8 GHz, 2× performance @ 2.2 GHz)
+- **Governor**: `schedutil` (cannot change to `performance` without root)
+- **Battery**: 100%, 32.9°C
+
+### Applied Optimizations (no root required)
+```bash
+# Device idle whitelist (prevents Doze mode kill)
+adb shell 'cmd deviceidle whitelist +com.pas.webcam'
+adb shell 'cmd deviceidle whitelist +com.genymobile.scrcpy'
+
+# Disable animations (reduces system_server CPU)
+settings put global window_animation_scale 0
+settings put global transition_animation_scale 0
+settings put global animator_duration_scale 0
+
+# Stay awake while plugged
+settings put global stay_on_while_plugged_in 3
+
+# AppOps for background stability
+cmd appops set com.pas.webcam RUN_IN_BACKGROUND allow
+cmd appops set com.pas.webcam RUN_ANY_IN_BACKGROUND allow
+```
+
+### Pending Manual Optimizations (on phone)
+| Action | Path | Impact |
+|--------|------|--------|
+| IP Webcam FPS: 30 → 15 | Settings → Video → Max FPS: 15 | -30% CPU IP Webcam |
+| IP Webcam Audio: Off | Settings → Audio → Disable audio | -Wake lock, -CPU audio |
+| Battery Saver: No restrictions | Settings → Battery → App battery saver → IP Webcam / scrcpy → No restrictions | Background stability |
+
+---
+
+## 🆕 Resource Cleanup Verification (Aug 19, 2026)
+
+After closing scrcpy window on Debian:
+
+| Resource | Status | Verification |
+|----------|--------|--------------|
+| scrcpy processes | ✅ Zero | `ps -A \| grep -i scrcpy` → none |
+| Wake locks | ✅ Zero | `dumpsys power \| grep -i scrcpy` → none |
+| TCP port 27183 | ✅ Closed | `cat /proc/net/tcp \| grep 6A27` → none |
+| Android services | ✅ Zero | `dumpsys activity services \| grep -i scrcpy` → none |
+| CPU/Memory | ✅ Baseline | `top \| grep scrcpy` → only grep process |
+
+**Conclusion:** scrcpy 4.1 cleans up **all resources** on exit — no orphaned processes, wake locks, or sockets.
+
+---
+
 ## 📝 Notes
 
-1. **Two different phones** - `garnet` (2312DRA50G) local vs `veux` (Redmi Note 11 Pro 5G) on router
-2. **Router phone USB tethering** - Active when enabled manually via phone UI (MIUI bug blocks remote activation)
+1. **Two different phones** - `garnet` (2312DRA50G) local vs `veux` (2201116SG, Redmi Note 11 Pro 5G) on router
+2. **Router phone USB tethering** - Active when enabled manually via phone UI (MIUI bug blocks remote activation via `svc usb`)
 3. **Phone IP changes on reconnect** - DHCP from phone assigns new IP in 10.x.x.x range (currently 10.123.72.0/24)
 4. **Local device has working stream too** - can be used as backup camera source
-5. **Router ADB wrapper** - `/usr/bin/adb_router` is MIPS-compiled ADB with RAM-loaded libraries
+5. **Router ADB wrapper** - `/usr/bin/adb_router` is a MIPS-compiled ADB with RAM-loaded libraries
 6. **IP Webcam endpoints** - both `/video` and `/videofeed` work on router phone
 7. **Pre-flight check implemented** - intranet mode validates USB tethering availability before attempting activation
 8. **Dashboard error display fixed** - automation no longer clears error messages on state change
 9. **ADB key fix applied** - `export HOME=/root` added to both `/etc/hotplug.d/usb/99-usb-tethering` and `/usr/bin/enable_usb_tether.sh` to ensure consistent ADB key usage
 10. **ADB authorization persists** via WiFi (192.168.0.14:5555) when "Always allow" is checked — only USB re-enumeration requires re-accepting the dialog
+11. **scrcpy 4.1 deployed** - installed from GitHub releases, optimized for LAN (8M, max-size 1080)
+12. **ADB over WiFi active** - `192.168.0.14:5555` stable, survives USB disconnect
+13. **TeamViewer disabled** - `pm disable-user` on both packages, no background processes
+14. **IP Webcam active on WiFi** - `192.168.0.14:8080/videofeed` HTTP 200
+15. **Resource cleanup verified** - scrcpy exits cleanly, no residual resources
+
+---
+
+## 📋 Quick Reference — Production Commands
+
+```bash
+# === IP WEBCAM (Frigate/Agent DVR) ===
+http://192.168.0.14:8080/videofeed
+
+# === SCRCPY REMOTE CONTROL ===
+# Standard
+scrcpy -s 192.168.0.14:5555 --max-fps 30 --video-bit-rate 8M --max-size 1080 --stay-awake
+
+# Headless (screen off)
+scrcpy -s 192.168.0.14:5555 --max-fps 30 --video-bit-rate 8M --max-size 1080 --stay-awake --turn-screen-off
+
+# With audio
+scrcpy -s 192.168.0.14:5555 --max-fps 30 --video-bit-rate 8M --max-size 1080 --audio-bit-rate 128K --audio-codec opus --stay-awake
+
+# === ADB ===
+adb devices -l                                    # List devices
+adb connect 192.168.0.14:5555                     # Connect WiFi ADB
+adb -s 192.168.0.14:5555 shell 'pm disable-user com.teamviewer.host.market'  # Disable TeamViewer
+
+# === ROUTER USB TETHERING ===
+ssh -i /home/carlo/docker/homeassistant/config/.ssh/router_key root@192.168.0.11 "/usr/bin/enable_usb_tether.sh"
+ssh -i /home/carlo/docker/homeassistant/config/.ssh/router_key root@192.168.0.11 "ip -br addr show dev usb0"
+
+# === MANUAL PHONE SETTINGS ===
+# 1. USB Tethering: Settings → Developer Options → USB Configuration → "USB tethering"
+# 2. IP Webcam FPS: 15, Audio: Off
+# 3. Battery: No restrictions for IP Webcam & scrcpy
+```

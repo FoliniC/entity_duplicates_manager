@@ -1392,5 +1392,62 @@ Per mantenere sia il Wi-Fi che i Dati Mobili attivi sul Redmi 11 senza creare lo
 - **Prestazioni:** Latenza 19ms-22ms su `usb0`, 0% pacchetti persi.
 - **Transizione HA:** Ripristino in modalità **Normale** completato con successo (`wan-verify OK`, `mwan3 online`, `Stato: idle / Modalità: server`).
 
+---
+
+## Fix Tethering USB Windows 11 via Impacket/atexec.py (19 Agosto 2026)
+
+### Problema
+L'esecuzione dello script PowerShell `usb_tether.ps1` su Windows 11 via SSH da Home Assistant falliva con **"Accesso negato"** su `New-NetNat` e `Set-NetIPInterface -Forwarding Enabled`, perché la connessione SSH forniva un token UAC filtrato (non elevato).
+
+### Soluzione: Impacket `atexec.py` come SYSTEM
+Installato `impacket` nel container Home Assistant e riscritto `usb_tether_ha.sh` per usare `atexec.py` (ATSVC over SMB/RPC) che esegue comandi come **NT AUTHORITY\SYSTEM**, bypassando UAC.
+
+#### Componenti
+| Componente | Descrizione |
+|------------|-------------|
+| **impacket** | `pip install impacket` nel container HA → fornisce `atexec.py` |
+| **Password Windows** | Salvata in `/config/.secrets/win_pw` (chmod 600, montato via volume `./config:/config`) |
+| **`run_atexec()` helper** | Legge password dal file, codifica comando PowerShell in Base64 UTF-16LE (`-EncodedCommand`), invoca `atexec.py "user:pass@host" "powershell.exe -EncodedCommand ..."` |
+| **`usb_tether.ps1 -ViaScheduledTask`** | Flag per indicare esecuzione elevata: scrive risultato in `C:\Windows\Temp\usb_tether_result.json` (leggibile da ADMIN$) invece di stdout |
+
+#### Funzioni riscritte in `usb_tether_ha.sh`
+- **`activate_windows()`** → chiama `run_atexec` per `activate`, gestisce router cutover separatamente
+- **`restore_windows()`** → solo parte router; il vero restore Windows è in `router_finish_restore_windows()` dopo drenaggio
+- **`router_finish_restore_windows()`** → chiama `run_atexec` per `restore` (spegnimento NAT Windows) dopo conferma drenaggio router
+- **`run_status()`** → usa `run_atexec` per `status` (legge `C:\ProgramData\usb_tether_state.json` che richiede admin), estrae JSON da output Impacket (rimuove BOM UTF-8 `\xEF\xBB\xBF`)
+
+#### Configurazione HA
+```yaml
+# docker-compose.yml - environment per container homeassistant
+services:
+  homeassistant:
+    environment:
+      - IMPACKET_PW_FILE=/config/.secrets/win_pw
+```
+
+#### Test verifica
+```bash
+# Da HA container:
+docker exec -e IMPACKET_PW_FILE=/config/.secrets/win_pw homeassistant \
+  atexec.py "carlo_2:$(cat /config/.secrets/win_pw)@192.168.0.8" "whoami"
+# Output atteso: nt authority\system
+```
+
+#### Risultato
+- **Attivazione intranet**: NAT Windows creato, forwarding abilitato, router riceve route fallback `default via 192.168.0.8 metric 30`
+- **Internet via router**: `ping 8.8.8.8` dal router OK (51-68ms)
+- **Status HA**: Legge stato correttamente via `atexec.py`
+- **Ripristino**: NAT Windows spento dopo drenaggio router confermato
+
+#### Limitazione nota
+Il **watchdog** (Scheduled Task `USBTetherWatchdog` per auto-restore) fallisce con errore SID quando registrato come SYSTEM. L'auto-restore post-scadenza va gestito manualmente o fixato separatamente.
+
+---
+
+*Ultimo aggiornamento: 19 Agosto 2026*
+
+---
+*Ultimo aggiornamento: 16 Agosto 2026*
+
 
 

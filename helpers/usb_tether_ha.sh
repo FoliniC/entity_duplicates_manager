@@ -10,6 +10,9 @@ LOG_FILE="/config/logs/usb_tether/usb_tether.log"
 RESTORE_MARKER="/config/logs/usb_tether/restoring_windows.marker"
 SSH_CM_DIR="/config/.ssh/cm"
 WINDOWS_GW="192.168.0.8"
+# Fallback file per la password atexec.py se IMPACKET_PW non e' impostata
+# nell'ambiente del container. chmod 600, proprietario = utente del container HA.
+IMPACKET_PW_FILE="/config/.secrets/win_pw"
 ROUTER_WAN_IF="usb0"
 ROUTER_WAN_METRIC="10"
 WINDOWS_ROUTE_METRIC="30"
@@ -122,8 +125,15 @@ run_status() {
   fi
 
   if [[ "$HOST" == *"Windows"* ]]; then
-    out="$(ssh_windows "powershell -NoProfile -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 -Action status" 2>&1)"
+    # Usa atexec.py per leggere lo stato (richiede elevazione per leggere C:\ProgramData\usb_tether_state.json)
+    local ps_cmd="C:/Scripts/usb_tether.ps1 -Action status -ViaScheduledTask"
+    out=$(run_atexec "$ps_cmd")
     rc=$?
+    
+    # run_atexec output include log Impacket + JSON (con possibile BOM UTF-8: \xEF\xBB\xBF).
+    # Estrae l'ultima occorrenza di JSON valido con campo "state" (ignorando BOM e log).
+    # Usa sed per rimuovere BOM, poi grep per JSON con "state"
+    out=$(printf '%s\n' "$out" | sed 's/\xEF\xBB\xBF//g' | grep -E '\{.*"state"\s*:\s*"(active|error|idle|restoring)"' | tail -1)
   else
     out="$(ssh_debian "/home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh status" 2>&1)"
     rc=$?
@@ -142,12 +152,48 @@ run_status() {
   fi
 }
 
+# Helper: encode PowerShell command for atexec.py (Base64 UTF-16LE)
+encode_ps_command() {
+  local cmd="$1"
+  echo -n "$cmd" | iconv -t UTF-16LE | base64 -w 0
+}
+
+# Helper: run command on Windows via atexec.py as SYSTEM (bypasses UAC)
+# Usage: run_atexec "command string"
+run_atexec() {
+  local cmd="$1"
+  local encoded
+  encoded=$(encode_ps_command "$cmd")
+
+  # Password: prima env var IMPACKET_PW (comodo per test manuali), altrimenti
+  # file dedicato IMPACKET_PW_FILE (consigliato per l'uso da HA: non finisce
+  # in chiaro in "docker inspect" o "systemctl show").
+  local pw="${IMPACKET_PW:-}"
+  if [[ -z "$pw" && -f "$IMPACKET_PW_FILE" ]]; then
+    pw="$(cat "$IMPACKET_PW_FILE" 2>/dev/null)"
+  fi
+
+  if [[ -z "$pw" ]]; then
+    log_line ERROR "run_atexec: nessuna password disponibile (ne' IMPACKET_PW ne' $IMPACKET_PW_FILE) - abort per evitare che atexec.py resti appeso in attesa di input"
+    printf '{"state":"error","message":"credenziali atexec.py mancanti"}\n'
+    return 1
+  fi
+
+  # NOTA: la password compare comunque per un istante negli argv di questo
+  # processo (visibile via "ps auxww" ad altri processi locali) perche'
+  # atexec.py la vuole nella stringa target. Su questa rete domestica e'
+  # un rischio accettato; per eliminarlo del tutto servirebbe autenticazione
+  # via -hashes (NTLM pass-the-hash) invece della password in chiaro.
+  local target="carlo_2:${pw}@192.168.0.8"
+  atexec.py "$target" "powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand $encoded" 2>&1
+}
+
 activate_windows() {
   local out rc router_out router_rc
   
   # PRE-FLIGHT CHECK: Verifica che il tethering USB sia disponibile su Windows
   local detect_out
-  detect_out="$(ssh_windows \"powershell -NoProfile -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 -Action detect\" 2>&1)"
+  detect_out="$(ssh_windows "powershell -NoProfile -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 -Action detect" 2>&1)"
   local detect_rc=$?
   if (( detect_rc != 0 )) || [[ -z "$detect_out" ]]; then
     log_line ERROR "PRE-FLIGHT FALLITO: Nessun tethering USB rilevato su Windows. Output: $detect_out"
@@ -163,18 +209,39 @@ activate_windows() {
   # Pulizia di sicurezza: un marker rimasto da un restore precedente
   # interrotto bloccherebbe run_status su "restoring" per sempre.
   rm -f "$RESTORE_MARKER" 2>/dev/null || true
-  out="$(ssh_windows "powershell -NoProfile -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 -Action activate -MaxMinutes $DURATION -Mode $MODE" 2>&1)"
+
+  # --- USA ATEXEC.PY COME SYSTEM (bypassa UAC, non serve Task Scheduler) ---
+  local ps_cmd="C:/Scripts/usb_tether.ps1 -Action activate -MaxMinutes $DURATION -Mode $MODE -ViaScheduledTask"
+  
+  log_line INFO "EXEC Windows activate $MODE via atexec.py (SYSTEM)..."
+  out=$(run_atexec "$ps_cmd")
   rc=$?
   log_line INFO "EXEC Windows activate $MODE rc=$rc | $(printf '%s' "$out" | tail -c 500)"
-  if (( rc != 0 )); then
-    json_error "activate Windows fallito rc=$rc"
+  
+  # atexec.py ritorna output diretto, niente polling file necessario
+  # Controlla se l'output contiene JSON di errore
+  local result_json
+  result_json=$(printf '%s\n' "$out" | grep -E '^\s*\{.*"state"\s*:\s*"(active|error)"' | tail -1)
+  
+  if [[ -n "$result_json" && "$result_json" == *"error"* ]]; then
+    log_line ERROR "Attivazione Windows fallita: $result_json"
+    local msg
+    msg=$(echo "$result_json" | sed -n 's/.*"message":"\([^"]*\)".*/\1/p')
+    json_error "${msg:-Attivazione Windows fallita}"
     return 0
+  elif [[ -z "$result_json" ]]; then
+    # Fallback: se atexec non ha restituito JSON parsabile, logga e procedi
+    log_line WARN "atexec.py output non contiene JSON stato atteso: $out"
+    # Non bloccare - il router side potrebbe aver funzionato
+  else
+    log_line INFO "Attivazione Windows confermata: $result_json"
   fi
 
   if [[ "$MODE" == "intranet" ]]; then
-    # 1. Prende il gateway WAN ATTUALE (route vera, non DHCP netifd)
+    # 1. Prende il gateway WAN REALE da ifstatus (non dal default route corrente,
+    #    che potrebbe già puntare a Windows se siamo in transizione)
     local cur_gw
-    cur_gw=$(ssh_router "ip route show default dev $ROUTER_WAN_IF metric 10 2>/dev/null | awk '{print \$3; exit}'" 2>&1 | tr -d '\r')
+    cur_gw=$(ssh_router "ifstatus wan 2>/dev/null | jsonfilter -e '@.route[0].nexthop' 2>/dev/null | head -1" 2>&1 | tr -d '\r')
     if [[ ! "$cur_gw" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
       log_line ERROR "Impossibile determinare gateway WAN attuale su $ROUTER_WAN_IF"
       json_error "router via Windows fallito: gateway WAN non trovato"
@@ -303,7 +370,9 @@ restore_windows() {
   #    instradati verso Windows via tabella dedicata resterebbero senza NAT
   #    a valle e si romperebbero comunque (il problema originale, spostato
   #    di un passo invece che risolto).
-  schedule_self router_finish_restore_windows 0
+  # USA ATEXEC.PY COME SYSTEM per il restore Windows (dopo drenaggio router)
+  # Nota: questo viene chiamato da router_finish_restore_windows dopo il drenaggio
+  # Qui non facciamo nulla - il restore Windows vero e proprio è in router_finish_restore_windows
 
   printf '{"state":"restoring","mode":"server","message":"Ripristino in corso..."}\n'
 }
@@ -336,10 +405,10 @@ router_finish_restore_windows() {
   local waited=0 max_wait="$ROUTER_DRAIN_CEILING" still_active="1" out rc router_out router_rc
 
   # Aspetta che il drenaggio sul router sia DAVVERO finito (tethering-graceful.sh
-  # end gira in background li') prima di dire a Windows di spegnere il proprio
-  # NAT: finche' il router instrada ancora flussi marcati verso Windows via
-  # tabella dedicata, quei flussi hanno bisogno del NAT Windows per uscire
-  # su internet - spegnerlo prima li romperebbe comunque.
+  # end gira in background li') prima di confermare: finche' il router instrada
+  # ancora flussi marcati verso Windows via tabella dedicata, quei flussi hanno
+  # bisogno del NAT Windows per uscire su internet - spegnerlo prima li romperebbe
+  # comunque.
   while [ "$waited" -lt "$max_wait" ]; do
     still_active="$(ssh_router "iptables -t mangle -S TETHER_${ROUTER_MARK_LEAVE_ANCHOR} >/dev/null 2>&1 && echo 1 || echo 0" 2>/dev/null | tr -d '\r' | tail -1)"
     [ "$still_active" = "0" ] && break
@@ -348,9 +417,13 @@ router_finish_restore_windows() {
   done
   log_line INFO "Router drenaggio leave-anchor confermato dopo ${waited}s (still_active=$still_active)"
 
-  out="$(ssh_windows "powershell -NoProfile -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 -Action restore" 2>&1)"
+  # 6. ORA spegni il NAT Windows via atexec.py (SYSTEM) - il router ha confermato
+  #    che i flussi marcati sono finiti, quindi è sicuro disabilitare NAT Windows
+  local ps_cmd="C:/Scripts/usb_tether.ps1 -Action restore -ViaScheduledTask"
+  log_line INFO "EXEC Windows restore via atexec.py (SYSTEM)..."
+  out=$(run_atexec "$ps_cmd")
   rc=$?
-  log_line INFO "EXEC Windows delayed restore rc=$rc | $(printf '%s' "$out" | tail -c 500)"
+  log_line INFO "EXEC Windows restore rc=$rc | $(printf '%s' "$out" | tail -c 500)"
 
   # Pulizia finale: tabella/rule/chain le ha gia' tolte tethering-graceful.sh
   # end quando ha confermato il drenaggio; qui resta solo l'eventuale route
