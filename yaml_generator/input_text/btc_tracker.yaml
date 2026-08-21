@@ -1,0 +1,17 @@
+# ============================================================================
+# BITCOIN INVESTMENT TRACKER - Input Texts
+# ============================================================================
+# Parametri configurabili dall'utente via UI
+# Telefono target: Xiaomi 17 Ultra 16/512GB ~ 1300€
+# ============================================================================
+
+input_text:
+  target_phone_name:
+    name: "Modello telefono target"
+    icon: "mdi:cellphone-information"
+    initial: "Xiaomi 17 Ultra 16/512GB"
+
+  target_phone_url:
+    name: "URL monitoraggio prezzo telefono"
+    icon: "mdi:link"
+    initial: "https://www.trovaprezzi.it/prezzo_cellulari_xiaomi_17_ultra"

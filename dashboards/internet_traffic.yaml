@@ -479,6 +479,7 @@ views:
                   {% set st = states('sensor.usb_tether_status') %}
                   {% set msg = states('sensor.usb_tether_dashboard') %}
                   {% set rm = state_attr('sensor.usb_tether_status', 'remaining_min') | int(0) %}
+                  {% set active_since = state_attr('sensor.usb_tether_status', 'active_since') %}
                   {% if st == 'active' %}
                     {% set bg = '#2e7d32' %}
                     {% set icon = '✅' %}
@@ -492,9 +493,12 @@ views:
                   <div style="background-color: {{ bg }}; color: white; padding: 16px; border-radius: 8px; font-weight: bold; text-align: center; font-size: 18px;">
                     {{ icon }} {{ msg }}
                   </div>
-                  {% if st == 'active' and rm > 0 %}
+                  {% if st == 'active' %}
                   <div style="margin-top: 4px; text-align: center; color: #888; font-size: 12px;">
-                    auto-ripristino tra ~{{ rm }} min
+                    attivato {{ active_since }}
+                    {% if rm > 0 %}
+                    • scade tra ~{{ rm }} min
+                    {% endif %}
                   </div>
                   {% endif %}
                 card_mod:

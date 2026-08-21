@@ -1449,5 +1449,53 @@ Il **watchdog** (Scheduled Task `USBTetherWatchdog` per auto-restore) fallisce c
 ---
 *Ultimo aggiornamento: 16 Agosto 2026*
 
+## Watchdog Coordinato da Home Assistant (20 Agosto 2026)
+
+### Problema
+Il **watchdog Windows** basato su `Task Scheduler` (`USBTetherWatchdog`) eseguito come `NT AUTHORITY\SYSTEM` da `atexec.py` falliva con **`HRESULT 0x80070534`** ("Impossibile trovare il gruppo specificato") e non riusciva a registrarsi affidabilmente. A causa del suo malfunzionamento il ripristino post-scadenza non avveniva mai in automatico.
+
+### Soluzione: spostamento del watchdog su Home Assistant
+Il watchdog è stato **completamente rimosso** da `usb_tether.ps1` e l'intera logica di auto-ripristino coordinato ora risiede in **`helpers/usb_tether_ha.sh`** nel container HA. Lo script HA:
+
+1. **Attende la scadenza** del timeout configurato (`input_number.usb_tether_max_duration`).
+2. **Avvia `restore_windows`** che esegue la sequenza in ordine fallo:
+   1. marca i flussi protetti sul router (`tethering-graceful.sh begin`);
+   2. ripristina la WAN router (`usb0 metric 10`);
+   3. rimuove la route fallback via Windows (`metric 30`);
+   4. avvia il drenaggio in background.
+3. **`router_finish_restore_windows()`** attende che il drenaggio conntrack del router sia completato (controlla la rimozione della regola `CONNMARK`), poi:
+   1. spegne il NAT Windows via `atexec.py` come `SYSTEM`;
+   2. pulisce la route fallback residua;
+   3. flusha le entry conntrack del device protetto.
+
+> Il **fail-closed** è garantito: le route del router non vengono mai modificate se Windows non conferma `active`.
+
+#### Architettura watchdog HA (riassunto)
+| Step | Responsabile | Azione |
+|-------|-------------|--------|
+| 1. Timeout scaduto | `usb_tether_ha.sh` | trigger `auto_restore_windows` (dopo `max_minutes * 60 - 25s`) |
+| 2. Protezione flussi | Router OpenWrt | `tethering-graceful.sh begin` con MARK `0x89` |
+| 3. WAN locale | `ssh_router` | ripristino route `usb0 metric 10` |
+| 4. Rimozione fallback | `ssh_router` | rimozione `default via 192.168.0.8 metric 30` |
+| 5. Drenaggio | Router OpenWrt | `tethering-graceful.sh end` (background) |
+| 6. Attesa drenaggio | `usb_tether_ha.sh` | polling FINO a tetto 6h (`ROUTER_DRAIN_CEILING=21600`) |
+| 7. Spegnimento NAT | `atexec.py` (SYSTEM) | `usb_tether.ps1 -Action restore` |
+| 8. Pulizia | Router OpenWrt | `ip route del default via 192.168.0.8`, `conntrack -D` |
+
+#### Verifica
+```bash
+# Processo watchdog HA in esecuzione
+docker exec homeassistant sh -c 'ps -ef | grep "[u]sb_tether_ha.sh auto_restore_windows"'
+
+# Stato corrente del watchdog (dovrebbe mostrare "restoring")
+docker exec homeassistant /config/helpers/usb_tether_ha.sh status server auto 60
+
+# Router instradato correttamente via Windows (route fallback attiva)
+docker exec homeassistant ssh -i /config/.ssh/router_key -o BatchMode=yes root@192.168.0.11 "ip route show default"
+```
+
+---
+*Ultimo aggiornamento: 20 Agosto 2026*
+
 
 

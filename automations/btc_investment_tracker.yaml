@@ -1,0 +1,217 @@
+# ============================================================================
+# BITCOIN INVESTMENT TRACKER - Automazioni
+# ============================================================================
+# Notifiche quando profitto BTC NETTO (dopo tasse) >= prezzo telefono target
+# File separato per essere caricato via !include_dir_merge_list automations
+# ============================================================================
+
+- id: btc_tracker_phone_affordable
+  alias: "BTC Tracker: Puoi comprare il telefono! 🎉"
+  description: "Notifica quando il profitto BTC NETTO (tasse 33%) copre il prezzo del telefono target"
+  trigger:
+    - platform: template
+      value_template: >
+        {% set profit = states('sensor.btc_profit_loss_net') | float(0) %}
+        {% set phone = states('sensor.target_phone_price') | float(0) %}
+        {{ profit >= phone }}
+      id: "profit_reached_phone"
+  condition:
+    # Cooldown: non notificare più di una volta al giorno
+    - condition: template
+      value_template: >
+        {% set last = state_attr('automation.btc_tracker_phone_affordable', 'last_triggered') %}
+        {% if last is none %} true {% else %}
+        {{ (now() - last).total_seconds() > 86400 }}
+        {% endif %}
+  action:
+    - action: notify.send_message
+      target:
+        entity_id:
+          - notify.mobile_app_redmi_note_13_pro_5g
+      data:
+        title: "🎉 BTC Tracker: Obiettivo raggiunto!"
+        message: >
+          Il tuo profitto Bitcoin NETTO 33% ({{ states('sensor.btc_profit_loss_net') | float(0) | round(2) }} €)
+          ha raggiunto il prezzo del {{ states('sensor.target_phone_name') }}
+          ({{ states('sensor.target_phone_price') | float(0) | round(2) }} €)!
+          
+          Progresso NETTO: {{ states('sensor.btc_progress_to_phone_net_pct') }}%
+          
+          Valore attuale BTC: {{ states('sensor.btc_current_value') | float(0) | round(2) }} €
+          Investimento: {{ states('sensor.btc_investment_eur') | float(0) | round(2) }} €
+          ROI LORDO: {{ states('sensor.btc_roi_pct') }}%
+          ROI NETTO (33%): {{ states('sensor.btc_roi_pct_net') }}%
+          Tasse stimate (33%): {{ states('sensor.btc_tax_amount') | float(0) | round(2) }} €
+          Netto per BTC: {{ states('sensor.btc_net_price_per_btc') | float(0) | round(2) }} €
+          BTC da vendere: {{ states('sensor.btc_to_sell_for_phone') }} BTC
+        tag: btc_phone_goal
+        importance: high
+        notification_icon: "mdi:bitcoin"
+        color: "#F7931A"
+  mode: single
+
+- id: btc_tracker_milestone_50
+  alias: "BTC Tracker: Milestone 50% 📈"
+  description: "Notifica al 50% del progresso NETTO verso telefono"
+  trigger:
+    - platform: template
+      value_template: >
+        {% set pct = states('sensor.btc_progress_to_phone_net_pct') | float(0) %}
+        {{ pct >= 50 and pct < 75 }}
+  condition:
+    - condition: template
+      value_template: >
+        {% set last = state_attr('automation.btc_tracker_milestone_50', 'last_triggered') %}
+        {% if last is none %} true {% else %}
+        {{ (now() - last).total_seconds() > 86400 }}
+        {% endif %}
+  action:
+    - action: notify.send_message
+      target:
+        entity_id:
+          - notify.mobile_app_redmi_note_13_pro_5g
+      data:
+        title: "📈 BTC Tracker: 50% raggiunto!"
+        message: >
+          Sei a metà strada per il {{ states('sensor.target_phone_name') }} (NETTO tasse)!
+          Profitto netto: {{ states('sensor.btc_profit_loss_net') | float(0) | round(2) }} € / {{ states('sensor.target_phone_price') | float(0) | round(2) }} €
+        tag: btc_milestone_50
+        importance: default
+        notification_icon: "mdi:chart-line"
+  mode: single
+
+- id: btc_tracker_milestone_75
+  alias: "BTC Tracker: Milestone 75% 🚀"
+  description: "Notifica al 75% del progresso NETTO verso telefono"
+  trigger:
+    - platform: template
+      value_template: >
+        {% set pct = states('sensor.btc_progress_to_phone_net_pct') | float(0) %}
+        {{ pct >= 75 and pct < 90 }}
+  condition:
+    - condition: template
+      value_template: >
+        {% set last = state_attr('automation.btc_tracker_milestone_75', 'last_triggered') %}
+        {% if last is none %} true {% else %}
+        {{ (now() - last).total_seconds() > 86400 }}
+        {% endif %}
+  action:
+    - action: notify.send_message
+      target:
+        entity_id:
+          - notify.mobile_app_redmi_note_13_pro_5g
+      data:
+        title: "🚀 BTC Tracker: 75% - Quasi là!"
+        message: >
+          Manca poco al {{ states('sensor.target_phone_name') }}!
+          Profitto netto: {{ states('sensor.btc_profit_loss_net') | float(0) | round(2) }} € / {{ states('sensor.target_phone_price') | float(0) | round(2) }} €
+          Delta netto: {{ states('sensor.btc_delta_to_phone_net') | float(0) | round(2) }} €
+        tag: btc_milestone_75
+        importance: high
+        notification_icon: "mdi:rocket-launch"
+  mode: single
+
+- id: btc_tracker_milestone_90
+  alias: "BTC Tracker: Milestone 90% 🎯"
+  description: "Notifica al 90% del progresso NETTO verso telefono"
+  trigger:
+    - platform: template
+      value_template: >
+        {% set pct = states('sensor.btc_progress_to_phone_net_pct') | float(0) %}
+        {{ pct >= 90 and pct < 100 }}
+  condition:
+    - condition: template
+      value_template: >
+        {% set last = state_attr('automation.btc_tracker_milestone_90', 'last_triggered') %}
+        {% if last is none %} true {% else %}
+        {{ (now() - last).total_seconds() > 86400 }}
+        {% endif %}
+  action:
+    - action: notify.send_message
+      target:
+        entity_id:
+          - notify.mobile_app_redmi_note_13_pro_5g
+      data:
+        title: "🎯 BTC Tracker: 90% - Ultimi metri!"
+        message: >
+          Quasi fatto per il {{ states('sensor.target_phone_name') }}!
+          Manca solo {{ states('sensor.btc_delta_to_phone_net') | float(0) | round(2) }} € (netto tasse)
+        tag: btc_milestone_90
+        importance: high
+        notification_icon: "mdi:target"
+  mode: single
+
+- id: btc_tracker_significant_loss
+  alias: "BTC Tracker: Perdita significativa ⚠️"
+  description: "Alert se perdita NETTA > 20% dell'investimento"
+  trigger:
+    - platform: template
+      value_template: >
+        {% set roi = states('sensor.btc_roi_pct_net') | float(0) %}
+        {{ roi <= -20 }}
+  condition:
+    - condition: template
+      value_template: >
+        {% set last = state_attr('automation.btc_tracker_significant_loss', 'last_triggered') %}
+        {% if last is none %} true {% else %}
+        {{ (now() - last).total_seconds() > 43200 }}
+        {% endif %}
+  action:
+    - action: notify.send_message
+      target:
+        entity_id:
+          - notify.mobile_app_redmi_note_13_pro_5g
+      data:
+        title: "⚠️ BTC Tracker: Perdita significativa"
+        message: >
+          Il tuo investimento BTC ha perso oltre il 20% (NETTO tasse).
+          ROI NETTO: {{ states('sensor.btc_roi_pct_net') }}%
+          Valore: {{ states('sensor.btc_current_value') | float(0) | round(2) }} €
+          Investito: {{ states('sensor.btc_investment_eur') | float(0) | round(2) }} €
+        tag: btc_loss_alert
+        importance: high
+        notification_icon: "mdi:alert-circle"
+        color: "#E53935"
+  mode: single
+
+- id: btc_tracker_daily_report
+  alias: "BTC Tracker: Report giornaliero 📊"
+  description: "Report riepilogativo ogni mattina alle 9:00 (valori netti tasse 33%)"
+  trigger:
+    - platform: time
+      at: "09:00:00"
+  action:
+    - action: notify.send_message
+      target:
+        entity_id:
+          - notify.mobile_app_redmi_note_13_pro_5g
+      data:
+        title: "📊 BTC Tracker: Report giornaliero"
+        message: >
+          **Bitcoin:** {{ states('sensor.bitcoin_price_eur') | float(0) | round(2) }} € (24h: {{ states('sensor.bitcoin_24h_change_pct') | float(0) | round(2) }}%)
+          
+          **Il tuo portafoglio:**
+          • BTC posseduti: {{ states('sensor.btc_amount') }} BTC
+          • Valore attuale: {{ states('sensor.btc_current_value') | float(0) | round(2) }} €
+          • Investimento: {{ states('sensor.btc_investment_eur') | float(0) | round(2) }} €
+          • Profitto LORDO: {{ states('sensor.btc_profit_loss') | float(0) | round(2) }} € ({{ states('sensor.btc_roi_pct') }}%)
+          • Tasse stimate (33%): {{ states('sensor.btc_tax_amount') | float(0) | round(2) }} €
+          • Profitto NETTO: {{ states('sensor.btc_profit_loss_net') | float(0) | round(2) }} € ({{ states('sensor.btc_roi_pct_net') }}%)
+          • Netto per BTC: {{ states('sensor.btc_net_price_per_btc') | float(0) | round(2) }} €
+          
+          **Obiettivo telefono (Xiaomi 17 Ultra):**
+          • {{ states('sensor.target_phone_name') }}: {{ states('sensor.target_phone_price') | float(0) | round(2) }} €
+          • Progresso NETTO: {{ states('sensor.btc_progress_to_phone_net_pct') }}%
+          • Delta NETTO: {{ states('sensor.btc_delta_to_phone_net') | float(0) | round(2) }} €
+          • {{ states('sensor.btc_can_buy_phone_net') }}
+          • BTC da vendere: {{ states('sensor.btc_to_sell_for_phone') }} BTC
+          
+          **Break-even BTC price:** {{ states('sensor.btc_break_even_phone_price') | float(0) | round(0) }} €/BTC
+          
+          {% if states('sensor.btc_days_to_phone_estimate') | float(0) > 0 %}
+          • Stima giorni: {{ states('sensor.btc_days_to_phone_estimate') | float(0) | round(1) }} giorni
+          {% endif %}
+        tag: btc_daily_report
+        importance: default
+        notification_icon: "mdi:chart-line"
+  mode: single

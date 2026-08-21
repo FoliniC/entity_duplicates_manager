@@ -1,0 +1,386 @@
+# ============================================================================
+# BITCOIN INVESTMENT TRACKER - Sensors Configuration
+# ============================================================================
+# Traccia investimento BTC e calcola quando profitto >= prezzo telefono target
+# Questo file viene incluso direttamente sotto 'sensor:' in configuration.yaml
+# ============================================================================
+
+  # ----------------------------------------------------------------------
+  # Bitcoin Price (CoinGecko - free, no API key, 50-100 calls/min)
+  # ----------------------------------------------------------------------
+  - platform: rest
+    name: "Bitcoin Price EUR"
+    unique_id: bitcoin_price_eur
+    resource: "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur&include_24hr_change=true&include_last_updated_at=true"
+    scan_interval: 300  # 5 minuti - rispetta rate limit CoinGecko
+    headers:
+      Accept: "application/json"
+      User-Agent: "HomeAssistant-BTC-Tracker/1.0"
+    value_template: "{{ value_json.bitcoin.eur | float(0) }}"
+    unit_of_measurement: "EUR"
+    device_class: monetary
+    state_class: measurement
+    json_attributes:
+      - "bitcoin.eur_24h_change"
+      - "bitcoin.last_updated_at"
+    icon: "mdi:currency-btc"
+
+  - platform: rest
+    name: "Bitcoin 24h Change %"
+    unique_id: bitcoin_24h_change_pct
+    resource: "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur&include_24hr_change=true"
+    scan_interval: 300
+    headers:
+      Accept: "application/json"
+    value_template: "{{ value_json.bitcoin.eur_24h_change | float(0) }}"
+    unit_of_measurement: "%"
+    device_class: none
+    state_class: measurement
+    icon: "mdi:chart-line"
+
+  # ----------------------------------------------------------------------
+  # Tuoi parametri investimento (modifica questi valori)
+  # ----------------------------------------------------------------------
+  - platform: template
+    sensors:
+      btc_investment_eur:
+        friendly_name: "Investimento BTC (EUR)"
+        unique_id: btc_investment_eur
+        icon: "mdi:cash-multiple"
+        device_class: monetary
+        state_class: total
+        unit_of_measurement: "EUR"
+        value_template: "{{ states('input_number.btc_investment_eur') | float(0) }}"
+
+      btc_amount:
+        friendly_name: "Quantità BTC posseduta"
+        unique_id: btc_amount
+        icon: "mdi:bitcoin"
+        state_class: measurement
+        unit_of_measurement: "BTC"
+        value_template: "{{ states('input_number.btc_amount') | float(0) }}"
+
+      btc_avg_buy_price:
+        friendly_name: "Prezzo medio acquisto BTC (EUR)"
+        unique_id: btc_avg_buy_price
+        icon: "mdi:calculator"
+        device_class: monetary
+        state_class: measurement
+        unit_of_measurement: "EUR"
+        value_template: "{{ states('input_number.btc_avg_buy_price') | float(0) }}"
+
+  # ----------------------------------------------------------------------
+  # Calcoli valore attuale e profitto
+  # ----------------------------------------------------------------------
+  - platform: template
+    sensors:
+      btc_current_value:
+        friendly_name: "Valore attuale BTC (EUR)"
+        unique_id: btc_current_value
+        icon: "mdi:currency-eur"
+        device_class: monetary
+        state_class: total
+        unit_of_measurement: "EUR"
+        value_template: >
+          {% set btc = states('sensor.btc_amount') | float(0) %}
+          {% set price = states('sensor.bitcoin_price_eur') | float(0) %}
+          {{ (btc * price) | round(2) }}
+
+      btc_profit_loss:
+        friendly_name: "Profitto/Perdita BTC (EUR)"
+        unique_id: btc_profit_loss
+        icon: "mdi:chart-line"
+        device_class: monetary
+        state_class: total
+        unit_of_measurement: "EUR"
+        value_template: >
+          {% set current = states('sensor.btc_current_value') | float(0) %}
+          {% set invested = states('sensor.btc_investment_eur') | float(0) %}
+          {{ (current - invested) | round(2) }}
+
+      btc_profit_loss_pct:
+        friendly_name: "Profitto/Perdita BTC (%)"
+        unique_id: btc_profit_loss_pct
+        icon: "mdi:percent"
+        device_class: none
+        state_class: measurement
+        unit_of_measurement: "%"
+        value_template: >
+          {% set profit = states('sensor.btc_profit_loss') | float(0) %}
+          {% set invested = states('sensor.btc_investment_eur') | float(0) %}
+          {% if invested > 0 %}
+            {{ ((profit / invested) * 100) | round(2) }}
+          {% else %}
+            0
+          {% endif %}
+
+  # ----------------------------------------------------------------------
+  # Telefono target - parametri configurabili
+  # ----------------------------------------------------------------------
+  - platform: template
+    sensors:
+      target_phone_price:
+        friendly_name: "Prezzo telefono target (EUR)"
+        unique_id: target_phone_price
+        icon: "mdi:cellphone"
+        device_class: monetary
+        state_class: total
+        unit_of_measurement: "EUR"
+        value_template: "{{ states('input_number.target_phone_price') | float(0) }}"
+
+      target_phone_name:
+        friendly_name: "Modello telefono target"
+        unique_id: target_phone_name
+        icon: "mdi:cellphone-information"
+        value_template: "{{ states('input_text.target_phone_name') }}"
+
+      target_phone_url:
+        friendly_name: "URL monitoraggio prezzo telefono"
+        unique_id: target_phone_url
+        icon: "mdi:link"
+        value_template: "{{ states('input_text.target_phone_url') }}"
+
+  # ----------------------------------------------------------------------
+  # Delta: quanto manca per comprare il telefono
+  # ----------------------------------------------------------------------
+  - platform: template
+    sensors:
+      btc_delta_to_phone:
+        friendly_name: "Delta per telefono (EUR)"
+        unique_id: btc_delta_to_phone
+        icon: "mdi:calculator-variant"
+        device_class: monetary
+        state_class: measurement
+        unit_of_measurement: "EUR"
+        value_template: >
+          {% set profit = states('sensor.btc_profit_loss') | float(0) %}
+          {% set phone = states('sensor.target_phone_price') | float(0) %}
+          {{ (phone - profit) | round(2) }}
+
+      btc_can_buy_phone:
+        friendly_name: "Puoi comprare il telefono?"
+        unique_id: btc_can_buy_phone
+        icon: "mdi:check-circle-outline"
+        device_class: none
+        value_template: >
+          {% set profit = states('sensor.btc_profit_loss') | float(0) %}
+          {% set phone = states('sensor.target_phone_price') | float(0) %}
+          {% if profit >= phone %}
+            "SÌ ✅"
+          {% else %}
+            "NO ❌"
+          {% endif %}
+
+      btc_progress_to_phone_pct:
+        friendly_name: "Progresso verso telefono (%)"
+        unique_id: btc_progress_to_phone_pct
+        icon: "mdi:progress-clock"
+        device_class: none
+        state_class: measurement
+        unit_of_measurement: "%"
+        value_template: >
+          {% set profit = states('sensor.btc_profit_loss') | float(0) %}
+          {% set phone = states('sensor.target_phone_price') | float(0) %}
+          {% if phone > 0 %}
+            {{ ([(profit / phone * 100), 100] | min) | round(1) }}
+          {% else %}
+            0
+          {% endif %}
+
+  # ----------------------------------------------------------------------
+  # Statistiche aggiuntive
+  # ----------------------------------------------------------------------
+  - platform: template
+    sensors:
+      btc_roi_pct:
+        friendly_name: "ROI BTC (%)"
+        unique_id: btc_roi_pct
+        icon: "mdi:chart-line"
+        device_class: none
+        state_class: measurement
+        unit_of_measurement: "%"
+        value_template: "{{ states('sensor.btc_profit_loss_pct') }}"
+
+      # --- TASSAZIONE ITALIANA 2026+ (33% su tutte le plusvalenze, nessuna esenzione 2000€) ---
+      # Art. 1 c.24 L. Bilancio 2025: aliquota 33% per plusvalenze realizzate dal 1/1/2026
+      # Bitcoin non è e-money token MiCAR → no eccezione 26%
+      btc_taxable_gain:
+        friendly_name: "Plusvalenza tassabile (EUR)"
+        unique_id: btc_taxable_gain
+        icon: "mdi:calculator"
+        device_class: monetary
+        state_class: total
+        unit_of_measurement: "EUR"
+        value_template: >
+          {% set profit = states('sensor.btc_profit_loss') | float(0) %}
+          {% if profit > 0 %}
+            {{ profit | round(2) }}
+          {% else %}
+            0
+          {% endif %}
+
+      btc_tax_amount:
+        friendly_name: "Tasse stimate 33% (EUR)"
+        unique_id: btc_tax_amount
+        icon: "mdi:cash-minus"
+        device_class: monetary
+        state_class: total
+        unit_of_measurement: "EUR"
+        value_template: >
+          {% set taxable = states('sensor.btc_taxable_gain') | float(0) %}
+          {{ (taxable * 0.33) | round(2) }}
+
+      btc_profit_loss_net:
+        friendly_name: "Profitto/Perdita NETTO tasse (EUR)"
+        unique_id: btc_profit_loss_net
+        icon: "mdi:chart-line"
+        device_class: monetary
+        state_class: total
+        unit_of_measurement: "EUR"
+        value_template: >
+          {% set profit = states('sensor.btc_profit_loss') | float(0) %}
+          {% set tax = states('sensor.btc_tax_amount') | float(0) %}
+          {{ (profit - tax) | round(2) }}
+
+      btc_roi_pct_net:
+        friendly_name: "ROI NETTO tasse (%)"
+        unique_id: btc_roi_pct_net
+        icon: "mdi:chart-line"
+        device_class: none
+        state_class: measurement
+        unit_of_measurement: "%"
+        value_template: >
+          {% set net_profit = states('sensor.btc_profit_loss_net') | float(0) %}
+          {% set invested = states('sensor.btc_investment_eur') | float(0) %}
+          {% if invested > 0 %}
+            {{ ((net_profit / invested) * 100) | round(2) }}
+          {% else %}
+            0
+          {% endif %}
+
+      # --- PREZZO NETTO EQUIVALENTE PER BTC (formula corretta 33%) ---
+      # Se prezzo >= costo: netto = prezzo * (1 - 0.33) + costo * 0.33
+      # Se prezzo < costo: netto = prezzo (minusvalenza, no tasse)
+      btc_net_price_per_btc:
+        friendly_name: "Prezzo netto equivalente per BTC (dopo tasse)"
+        unique_id: btc_net_price_per_btc
+        icon: "mdi:cash-multiple"
+        device_class: monetary
+        state_class: measurement
+        unit_of_measurement: "EUR"
+        value_template: >
+          {% set price = states('sensor.bitcoin_price_eur') | float(0) %}
+          {% set cost = states('sensor.btc_avg_buy_price') | float(0) %}
+          {% if price >= cost %}
+            {{ (price * 0.67 + cost * 0.33) | round(2) }}
+          {% else %}
+            {{ price | round(2) }}
+          {% endif %}
+
+      # --- BTC DA VENDERE PER OBIETTIVO NETTO ---
+      btc_to_sell_for_phone:
+        friendly_name: "BTC da vendere per telefono (netto tasse)"
+        unique_id: btc_to_sell_for_phone
+        icon: "mdi:bitcoin"
+        state_class: measurement
+        unit_of_measurement: "BTC"
+        value_template: >
+          {% set phone = states('sensor.target_phone_price') | float(0) %}
+          {% set net_price = states('sensor.btc_net_price_per_btc') | float(0) %}
+          {% if net_price > 0 %}
+            {{ (phone / net_price) | round(8) }}
+          {% else %}
+            0
+          {% endif %}
+
+      # --- BREAK-EVEN PER TELEFONO (NETTO TASSE 33%) ---
+      btc_break_even_phone_price:
+        friendly_name: "Prezzo BTC break-even telefono (netto tasse 33%)"
+        unique_id: btc_break_even_phone_price
+        icon: "mdi:target-account"
+        device_class: monetary
+        state_class: measurement
+        unit_of_measurement: "EUR"
+        value_template: >
+          {% set btc = states('sensor.btc_amount') | float(0) %}
+          {% set invested = states('sensor.btc_investment_eur') | float(0) %}
+          {% set phone = states('sensor.target_phone_price') | float(0) %}
+          {% set cost = states('sensor.btc_avg_buy_price') | float(0) %}
+          {# Risolvi: btc * netto(prezzo) - invested = phone #}
+          {# netto(p) = p*0.67 + cost*0.33 (se p >= cost) #}
+          {# btc*(p*0.67 + cost*0.33) - invested = phone #}
+          {# btc*p*0.67 = phone + invested - btc*cost*0.33 #}
+          {# p = (phone + invested - btc*cost*0.33) / (btc*0.67) #}
+          {% set numerator = phone + invested - btc * cost * 0.33 %}
+          {% set denominator = btc * 0.67 %}
+          {% if denominator > 0 %}
+            {{ (numerator / denominator) | round(0) }}
+          {% else %}
+            0
+          {% endif %}
+
+      btc_progress_to_phone_net_pct:
+        friendly_name: "Progresso verso telefono NETTO (%)"
+        unique_id: btc_progress_to_phone_net_pct
+        icon: "mdi:progress-clock"
+        device_class: none
+        state_class: measurement
+        unit_of_measurement: "%"
+        value_template: >
+          {% set net_profit = states('sensor.btc_profit_loss_net') | float(0) %}
+          {% set phone = states('sensor.target_phone_price') | float(0) %}
+          {% if phone > 0 %}
+            {{ ([(net_profit / phone * 100), 100] | min) | round(1) }}
+          {% else %}
+            0
+          {% endif %}
+
+      btc_can_buy_phone_net:
+        friendly_name: "Puoi comprare il telefono? (netto tasse 33%)"
+        unique_id: btc_can_buy_phone_net
+        icon: "mdi:check-circle-outline"
+        device_class: none
+        value_template: >
+          {% set net_profit = states('sensor.btc_profit_loss_net') | float(0) %}
+          {% set phone = states('sensor.target_phone_price') | float(0) %}
+          {% if net_profit >= phone %}
+            "SÌ ✅"
+          {% else %}
+            "NO ❌"
+          {% endif %}
+
+      btc_delta_to_phone_net:
+        friendly_name: "Delta per telefono NETTO (EUR)"
+        unique_id: btc_delta_to_phone_net
+        icon: "mdi:calculator-variant"
+        device_class: monetary
+        state_class: measurement
+        unit_of_measurement: "EUR"
+        value_template: >
+          {% set net_profit = states('sensor.btc_profit_loss_net') | float(0) %}
+          {% set phone = states('sensor.target_phone_price') | float(0) %}
+          {{ (phone - net_profit) | round(2) }}
+
+      btc_days_to_phone_estimate:
+        friendly_name: "Giorni stimati per telefono (trend 24h NETTO)"
+        unique_id: btc_days_to_phone_estimate
+        icon: "mdi:calendar-clock"
+        device_class: none
+        state_class: measurement
+        unit_of_measurement: "days"
+        value_template: >
+          {% set profit = states('sensor.btc_profit_loss_net') | float(0) %}
+          {% set phone = states('sensor.target_phone_price') | float(0) %}
+          {% set change_24h = states('sensor.bitcoin_24h_change_pct') | float(0) %}
+          {% set current_val = states('sensor.btc_current_value') | float(0) %}
+          {% set daily_eur_change = (current_val * change_24h / 100) | float(0) %}
+          {# Approssima variazione netta giornaliera #}
+          {% set daily_net_change = daily_eur_change * 0.67 %}
+          {% set remaining = phone - profit %}
+          {% if daily_net_change > 0 and remaining > 0 %}
+            {{ (remaining / daily_net_change) | round(1) }}
+          {% elif remaining <= 0 %}
+            0
+          {% else %}
+            -1
+          {% endif %}

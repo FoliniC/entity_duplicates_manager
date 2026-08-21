@@ -1,0 +1,22 @@
+Problema logs/ directory:
+
+Nel container: /config/logs è un symlink → /mnt/ha_storage/logs
+Sull'host: /mnt/ha_storage/logs esiste ma manca la subdirectory usb_tether
+Quando lo script fa mkdir -p /config/logs/usb_tether:
+Segue il symlink → cerca di creare /mnt/ha_storage/logs/usb_tether
+Fallisce perché la directory padre esiste ma il container non ha permessi di scrittura su quel filesystem host (probabilmente mount NFS/CIFS con root_squash o permessi restrittivi)
+Evidenza:
+
+# Nel container
+lrwxrwxrwx 1 root root 20 Aug 20 15:17 logs -> /mnt/ha_storage/logs
+ls /mnt/ha_storage/logs/usb_tether  # No such file or directory
+
+# Sull'host
+/mnt/ha_storage/logs/usb_tether  # Non esiste
+mkdir -p /mnt/ha_storage/logs/usb_tether  # Operation not permitted
+Fix richiesto sull'host (192.168.0.3):
+
+mkdir -p /mnt/ha_storage/logs/usb_tether
+chmod 777 /mnt/ha_storage/logs/usb_tether
+# O assicurare che l'utente del container (root/1000) abbia write access
+Il container è configurato correttamente (symlink al posto giusto), manca solo la directory fisica sullo storage host con permessi adeguati.

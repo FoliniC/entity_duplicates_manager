@@ -265,6 +265,9 @@ sensor:
         window_size: "00:00:10"
         precision: 1
 
+  # Bitcoin Investment Tracker
+  - !include yaml_generator/sensor_bitcoin_tracker.yaml
+
 # ============================================================================
 # BINARY SENSORS
 # ============================================================================
@@ -563,6 +566,12 @@ lovelace:
       icon: mdi:amazon-alexa
       show_in_sidebar: true
       filename: dashboards/alexa_control.yaml
+    btc-investment-tracker:
+      mode: yaml
+      title: ₿ BTC Investment Tracker
+      icon: mdi:bitcoin
+      show_in_sidebar: true
+      filename: dashboards/btc_investment_tracker.yaml
 
 
 # ============================================================================
@@ -579,6 +588,7 @@ pyscript:
   config: pyscript.toml
   apps:
     halog2026_app: null
+    btc_tracker_app: null
 
 # ============================================================================
 # SAVER

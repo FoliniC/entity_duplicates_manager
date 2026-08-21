@@ -48,7 +48,7 @@ command_line:
       name: USB Tether Status
       unique_id: usb_tether_status
       command: >
-        /config/helpers/usb_tether_ha.sh status server "{{ states('input_select.usb_tether_host') }}" "{{ states('input_number.usb_tether_max_duration') | int(60) }}"
+        /config/helpers/usb_tether_ha.sh status server auto "{{ states('input_number.usb_tether_max_duration') | int(60) }}"
       value_template: "{{ value_json.state | default('error') }}"
       command_timeout: 30
       json_attributes:
@@ -85,19 +85,25 @@ template:
           {% set m = state_attr('sensor.usb_tether_status', 'mode') | default('') %}
           {% set msg = states('input_text.usb_tether_status_message') %}
           {% set host = states('input_select.usb_tether_host') | default('') %}
+          {% set ts = state_attr('sensor.usb_tether_status', 'active_since') | default('') %}
+          {% set upd = state_attr('sensor.usb_tether_status', 'last_updated') | default('') %}
+          {% set disp_ts = ts if ts else upd %}
+          {% set display_ts = disp_ts if disp_ts else now().strftime('%Y-%m-%d %H:%M:%S') %}
+          {% set line = 'INATTIVO - route normale via router' %}
           {% if msg != '' %}
-            {{ msg }}
+            {% set line = msg %}
           {% elif s == 'unavailable' %}
-            ERRORE: comando non eseguibile - controlla log e connessione SSH
+            {% set line = 'ERRORE: comando non eseguibile - controlla log e connessione SSH' %}
           {% elif s == 'error' %}
-            ERRORE: {{ state_attr('sensor.usb_tether_status', 'message') | default('controlla log') }}
+            {% set line = 'ERRORE: ' ~ (state_attr('sensor.usb_tether_status', 'message') | default('controlla log')) %}
           {% elif s == 'active' and m == 'intranet' %}
-            INTRANET ATTIVA - tutta la LAN via {{ host.split('(')[0].strip() }} (gateway internet)
+            {% set line = 'INTRANET ATTIVA - tutta la LAN via ' ~ host.split('(')[0].strip() ~ ' (gateway internet)' %}
           {% elif s == 'active' and m == 'server' %}
-            SERVER ATTIVO - solo server via {{ host.split('(')[0].strip() }} (gateway internet)
-          {% else %}
-            INATTIVO - route normale via router
+            {% set line = 'SERVER ATTIVO - solo server via ' ~ host.split('(')[0].strip() ~ ' (gateway internet)' %}
+          {% elif s == 'restoring' %}
+            {% set line = 'Ripristino routing normale in corso...' %}
           {% endif %}
+          {{ line }} @ {{ display_ts }}
         attributes:
           mode: "{{ state_attr('sensor.usb_tether_status', 'mode') | default('') }}"
           phone_if: "{{ state_attr('sensor.usb_tether_status', 'phone_if') }}"
@@ -402,7 +408,9 @@ automation:
                 target:
                   entity_id: input_select.usb_tether_host
                 data:
-                  option: "{{ states('input_select.usb_tether_host') }}"
+                  option: >-
+                    {% set phone_if = state_attr('sensor.usb_tether_status', 'phone_if') | default('') %}
+                    {{ 'Windows 11 (192.168.0.8)' if phone_if == 'Ethernet 2' else states('input_select.usb_tether_host') }}
           - conditions:
               - condition: state
                 entity_id: sensor.usb_tether_status

@@ -101,6 +101,26 @@ schedule_self() {
   setsid "$0" "$action" "$delay" "$HOST" "$DURATION" >/dev/null 2>&1 < /dev/null &
 }
 
+# atexec.py esegue PowerShell senza una console interattiva. Write-Host e gli
+# stream PowerShell vengono quindi serializzati in CLIXML, non emessi come una
+# riga JSON nuda. Estraiamo il JSON dallo stream prima di prendere decisioni
+# sul routing: il codice di uscita di atexec.py dice solo che il task remoto è
+# partito, non che l'attivazione del NAT Windows sia riuscita.
+extract_windows_json() {
+  printf '%s\n' "$1" | tr -d '\r' \
+    | grep -oE '\{[^{}]*"state"[[:space:]]*:[[:space:]]*"(active|error|idle|restoring)"[^{}]*\}' \
+    | tail -1
+}
+
+# cmd_detect può emettere un warning ed uscire con codice 0 quando il telefono
+# non c'è. Accettiamo solo il formato effettivo IFACE|IPv4, mai testo generico.
+# L'alias di Windows può contenere spazi (ad esempio "Ethernet 2").
+extract_phone_detection() {
+  printf '%s\n' "$1" | tr -d '\r' \
+    | grep -E '^.+\|([0-9]{1,3}\.){3}[0-9]{1,3}$' \
+    | tail -1
+}
+
 run_status() {
   local out rc line
 
@@ -124,16 +144,31 @@ run_status() {
     return 0
   fi
 
+  # Il selettore HA torna al valore iniziale dopo alcuni riavvii; non deve
+  # quindi poter nascondere un'intranet Windows già attiva. In modalità auto
+  # Windows è la fonte prioritaria: se è active/restoring/error la riportiamo,
+  # altrimenti interroghiamo Debian.
+  if [[ "$HOST" == "auto" ]]; then
+    local auto_out auto_rc auto_line
+    # Lo stato è leggibile anche via OpenSSH non elevato e questo evita il
+    # polling ATSVC/SMB di atexec.py, troppo lento per command_line (30s).
+    auto_out=$(ssh_windows "powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 -Action status" 2>&1)
+    auto_rc=$?
+    auto_line=$(extract_windows_json "$auto_out")
+    if (( auto_rc == 0 )) && [[ -n "$auto_line" ]] \
+       && [[ "$auto_line" != *'"state":"idle"'* ]]; then
+      printf '%s\n' "$auto_line"
+      return 0
+    fi
+    HOST="Debian (192.168.0.3)"
+  fi
+
   if [[ "$HOST" == *"Windows"* ]]; then
-    # Usa atexec.py per leggere lo stato (richiede elevazione per leggere C:\ProgramData\usb_tether_state.json)
-    local ps_cmd="C:/Scripts/usb_tether.ps1 -Action status -ViaScheduledTask"
-    out=$(run_atexec "$ps_cmd")
+    # Status non richiede mutazioni privilegiate: SSH diretto è molto più
+    # rapido e impedisce che il sensore command_line resti indietro.
+    out=$(ssh_windows "powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 -Action status" 2>&1)
     rc=$?
-    
-    # run_atexec output include log Impacket + JSON (con possibile BOM UTF-8: \xEF\xBB\xBF).
-    # Estrae l'ultima occorrenza di JSON valido con campo "state" (ignorando BOM e log).
-    # Usa sed per rimuovere BOM, poi grep per JSON con "state"
-    out=$(printf '%s\n' "$out" | sed 's/\xEF\xBB\xBF//g' | grep -E '\{.*"state"\s*:\s*"(active|error|idle|restoring)"' | tail -1)
+    out=$(extract_windows_json "$out")
   else
     out="$(ssh_debian "/home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh status" 2>&1)"
     rc=$?
@@ -189,13 +224,14 @@ run_atexec() {
 }
 
 activate_windows() {
-  local out rc router_out router_rc
+  local out rc router_out router_rc result_json detect_line
   
   # PRE-FLIGHT CHECK: Verifica che il tethering USB sia disponibile su Windows
   local detect_out
   detect_out="$(ssh_windows "powershell -NoProfile -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 -Action detect" 2>&1)"
   local detect_rc=$?
-  if (( detect_rc != 0 )) || [[ -z "$detect_out" ]]; then
+  detect_line=$(extract_phone_detection "$detect_out")
+  if (( detect_rc != 0 )) || [[ -z "$detect_line" ]]; then
     log_line ERROR "PRE-FLIGHT FALLITO: Nessun tethering USB rilevato su Windows. Output: $detect_out"
     # Write error marker for sensor to pick up
     printf '%s\n%s\n' "Tethering USB non disponibile su Windows: collega il telefono e attiva il tethering USB prima di procedere" "$(date '+%Y-%m-%d %H:%M:%S')" > "$ERROR_MARKER"
@@ -204,7 +240,7 @@ activate_windows() {
   fi
   # Clear error marker on success
   rm -f "$ERROR_MARKER" 2>/dev/null || true
-  log_line INFO "PRE-FLIGHT OK: Tethering USB rilevato su Windows -> $detect_out"
+  log_line INFO "PRE-FLIGHT OK: Tethering USB rilevato su Windows -> $detect_line"
   
   # Pulizia di sicurezza: un marker rimasto da un restore precedente
   # interrotto bloccherebbe run_status su "restoring" per sempre.
@@ -220,19 +256,29 @@ activate_windows() {
   
   # atexec.py ritorna output diretto, niente polling file necessario
   # Controlla se l'output contiene JSON di errore
-  local result_json
-  result_json=$(printf '%s\n' "$out" | grep -E '^\s*\{.*"state"\s*:\s*"(active|error)"' | tail -1)
-  
-  if [[ -n "$result_json" && "$result_json" == *"error"* ]]; then
+  result_json=$(extract_windows_json "$out")
+
+  if (( rc != 0 )); then
+    log_line ERROR "Attivazione Windows via atexec.py fallita rc=$rc"
+    json_error "attivazione Windows fallita rc=$rc"
+    return 0
+  elif [[ -z "$result_json" ]]; then
+    # Non modificare MAI le route del router senza una conferma esplicita che
+    # Windows abbia creato il NAT. In precedenza questo ramo proseguiva e
+    # rimuoveva usb0 anche dopo un errore del task remoto, isolando la LAN.
+    log_line ERROR "atexec.py non ha restituito uno stato Windows verificabile"
+    json_error "attivazione Windows non verificabile: route router non modificata"
+    return 0
+  elif [[ "$result_json" == *'"state":"error"'* ]]; then
     log_line ERROR "Attivazione Windows fallita: $result_json"
     local msg
     msg=$(echo "$result_json" | sed -n 's/.*"message":"\([^"]*\)".*/\1/p')
     json_error "${msg:-Attivazione Windows fallita}"
     return 0
-  elif [[ -z "$result_json" ]]; then
-    # Fallback: se atexec non ha restituito JSON parsabile, logga e procedi
-    log_line WARN "atexec.py output non contiene JSON stato atteso: $out"
-    # Non bloccare - il router side potrebbe aver funzionato
+  elif [[ "$result_json" != *'"state":"active"'* ]]; then
+    log_line ERROR "Attivazione Windows non confermata: $result_json"
+    json_error "attivazione Windows non confermata: route router non modificata"
+    return 0
   else
     log_line INFO "Attivazione Windows confermata: $result_json"
   fi
@@ -270,6 +316,12 @@ activate_windows() {
     log_line INFO "TRANSIZIONE Windows intranet: WAN router $ROUTER_WAN_IF mantenuta (protezione flussi attiva), poi cutover graceful via $WINDOWS_GW"
     schedule_self router_cutover_windows 2
   fi
+
+  # Il Task Scheduler Windows eseguito da atexec/SYSTEM non può coordinare il
+  # ripristino delle route OpenWrt e in alcune installazioni non si registra
+  # affatto (HRESULT 0x80070534). Il watchdog deve quindi restare qui, dove
+  # può ripristinare router e NAT nell'ordine corretto.
+  schedule_self auto_restore_windows "$((DURATION * 60))"
 
   printf '{"state":"activating","mode":"%s","message":"Attivazione in corso..."}\n' "$MODE"
 }
@@ -372,9 +424,18 @@ restore_windows() {
   #    di un passo invece che risolto).
   # USA ATEXEC.PY COME SYSTEM per il restore Windows (dopo drenaggio router)
   # Nota: questo viene chiamato da router_finish_restore_windows dopo il drenaggio
-  # Qui non facciamo nulla - il restore Windows vero e proprio è in router_finish_restore_windows
+  # Il job separato attende il drenaggio conntrack e poi spegne il NAT Windows.
+  schedule_self router_finish_restore_windows 0
 
   printf '{"state":"restoring","mode":"server","message":"Ripristino in corso..."}\n'
+}
+
+auto_restore_windows() {
+  local delay="${MODE:-0}"
+  case "$delay" in ''|*[!0-9]*) delay=0 ;; esac
+  sleep "$delay"
+  log_line INFO "WATCHDOG HA: durata Windows scaduta, avvio restore coordinato"
+  restore_windows >/dev/null 2>&1 || log_line ERROR "WATCHDOG HA: restore Windows fallito"
 }
 
 router_cutover_windows() {
@@ -410,7 +471,10 @@ router_finish_restore_windows() {
   # bisogno del NAT Windows per uscire su internet - spegnerlo prima li romperebbe
   # comunque.
   while [ "$waited" -lt "$max_wait" ]; do
-    still_active="$(ssh_router "iptables -t mangle -S TETHER_${ROUTER_MARK_LEAVE_ANCHOR} >/dev/null 2>&1 && echo 1 || echo 0" 2>/dev/null | tr -d '\r' | tail -1)"
+    # La chain resta creata anche dopo il drain; verificarne solo l'esistenza
+    # farebbe attendere sempre il tetto di 6 ore. Il drain è concluso quando
+    # non resta più la regola CONNMARK che instrada i flussi protetti.
+    still_active="$(ssh_router "iptables -t mangle -S TETHER_${ROUTER_MARK_LEAVE_ANCHOR} 2>/dev/null | grep -q -- '-j CONNMARK' && echo 1 || echo 0" 2>/dev/null | tr -d '\r' | tail -1)"
     [ "$still_active" = "0" ] && break
     sleep 20
     waited=$((waited + 20))
@@ -467,6 +531,9 @@ case "$ACTION" in
     ;;
   router_finish_restore_windows)
     router_finish_restore_windows
+    ;;
+  auto_restore_windows)
+    auto_restore_windows
     ;;
   activate)
     if [[ "$HOST" == *"Windows"* ]]; then

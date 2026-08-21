@@ -1,16 +1,22 @@
 - id: 'frigate_cucina_person'
   alias: 'Frigate: Persona rilevata cucina'
-  description: Notifica su Redmi Note 13 Pro 5G quando Frigate rileva una persona sulla camera cucina (balcone)
+  description: Notifica su Redmi Note 13 Pro 5G quando Frigate rileva una persona sulla camera cucina (zona balcone)
   triggers:
     - platform: mqtt
       topic: frigate/events
-      value_template: '{{ value_json.type == "new" and value_json.label == "person" and value_json.camera == "cucina" }}'
-  conditions: []
+      value_template: '{{ value_json.type == "new" and value_json.label == "person" and value_json.camera == "cucina" and "balcone" in value_json.zones }}'
+  conditions:
+    - condition: template
+      value_template: >-
+        {% set last = states.automation.frigate_cucina_person.attributes.last_triggered %}
+        {% if last is none %} true {% else %}
+        {{ (now() - last).total_seconds() > 300 }}
+        {% endif %}
   action:
     - action: notify.mobile_app_redmi_note_13_pro_5g
       data:
         title: "🚨 Persona rilevata - Cucina/Balcone"
-        message: "Persona rilevata dalla camera **Cucina** alle {{ now().strftime('%H:%M:%S') }} del {{ now().strftime('%d/%m/%Y') }}"
+        message: "Persona rilevata dalla camera **Cucina** (zona balcone) alle {{ now().strftime('%H:%M:%S') }} del {{ now().strftime('%d/%m/%Y') }}"
         data:
           tag: frigate_cucina_person
           importance: high
