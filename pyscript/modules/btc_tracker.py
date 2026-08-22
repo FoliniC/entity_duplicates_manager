@@ -8,6 +8,9 @@ Formula netto per BTC: se prezzo>=costo → prezzo*0.67 + costo*0.33, altrimenti
 Monitoraggio prezzo telefono: Xiaomi 17 Ultra 16/512GB via Trovaprezzi/Idealo
 Da posizionare in: /config/pyscript/modules/btc_tracker.py
 ============================================================================
+
+NOTE: This module uses JSON file persistence at /config/.storage/btc_tracker_data.json
+instead of pyscript.app_config which is context-scoped.
 """
 
 # Dummy decorators per import safety (linting)
@@ -42,10 +45,35 @@ COST_BASIS_PER_BTC = 54000.0  # Costo fiscale per BTC (acquisto 29/06/2026)
 TARGET_PHONE_MODEL = "Xiaomi 17 Ultra 16/512GB"
 TARGET_PHONE_URL = "https://www.trovaprezzi.it/prezzo_cellulari_xiaomi_17_ultra"
 
+# Persistenza su file JSON
+DATA_FILE = "/config/.storage/btc_tracker_data.json"
+
 
 # ============================================================================
-# HELPER FUNCTIONS
+# HELPER FUNCTIONS - Persistence via JSON file
 # ============================================================================
+def _load_data():
+    """Load persistent data from JSON file."""
+    import json
+    import os
+    try:
+        if os.path.exists(DATA_FILE):
+            with open(DATA_FILE, 'r') as f:
+                return json.load(f)
+    except (json.JSONDecodeError, IOError):
+        pass
+    return {'snapshots': [], 'last_milestone': 0}
+
+
+def _save_data(data):
+    """Save persistent data to JSON file."""
+    import json
+    import os
+    os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
+    with open(DATA_FILE, 'w') as f:
+        json.dump(data, f)
+
+
 def _get_state(entity_id, default=0):
     """Safely get entity state as float."""
     try:
@@ -59,25 +87,7 @@ def _get_state(entity_id, default=0):
 
 def _set_state(entity_id, value, attributes=None):
     """Set state for a sensor (creates if not exists)."""
-    hass.states.set(entity_id, value, attributes or {})
-
-
-def _persist_history(key, value, max_entries=HISTORY_MAX_ENTRIES):
-    """Persist value to history in pyscript storage."""
-    history = pyscript.app_config.get(f"{BTC_TRACKER_NAMESPACE}.{key}", [])
-    history.append({
-        'timestamp': datetime.now().isoformat(),
-        'value': value
-    })
-    if len(history) > max_entries:
-        history = history[-max_entries:]
-    pyscript.app_config[f"{BTC_TRACKER_NAMESPACE}.{key}"] = history
-    return history
-
-
-def _get_history(key):
-    """Get history from pyscript storage."""
-    return pyscript.app_config.get(f"{BTC_TRACKER_NAMESPACE}.{key}", [])
+    hass.states.async_set(entity_id, value, attributes or {})
 
 
 def _prezzo_netto_per_btc(prezzo_attuale, costo=None):
@@ -94,28 +104,6 @@ def _prezzo_netto_per_btc(prezzo_attuale, costo=None):
         return prezzo_attuale
 
 
-def _btc_da_vendere(obiettivo_netto_eur, prezzo_attuale, costo=None):
-    """Quanti BTC vendere per ottenere X euro netti in tasca."""
-    prezzo_netto = _prezzo_netto_per_btc(prezzo_attuale, costo)
-    if prezzo_netto > 0:
-        return obiettivo_netto_eur / prezzo_netto
-    return 0
-
-
-def _break_even_price(obiettivo_netto_eur, btc_posseduti, investito, costo):
-    """
-    Risolve: btc * netto(prezzo) - investito = obiettivo
-    netto(p) = p*(1-t) + costo*t  (per p >= costo)
-    btc*(p*(1-t) + costo*t) - investito = obiettivo
-    p = (obiettivo + investito - btc*costo*t) / (btc*(1-t))
-    """
-    denominator = btc_posseduti * (1 - TAX_RATE)
-    if denominator > 0:
-        numerator = obiettivo_netto_eur + investito - btc_posseduti * costo * TAX_RATE
-        return numerator / denominator
-    return 0
-
-
 # ============================================================================
 # SERVIZI PUBBLICI
 # ============================================================================
@@ -129,7 +117,7 @@ def record_snapshot():
     from datetime import datetime
     
     prezzo_attuale = _get_state('sensor.bitcoin_price_eur')
-    costo = _get_state('sensor.btc_avg_buy_price')
+    costo = _get_state('sensor.btc_cost_basis_eur_template')
     prezzo_netto = _prezzo_netto_per_btc(prezzo_attuale, costo)
     
     snapshot = {
@@ -152,30 +140,29 @@ def record_snapshot():
         'btc_break_even_phone_price': _get_state('sensor.btc_break_even_phone_price'),
     }
     
-    _persist_history('snapshots', snapshot)
+    data = _load_data()
+    data['snapshots'].append(snapshot)
+    if len(data['snapshots']) > HISTORY_MAX_ENTRIES:
+        data['snapshots'] = data['snapshots'][-HISTORY_MAX_ENTRIES:]
+    _save_data(data)
     
-    history = _get_history('snapshots')
-    _set_state('sensor.btc_tracker_snapshots_count', len(history), {
+    _set_state('sensor.btc_tracker_snapshots_count', len(data['snapshots']), {
         'friendly_name': 'BTC Tracker Snapshots Count',
         'unit_of_measurement': 'snapshots',
         'last_snapshot': snapshot['timestamp']
     })
     
-    log.info(f"BTC Tracker: Snapshot recorded. Total: {len(history)}")
-    return {'recorded': True, 'total_snapshots': len(history)}
+    log.info(f"BTC Tracker: Snapshot recorded. Total: {len(data['snapshots'])}")
+    return {'recorded': True, 'total_snapshots': len(data['snapshots'])}
 
 
 @service("btc_tracker.get_history")
 def get_history(hours=24, limit=100):
-    """
-    Restituisce storico degli snapshot.
-    Args:
-        hours: Ore indietro da recuperare
-        limit: Max entries to return
-    """
+    """Restituisce storico degli snapshot."""
     from datetime import datetime, timedelta
     
-    history = _get_history('snapshots')
+    data = _load_data()
+    history = data.get('snapshots', [])
     cutoff = datetime.now() - timedelta(hours=hours)
     
     filtered = [
@@ -192,13 +179,11 @@ def get_history(hours=24, limit=100):
 
 @service("btc_tracker.calculate_trend")
 def calculate_trend(hours=24):
-    """
-    Calcola trend del profitto NETTO BTC nelle ultime N ore.
-    Restituisce: trend direction, velocity, projection.
-    """
+    """Calcola trend del profitto NETTO BTC nelle ultime N ore."""
     from datetime import datetime, timedelta
     
-    history = _get_history('snapshots')
+    data = _load_data()
+    history = data.get('snapshots', [])
     cutoff = datetime.now() - timedelta(hours=hours)
     
     filtered = [
@@ -210,12 +195,8 @@ def calculate_trend(hours=24):
         return {'error': 'Not enough data points'}
     
     # Linear regression sui punti profit/loss NETTO
-    x_vals = []
-    y_vals = []
-    
-    for i, h in enumerate(filtered):
-        x_vals.append(i)
-        y_vals.append(h.get('btc_profit_loss_net', 0))
+    x_vals = list(range(len(filtered)))
+    y_vals = [h.get('btc_profit_loss_net', 0) for h in filtered]
     
     n = len(x_vals)
     sum_x = sum(x_vals)
@@ -223,9 +204,11 @@ def calculate_trend(hours=24):
     sum_xy = sum(x * y for x, y in zip(x_vals, y_vals))
     sum_x2 = sum(x * x for x in x_vals)
     
-    slope = (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x * sum_x)
-    intercept = (sum_y - slope * sum_x) / n
+    denom = (n * sum_x2 - sum_x * sum_x)
+    if denom == 0:
+        return {'error': 'Cannot compute trend (zero variance)'}
     
+    slope = (n * sum_xy - sum_x * sum_y) / denom
     current_profit = y_vals[-1]
     target_price = _get_state('sensor.target_phone_price')
     remaining = target_price - current_profit
@@ -260,10 +243,7 @@ def calculate_trend(hours=24):
 
 @service("btc_tracker.check_milestones")
 def check_milestones():
-    """
-    Controlla e notifica milestone basate su profitto NETTO.
-    Più flessibile delle automazioni YAML.
-    """
+    """Controlla e notifica milestone basate su profitto NETTO."""
     profit_net = _get_state('sensor.btc_profit_loss_net')
     phone_price = _get_state('sensor.target_phone_price')
     phone_name = hass.states.get('sensor.target_phone_name')
@@ -284,7 +264,8 @@ def check_milestones():
     ]
     
     triggered = []
-    last_notified = pyscript.app_config.get(f"{BTC_TRACKER_NAMESPACE}.last_milestone", 0)
+    data = _load_data()
+    last_notified = data.get('last_milestone', 0)
     
     for threshold, label in milestones:
         if progress >= threshold and last_notified < threshold:
@@ -299,66 +280,20 @@ def check_milestones():
                 }
             })
             triggered.append(threshold)
-            pyscript.app_config[f"{BTC_TRACKER_NAMESPACE}.last_milestone"] = threshold
+            data['last_milestone'] = threshold
     
+    _save_data(data)
     return {'triggered': triggered, 'progress_pct': round(progress, 1)}
-
-
-@service("btc_tracker.fetch_phone_price")
-def fetch_phone_price():
-    """
-    Tenta di recuperare il prezzo minimo del telefono da Trovaprezzi/Idealo.
-    NOTA: Richiede libreria requests e parsing HTML.
-    Per ora usa il valore da input_number.target_phone_price come fallback.
-    """
-    import requests
-    from bs4 import BeautifulSoup
-    
-    # Placeholder per scraping Trovaprezzi
-    # La struttura HTML cambia spesso, meglio usare API o webhook da Visualping/Distill.io
-    try:
-        # Esempio URL Trovaprezzi (da adattare)
-        url = TARGET_PHONE_URL
-        headers = {'User-Agent': 'Mozilla/5.0 (Home Assistant BTC Tracker)'}
-        resp = requests.get(url, headers=headers, timeout=10)
-        
-        if resp.status_code == 200:
-            soup = BeautifulSoup(resp.text, 'html.parser')
-            # Selettori da adattare in base alla struttura attuale
-            # price_elem = soup.select_one('.price.min-price, .offer-price, [itemprop="price"]')
-            # if price_elem:
-            #     price_text = price_elem.get_text(strip=True)
-            #     # Estrai numero
-            #     import re
-            #     match = re.search(r'[\d.,]+', price_text.replace('.', '').replace(',', '.'))
-            #     if match:
-            #         price = float(match.group())
-            #         # Aggiorna input_number se più basso
-            #         current = _get_state('input_number.target_phone_price')
-            #         if price < current:
-            #             hass.services.call('input_number', 'set_value', {
-            #                 'entity_id': 'input_number.target_phone_price',
-            #                 'value': price
-            #             })
-            #             log.info(f"BTC Tracker: Nuovo prezzo minimo telefono: {price}€")
-            #             return {'updated': True, 'new_price': price}
-            pass
-    except Exception as e:
-        log.warning(f"BTC Tracker: Errore fetch telefono: {e}")
-    
-    return {'updated': False, 'source': 'fallback_input_number'}
 
 
 @service("btc_tracker.export_data")
 def export_data(format='json'):
-    """
-    Esporta tutti i dati per backup/analisi esterna.
-    """
-    history = _get_history('snapshots')
+    """Esporta tutti i dati per backup/analisi esterna."""
+    data = _load_data()
     config = {
         'investment_eur': _get_state('sensor.btc_investment_eur'),
         'btc_amount': _get_state('sensor.btc_amount'),
-        'avg_buy_price': _get_state('sensor.btc_avg_buy_price'),
+        'avg_buy_price': _get_state('sensor.btc_cost_basis_eur_template'),
         'cost_basis_per_btc': COST_BASIS_PER_BTC,
         'tax_rate': TAX_RATE,
         'tax_exemption': TAX_EXEMPTION,
@@ -367,6 +302,7 @@ def export_data(format='json'):
         'target_phone_url': TARGET_PHONE_URL,
     }
     
+    from datetime import datetime
     export = {
         'exported_at': datetime.now().isoformat(),
         'config': config,
@@ -380,17 +316,21 @@ def export_data(format='json'):
             'btc_roi_pct_net': _get_state('sensor.btc_roi_pct_net'),
             'btc_tax_amount': _get_state('sensor.btc_tax_amount'),
             'btc_progress_net_pct': _get_state('sensor.btc_progress_to_phone_net_pct'),
-            'btc_can_buy_phone_net': hass.states.get('sensor.btc_can_buy_phone_net').state if hass.states.get('sensor.btc_can_buy_phone_net') else '',
             'btc_to_sell_for_phone': _get_state('sensor.btc_to_sell_for_phone'),
             'btc_break_even_phone_price': _get_state('sensor.btc_break_even_phone_price'),
         },
-        'history': history
+        'history': data.get('snapshots', [])
     }
+    
+    can_buy_state = hass.states.get('sensor.btc_can_buy_phone_net')
+    if can_buy_state:
+        export['current_state']['btc_can_buy_phone_net'] = can_buy_state.state
     
     if format == 'csv':
         import csv
         import io
         output = io.StringIO()
+        history = data.get('snapshots', [])
         if history:
             writer = csv.DictWriter(output, fieldnames=history[0].keys())
             writer.writeheader()
@@ -406,10 +346,48 @@ def reset_history(confirm=False):
     if not confirm:
         return {'error': 'Confirmation required. Call with confirm=true'}
     
-    pyscript.app_config[f"{BTC_TRACKER_NAMESPACE}.snapshots"] = []
-    pyscript.app_config[f"{BTC_TRACKER_NAMESPACE}.last_milestone"] = 0
+    data = {'snapshots': [], 'last_milestone': 0}
+    _save_data(data)
     _set_state('sensor.btc_tracker_snapshots_count', 0)
     return {'reset': True}
+
+
+@service("btc_tracker.fetch_phone_price")
+def fetch_phone_price():
+    """
+    Tenta di recuperare il prezzo minimo del telefono da Trovaprezzi.
+    NOTA: Richiede libreria requests e beautifulsoup4.
+    """
+    import requests
+    from bs4 import BeautifulSoup
+    import re
+    
+    try:
+        url = TARGET_PHONE_URL
+        headers = {'User-Agent': 'Mozilla/5.0 (Home Assistant BTC Tracker)'}
+        resp = requests.get(url, headers=headers, timeout=10)
+        
+        if resp.status_code == 200:
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            # Selettori Trovaprezzi (da adattare)
+            price_elem = soup.select_one('.price.min-price, .offer-price, [itemprop="price"]')
+            if price_elem:
+                price_text = price_elem.get_text(strip=True)
+                match = re.search(r'[\d.,]+', price_text.replace('.', '').replace(',', '.'))
+                if match:
+                    price = float(match.group())
+                    current = _get_state('input_number.target_phone_price')
+                    if price < current:
+                        hass.services.call('input_number', 'set_value', {
+                            'entity_id': 'input_number.target_phone_price',
+                            'value': price
+                        })
+                        log.info(f"BTC Tracker: Nuovo prezzo minimo telefono: {price}€")
+                        return {'updated': True, 'new_price': price}
+    except Exception as e:
+        log.warning(f"BTC Tracker: Errore fetch telefono: {e}")
+    
+    return {'updated': False, 'source': 'fallback_input_number'}
 
 
 # ============================================================================
@@ -428,7 +406,6 @@ async def hourly_snapshot():
     if datetime.now().hour % 6 == 0:
         calculate_trend(24)
         check_milestones()
-        # fetch_phone_price()  # Disabilitato di default - abilitare se configurato scraping
 
 
 # Report giornaliero alle 9:00 (in aggiunta all'automazione YAML)
@@ -443,8 +420,11 @@ async def daily_report_pyscript():
     phone_price = _get_state('sensor.target_phone_price')
     phone_name = TARGET_PHONE_MODEL
     
-    message = f"""
-**₿ Bitcoin Daily Report - {datetime.now().strftime('%d/%m/%Y')}** (Tasse 33%)
+    trend_str = trend.get('trend', 'N/A').upper() if isinstance(trend, dict) and 'trend' in trend else 'N/A'
+    velocity = trend.get('velocity_eur_per_hour', 0) if isinstance(trend, dict) else 0
+    projection = trend.get('projection_hours', 'N/A') if isinstance(trend, dict) else 'N/A'
+    
+    message = f"""**₿ Bitcoin Daily Report - {datetime.now().strftime('%d/%m/%Y')}** (Tasse 33%)
 
 **Mercato:**
 • BTC: {_get_state('sensor.bitcoin_price_eur'):.2f} € (24h: {_get_state('sensor.bitcoin_24h_change_pct'):.2f}%)
@@ -458,16 +438,15 @@ async def daily_report_pyscript():
 • Tasse (33%): {_get_state('sensor.btc_tax_amount'):.2f} €
 • P/L NETTO: {profit_net:.2f} € ({_get_state('sensor.btc_roi_pct_net'):.2f}%)
 
-**Trend 24h NETTO:** {trend.get('trend', 'N/A').upper()}
-• Velocità: {trend.get('velocity_eur_per_hour', 0):.2f} €/h
-• Proiezione target: {trend.get('projection_hours', 'N/A')} ore
+**Trend 24h NETTO:** {trend_str}
+• Velocità: {velocity:.2f} €/h
+• Proiezione target: {projection} ore
 
 **Obiettivo {phone_name} ({phone_price:.2f}€):**
 • Progresso NETTO: {_get_state('sensor.btc_progress_to_phone_net_pct'):.1f}%
 • Delta NETTO: {_get_state('sensor.btc_delta_to_phone_net'):.2f} €
 • BTC da vendere: {_get_state('sensor.btc_to_sell_for_phone'):.8f} BTC
 • Break-even BTC price: {_get_state('sensor.btc_break_even_phone_price'):.0f} €/BTC
-• {_get_state('sensor.btc_can_buy_phone_net')}
     """.strip()
     
     hass.services.call('notify', 'send_message', {
@@ -489,48 +468,14 @@ async def startup():
     """Inizializzazione all'avvio di HA."""
     log.info("BTC Tracker: Starting up... (Italia 2026+ tasse 33%)")
     
-    if f"{BTC_TRACKER_NAMESPACE}.snapshots" not in pyscript.app_config:
-        pyscript.app_config[f"{BTC_TRACKER_NAMESPACE}.snapshots"] = []
-    if f"{BTC_TRACKER_NAMESPACE}.last_milestone" not in pyscript.app_config:
-        pyscript.app_config[f"{BTC_TRACKER_NAMESPACE}.last_milestone"] = 0
+    data = _load_data()
+    if 'snapshots' not in data:
+        data['snapshots'] = []
+    if 'last_milestone' not in data:
+        data['last_milestone'] = 0
+    _save_data(data)
     
     record_snapshot()
     calculate_trend(24)
     
     log.info("BTC Tracker: Startup complete")
-
-
-# ============================================================================
-# SENSORE AGGIUNTIVI PER TREND (template sensors li leggono)
-# ============================================================================
-
-def _update_trend_sensors(trend_data):
-    """Aggiorna sensori derivati dal trend."""
-    if 'error' in trend_data:
-        return
-    
-    _set_state('sensor.btc_tracker_trend_direction', trend_data['trend'], {
-        'friendly_name': 'BTC Trend Direction (NETTO)',
-        'icon': 'mdi:chart-line',
-        'velocity_eur_per_hour': trend_data['velocity_eur_per_hour'],
-        'projection_hours': trend_data['projection_hours'],
-        'data_points': trend_data['data_points']
-    })
-    
-    if trend_data['projection_hours']:
-        _set_state('sensor.btc_tracker_eta_hours', trend_data['projection_hours'], {
-            'friendly_name': 'BTC ETA to Phone (hours, NETTO)',
-            'icon': 'mdi:timer',
-            'unit_of_measurement': 'h',
-            'device_class': 'duration'
-        })
-
-
-# Patch calculate_trend per aggiornare sensori
-_original_calculate_trend = calculate_trend
-
-@service("btc_tracker.calculate_trend")
-def calculate_trend(hours=24):
-    result = _original_calculate_trend(hours)
-    _update_trend_sensors(result)
-    return result

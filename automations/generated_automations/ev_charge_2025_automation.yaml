@@ -13,6 +13,7 @@
       entity_id: 
         - input_boolean.ev_charge_2025_charging_active
         - input_boolean.ev_charge_2025_no_grid
+        - input_boolean.ev_charge_2025_no_grid_2025
         - input_select.ev_charge_2025_mode
         - input_number.ev_charge_2025_manual_power_kw
         - input_number.ev_charge_2025_cronostar_power_target
@@ -40,6 +41,7 @@
         # 2. INPUT UTENTE
         is_active: "{{ is_state('input_boolean.ev_charge_2025_charging_active', 'on') }}"
         no_grid: "{{ is_state('input_boolean.ev_charge_2025_no_grid', 'on') }}"
+        no_grid_2025: "{{ is_state('input_boolean.ev_charge_2025_no_grid_2025', 'on') }}"
         mode: "{{ states('input_select.ev_charge_2025_mode') }}"
         crono: "{{ states('input_number.ev_charge_2025_cronostar_power_target') | float(0) }}"
         manual_kw: "{{ states('input_number.ev_charge_2025_manual_power_kw') | float(2.0) }}"
@@ -70,7 +72,7 @@
             {{ w_surplus_puro | float(0) + w_max_d }}
           {% else %}
             {% set surplus = [0, w_surplus_puro | float(0) - 200] | max %}
-            {% if byd_soc < p_prot %}
+            {% if byd_soc < p_prot and not no_grid_2025 %}
               {% set w_to_battery = [surplus, w_max_c] | min %}
               {{ surplus - w_to_battery }}
             {% elif byd_soc < p_inv %}
@@ -159,6 +161,7 @@
         mode_helper_changed: "{{ trigger.platform == 'state' and trigger.entity_id == 'input_select.ev_charge_2025_mode' }}"
         manual_power_changed: "{{ trigger.platform == 'state' and trigger.entity_id == 'input_number.ev_charge_2025_manual_power_kw' }}"
         no_grid_changed: "{{ trigger.platform == 'state' and trigger.entity_id == 'input_boolean.ev_charge_2025_no_grid' }}"
+        no_grid_2025_changed: "{{ trigger.platform == 'state' and trigger.entity_id == 'input_boolean.ev_charge_2025_no_grid_2025' }}"
         is_boot: "{{ trigger.platform == 'homeassistant' }}"
 
     # Nuova logica: Set End Time quando si attiva la ricarica o al boot
@@ -190,7 +193,7 @@
                 {{ not is_active 
                    or cur_soc >= limit_soc 
                    or (is_active and duration < 240 and remaining <= 0 and trigger.platform == "time_pattern")
-                   or (is_active and byd_soc_float >= 0 and byd_soc_float <= p_prot) }}
+                   or (is_active and byd_soc_float >= 0 and byd_soc_float <= p_prot and not no_grid_2025) }}
           sequence:
             - action: mqtt.publish
               data: { topic: "home/prism/1/command/set_mode", payload: "3" }
@@ -250,6 +253,7 @@
                      or mode_helper_changed
                      or manual_power_changed
                      or no_grid_changed
+                     or no_grid_2025_changed
                      or is_boot
                      or target_mode | int != last_mode | int
                      or target_mode | int != real_prism_mode_num | int

@@ -266,7 +266,6 @@ sensor:
         precision: 1
 
   # Bitcoin Investment Tracker
-  - !include yaml_generator/sensor_bitcoin_tracker.yaml
 
 # ============================================================================
 # BINARY SENSORS
@@ -589,6 +588,7 @@ pyscript:
   apps:
     halog2026_app: null
     btc_tracker_app: null
+    phone_price_projection_app: null
 
 # ============================================================================
 # SAVER

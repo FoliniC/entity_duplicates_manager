@@ -48,6 +48,7 @@
         voltage_raw: "{{ states('sensor.folini_carlo_voltage_ac') | float(230) }}"
         active: "{{ is_state('input_boolean.ev_charge_2025_charging_active', 'on') }}"
         no_grid: "{{ is_state('input_boolean.ev_charge_2025_no_grid', 'on') }}"
+        no_grid_2025: "{{ is_state('input_boolean.ev_charge_2025_no_grid_2025', 'on') }}"
         connected: "{{ is_state('binary_sensor.ev_charge_2025_can_charge', 'on') }}"
         mode: "{{ states('input_select.ev_charge_2025_mode') }}"
         crono: "{{ states('input_number.ev_charge_2025_cronostar_power_target') | float(0) }}"
@@ -68,7 +69,7 @@
         surplus: "{{ [0, w_surplus_puro - 200] | max }}"
     - variables:
         byd_policy: >
-          {% if byd_soc < p_prot %}
+          {% if byd_soc < p_prot and not no_grid_2025 %}
             Protezione batteria casa
           {% elif byd_soc < p_inv %}
             Ripartizione graduale
@@ -76,7 +77,7 @@
             Auto prioritaria con supporto BYD
           {% endif %}
         w_disponibile: >
-          {% if byd_soc < p_prot %}
+          {% if byd_soc < p_prot and not no_grid_2025 %}
             {% set w_to_battery = [surplus, w_max_c] | min %}
             {{ surplus - w_to_battery }}
           {% elif byd_soc < p_inv %}

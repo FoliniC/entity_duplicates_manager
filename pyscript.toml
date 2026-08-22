@@ -1,2 +1,1 @@
-packages = ["pyodide_http","requests","pyodide.http"]
-
+packages = ["pyodide_http", "requests", "pyodide.http", "beautifulsoup4"]

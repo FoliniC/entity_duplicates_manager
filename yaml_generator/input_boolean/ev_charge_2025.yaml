@@ -5,3 +5,8 @@ ev_charge_2025_charging_active:
 ev_charge_2025_no_grid:
   name: "Escludi Rete"
   icon: mdi:transmission-tower-off
+
+ev_charge_2025_no_grid_2025:
+  name: "Forza Ricarica BYD (Bypass Protezione)"
+  icon: mdi:power-settings
+  initial: false

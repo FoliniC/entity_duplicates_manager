@@ -9,7 +9,6 @@
 title: "₿ BTC Investment Tracker"
 icon: "mdi:bitcoin"
 path: btc-tracker
-background: "center / cover no-repeat url('/local/backgrounds/btc-bg.jpg') fixed"
 views:
   # ----------------------------------------------------------------------
   # Vista Principale: Overview
@@ -22,20 +21,17 @@ views:
       - entity: sensor.bitcoin_price_eur
     cards:
       # Hero card - Stato principale
-      - type: custom:mod-card
-        style:
-          .: |
-            ha-card {
-              background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-              border: 2px solid #F7931A;
-              border-radius: 16px;
-              box-shadow: 0 8px 32px rgba(247, 147, 26, 0.2);
-            }
-        card:
-          type: entities
-          title: "🎯 Stato Obiettivo Telefono (NETTO tasse)"
-          show_header_toggle: false
-          entities:
+      - type: entities
+        title: "🎯 Stato Obiettivo Telefono (NETTO tasse)"
+        show_header_toggle: false
+        style: |
+          ha-card {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border: 2px solid #F7931A;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(247, 147, 26, 0.2);
+          }
+        entities:
             - entity: sensor.btc_can_buy_phone_net
               name: "Puoi comprare il telefono? (NETTO)"
               icon: "mdi:check-circle-outline"
@@ -68,9 +64,7 @@ views:
           title: "₿ Bitcoin Price (EUR) - 24h"
           show_states: true
           colorize_states: true
-        graph_span: 24h
-        span:
-          start: -24h
+        span: 24h
         series:
           - entity: sensor.bitcoin_price_eur
             name: "BTC/EUR"
@@ -84,9 +78,6 @@ views:
         yaxis:
           - decimals: 2
             unit: "€"
-        experimental:
-          color_threshold: true
-          gradient: true
 
       # Portfolio Value Card
       - type: custom:apexcharts-card
@@ -94,9 +85,7 @@ views:
           show: true
           title: "💼 Valore Portafoglio BTC - 7 giorni"
           show_states: true
-        graph_span: 7d
-        span:
-          start: -7d
+        span: 7d
         series:
           - entity: sensor.btc_current_value
             name: "Valore Attuale"
@@ -117,26 +106,18 @@ views:
             unit: "€"
 
       # Progress Bar Visual
-      - type: custom:mod-card
-        style:
-          .: |
-            ha-card {
-              background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
-              border: 1px solid rgba(247, 147, 26, 0.3);
-            }
-        card:
-          type: entities
-          title: "📊 Progresso Verso Telefono (NETTO tasse)"
-          show_header_toggle: false
-          entities:
-            - type: custom:slider-entity-row
-              entity: sensor.btc_progress_to_phone_net_pct
+      - type: entities
+        title: "📊 Progresso Verso Telefono (NETTO tasse)"
+        show_header_toggle: false
+        style: |
+          ha-card {
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
+            border: 1px solid rgba(247, 147, 26, 0.3);
+          }
+        entities:
+            - entity: sensor.btc_progress_to_phone_net_pct
               name: "Progresso NETTO"
-              min: 0
-              max: 100
-              step: 1
-              hide_state: false
-              full_row: true
+              icon: "mdi:progress-clock"
             - entity: sensor.btc_delta_to_phone_net
               name: "Delta rimanente NETTO"
               icon: "mdi:calculator-variant"
@@ -152,159 +133,46 @@ views:
         columns: 2
         square: false
         cards:
-          - type: custom:button-card
+          - type: entity
             entity: sensor.bitcoin_price_eur
             name: "BTC Price"
             icon: "mdi:bitcoin"
-            styles:
-              card:
-                - background: "linear-gradient(135deg, #F7931A 0%, #FFB800 100%)"
-                - color: "#000"
-                - border-radius: "12px"
-                - box-shadow: "0 4px 16px rgba(247, 147, 26, 0.3)"
-              name:
-                - font-size: "12px"
-                - opacity: 0.9
-              state:
-                - font-size: "28px"
-                - font-weight: "bold"
-            tap_action:
-              action: more-info
-          - type: custom:button-card
-            entity: sensor.bitcoin_24h_change_pct
+          - type: entity
+            entity: sensor.bitcoin_24h_change
             name: "24h Change"
             icon: "mdi:chart-line"
-            styles:
-              card:
-                - background: "linear-gradient(135deg, {% if state > 0 %}#4CAF50{% else %}#F44336{% endif %} 0%, {% if state > 0 %}#66BB6A{% else %}#EF5350{% endif %} 100%)"
-                - color: "#fff"
-                - border-radius: "12px"
-                - box-shadow: "0 4px 16px rgba(0,0,0,0.2)"
-              state:
-                - font-size: "28px"
-                - font-weight: "bold"
-            tap_action:
-              action: more-info
-          - type: custom:button-card
+          - type: entity
             entity: sensor.btc_current_value
             name: "Valore Portafoglio"
             icon: "mdi:currency-eur"
-            styles:
-              card:
-                - background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)"
-                - color: "#4CAF50"
-                - border: "1px solid #4CAF50"
-                - border-radius: "12px"
-              state:
-                - font-size: "24px"
-                - font-weight: "bold"
-            tap_action:
-              action: more-info
-          - type: custom:button-card
+          - type: entity
             entity: sensor.btc_profit_loss_net
             name: "Profitto NETTO"
             icon: "mdi:chart-line"
-            styles:
-              card:
-                - background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)"
-                - color: "{% if state > 0 %}#4CAF50{% else %}#F44336{% endif %}"
-                - border: "1px solid {% if state > 0 %}#4CAF50{% else %}#F44336{% endif %}"
-                - border-radius: "12px"
-              state:
-                - font-size: "24px"
-                - font-weight: "bold"
-            tap_action:
-              action: more-info
-          - type: custom:button-card
+          - type: entity
             entity: sensor.btc_roi_pct_net
             name: "ROI NETTO %"
             icon: "mdi:percent"
-            styles:
-              card:
-                - background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)"
-                - color: "{% if state > 0 %}#4CAF50{% else %}#F44336{% endif %}"
-                - border: "1px solid {% if state > 0 %}#4CAF50{% else %}#F44336{% endif %}"
-                - border-radius: "12px"
-              state:
-                - font-size: "24px"
-                - font-weight: "bold"
-            tap_action:
-              action: more-info
-          - type: custom:button-card
+          - type: entity
             entity: sensor.target_phone_price
             name: "Prezzo Telefono"
             icon: "mdi:cellphone"
-            styles:
-              card:
-                - background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)"
-                - color: "#2196F3"
-                - border: "1px solid #2196F3"
-                - border-radius: "12px"
-              state:
-                - font-size: "24px"
-                - font-weight: "bold"
-            tap_action:
-              action: more-info
-          - type: custom:button-card
+          - type: entity
             entity: sensor.btc_tax_amount
             name: "Tasse stimate 33%"
             icon: "mdi:cash-minus"
-            styles:
-              card:
-                - background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)"
-                - color: "#FF9800"
-                - border: "1px solid #FF9800"
-                - border-radius: "12px"
-              state:
-                - font-size: "24px"
-                - font-weight: "bold"
-            tap_action:
-              action: more-info
-          - type: custom:button-card
+          - type: entity
             entity: sensor.btc_net_price_per_btc
             name: "Netto per BTC (33%)"
             icon: "mdi:cash-multiple"
-            styles:
-              card:
-                - background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)"
-                - color: "#4CAF50"
-                - border: "1px solid #4CAF50"
-                - border-radius: "12px"
-              state:
-                - font-size: "24px"
-                - font-weight: "bold"
-            tap_action:
-              action: more-info
-          - type: custom:button-card
+          - type: entity
             entity: sensor.btc_to_sell_for_phone
             name: "BTC da vendere x telefono"
             icon: "mdi:bitcoin"
-            styles:
-              card:
-                - background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)"
-                - color: "#F7931A"
-                - border: "1px solid #F7931A"
-                - border-radius: "12px"
-              state:
-                - font-size: "24px"
-                - font-weight: "bold"
-            tap_action:
-              action: more-info
-          - type: custom:button-card
+          - type: entity
             entity: sensor.btc_break_even_phone_price
             name: "Break-even BTC €"
             icon: "mdi:target-account"
-            styles:
-              card:
-                - background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)"
-                - color: "#F7931A"
-                - border: "1px solid #F7931A"
-                - border-radius: "12px"
-              state:
-                - font-size: "24px"
-                - font-weight: "bold"
-            tap_action:
-              action: more-info
 
   # ----------------------------------------------------------------------
   # Vista Configurazione
@@ -323,7 +191,7 @@ views:
             label: "Valori calcolati (read-only)"
           - entity: sensor.btc_investment_eur
           - entity: sensor.btc_amount
-          - entity: sensor.btc_avg_buy_price
+          - entity: sensor.btc_cost_basis_eur_template
           - entity: sensor.btc_current_value
           - entity: sensor.btc_profit_loss
           - entity: sensor.btc_roi_pct
@@ -353,22 +221,22 @@ views:
         title: "🔧 Azioni Rapide"
         show_header_toggle: false
         entities:
-          - entity: automation.btc_tracker_phone_affordable
+          - entity: automation.btc_tracker_puoi_comprare_il_telefono
             name: "Test notifica obiettivo raggiunto"
             icon: "mdi:bell-ring"
             tap_action:
               action: call-service
               service: automation.trigger
               service_data:
-                entity_id: automation.btc_tracker_phone_affordable
-          - entity: automation.btc_tracker_daily_report
+                entity_id: automation.btc_tracker_puoi_comprare_il_telefono
+          - entity: automation.btc_tracker_report_giornaliero
             name: "Test report giornaliero"
             icon: "mdi:file-chart"
             tap_action:
               action: call-service
               service: automation.trigger
               service_data:
-                entity_id: automation.btc_tracker_daily_report
+                entity_id: automation.btc_tracker_report_giornaliero
           - entity: automation.btc_tracker_milestone_50
             name: "Test milestone 50%"
             icon: "mdi:flag-checkered"
@@ -389,9 +257,7 @@ views:
           show: true
           title: "📊 Profitto/Perdita BTC - 30 giorni (LORDO vs NETTO)"
           show_states: true
-        graph_span: 30d
-        span:
-          start: -30d
+        span: 30d
         series:
           - entity: sensor.btc_profit_loss
             name: "Profitto LORDO (€)"
@@ -420,9 +286,7 @@ views:
           show: true
           title: "🎯 Progresso verso telefono - 30 giorni (NETTO tasse)"
           show_states: true
-        graph_span: 30d
-        span:
-          start: -30d
+        span: 30d
         series:
           - entity: sensor.btc_progress_to_phone_net_pct
             name: "Progresso NETTO %"
@@ -464,6 +328,7 @@ views:
             value: 100
             border_color: "#F7931A"
             border_width: 2
+            border_dasharray: "5,5"
             label:
               text: "🎉 OBIETTIVO!"
               color: "#F7931A"
