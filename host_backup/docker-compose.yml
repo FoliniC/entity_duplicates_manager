@@ -24,13 +24,13 @@ services:
     container_name: mariadb
     restart: unless-stopped
     environment:
-      - MYSQL_ROOT_PASSWORD=mariaDbRootPassword
+      - MYSQL_ROOT_PASSWORD=<redacted>
       - MYSQL_DATABASE=homeassistant
       - MYSQL_USER=homeassistant
-      - MYSQL_PASSWORD=mariaDb
+      - MYSQL_PASSWORD=<redacted>
     volumes:
       - ./homeassistant/config/custom-cont-init.d:/custom-cont-init.d
-      - ./mariadb/db:/var/lib/mysql
+      - /mnt/ha_storage/mariadb/db:/var/lib/mysql
       - ./mariadb/conf/my.cnf:/etc/mysql/conf.d/my.cnf:ro
     ports:
       - 3306:3306
@@ -60,11 +60,11 @@ services:
       - 8086:8086
     volumes:
       - ./homeassistant/config/custom-cont-init.d:/custom-cont-init.d
-      - ./influxdb/data:/var/lib/influxdb2
+      - /mnt/ha_storage/influxdb/data:/var/lib/influxdb2
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
       - DOCKER_INFLUXDB_INIT_USERNAME=admin
-      - DOCKER_INFLUXDB_INIT_PASSWORD=password
+      - DOCKER_INFLUXDB_INIT_PASSWORD=<redacted>
       - DOCKER_INFLUXDB_INIT_ORG=ViaGrande50
       - DOCKER_INFLUXDB_INIT_BUCKET=HAData
       - INFLUXDB_STORAGE_CACHE_MAX_MEMORY_SIZE=6g
@@ -82,7 +82,7 @@ services:
       - ./grafana/data:/var/lib/grafana
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=<redacted>
       - TZ=Europe/Rome
 
   npm:
@@ -110,7 +110,7 @@ services:
       - PGID=1000
       - TZ=Europe/Rome
       - SUBDOMAINS=folini
-      - TOKEN=67637762-cbc8-4011-af51-7cecbb7f1576
+      - TOKEN=<redacted>
       - LOG_FILE=false
     volumes:
       - ./homeassistant/config/custom-cont-init.d:/custom-cont-init.d
@@ -138,10 +138,11 @@ services:
       - 139:139
       - 445:445
     volumes:
-      - ./homeassistant/config/smb.conf:/etc/samba/smb.default:ro
-      - ./homeassistant/config/samba_users.conf:/etc/samba/users.conf:ro
-      - ./homeassistant/config:/config
-      - /home/carlo:/home_carlo
+          - ./homeassistant/config/smb.conf:/etc/samba/smb.default:ro
+          - ./homeassistant/config/samba_users.conf:/etc/samba/users.conf:ro
+          - ./homeassistant/config:/config
+          - /mnt/ha_storage:/storage
+          - /home/carlo:/home_carlo
     environment:
       - USER=carlo
       - UID=1000
@@ -198,7 +199,7 @@ services:
     environment:
       - POSTGRES_DB=guacamole_db
       - POSTGRES_USER=guacamole_user
-      - POSTGRES_PASSWORD=guacamole_password
+      - POSTGRES_PASSWORD=<redacted>
     volumes:
       - ./homeassistant/config/custom-cont-init.d:/custom-cont-init.d
       - ./guacamole/init/initdb.sql:/docker-entrypoint-initdb.d/initdb.sql
@@ -215,7 +216,7 @@ services:
       - POSTGRESQL_HOSTNAME=guacamole-db
       - POSTGRESQL_DATABASE=guacamole_db
       - POSTGRESQL_USERNAME=guacamole_user
-      - POSTGRESQL_PASSWORD=guacamole_password
+      - POSTGRESQL_PASSWORD=<redacted>
       - GUACAMOLE_ALLOW_EMBEDDING=true
       - GUACAMOLE_EMBED_MODE=true
       - GUACAMOLE_FORCE_NEW_WINDOW=true
@@ -240,7 +241,7 @@ services:
     restart: unless-stopped
     network_mode: host
     environment:
-      - NGROK_AUTHTOKEN=1s7Ja5v8vhWH2sjrcOLKvTMuoZB_8JtuMc9j4adyrMJoR7cP
+      - NGROK_AUTHTOKEN=<redacted>
     command: http 8123 --url=ab63656bc719-3413626670021870382.ngrok-free.app --log=stdout
 
 
@@ -251,7 +252,7 @@ services:
     ports:
       - 4041:4040
     environment:
-      - NGROK_AUTHTOKEN=2fS3K9FrOasR9j03nmJWMaA3wEj_3gCRrbt9ZXuoNBJGdr42
+      - NGROK_AUTHTOKEN=<redacted>
     command: http 192.168.0.3:8123 --url=frenziedly-unrecruitable-marleigh.ngrok-free.dev --log=stdout
 
   # Agent DVR - NVR per IP Camera
@@ -263,7 +264,7 @@ services:
     volumes:
       - ./homeassistant/config/custom-cont-init.d:/custom-cont-init.d
       - ./agentdvr/config:/config
-      - ./agentdvr/media:/media
+      - /mnt/ha_storage/agentdvr/media:/media
       - ./agentdvr/commands:/commands
     environment:
       - TZ=Europe/Rome
@@ -280,17 +281,42 @@ services:
     mem_limit: 128m
     cpus: 0.5
     # Auto protocol - lets cloudflared choose best protocol (QUIC/HTTP2)
-    command: ["tunnel", "--no-autoupdate", "run", "--protocol", "auto", "--token", "${CLOUDFLARE_TUNNEL_TOKEN}"]
-    # Health check - verify external connectivity
+    command: ["tunnel", "--no-autoupdate", "run", "--protocol", "http2", "--token", "${CLOUDFLARE_TUNNEL_TOKEN}"]
+    # cloudflared image is distroless (no /bin/sh or curl): disable an invalid
+    # container healthcheck. External reachability is monitored by the watchdog.
     healthcheck:
-      test: ["CMD-SHELL", "curl -f https://home.vialeformica.org || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+      test: ["NONE"]
     # Log rotation to prevent disk exhaustion
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+
+  # Cloudflare Tunnel Watchdog - Ensures tunnel stays up
+  cloudflare-watchdog:
+    image: curlimages/curl:latest
+    container_name: cloudflare-watchdog
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - cloudflare-tunnel
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - /home/carlo/docker:/docker-compose:ro
+      - /usr/local/bin/docker:/usr/local/bin/docker:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "
+        while true; do
+          # Verify tunnel every 60s (IPv4)
+          if curl -4 -sf -o /dev/null --connect-timeout 10 https://home.vialeformica.org; then
+            echo \"[$(date +'%Y-%m-%d %H:%M:%S')] Tunnel OK\"
+          else
+            echo \"[$(date +'%Y-%m-%d %H:%M:%S')] Tunnel DOWN - restarting...\"
+            # Restart via docker-compose
+            DOCKER_HOST=unix:///var/run/docker.sock docker compose -f /docker-compose/docker-compose.yml up -d --force-recreate cloudflare-tunnel || DOCKER_HOST=unix:///var/run/docker.sock docker restart cloudflare-tunnel
+          fi
+          sleep 60
+        done
+      "

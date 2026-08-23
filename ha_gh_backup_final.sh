@@ -7,7 +7,7 @@ HOST_COMPOSE_BACKUP="$HOST_BACKUP_DIR/docker-compose.yml"
 
 cd "$CONFIG_DIR" || exit 1
 
-export GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa -o StrictHostKeyChecking=no"
+export GIT_SSH_COMMAND="ssh -i /home/carlo/.ssh/id_rsa -o StrictHostKeyChecking=no -o IdentitiesOnly=yes"
 git remote set-url origin git@github.com:FoliniC/ha-config.git
 
 echo "=== BACKUP IN CORSO: $(date) ==="
