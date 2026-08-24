@@ -41,6 +41,8 @@
 .storage/*
 !.storage/lovelace*
 # Esclusioni fisse
+# Credenziali locali: non devono mai essere aggiunte dai backup Git.
+secrets.yaml
 *.db
 *.db-shm
 *.db-wal
