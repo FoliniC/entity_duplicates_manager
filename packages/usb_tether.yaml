@@ -89,8 +89,12 @@ template:
           {% set upd = state_attr('sensor.usb_tether_status', 'last_updated') | default('') %}
           {% set disp_ts = ts if ts else upd %}
           {% set display_ts = disp_ts if disp_ts else now().strftime('%Y-%m-%d %H:%M:%S') %}
-          {% set line = 'INATTIVO - route normale via router' %}
-          {% if msg != '' %}
+          {% set line = 'NORMALE - route via router' %}
+          {% if s == 'idle' %}
+            {% set line = 'NORMALE - route via router' %}
+          {% elif s == 'restoring' %}
+            {% set line = 'Ripristino routing normale in corso...' %}
+          {% elif msg != '' and ('ERRORE' not in msg or s != 'idle') %}
             {% set line = msg %}
           {% elif s == 'unavailable' %}
             {% set line = 'ERRORE: comando non eseguibile - controlla log e connessione SSH' %}
@@ -100,8 +104,6 @@ template:
             {% set line = 'INTRANET ATTIVA - tutta la LAN via ' ~ host.split('(')[0].strip() ~ ' (gateway internet)' %}
           {% elif s == 'active' and m == 'server' %}
             {% set line = 'SERVER ATTIVO - solo server via ' ~ host.split('(')[0].strip() ~ ' (gateway internet)' %}
-          {% elif s == 'restoring' %}
-            {% set line = 'Ripristino routing normale in corso...' %}
           {% endif %}
           {{ line }} @ {{ display_ts }}
         attributes:
@@ -169,6 +171,12 @@ script:
               subsystem: usb_tether
               level: ERROR
               message: "ERRORE: Ripristino fallito (timeout)"
+        else:
+          - action: input_text.set_value
+            target:
+              entity_id: input_text.usb_tether_status_message
+            data:
+              value: ""
 
   usb_tether_server:
     alias: "Tethering: modalita server"
@@ -213,6 +221,12 @@ script:
               subsystem: usb_tether
               level: ERROR
               message: "ERRORE: Attivazione Server fallita"
+        else:
+          - action: input_text.set_value
+            target:
+              entity_id: input_text.usb_tether_status_message
+            data:
+              value: ""
 
   usb_tether_intranet:
     alias: "Tethering: modalita intranet"
@@ -257,6 +271,12 @@ script:
               subsystem: usb_tether
               level: ERROR
               message: "ERRORE: Attivazione Intranet fallita"
+        else:
+          - action: input_text.set_value
+            target:
+              entity_id: input_text.usb_tether_status_message
+            data:
+              value: ""
 
   usb_tether_riattiva_router:
     alias: "Tethering: Riattiva Router (ADB)"
@@ -287,12 +307,24 @@ script:
 automation:
   - alias: "USB Tether - aggiorna messaggio dashboard"
     id: usb_tether_aggiorna_messaggio
-    description: "Pulisce il messaggio temporaneo quando il sensore si aggiorna e aggiunge al log. NON pulisce se c'è un errore nel messaggio."
+    description: "Pulisce il messaggio temporaneo quando il sensore si aggiorna. Pulisce sempre se lo stato torna a idle."
     trigger:
       - platform: state
         entity_id: sensor.usb_tether_status
+      - platform: homeassistant
+        event: start
     action:
       - choose:
+          - conditions:
+              - condition: state
+                entity_id: sensor.usb_tether_status
+                state: "idle"
+            sequence:
+              - action: input_text.set_value
+                target:
+                  entity_id: input_text.usb_tether_status_message
+                data:
+                  value: ""
           - conditions:
               - condition: template
                 value_template: "{{ 'ERRORE' in states('input_text.usb_tether_status_message') }}"

@@ -126,15 +126,38 @@ router_wan_down() {
 
 router_wan_up() {
     local gw
+    # Disabilitiamo il Wi-Fi ed abilitiamo dati e RNDIS via ADB sul telefono del router (Phone 1) per evitare il loop di routing con la LAN
+    router_ssh "/usr/bin/adb_router shell svc wifi disable >/dev/null 2>&1; /usr/bin/adb_router shell svc data enable >/dev/null 2>&1; /usr/bin/adb_router shell svc usb setFunctions rndis >/dev/null 2>&1; /usr/bin/enable_usb_tether.sh >/dev/null 2>&1; ifup wan >/dev/null 2>&1"
+    sleep 3
     gw=$(router_wan_gateway | head -1)
     if [[ "$gw" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        router_ssh "ip route replace default via $gw dev $ROUTER_WAN_IF metric 10 2>/dev/null; true" \
-            && echo "WAN router riattivata (route $ROUTER_WAN_IF via $gw ripristinata)." \
-            || echo "WARN: impossibile ripristinare WAN router." >&2
+        router_ssh "ip route replace default via $gw dev $ROUTER_WAN_IF metric 10 2>/dev/null; true"
+        echo "WAN router riattivata (route $ROUTER_WAN_IF via $gw ripristinata)."
+    fi
+
+    # VERIFICA CONNETTI VITA' INTERNET REALE DEL ROUTER
+    if router_ssh "ping -c 2 -W 3 1.1.1.1 >/dev/null 2>&1 || ping -c 2 -W 3 8.8.8.8 >/dev/null 2>&1"; then
+        echo "OK: router WAN connettivita' internet verificata."
+        return 0
     else
-        router_ssh "ifup wan >/dev/null 2>&1; sleep 2; GW=\$(ifstatus wan 2>/dev/null | jsonfilter -e '@.route[0].nexthop' 2>/dev/null | head -1); [ -n \"\$GW\" ] && ip route replace default via \"\$GW\" dev $ROUTER_WAN_IF metric 10 2>/dev/null; true" \
-            && echo "WAN router riattivata tramite ifup wan." \
-            || echo "WARN: impossibile ripristinare WAN router." >&2
+        # Secondo tentativo con ADB airplane mode toggle sul telefono via router
+        echo "WARN: router WAN privo di internet - tentativo di ripristino via ADB..." >&2
+        router_ssh "/usr/bin/adb_router shell cmd connectivity airplane-mode enable >/dev/null 2>&1"
+        sleep 1
+        router_ssh "/usr/bin/adb_router shell cmd connectivity airplane-mode disable >/dev/null 2>&1"
+        sleep 4
+        router_ssh "/usr/bin/enable_usb_tether.sh >/dev/null 2>&1 || ifup wan >/dev/null 2>&1"
+        sleep 3
+        gw=$(router_wan_gateway | head -1)
+        if [[ "$gw" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            router_ssh "ip route replace default via $gw dev $ROUTER_WAN_IF metric 10 2>/dev/null; true"
+        fi
+        if router_ssh "ping -c 2 -W 3 1.1.1.1 >/dev/null 2>&1 || ping -c 2 -W 3 8.8.8.8 >/dev/null 2>&1"; then
+            echo "OK: router WAN connettivita' internet recuperata via ADB."
+            return 0
+        fi
+        echo "ERROR: connettivita' router non recuperabile." >&2
+        return 1
     fi
 }
 
@@ -354,12 +377,8 @@ tear_down_iface() {
     [ -n "$iface" ] || return 0
     local conn_name="usb-tether-${iface}"
     nmcli con delete "$conn_name" >/dev/null 2>&1 || true
-    nmcli dev disconnect "$iface" >/dev/null 2>&1 || true
-    # Force the interface down — Android USB tethering overrides NM,
-    # so we need to explicitly take the interface offline to prevent
-    # the tethering route from re-appearing.
-    ip link set "$iface" down 2>/dev/null || true
-    ip addr flush dev "$iface" 2>/dev/null || true
+    # Rimuovi solo la default route via telefono se presente (metric 50)
+    ip route del default metric 50 dev "$iface" 2>/dev/null || true
 }
 
 # --- detect -----------------------------------------------------------------
@@ -717,7 +736,10 @@ cmd_restore() {
         graceful_begin "$LOCAL_TABLE_RESTORE" 0x2 "$phone_gw" "$phone_if"
 
         # 2. Ripristina la WAN del router (route del router, indipendente).
-        router_wan_up
+        if ! router_wan_up; then
+            echo "ERROR: Ripristino WAN router fallito! Mantenuta route fallback via Debian per evitare la caduta della connessione LAN." >&2
+            return 1
+        fi
 
         # 3. Rimuovi SUBITO la route telefono da main: le nuove connessioni
         #    vedono solo la LAN/router come default. Quelle marcate restano
@@ -730,7 +752,10 @@ cmd_restore() {
         graceful_end_async "$LOCAL_TABLE_RESTORE" 0x2 "$LOCAL_DRAIN_CEILING"
     else
         # Nessuna route tethering attiva, restore immediato
-        router_wan_up
+        if ! router_wan_up; then
+            echo "ERROR: Ripristino WAN router fallito!" >&2
+            return 1
+        fi
     fi
 
     # Pulizia finale idempotente (no-op se il ramo sopra ha gia' rimosso tutto).

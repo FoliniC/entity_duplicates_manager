@@ -1497,5 +1497,186 @@ docker exec homeassistant ssh -i /config/.ssh/router_key -o BatchMode=yes root@1
 ---
 *Ultimo aggiornamento: 20 Agosto 2026*
 
+---
 
+## Fix IWLAN + mwan3 Offline (24 Agosto 2026)
 
+### Sintomo
+Con WiFi attivo sul Redmi Note 11 Pro 5G, entro 30–60s il canale dati passava su IWLAN (WiFi Calling), il bearer LTE si chiudeva, e il tethering USB perdeva l'upstream → tutta la LAN rimaneva senza internet.
+
+### Diagnosi via ADB (24/08/2026)
+
+```bash
+# Dal router OpenWrt via adb_router:
+adb_router shell "dumpsys telephony.registry 2>/dev/null | grep -E mDataConnectionState|mPreciseDataConnectionStates"
+```
+
+| Campo | Valore buono | Valore problematico |
+|---|---|---|
+| `mDataConnectionState` | `2` (CONNECTED) | `0` (DISCONNECTED) |
+| `transportType PS` | `WWAN` (LTE) | `WLAN` (IWLAN) |
+| `availableServices PS WLAN` | `[]` o `NOT_REG` | `[DATA]` |
+| `getRilDataRadioTechnology` | `14` (LTE) | `18` (IWLAN) |
+
+### Causa Reale 1: IWLAN — Blocco IKEv2 via netdev
+
+Il modem Qualcomm stabilisce il tunnel IPsec/IKEv2 verso l'ePDG TIM **al di sotto del kernel Linux** (firmware MPSS), iniettando pacchetti nel WiFi hardware indipendentemente dalla routing table Android. I pacchetti non passano per il forward IPv4/IPv6 del router (contatori nftables = 0), ma transitano sull'interfaccia AP fisica del router.
+
+**Fix applicato:** regole `netdev ingress` per MAC del telefono su entrambe le radio.
+
+#### Componenti installati
+
+| File | Descrizione |
+|---|---|
+| `/usr/lib/block-iwlan.nft` | Regole nftables netdev |
+| `/etc/init.d/block-iwlan` | Servizio OpenWrt (START=95, autostart abilitato) |
+| UCI `firewall.@rule[10]` | Regola IPv4 `ip saddr 192.168.0.14 udp dport {500,4500} drop` |
+
+```nft
+# /usr/lib/block-iwlan.nft
+table netdev block_iwlan_nd {
+    chain in_5g {
+        type filter hook ingress device "phy1-ap0" priority -500; policy accept;
+        ether saddr f0:6c:5d:74:1c:e4 udp dport { 500, 4500 } counter drop
+        ether saddr f0:6c:5d:74:1c:e4 udp sport { 500, 4500 } counter drop
+    }
+    chain in_24g {
+        type filter hook ingress device "phy0-ap0" priority -500; policy accept;
+        ether saddr 16:76:57:ba:d3:64 udp dport { 500, 4500 } counter drop
+        ether saddr 16:76:57:ba:d3:64 udp sport { 500, 4500 } counter drop
+    }
+}
+```
+
+**Note:**
+- Il telefono usa MAC `f0:6c:5d:74:1c:e4` sul 5GHz (`phy1-ap0`, segnale -32 dBm) e `16:76:57:ba:d3:64` sul 2.4GHz (roaming).
+- L'IP del telefono è statico `192.168.0.14`, gateway WiFi `0.0.0.0` (nessuna default route WiFi).
+- Il bridge netfilter L4 **non è disponibile** nel kernel OpenWrt 24.10 → uso `netdev ingress`.
+- UCI `include` in fw4 **non funziona** per file con dichiarazioni `table {}` standalone → uso `/etc/init.d/block-iwlan`.
+
+```bash
+# Verifica regole attive:
+nft list table netdev block_iwlan_nd | grep counter
+# Verifica stato servizio:
+/etc/init.d/block-iwlan status
+```
+
+### Fix aggiuntivo: Android deve classificare il WiFi come rete senza Internet
+
+Il solo gateway IPv4 statico `0.0.0.0` non era sufficiente su Android 13 / MIUI: pur non avendo una route IPv4 utilizzabile verso Internet, dopo la validazione precedente il framework poteva conservare sul WiFi le capability `INTERNET` e `VALIDATED`. In quel caso il servizio Android Tethering sceglieva **`wlan0`** come upstream invece di `rmnet_data2`:
+
+```text
+Found upstream interface(s): [wlan0]       # ERRATO: tethering senza Internet
+SET DNS forwarders: ... 192.168.0.3
+```
+
+La correzione applicata via ADB è:
+
+```bash
+adb_router shell 'settings put global captive_portal_mode 1'
+adb_router shell 'settings put global network_avoid_bad_wifi 1'
+# rivalutazione della connessione WiFi
+adb_router shell 'svc wifi disable; sleep 5; svc wifi enable'
+```
+
+- `captive_portal_mode=1`: Android esegue la rilevazione reale del captive portal invece di accettare uno stato precedente/non verificato.
+- `network_avoid_bad_wifi=1`: Android evita di promuovere a default una WiFi non realmente utilizzabile per Internet.
+- Il WiFi rimane collegato alla LAN con IP statico `192.168.0.14/24`, gateway `0.0.0.0` e ADB/scrcpy raggiungibile, mentre la rete mobile resta la default route.
+
+**Verifica di convivenza riuscita (24/08/2026):** dopo oltre 75 secondi con WiFi associato, `Active default network: 148` (mobile), `mDataConnectionState=2`, e Tethering ha mantenuto:
+
+```text
+Found upstream interface(s): [rmnet_data2]
+SET DNS forwarders: network=148 dnsServers=[217.200.201.67, 217.200.201.66]
+```
+
+Il router ha inoltre confermato `wan online`, route primaria `default via 10.203.33.201 dev usb0 metric 10` e HTTP 204 riuscito. ADB wireless è stato verificato su `192.168.0.14:5555`.
+
+> Se il tethering torna a indicare `Found upstream interface(s): [wlan0]`, rieseguire il ciclo WiFi off/on sopra indicato e controllare che entrambi i setting globali restino a `1`.
+
+### Causa Reale 2: mwan3 offline (deadlock tracking ICMP)
+
+mwan3 con `initial_state='offline'` non aggiungeva la route `default via usb0` finché il tracking ping non confermasse 8 ping consecutivi. Ma senza la route in tabella, i ping non potevano uscire → deadlock.
+
+**Sintomi:**
+- `mwan3 status`: `wan is offline`
+- Route default: `via 192.168.0.3 dev br-lan metric 30` (fallback Debian)
+- Ping a 8.8.8.8 via usb0: 100% loss (mancava la route, non TIM blocca ICMP)
+- Dopo aver aggiunto manualmente la route: ping 0% loss, HTTP 204 OK ✅
+
+**Fix:** `mwan3 restart` ha risolto il deadlock reinizializzando il tracking. Dopo ~40s (8 ping × 5s) mwan3 ha dichiarato `wan online`.
+
+```
+wan is online and tracking is active (uptime 01h:40m:19s)
+default via 10.203.33.201 dev usb0 metric 10   ← primaria
+default via 192.168.0.3 dev br-lan metric 30   ← fallback
+```
+
+> **Nota:** se in futuro `mwan3 status` mostra `wan offline` con internet che funziona via Debian (metric 30), eseguire `mwan3 restart` sul router. La causa è sempre il deadlock al boot (mwan3 non ha ancora la route per tracciare).
+
+### Diagnostica rapida (24/08/2026 pattern)
+
+```bash
+# 1. Stato bearer dati Android
+docker exec homeassistant ssh -i /config/.ssh/router_key root@192.168.0.11 \
+  "adb_router shell 'dumpsys telephony.registry 2>/dev/null | grep mPreciseDataConnectionStates' | tail -2"
+
+# 2. Stato mwan3 e routing
+docker exec homeassistant ssh -i /config/.ssh/router_key root@192.168.0.11 \
+  "mwan3 status | head -5; ip route show default"
+
+# 3. Fix mwan3 offline
+docker exec homeassistant ssh -i /config/.ssh/router_key root@192.168.0.11 \
+  "/etc/init.d/mwan3 restart"
+
+# 4. Verifica regole IWLAN attive
+docker exec homeassistant ssh -i /config/.ssh/router_key root@192.168.0.11 \
+  "nft list table netdev block_iwlan_nd | grep counter"
+```
+
+---
+*Ultimo aggiornamento: 24 Agosto 2026*
+
+## Automazione e Failsafe del Tethering USB Dual-Phone (24 Agosto 2026)
+
+### Architettura Hardware Due Telefoni
+- **Telefono 1 (Router - WAN 4G/5G Principale)**: Collegato alla porta USB del router OpenWrt (`192.168.0.11`, interfaccia WAN `usb0`). Gestito via script ADB dal router (`/usr/bin/adb_router`).
+- **Telefono 2 (Debian - Gateway Intranet / Fallback)**: Collegato via USB al server Debian 13 (`192.168.0.3`, interfaccia `enx...`).
+
+### Funzionalità e Correzioni Implementate
+
+#### 1. Tracciamento Azioni Utente nei Log (`[USER_ACTION]`)
+Ogni azione manuale (click sui pulsanti "Normale" o "Intranet" nella dashboard) o automatizzata viene immediatamente registrata a inizio traccia nel file `/config/logs/usb_tether/usb_tether.log`:
+```text
+2026-08-24 23:27:08 [INFO] [USER_ACTION] PREMUTO BOTTONE: Ripristino modalita NORMALE (host: Debian (192.168.0.3), max_durata: 60m)
+```
+
+#### 2. Visualizzazione Reale in Dashboard durante il Ripristino (`RESTORE_MARKER`)
+- **Problema risolto**: Durante i 15-30s della procedura di ripristino verso "Normale", la dashboard continuava a mostrare il vecchio stato "INTRANET ATTIVA".
+- **Fix**: All'avvio dell'azione `restore`, lo script `/config/helpers/usb_tether_ha.sh` crea immediatamente un marker di ripristino (`restoring_windows.marker`), che forza l'output dello stato su `restoring`.
+- Nel pacchetto `packages/usb_tether.yaml`, la priorità del sensore template `sensor.usb_tether_dashboard` è stata impostata sullo stato `restoring`, mostrando istantaneamente:
+  `Ripristino routing normale in corso... @ <timestamp>`
+
+#### 3. Inizializzazione ADB Telefono 1 e Risoluzione Loop di Routing Wi-Fi/USB
+- **Sintomo**: Il passaggio verso "Normale" falliva (`100% loss` sul ping router) e manteneva il fallback su Debian.
+- **Causa**: Quando il Wi-Fi del Telefono 1 rimaneva connesso alla rete Wi-Fi locale (`192.168.0.x`), Android reindirizzava il traffico del tethering USB (`rndis0`) verso l'interfaccia Wi-Fi `wlan0` invece della SIM cellulare Kena `rmnet_data0`. Il router inviava i pacchetti a Telefono 1 via USB e Telefono 1 li rinviava al router via Wi-Fi, creando un loop ed azzerando la connettività Internet.
+- **Fix automatizzato**: Nella funzione `router_wan_up()` di `/config/host_scripts/usb_tether.sh`, prima dell'attivazione della WAN router vengono inviati via ADB i seguenti comandi al Telefono 1:
+  1. `svc wifi disable`: disabilita temporaneamente il Wi-Fi per spezzare il loop ed obbligare Android ad instradare il tethering sulla SIM 4G/5G Kena.
+  2. `svc data enable`: forza l'abilitazione dei dati cellulari Android.
+  3. `svc usb setFunctions rndis`: forza la modalità RNDIS tethering.
+
+#### 4. Watchdog Failsafe ed Azzeramento Disconnessioni LAN
+- Lo script di protezione `/config/helpers/failsafe_watchdog.sh` viene avviato in background per 35-45 secondi ad ogni cambio stato.
+- Se la riattivazione della WAN del router o della rete Intranet Debian fallisce per qualsiasi motivo (es. SIM senza campo o cavo disconnesso), il sistema interrompe il passaggio mantenendo attiva la rotta precedente (fallback via Debian), garantendo l'assenza assoluta di disconnessioni per la LAN domestica.
+
+#### Verifiche Rapide via CLI
+```bash
+# 1. Verifica ultimo evento log utente e ripristino:
+docker exec homeassistant tail -n 15 /config/logs/usb_tether/usb_tether.log
+
+# 2. Stato corrente del sensore tethering in Home Assistant:
+docker exec homeassistant bash -c "/config/helpers/usb_tether_ha.sh status server auto 60"
+```
+
+---
+*Ultimo aggiornamento: 24 Agosto 2026*

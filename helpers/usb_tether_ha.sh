@@ -135,12 +135,9 @@ run_status() {
     fi
   fi
 
-  # Se un restore Windows e' in attesa del drenaggio router (puo' durare
-  # minuti, anche ore), Windows non ha ancora richiamato il proprio
-  # -Action restore: il suo stato locale direbbe ancora "active", che
-  # sembrerebbe un blocco invece di un ripristino graduale in corso.
-  if [[ "$HOST" == *"Windows"* ]] && [[ -f "$RESTORE_MARKER" ]]; then
-    printf '{"state":"restoring","mode":"server","message":"Ripristino in corso (drenaggio flussi protetti sul router)..."}\n'
+  # Se un restore (Debian o Windows) e' in corso, restituisce immediatamente 'restoring'
+  if [[ -f "$RESTORE_MARKER" ]]; then
+    printf '{"state":"restoring","mode":"server","message":"Ripristino routing normale in corso..."}\n'
     return 0
   fi
 
@@ -220,7 +217,11 @@ run_atexec() {
   # un rischio accettato; per eliminarlo del tutto servirebbe autenticazione
   # via -hashes (NTLM pass-the-hash) invece della password in chiaro.
   local target="carlo_2:${pw}@192.168.0.8"
-  atexec.py "$target" "powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand $encoded" 2>&1
+  if command -v atexec.py >/dev/null 2>&1; then
+    atexec.py "$target" "powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand $encoded" 2>&1
+  else
+    ssh_windows "powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand $encoded" 2>&1
+  fi
 }
 
 activate_windows() {
@@ -512,8 +513,10 @@ router_finish_restore_windows() {
 
 restore_debian() {
   local out rc
+  touch "$RESTORE_MARKER" 2>/dev/null || true
   out="$(ssh_debian "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh restore" 2>&1)"
   rc=$?
+  rm -f "$RESTORE_MARKER" 2>/dev/null || true
   log_line INFO "EXEC Debian restore rc=$rc | $(printf '%s' "$out" | tail -c 500)"
   if (( rc != 0 )); then
     json_error "restore Debian fallito rc=$rc"
@@ -536,6 +539,8 @@ case "$ACTION" in
     auto_restore_windows
     ;;
   activate)
+    log_line INFO "[USER_ACTION] PREMUTO BOTTONE: Attivazione modalita $MODE (host: $HOST, max_durata: ${DURATION}m)"
+    nohup /config/helpers/failsafe_watchdog.sh "normale" "$HOST" 35 >/dev/null 2>&1 &
     if [[ "$HOST" == *"Windows"* ]]; then
       activate_windows
     else
@@ -543,6 +548,8 @@ case "$ACTION" in
     fi
     ;;
   restore)
+    log_line INFO "[USER_ACTION] PREMUTO BOTTONE: Ripristino modalita NORMALE (host: $HOST, max_durata: ${DURATION}m)"
+    nohup /config/helpers/failsafe_watchdog.sh "intranet" "$HOST" 45 >/dev/null 2>&1 &
     if [[ "$HOST" == *"Windows"* ]]; then
       restore_windows
     else

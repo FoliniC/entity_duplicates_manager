@@ -7,12 +7,14 @@
 # ============================================================================
 
 # ============================================================================
-# PERSISTENT TEMPLATE SENSORS (store values across restarts)
-# These are the source of truth - input_number/input_text are just UI controls
-# Self-referencing state templates persist values across HA restarts
+# TEMPLATE SENSORS - All in one block (persistent stored + calculated)
 # ============================================================================
 template:
   - sensor:
+      # ========================================================================
+      # PERSISTENT STORED SENSORS (self-referencing, persist across restarts)
+      # These are the source of truth - input_number/input_text are just UI controls
+      # ========================================================================
       # Investment parameters (persisted)
       - name: "BTC Investment EUR Stored"
         unique_id: btc_investment_eur_stored
@@ -62,248 +64,13 @@ template:
       - name: "Target Phone URL Stored"
         unique_id: target_phone_url_stored
         icon: "mdi:link"
-        state: "{{ states('sensor.target_phone_url_stored') | default('https://www.trovaprezzi.it/prezzo-xiaomi-17-ultra-16-512gb-6-9-5g-black-ds-wind3-market2go_12345678.aspx') }}"
+        state: "{{ states('sensor.target_phone_url_stored') | default('https://trovaprezzi.it/xiaomi-17-ultra') }}"
         attributes:
-          initial: "https://www.trovaprezzi.it/prezzo-xiaomi-17-ultra-16-512gb-6-9-5g-black-ds-wind3-market2go_12345678.aspx"
+          initial: "https://trovaprezzi.it/xiaomi-17-ultra"
 
-# ============================================================================
-# INPUT HELPERS (UI controls - reset on restart, sync to persistent sensors)
-# ============================================================================
-input_number:
-  btc_investment_eur:
-    name: "BTC Investment EUR"
-    min: 0
-    max: 1000000
-    step: 10
-    unit_of_measurement: "EUR"
-    icon: "mdi:cash-multiple"
-    mode: box
-    initial: 5000
-
-  btc_amount:
-    name: "BTC Amount"
-    min: 0
-    max: 100
-    step: 0.00000001
-    unit_of_measurement: "BTC"
-    icon: "mdi:bitcoin"
-    mode: box
-    initial: 0.09259259
-
-  btc_avg_buy_price:
-    name: "BTC Avg Buy Price EUR"
-    min: 0
-    max: 200000
-    step: 1
-    unit_of_measurement: "EUR"
-    icon: "mdi:calculator"
-    mode: box
-    initial: 54000
-
-  target_phone_price:
-    name: "Target Phone Price EUR"
-    min: 0
-    max: 5000
-    step: 1
-    unit_of_measurement: "EUR"
-    icon: "mdi:cellphone"
-    mode: box
-    initial: 1020.72
-
-input_text:
-  target_phone_name:
-    name: "Modello telefono target"
-    icon: "mdi:cellphone-information"
-    initial: "Xiaomi 17 Ultra 16/512GB 6.9\" 5G Black DS Wind3"
-
-  target_phone_url:
-    name: "URL monitoraggio prezzo telefono"
-    icon: "mdi:link"
-    initial: "https://www.trovaprezzi.it/prezzo-xiaomi-17-ultra-16-512gb-6-9-5g-black-ds-wind3-market2go_12345678.aspx"
-
-# ============================================================================
-# SYNC INPUT_TEXTS (hidden, used for persistence via restore)
-# These DO persist across restarts and act as the bridge
-# ============================================================================
-input_text:
-  btc_investment_eur_sync:
-    name: "BTC Investment Sync"
-    initial: "5000"
-    icon: "mdi:database"
-
-  btc_amount_sync:
-    name: "BTC Amount Sync"
-    initial: "0.09259259"
-    icon: "mdi:database"
-
-  btc_avg_buy_price_sync:
-    name: "BTC Avg Buy Price Sync"
-    initial: "54000"
-    icon: "mdi:database"
-
-  target_phone_price_sync:
-    name: "Target Phone Price Sync"
-    initial: "1020.72"
-    icon: "mdi:database"
-
-  target_phone_name_sync:
-    name: "Target Phone Name Sync"
-    initial: "Xiaomi 17 Ultra 16/512GB 6.9\" 5G Black DS Wind3"
-    icon: "mdi:database"
-
-  target_phone_url_sync:
-    name: "Target Phone URL Sync"
-    initial: "https://www.trovaprezzi.it/prezzo-xiaomi-17-ultra-16-512gb-6-9-5g-black-ds-wind3-market2go_12345678.aspx"
-    icon: "mdi:database"
-
-# ============================================================================
-# AUTOMATIONS: Sync UI inputs -> Sync input_texts (which persist)
-# ============================================================================
-automation:
-  - alias: "BTC Tracker - Sync Investment Input to Persistent"
-    trigger:
-      - platform: state
-        entity_id: input_number.btc_investment_eur
-    action:
-      - service: input_text.set_value
-        target:
-          entity_id: input_text.btc_investment_eur_sync
-        data:
-          value: "{{ trigger.to_state.state }}"
-
-  - alias: "BTC Tracker - Sync Amount Input to Persistent"
-    trigger:
-      - platform: state
-        entity_id: input_number.btc_amount
-    action:
-      - service: input_text.set_value
-        target:
-          entity_id: input_text.btc_amount_sync
-        data:
-          value: "{{ trigger.to_state.state }}"
-
-  - alias: "BTC Tracker - Sync Avg Buy Price Input to Persistent"
-    trigger:
-      - platform: state
-        entity_id: input_number.btc_avg_buy_price
-    action:
-      - service: input_text.set_value
-        target:
-          entity_id: input_text.btc_avg_buy_price_sync
-        data:
-          value: "{{ trigger.to_state.state }}"
-
-  - alias: "BTC Tracker - Sync Phone Price Input to Persistent"
-    trigger:
-      - platform: state
-        entity_id: input_number.target_phone_price
-    action:
-      - service: input_text.set_value
-        target:
-          entity_id: input_text.target_phone_price_sync
-        data:
-          value: "{{ trigger.to_state.state }}"
-
-  - alias: "BTC Tracker - Sync Phone Name Input to Persistent"
-    trigger:
-      - platform: state
-        entity_id: input_text.target_phone_name
-    action:
-      - service: input_text.set_value
-        target:
-          entity_id: input_text.target_phone_name_sync
-        data:
-          value: "{{ trigger.to_state.state }}"
-
-  - alias: "BTC Tracker - Sync Phone URL Input to Persistent"
-    trigger:
-      - platform: state
-        entity_id: input_text.target_phone_url
-    action:
-      - service: input_text.set_value
-        target:
-          entity_id: input_text.target_phone_url_sync
-        data:
-          value: "{{ trigger.to_state.state }}"
-
-# ============================================================================
-# AUTOMATIONS: On startup, restore UI inputs from persistent sync entities
-# ============================================================================
-  - alias: "BTC Tracker - Restore Inputs on Startup"
-    trigger:
-      - platform: homeassistant
-        event: start
-    action:
-      - service: input_number.set_value
-        target:
-          entity_id: input_number.btc_investment_eur
-        data:
-          value: "{{ states('input_text.btc_investment_eur_sync') | float(5000) }}"
-      - service: input_number.set_value
-        target:
-          entity_id: input_number.btc_amount
-        data:
-          value: "{{ states('input_text.btc_amount_sync') | float(0.09259259) }}"
-      - service: input_number.set_value
-        target:
-          entity_id: input_number.btc_avg_buy_price
-        data:
-          value: "{{ states('input_text.btc_avg_buy_price_sync') | float(54000) }}"
-      - service: input_number.set_value
-        target:
-          entity_id: input_number.target_phone_price
-        data:
-          value: "{{ states('input_text.target_phone_price_sync') | float(1020.72) }}"
-      - service: input_text.set_value
-        target:
-          entity_id: input_text.target_phone_name
-        data:
-          value: "{{ states('input_text.target_phone_name_sync') }}"
-      - service: input_text.set_value
-        target:
-          entity_id: input_text.target_phone_url
-        data:
-          value: "{{ states('input_text.target_phone_url_sync') }}"
-
-# ============================================================================
-# REST sensors for Bitcoin price (CoinGecko)
-# ============================================================================
-sensor:
-  - platform: rest
-    name: "Bitcoin Price EUR"
-    unique_id: bitcoin_price_eur
-    resource: "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur&include_24hr_change=true&include_last_updated_at=true"
-    scan_interval: 300
-    headers:
-      Accept: "application/json"
-      User-Agent: "HomeAssistant-BTC-Tracker/1.0"
-    value_template: "{{ value_json.bitcoin.eur | float(0) }}"
-    unit_of_measurement: "EUR"
-    device_class: monetary
-    state_class: measurement
-    json_attributes:
-      - "bitcoin.eur_24h_change"
-      - "bitcoin.last_updated_at"
-    icon: "mdi:currency-btc"
-
-  - platform: rest
-    name: "Bitcoin 24h Change %"
-    unique_id: bitcoin_24h_change_pct
-    resource: "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur&include_24hr_change=true"
-    scan_interval: 300
-    headers:
-      Accept: "application/json"
-    value_template: "{{ value_json.bitcoin.eur_24h_change | float(0) }}"
-    unit_of_measurement: "%"
-    state_class: measurement
-    icon: "mdi:chart-line"
-
-# ============================================================================
-# TEMPLATE SENSORS FOR BTC INVESTMENT TRACKING
-# Read from PERSISTENT stored sensors (not input helpers!)
-# ============================================================================
-template:
-  - sensor:
+      # ========================================================================
+      # CALCULATED SENSORS (read from persistent stored sensors)
+      # ========================================================================
       # Parametri investimento (read from persistent stored sensors)
       - name: "BTC Investment EUR"
         unique_id: btc_investment_eur
@@ -480,7 +247,7 @@ template:
         unique_id: btc_net_price_per_btc
         icon: "mdi:cash-multiple"
         device_class: monetary
-        state_class: measurement
+        state_class: total
         unit_of_measurement: "EUR"
         state: >
           {% set price = states('sensor.bitcoin_price_eur') | float(0) %}
@@ -558,3 +325,230 @@ template:
           {% set net_profit = states('sensor.btc_profit_loss_net') | float(0) %}
           {% set phone = states('sensor.target_phone_price') | float(0) %}
           {{ (phone - net_profit) | round(2) }}
+
+# ============================================================================
+# INPUT HELPERS (UI controls - reset on restart, sync to persistent sensors)
+# ============================================================================
+input_number:
+  btc_investment_eur:
+    name: "BTC Investment EUR"
+    min: 0
+    max: 1000000
+    step: 10
+    unit_of_measurement: "EUR"
+    icon: "mdi:cash-multiple"
+    mode: box
+    initial: 5000
+
+  btc_amount:
+    name: "BTC Amount"
+    min: 0
+    max: 100
+    step: 0.00000001
+    unit_of_measurement: "BTC"
+    icon: "mdi:bitcoin"
+    mode: box
+    initial: 0.09259259
+
+  btc_avg_buy_price:
+    name: "BTC Avg Buy Price EUR"
+    min: 0
+    max: 200000
+    step: 1
+    unit_of_measurement: "EUR"
+    icon: "mdi:calculator"
+    mode: box
+    initial: 54000
+
+  target_phone_price:
+    name: "Target Phone Price EUR"
+    min: 0
+    max: 5000
+    step: 1
+    unit_of_measurement: "EUR"
+    icon: "mdi:cellphone"
+    mode: box
+    initial: 1020.72
+
+input_text:
+  target_phone_name:
+    name: "Modello telefono target"
+    icon: "mdi:cellphone-information"
+    initial: "Xiaomi 17 Ultra 16/512GB 6.9\" 5G Black DS Wind3"
+
+  target_phone_url:
+    name: "URL monitoraggio prezzo telefono"
+    icon: "mdi:link"
+    initial: "https://trovaprezzi.it/xiaomi-17-ultra"
+
+  btc_investment_eur_sync:
+    name: "BTC Investment Sync"
+    initial: "5000"
+    icon: "mdi:database"
+
+  btc_amount_sync:
+    name: "BTC Amount Sync"
+    initial: "0.09259259"
+    icon: "mdi:database"
+
+  btc_avg_buy_price_sync:
+    name: "BTC Avg Buy Price Sync"
+    initial: "54000"
+    icon: "mdi:database"
+
+  target_phone_price_sync:
+    name: "Target Phone Price Sync"
+    initial: "1020.72"
+    icon: "mdi:database"
+
+  target_phone_name_sync:
+    name: "Target Phone Name Sync"
+    initial: "Xiaomi 17 Ultra 16/512GB 6.9\" 5G Black DS Wind3"
+    icon: "mdi:database"
+
+  target_phone_url_sync:
+    name: "Target Phone URL Sync"
+    initial: "https://trovaprezzi.it/xiaomi-17-ultra"
+    icon: "mdi:database"
+
+# ============================================================================
+# AUTOMATIONS: Sync UI inputs -> Sync input_texts (which persist)
+# ============================================================================
+automation:
+  - alias: "BTC Tracker - Sync Investment Input to Persistent"
+    trigger:
+      - platform: state
+        entity_id: input_number.btc_investment_eur
+    action:
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.btc_investment_eur_sync
+        data:
+          value: "{{ trigger.to_state.state }}"
+
+  - alias: "BTC Tracker - Sync Amount Input to Persistent"
+    trigger:
+      - platform: state
+        entity_id: input_number.btc_amount
+    action:
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.btc_amount_sync
+        data:
+          value: "{{ trigger.to_state.state }}"
+
+  - alias: "BTC Tracker - Sync Avg Buy Price Input to Persistent"
+    trigger:
+      - platform: state
+        entity_id: input_number.btc_avg_buy_price
+    action:
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.btc_avg_buy_price_sync
+        data:
+          value: "{{ trigger.to_state.state }}"
+
+  - alias: "BTC Tracker - Sync Phone Price Input to Persistent"
+    trigger:
+      - platform: state
+        entity_id: input_number.target_phone_price
+    action:
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.target_phone_price_sync
+        data:
+          value: "{{ trigger.to_state.state }}"
+
+  - alias: "BTC Tracker - Sync Phone Name Input to Persistent"
+    trigger:
+      - platform: state
+        entity_id: input_text.target_phone_name
+    action:
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.target_phone_name_sync
+        data:
+          value: "{{ trigger.to_state.state }}"
+
+  - alias: "BTC Tracker - Sync Phone URL Input to Persistent"
+    trigger:
+      - platform: state
+        entity_id: input_text.target_phone_url
+    action:
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.target_phone_url_sync
+        data:
+          value: "{{ trigger.to_state.state }}"
+
+# ============================================================================
+# AUTOMATIONS: On startup, restore UI inputs from persistent sync entities
+# ============================================================================
+  - alias: "BTC Tracker - Restore Inputs on Startup"
+    trigger:
+      - platform: homeassistant
+        event: start
+    action:
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.btc_investment_eur
+        data:
+          value: "{{ states('input_text.btc_investment_eur_sync') | float(5000) }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.btc_amount
+        data:
+          value: "{{ states('input_text.btc_amount_sync') | float(0.09259259) }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.btc_avg_buy_price
+        data:
+          value: "{{ states('input_text.btc_avg_buy_price_sync') | float(54000) }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.target_phone_price
+        data:
+          value: "{{ states('input_text.target_phone_price_sync') | float(1020.72) }}"
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.target_phone_name
+        data:
+          value: "{{ states('input_text.target_phone_name_sync') }}"
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.target_phone_url
+        data:
+          value: "{{ states('input_text.target_phone_url_sync') }}"
+
+# ============================================================================
+# REST sensors for Bitcoin price (CoinGecko)
+# ============================================================================
+sensor:
+  - platform: rest
+    name: "Bitcoin Price EUR"
+    unique_id: bitcoin_price_eur
+    resource: "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur&include_24hr_change=true&include_last_updated_at=true"
+    scan_interval: 300
+    headers:
+      Accept: "application/json"
+      User-Agent: "HomeAssistant-BTC-Tracker/1.0"
+    value_template: "{{ value_json.bitcoin.eur | float(0) }}"
+    unit_of_measurement: "EUR"
+    device_class: monetary
+    state_class: measurement
+    json_attributes:
+      - "bitcoin.eur_24h_change"
+      - "bitcoin.last_updated_at"
+    icon: "mdi:currency-btc"
+
+  - platform: rest
+    name: "Bitcoin 24h Change %"
+    unique_id: bitcoin_24h_change_pct
+    resource: "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur&include_24hr_change=true"
+    scan_interval: 300
+    headers:
+      Accept: "application/json"
+    value_template: "{{ value_json.bitcoin.eur_24h_change | float(0) }}"
+    unit_of_measurement: "%"
+    state_class: measurement
+    icon: "mdi:chart-line"
