@@ -5,6 +5,7 @@ ACTION="${1:-status}"
 MODE="${2:-server}"
 HOST="${3:-Debian (192.168.0.3)}"
 DURATION="${4:-60}"
+IS_ROLLBACK="${5:-0}"
 
 LOG_FILE="/config/logs/usb_tether/usb_tether.log"
 RESTORE_MARKER="/config/logs/usb_tether/restoring_windows.marker"
@@ -124,13 +125,17 @@ extract_phone_detection() {
 run_status() {
   local out rc line
 
-  # Check for pre-flight error marker first
+  # Check for error marker first
   if [[ -f "$ERROR_MARKER" ]]; then
     local err_msg err_time
     err_msg=$(head -1 "$ERROR_MARKER" 2>/dev/null)
     err_time=$(sed -n '2p' "$ERROR_MARKER" 2>/dev/null)
     if [[ -n "$err_msg" ]]; then
-      printf '{"state":"error","mode":"%s","message":"%s (pre-flight fallito alle %s)"}\n' "$MODE" "$err_msg" "$err_time"
+      if [[ -n "$err_time" ]]; then
+        printf '{"state":"error","mode":"%s","message":"%s (alle %s)"}\n' "$MODE" "$err_msg" "$err_time"
+      else
+        printf '{"state":"error","mode":"%s","message":"%s"}\n' "$MODE" "$err_msg"
+      fi
       return 0
     fi
   fi
@@ -538,9 +543,24 @@ case "$ACTION" in
   auto_restore_windows)
     auto_restore_windows
     ;;
+  reset)
+    log_line INFO "[USER_ACTION] 🔴 RESET DI EMERGENZA PREMUTO: Interruzione watchdog in corso e ripristino forzato rete normale."
+    pkill -f failsafe_watchdog.sh >/dev/null 2>&1 || true
+    rm -f /config/logs/usb_tether/*.marker >/dev/null 2>&1 || true
+    if [[ "$HOST" == *"Windows"* ]]; then
+      restore_windows
+    else
+      restore_debian
+    fi
+    ;;
   activate)
-    log_line INFO "[USER_ACTION] PREMUTO BOTTONE: Attivazione modalita $MODE (host: $HOST, max_durata: ${DURATION}m)"
-    nohup /config/helpers/failsafe_watchdog.sh "normale" "$HOST" 35 >/dev/null 2>&1 &
+    if [ "$IS_ROLLBACK" = "1" ]; then
+      log_line INFO "[FAILSAFE_ROLLBACK] Esecuzione rollback automatico verso modalita $MODE (host: $HOST)"
+    else
+      pkill -f failsafe_watchdog.sh >/dev/null 2>&1 || true
+      log_line INFO "[USER_ACTION] PREMUTO BOTTONE: Attivazione modalita $MODE (host: $HOST, max_durata: ${DURATION}m)"
+      nohup /config/helpers/failsafe_watchdog.sh "normale" "$HOST" 35 >/dev/null 2>&1 &
+    fi
     if [[ "$HOST" == *"Windows"* ]]; then
       activate_windows
     else
@@ -548,8 +568,13 @@ case "$ACTION" in
     fi
     ;;
   restore)
-    log_line INFO "[USER_ACTION] PREMUTO BOTTONE: Ripristino modalita NORMALE (host: $HOST, max_durata: ${DURATION}m)"
-    nohup /config/helpers/failsafe_watchdog.sh "intranet" "$HOST" 45 >/dev/null 2>&1 &
+    if [ "$IS_ROLLBACK" = "1" ]; then
+      log_line INFO "[FAILSAFE_ROLLBACK] Esecuzione rollback automatico verso modalita NORMALE (host: $HOST)"
+    else
+      pkill -f failsafe_watchdog.sh >/dev/null 2>&1 || true
+      log_line INFO "[USER_ACTION] PREMUTO BOTTONE: Ripristino modalita NORMALE (host: $HOST, max_durata: ${DURATION}m)"
+      nohup /config/helpers/failsafe_watchdog.sh "intranet" "$HOST" 45 >/dev/null 2>&1 &
+    fi
     if [[ "$HOST" == *"Windows"* ]]; then
       restore_windows
     else

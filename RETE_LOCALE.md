@@ -46,6 +46,11 @@ Documentazione della configurazione di rete per l'ambiente Home Assistant.
   - **IP:** `192.168.0.89`
   - **MAC:** `68:f6:3b:99:6b:a3`
 
+### Sistema di Videosorveglianza & IP Cameras (Frigate, Agent DVR, Smartphone RTSP)
+La documentazione completa relativa all'architettura NVR, al container Agent DVR, al tracciamento eventi AI via Frigate (notifiche MQTT) e alle IP Camera della rete (inclusi gli smartphone riconvertiti come Honor COL-L29 e Redmi Note 9S) è gestita nel file dedicato:
+👉 [`TELECAMERE.md`](./TELECAMERE.md)
+
+
 ## Analisi Impatto Mesh e Ottimizzazione Canali (Alexa & Tuya)
 L'integrazione del sistema Tenda Mesh5 e la gestione dei canali su OpenWrt hanno portato alla seguente configurazione ottimizzata:
 
@@ -1657,13 +1662,14 @@ Ogni azione manuale (click sui pulsanti "Normale" o "Intranet" nella dashboard) 
 - Nel pacchetto `packages/usb_tether.yaml`, la priorità del sensore template `sensor.usb_tether_dashboard` è stata impostata sullo stato `restoring`, mostrando istantaneamente:
   `Ripristino routing normale in corso... @ <timestamp>`
 
-#### 3. Inizializzazione ADB Telefono 1 e Risoluzione Loop di Routing Wi-Fi/USB
-- **Sintomo**: Il passaggio verso "Normale" falliva (`100% loss` sul ping router) e manteneva il fallback su Debian.
-- **Causa**: Quando il Wi-Fi del Telefono 1 rimaneva connesso alla rete Wi-Fi locale (`192.168.0.x`), Android reindirizzava il traffico del tethering USB (`rndis0`) verso l'interfaccia Wi-Fi `wlan0` invece della SIM cellulare Kena `rmnet_data0`. Il router inviava i pacchetti a Telefono 1 via USB e Telefono 1 li rinviava al router via Wi-Fi, creando un loop ed azzerando la connettività Internet.
-- **Fix automatizzato**: Nella funzione `router_wan_up()` di `/config/host_scripts/usb_tether.sh`, prima dell'attivazione della WAN router vengono inviati via ADB i seguenti comandi al Telefono 1:
-  1. `svc wifi disable`: disabilita temporaneamente il Wi-Fi per spezzare il loop ed obbligare Android ad instradare il tethering sulla SIM 4G/5G Kena.
-  2. `svc data enable`: forza l'abilitazione dei dati cellulari Android.
-  3. `svc usb setFunctions rndis`: forza la modalità RNDIS tethering.
+#### 3. Inizializzazione ADB Telefono 1 e Forzatura Upstream Cellulare (Wi-Fi Coexistence Resiliente)
+- **Problema**: Quando il Wi-Fi del Telefono 1 è attivo e connesso alla rete domestica (`192.168.0.x`), di default Android reindirizzava il traffico del tethering USB (`rndis0`) verso l'interfaccia Wi-Fi `wlan0` anziché la SIM 4G/5G `rmnet_data`. Il router inviava i pacchetti a Telefono 1 via USB e Telefono 1 li rinviava al router via Wi-Fi, creando un loop ed azzerando la connettività Internet (`100% loss`).
+- **Soluzione Resiliente (Architettura ADB Network Settings)**:
+  Anziché spegnere il Wi-Fi, applichiamo sul Telefono 1 via ADB le seguenti impostazioni del sottosistema di rete Android:
+  1. `settings put global tether_upstream_types 0,5`: Istruisce il modulo Tethering di Android ad accettare come interfacce upstream **esclusivamente la rete cellulare** (`0 = TYPE_MOBILE`, `5 = TYPE_MOBILE_HIPRI`), escludendo totalmente l'interfaccia Wi-Fi (`wlan0`).
+  2. `settings put global mobile_data_always_on 1`: Mantiene l'interfaccia dati cellulare attiva in background anche quando il Wi-Fi è connesso.
+  3. `settings put global network_avoid_bad_wifi 1`: Previene l'uso di Wi-Fi con conflitti di routing per l'upstream internet.
+- **Risultato**: Il Telefono 1 può mantenere il **Wi-Fi attivo 24/7** per accedere ai servizi locali (HA, scrcpy, ADB locale), mentre il tethering USB utilizza **sempre ed esclusivamente la rete 4G/5G** (`rmnet_data`), garantendo la massima stabilità senza alcun rischio di loop.
 
 #### 4. Watchdog Failsafe ed Azzeramento Disconnessioni LAN
 - Lo script di protezione `/config/helpers/failsafe_watchdog.sh` viene avviato in background per 35-45 secondi ad ogni cambio stato.
@@ -1680,3 +1686,64 @@ docker exec homeassistant bash -c "/config/helpers/usb_tether_ha.sh status serve
 
 ---
 *Ultimo aggiornamento: 24 Agosto 2026*
+
+## Fix Watchdog Cloudflare Tunnel (25 Agosto 2026)
+
+### Problema
+Il container `cloudflare-watchdog` (check `https://home.vialeformica.org` ogni 60s con auto-restart del tunnel) **non era mai riuscito a riavviare il tunnel**: ogni intervento falliva con `docker: Permission denied` (migliaia di errori nei log). Durante l'assenza di internet della notte 24→25/08 il watchdog aveva rilevato correttamente il tunnel DOWN ma non poteva agire.
+
+### Cause (3 problemi combinati)
+1. **`/usr/local/bin/docker` era una directory vuota** sull'host: il mount montava una cartella, non un eseguibile → `exec: "/usr/local/bin/docker": is a directory`
+2. Il binario `/usr/bin/docker` dell'host è linkato a **glibc**, incompatibile con musl di `curlimages/curl` (errore `no such file or directory`)
+3. Il socket `/var/run/docker.sock` appartiene a `root:docker(986)`; l'utente del container (`curl_user`, uid 1000) non poteva accedervi
+
+### Fix applicati
+
+1. **Docker CLI statico** scaricato in `/home/carlo/docker/bin/docker` (binario ufficiale Docker 27.5.1 static, indipendente dalla libc, compatibile con musl):
+   ```bash
+   curl -L https://download.docker.com/linux/static/stable/x86_64/docker-27.5.1.tgz | \
+     tar -xz -C /tmp docker/docker && cp /tmp/docker/docker /home/carlo/docker/bin/docker
+   ```
+
+2. **`docker-compose.yml`** — servizio `cloudflare-watchdog`:
+   ```yaml
+   volumes:
+     - /var/run/docker.sock:/var/run/docker.sock:rw
+     - /home/carlo/docker:/docker-compose:ro
+     - /home/carlo/docker/bin/docker:/usr/local/bin/docker:ro
+   user: "0:986"          # root nel gruppo docker(986) -> accesso al socket
+   ```
+
+### Verifica end-to-end
+```bash
+# Client docker funzionante nel watchdog:
+docker exec cloudflare-watchdog /usr/local/bin/docker version --format 'client={{.Client.Version}}'
+# -> client=27.5.1
+
+# Restart del tunnel dal watchdog:
+docker exec cloudflare-watchdog /usr/local/bin/docker restart cloudflare-tunnel
+curl -I https://home.vialeformica.org    # -> HTTP/200
+
+# Log del watchdog (deve alternare "Tunnel OK" ogni ~60s):
+docker logs --tail 5 cloudflare-watchdog
+```
+
+**Esito:** log puliti (`Tunnel OK` ciclico), restart del tunnel dal container riuscito, endpoint HTTP 200. Il watchdog ora esegue realmente l'auto-restart entro ~60s da un'interruzione del tunnel.
+
+---
+*Ultimo aggiornamento: 25 Agosto 2026*
+
+## Integrazione Pulsante SCRCPY su Dashboard HA (25 Agosto 2026)
+
+### Funzionalità
+Aggiunto un pulsante dedicato nella dashboard `/internet-traffic/tethering-usb` per avviare il controllo remoto SCRCPY di Phone 1 (`192.168.0.14:5555`) direttamente sullo schermo del server Debian (`192.168.0.3`):
+
+- **Shell Command (`shell_command.usb_tether_launch_scrcpy`)**:
+  ```bash
+  ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no carlo@192.168.0.3 "adb connect 192.168.0.14:5555; DISPLAY=:0 /home/carlo/Desktop/scrcpy-redmi.sh >/dev/null 2>&1 &"
+  ```
+- **Script HA (`script.usb_tether_launch_scrcpy`)**:
+  Stabilisce la connessione ADB su porta 5555, lancia SCRCPY sulla sessione X11 locale (`DISPLAY=:0`) del server ed invia l'evento al log centralizzato HALog2026.
+- **Pulsante Dashboard (`dashboards/internet_traffic.yaml`)**:
+  Pulsante viola `"📱 AVVIA SCRCPY (SCHERMO DEBIAN 192.168.0.3)"` sotto i comandi tethering della vista `/internet-traffic/tethering-usb`.
+

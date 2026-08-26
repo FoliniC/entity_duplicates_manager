@@ -478,12 +478,16 @@ views:
                 content: >
                   {% set st = states('sensor.usb_tether_status') %}
                   {% set msg = states('sensor.usb_tether_dashboard') %}
+                  {% set txt_msg = states('input_text.usb_tether_status_message') %}
                   {% set rm = state_attr('sensor.usb_tether_status', 'remaining_min') | int(0) %}
                   {% set active_since = state_attr('sensor.usb_tether_status', 'active_since') %}
                   {% if st == 'active' %}
                     {% set bg = '#2e7d32' %}
                     {% set icon = '✅' %}
-                  {% elif st == 'error' or st == 'unavailable' %}
+                  {% elif st == 'activating' or st == 'restoring' or 'in corso' in txt_msg %}
+                    {% set bg = '#e65100' %}
+                    {% set icon = '⏳' %}
+                  {% elif st == 'error' or st == 'unavailable' or 'ERRORE' in txt_msg %}
                     {% set bg = '#b71c1c' %}
                     {% set icon = '⚠️' %}
                   {% else %}
@@ -560,11 +564,11 @@ views:
                         }
 
                   - type: button
-                    name: "🔴"
+                    name: "🔴 Reset"
                     icon: mdi:alert-circle-outline
                     tap_action:
-                      action: call-service
-                      service: shell_command.usb_tether_restore
+                      action: perform-action
+                      perform_action: script.usb_tether_reset
                     hold_action:
                       action: none
                     card_mod:
@@ -576,21 +580,68 @@ views:
                           border: 2px solid #ff5252;
                         }
 
-              # BOTTONE RIATTIVAZIONE ROUTER ADB
-              - type: button
-                name: "⚡ RIATTIVA TETHERING ROUTER (ADB)"
-                icon: mdi:cellphone-link
-                tap_action:
-                  action: perform-action
-                  perform_action: script.usb_tether_riattiva_router
-                card_mod:
-                  style: |
-                    ha-card {
-                      background: #0288d1 !important;
-                      --mdc-theme-primary: white;
-                      font-weight: bold;
-                      margin-top: 6px;
-                    }
+              # BOTTONI UTILITÀ SECONDARIE (ADB & SCRCPY)
+              - type: horizontal-stack
+                cards:
+                  - type: button
+                    name: "⚡ Riattiva ADB"
+                    icon: mdi:cellphone-link
+                    tap_action:
+                      action: perform-action
+                      perform_action: script.usb_tether_riattiva_router
+                    card_mod:
+                      style: |
+                        ha-card {
+                          background: #0288d1 !important;
+                          --mdc-theme-primary: white;
+                          font-size: 13px;
+                          margin-top: 4px;
+                        }
+
+                  - type: button
+                    name: "📱 Avvia SCRCPY"
+                    icon: mdi:cellphone-screenshot
+                    tap_action:
+                      action: perform-action
+                      perform_action: script.usb_tether_launch_scrcpy
+                    card_mod:
+                      style: |
+                        ha-card {
+                          background: #6a1b9a !important;
+                          --mdc-theme-primary: white;
+                          font-size: 13px;
+                          margin-top: 4px;
+                        }
+
+                  - type: button
+                    name: "Wifi off on phone"
+                    icon: mdi:wifi-off
+                    tap_action:
+                      action: perform-action
+                      perform_action: shell_command.usb_tether_wifi_off_router
+                    card_mod:
+                      style: |
+                        ha-card {
+                          background: #c62828 !important;
+                          --mdc-theme-primary: white;
+                          font-size: 13px;
+                          margin-top: 4px;
+                        }
+
+                  - type: button
+                    name: "Wifi on on phone"
+                    icon: mdi:wifi
+                    tap_action:
+                      action: perform-action
+                      perform_action: shell_command.usb_tether_wifi_on_router
+                    card_mod:
+                      style: |
+                        ha-card {
+                          background: #2e7d32 !important;
+                          --mdc-theme-primary: white;
+                          font-size: 13px;
+                          margin-top: 4px;
+                        }
 
               # Durata
               - type: entities
@@ -701,21 +752,31 @@ views:
             cards:
               # Istruzioni
               - type: markdown
-                content: >
+                content: |
                   ## 📋 Come usarlo
 
+                  **Modalità di rete**
 
                   | Bottone | Azione |
                   |---|---|
-                  | 🔄 Normale | Ripristina routing normale |
-                  | 📱 Server | Solo server via USB tethering |
-                  | 🌐 Intranet | TUTTA la LAN via host selezionato |
+                  | 🔄 Normale | Ripristina routing normale via Router (4G/5G Phone 1) |
+                  | 📱 Server | Solo il server Debian/Win accede a Internet via USB |
+                  | 🌐 Intranet | Tutta la LAN va su Internet via host selezionato |
+                  | 🔴 Reset | **Emergenza:** forza ripristino immediato del routing via shell, scavalca lo stato di HA |
 
+                  **Utilità**
 
-                  1. Sul telefono: attiva **Tethering USB**.
-                  2. Collega il cavo USB all'host selezionato.
-                  3. Premi il bottone desiderato.
-                  4. Per disattivare: premi **Normale**.
+                  | Bottone | Azione |
+                  |---|---|
+                  | ⚡ Riattiva ADB | Riattiva il tethering RNDIS su Phone 1 via ADB (se il cavo USB è stato scollegato/ricollegato a caldo) |
+                  | 📱 Avvia SCRCPY | Connette ADB a Phone 1 (192.168.0.14:5555) e apre lo schermo del telefono sul display di Debian |
+
+                  **Procedura**
+
+                  1. Collega il cavo USB all'host desiderato.
+                  2. Sul telefono: attiva **Tethering USB**.
+                  3. Premi il bottone di modalità.
+                  4. Per disattivare: premi **🔄 Normale**.
                 card_mod:
                   style: "ha-card { user-select: text !important; }"
 
@@ -737,7 +798,7 @@ views:
 
               # Tabella stato
               - type: markdown
-                content: >
+                content: |
                   ### 📊 Tabella Stato Attuale
 
                   | Nodo | IP LAN | Stato Tethering | Percorso Internet |
@@ -758,13 +819,12 @@ views:
                     state: "error"
                 card:
                   type: markdown
-                  content: >
+                  content: |
                     ## ⚠️ Problema rilevato
 
                     {{ state_attr('sensor.usb_tether_status', 'message') }}
 
-                    Cause comuni: telefono non collegato, tethering non attivato sul
-                    cellulare, o route residua. Premi **Normale** per pulire lo stato.
+                    Cause comuni: telefono non collegato, tethering non attivato sul cellulare, o route residua. Premi **Normale** per pulire lo stato.
                   card_mod:
                     style: |
                       ha-card {

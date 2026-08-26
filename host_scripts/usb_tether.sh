@@ -126,8 +126,8 @@ router_wan_down() {
 
 router_wan_up() {
     local gw
-    # Disabilitiamo il Wi-Fi ed abilitiamo dati e RNDIS via ADB sul telefono del router (Phone 1) per evitare il loop di routing con la LAN
-    router_ssh "/usr/bin/adb_router shell svc wifi disable >/dev/null 2>&1; /usr/bin/adb_router shell svc data enable >/dev/null 2>&1; /usr/bin/adb_router shell svc usb setFunctions rndis >/dev/null 2>&1; /usr/bin/enable_usb_tether.sh >/dev/null 2>&1; ifup wan >/dev/null 2>&1"
+    # Impostiamo l'upstream del tethering su sola rete cellulare (0,5) in modo che il Wi-Fi possa rimanere attivo senza dirottare il traffico USB
+    router_ssh "/usr/bin/adb_router shell settings put global tether_upstream_types 0,5 >/dev/null 2>&1; /usr/bin/adb_router shell settings put global mobile_data_always_on 1 >/dev/null 2>&1; /usr/bin/adb_router shell settings put global network_avoid_bad_wifi 1 >/dev/null 2>&1; /usr/bin/adb_router shell svc data enable >/dev/null 2>&1; /usr/bin/adb_router shell svc usb setFunctions rndis >/dev/null 2>&1; /usr/bin/enable_usb_tether.sh >/dev/null 2>&1; ifup wan >/dev/null 2>&1"
     sleep 3
     gw=$(router_wan_gateway | head -1)
     if [[ "$gw" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -135,7 +135,7 @@ router_wan_up() {
         echo "WAN router riattivata (route $ROUTER_WAN_IF via $gw ripristinata)."
     fi
 
-    # VERIFICA CONNETTI VITA' INTERNET REALE DEL ROUTER
+    # VERIFICA CONNETTIVITA' INTERNET REALE DEL ROUTER
     if router_ssh "ping -c 2 -W 3 1.1.1.1 >/dev/null 2>&1 || ping -c 2 -W 3 8.8.8.8 >/dev/null 2>&1"; then
         echo "OK: router WAN connettivita' internet verificata."
         return 0
@@ -243,19 +243,19 @@ enable_nat_router() {
     # 1) Abilita forwarding (idempotente).
     sysctl -w net.ipv4.ip_forward=1 >/dev/null
     # 2) MASQUERADE per TUTTO il traffico LAN diretto al telefono.
-    #    Usa commento per renderla identificabile/rimovibile.
     iptables -t nat -C POSTROUTING -s "$LAN_NET" -o "$phone_if" \
         -m comment --comment "usb_tether_router_nat" -j MASQUERADE 2>/dev/null \
         || iptables -t nat -A POSTROUTING -s "$LAN_NET" -o "$phone_if" \
             -m comment --comment "usb_tether_router_nat" -j MASQUERADE
-    # 3) Forwarding esplicito per tutto il subnet LAN (policy default potrebbe essere DROP).
+    # 3) Forwarding: usa -I (insert in testa) invece di -A (append) per avere
+    #    priorita' sulle regole DROP di Docker che si trovano in coda alla chain.
     iptables -C FORWARD -s "$LAN_NET" -o "$phone_if" \
         -m comment --comment "usb_tether_router_fwd" -j ACCEPT 2>/dev/null \
-        || iptables -A FORWARD -s "$LAN_NET" -o "$phone_if" \
+        || iptables -I FORWARD 1 -s "$LAN_NET" -o "$phone_if" \
             -m comment --comment "usb_tether_router_fwd" -j ACCEPT
     iptables -C FORWARD -d "$LAN_NET" -i "$phone_if" \
         -m comment --comment "usb_tether_router_fwd" -j ACCEPT 2>/dev/null \
-        || iptables -A FORWARD -d "$LAN_NET" -i "$phone_if" \
+        || iptables -I FORWARD 1 -d "$LAN_NET" -i "$phone_if" \
             -m comment --comment "usb_tether_router_fwd" -j ACCEPT
     # 4) Aggiungi default route sul router via server (metric alta = fallback).
     router_add_fallback_route
@@ -931,6 +931,62 @@ cmd_diagnose() {
     fi
 }
 
+# --- _netstat (interno) -----------------------------------------------------
+# Dump diagnostico di iptables e route, eseguito come root via sudoers.
+cmd_netstat() {
+    echo "=== ip route ==="
+    ip route show
+    echo ""
+    echo "=== ip rule ==="
+    ip rule show
+    echo ""
+    echo "=== iptables FORWARD ==="
+    iptables -L FORWARD -v -n --line-numbers 2>/dev/null
+    echo ""
+    echo "=== iptables NAT POSTROUTING ==="
+    iptables -t nat -L POSTROUTING -v -n --line-numbers 2>/dev/null
+    echo ""
+    echo "=== ip_forward ==="
+    cat /proc/sys/net/ipv4/ip_forward
+}
+
+# --- renat ------------------------------------------------------------------
+# Ri-applica le regole iptables NAT/FORWARD leggendo lo stato salvato.
+# Utile quando le regole vengono perse senza dover fare restore+re-activate.
+# Idempotente: le regole vengono aggiunte solo se non gia' presenti.
+cmd_renat() {
+    if [ ! -f "$STATE_FILE" ]; then
+        echo "ERRORE: nessuno stato attivo (state file assente)." >&2
+        return 1
+    fi
+    local phone_if mode
+    phone_if=$(grep -E '^phone_if=' "$STATE_FILE" | cut -d= -f2-)
+    mode=$(grep -E '^mode=' "$STATE_FILE" | cut -d= -f2-)
+    if [ -z "$phone_if" ]; then
+        echo "ERRORE: phone_if non trovato nello stato." >&2
+        return 1
+    fi
+    echo "Ri-applicazione NAT/FORWARD su $phone_if (modalita: $mode)..."
+    enable_nat_router "$phone_if"
+    echo "OK: regole NAT/FORWARD ripristinate su $phone_if."
+    # In modalita intranet, garantisce anche che la WAN del router sia abbattuta
+    # (netifd puo' riportarla su autonomamente dopo un evento USB/carrier).
+    if [ "$mode" = "intranet" ]; then
+        echo "Modalita INTRANET: verifica WAN router..."
+        local wan_active
+        wan_active=$(ssh -i "$ROUTER_SSH_KEY" \
+            -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            -o ConnectTimeout=5 -o BatchMode=yes \
+            root@"$ROUTER_IP" "ip route show default dev $ROUTER_WAN_IF metric 10 2>/dev/null | wc -l" 2>/dev/null | tr -d '[:space:]')
+        if [ "${wan_active:-0}" -gt 0 ] 2>/dev/null; then
+            echo "WAN router ancora attiva (netifd l'ha riportata su) - abbattimento..."
+            router_wan_down
+        else
+            echo "WAN router gia' abbattuta - nessun intervento necessario."
+        fi
+    fi
+}
+
 # --- main -------------------------------------------------------------------
 case "${1:-status}" in
     detect)      cmd_detect ;;
@@ -938,11 +994,15 @@ case "${1:-status}" in
     rndis_activate) shift; cmd_rndis_activate "$@" ;;
     restore)     cmd_restore ;;
     status)      cmd_status ;;
+    renat)       cmd_renat ;;
     diagnose)    cmd_diagnose ;;
+    _netstat)    cmd_netstat ;;
+    _wan_down)   router_wan_down ;;
+    _wan_up)     router_wan_up ;;
     _watch)      shift; cmd_watch "$@" ;;
     _drain)      shift; cmd_drain "$@" ;;
     *)
-        echo "Uso: $0 {detect|activate [max_min] [intranet|server]|rndis_activate [max_min] [intranet|server]|restore|status|diagnose}" >&2
+        echo "Uso: $0 {detect|activate [max_min] [intranet|server]|rndis_activate [max_min] [intranet|server]|restore|renat|status|diagnose}" >&2
         exit 64
         ;;
 esac
