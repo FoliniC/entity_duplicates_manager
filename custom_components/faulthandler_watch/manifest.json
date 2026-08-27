@@ -1,0 +1,9 @@
+{
+  "domain": "faulthandler_watch",
+  "name": "Faulthandler Watch",
+  "documentation": "https://example.local",
+  "requirements": [],
+  "codeowners": [],
+  "version": "1.0.0",
+  "integration_type": "service"
+}

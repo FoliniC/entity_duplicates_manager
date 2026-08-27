@@ -155,7 +155,7 @@
           {% elif m == 'autolimit' %} 7
           {% else %} 0
           {% endif %}
-        real_prism_amp: "{{ states('sensor.prism_user_current') | int(0) }}"
+        real_prism_amp: "{{ states('sensor.prism_corrente_impostata_dell_utente') | int(0) }}"
         
         # Rileviamo se l'utente ha appena cambiato il selettore Manuale/Automatico o se siamo al boot
         mode_helper_changed: "{{ trigger.platform == 'state' and trigger.entity_id == 'input_select.ev_charge_2025_mode' }}"

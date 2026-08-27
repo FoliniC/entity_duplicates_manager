@@ -136,7 +136,7 @@ views:
           {% set seconds_since_current_change = ((as_timestamp(now()) - last_current_ts) | int) if last_current_ts > 0 else 999999 %}
           {% set real_prism_mode = states('sensor.prism_mode') %}
           {% set real_prism_mode_num = 1 if real_prism_mode == 'solar' else 2 if real_prism_mode == 'normal' else 3 if real_prism_mode == 'pause' else 7 if real_prism_mode == 'autolimit' else 0 %}
-          {% set real_prism_amp = states('sensor.prism_user_current') | int(0) %}
+          {% set real_prism_amp = states('sensor.prism_corrente_impostata_dell_utente') | int(0) %}
           {% set amp_delta = (target_amp - last_current_amp) | abs %}
           {% set force_current_sync = target_amp == 0 or last_current_amp < 0 or mode == 'Manuale' or (target_amp < last_current_amp and amp_delta >= inertia_delta_a) or target_mode != last_mode or target_mode != real_prism_mode_num or (target_mode == 2 and last_current_amp < 6) or (target_mode == 2 and real_prism_amp < 6 and target_amp >= 6) %}
           {% set delta_ok = amp_delta >= inertia_delta_a %}

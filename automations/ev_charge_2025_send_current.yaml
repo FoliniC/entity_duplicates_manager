@@ -146,7 +146,7 @@
         real_prism_mode: "{{ states('sensor.prism_mode') }}"
         real_prism_mode_num: >
           {{ (1 if real_prism_mode == 'solar' else 2 if real_prism_mode == 'normal' else 3 if real_prism_mode == 'pause' else 7 if real_prism_mode == 'autolimit' else 0) | int(0) }}
-        real_prism_amp: "{{ states('sensor.prism_user_current') | int(0) }}"
+        real_prism_amp: "{{ states('sensor.prism_corrente_impostata_dell_utente') | int(0) }}"
         amp_delta: "{{ (target_amp_raw | int(0) - (states('input_text.ev_charge_2025_last_mqtt_payload') | int(0))) | abs }}"
         force_current_sync: >
           {% set t_amp = target_amp_raw | int(0) %}
@@ -154,7 +154,7 @@
           {% set t_mode = 3 if (not active or cur_soc >= limit_soc or t_amp < 6) else 2 %}
           {% set l_mode = states('input_text.ev_charge_2025_last_mqtt_mode') | int(0) %}
           {% set r_mode = (1 if real_prism_mode == 'solar' else 2 if real_prism_mode == 'normal' else 3 if real_prism_mode == 'pause' else 7 if real_prism_mode == 'autolimit' else 0) | int(0) %}
-          {% set r_amp = states('sensor.prism_user_current') | int(0) %}
+          {% set r_amp = states('sensor.prism_corrente_impostata_dell_utente') | int(0) %}
           {% set a_delta = (t_amp - l_amp) | abs %}
           {{ t_amp == 0 or l_amp < 0 or mode == 'Manuale' or (t_amp < l_amp and a_delta >= inertia_delta_a) or t_mode != l_mode or t_mode != r_mode or (t_mode == 2 and l_amp < 6) or (t_mode == 2 and r_amp < 6 and t_amp >= 6) }}
         delta_ok: "{{ amp_delta | int(0) >= inertia_delta_a }}"
