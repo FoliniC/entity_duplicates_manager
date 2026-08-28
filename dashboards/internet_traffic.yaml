@@ -832,3 +832,252 @@ views:
                         background: rgba(198, 40, 40, 0.08);
                         border: 1px solid #c62828;
                       }
+# ===========================================================================
+# TAB: STATUS APPARATI DI RETE
+# Indicatori visivi per AdGuard, USB Tethering, Internet Connectivity.
+# ===========================================================================
+  - title: Status Apparati
+    path: status-apparati
+    icon: mdi:lan-connect
+    type: sidebar
+    cards:
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: "# 📡 Status Apparati di Rete\n\nIndicatori in tempo reale per i componenti critici della rete locale e internet."
+            card_mod:
+              style: "ha-card { padding: 6px 12px; }"
+
+          # --- GRID INDICATORI ---
+          - type: grid
+            columns: 2
+            square: false
+            cards:
+              # 1. AdGuard Home
+              - type: conditional
+                conditions:
+                  - entity: binary_sensor.adguard_home_status
+                    state: "on"
+                card:
+                  type: entity-button
+                  entity: binary_sensor.adguard_home_status
+                  name: "AdGuard Home"
+                  icon: mdi:shield-check
+                  tap_action:
+                    action: more-info
+                  card_mod:
+                    style: |
+                      ha-card {
+                        background: rgba(46, 125, 50, 0.1);
+                        border: 2px solid #4caf50;
+                        border-radius: 8px;
+                        padding: 6px;
+                        font-size: 13px;
+                      }
+                      ha-card .sensor-name { font-weight: bold; }
+              - type: conditional
+                conditions:
+                  - entity: binary_sensor.adguard_home_status
+                    state_not: "on"
+                card:
+                  type: entity-button
+                  entity: binary_sensor.adguard_home_status
+                  name: "AdGuard Home"
+                  icon: mdi:shield-alert
+                  tap_action:
+                    action: more-info
+                  card_mod:
+                    style: |
+                      ha-card {
+                        background: rgba(211, 47, 47, 0.1);
+                        border: 2px solid #d32f2f;
+                        border-radius: 8px;
+                        padding: 6px;
+                        font-size: 13px;
+                      }
+                      ha-card .sensor-name { font-weight: bold; }
+
+              # 2. USB Tethering
+              - type: conditional
+                conditions:
+                  - entity: sensor.usb_tether_status
+                    state: "active"
+                card:
+                  type: sensor
+                  entity: sensor.usb_tether_status
+                  name: "USB Tethering"
+                  icon: mdi:usb-tether
+                  card_mod:
+                    style: |
+                      ha-card {
+                        background: rgba(46, 125, 50, 0.1);
+                        border: 2px solid #4caf50;
+                        border-radius: 8px;
+                        padding: 6px;
+                        font-size: 13px;
+                      }
+              - type: conditional
+                conditions:
+                  - entity: sensor.usb_tether_status
+                    state_not: "active"
+                card:
+                  type: sensor
+                  entity: sensor.usb_tether_status
+                  name: "USB Tethering"
+                  icon: mdi:usb-off
+                  card_mod:
+                    style: |
+                      ha-card {
+                        background: rgba(255, 152, 0, 0.1);
+                        border: 2px solid #ff9800;
+                        border-radius: 8px;
+                        padding: 6px;
+                        font-size: 13px;
+                      }
+
+              # 3. Internet Connectivity (via Cloudflare Tunnel)
+              - type: conditional
+                conditions:
+                  - entity: switch.cloudflare_tunnel
+                    state: "on"
+                card:
+                  type: entity-button
+                  entity: switch.cloudflare_tunnel
+                  name: "Cloudflare Tunnel"
+                  icon: mdi:earth
+                  tap_action:
+                    action: more-info
+                  card_mod:
+                    style: |
+                      ha-card {
+                        background: rgba(46, 125, 50, 0.1);
+                        border: 2px solid #4caf50;
+                        border-radius: 8px;
+                        padding: 6px;
+                        font-size: 13px;
+                      }
+              - type: conditional
+                conditions:
+                  - entity: switch.cloudflare_tunnel
+                    state_not: "on"
+                card:
+                  type: entity-button
+                  entity: switch.cloudflare_tunnel
+                  name: "Cloudflare Tunnel"
+                  icon: mdi:earth-off
+                  tap_action:
+                    action: more-info
+                  card_mod:
+                    style: |
+                      ha-card {
+                        background: rgba(211, 47, 47, 0.1);
+                        border: 2px solid #d32f2f;
+                        border-radius: 8px;
+                        padding: 6px;
+                        font-size: 13px;
+                      }
+
+              # 4. WAN Ping Reachability
+              - type: conditional
+                conditions:
+                  - entity: sensor.internet_ping
+                    state_not: "unavailable"
+                    state_not: "0"
+                card:
+                  type: sensor
+                  entity: sensor.internet_ping
+                  name: "Ping Internet"
+                  icon: mdi:ping
+                  card_mod:
+                    style: |
+                      ha-card {
+                        background: rgba(46, 125, 50, 0.1);
+                        border: 2px solid #4caf50;
+                        border-radius: 8px;
+                        padding: 6px;
+                        font-size: 13px;
+                      }
+              - type: conditional
+                conditions:
+                  - entity: sensor.internet_ping
+                    state: "unavailable"
+                card:
+                  type: sensor
+                  entity: sensor.internet_ping
+                  name: "Ping Internet"
+                  icon: mdi:ping-network
+                  card_mod:
+                    style: |
+                      ha-card {
+                        background: rgba(211, 47, 47, 0.1);
+                        border: 2px solid #d32f2f;
+                        border-radius: 8px;
+                        padding: 6px;
+                        font-size: 13px;
+                      }
+
+          # --- BARRE PING ---
+          - type: markdown
+            content: >
+              📶 **Barra Ping Internet** (ultimi 15 tentativi, 30s)
+              {% set pings = state_attr('sensor.internet_ping_history', 'ping_history') %}
+              {% if not pings %}{% set pings = [] %}{% endif %}
+              {% set display = pings[-15:] %}
+              {% if display | length > 0 %}
+                {% for p in display %}
+                  {% set box = "🟩" if (p is number and p > 0 and p < 200) else "🟥" %}
+                  {{ box }}
+                {% endfor %}
+              {% else %}
+                ⏳ Nessun dato disponibile
+              {% endif %}
+              <div style="font-size: 10px; color: gray; margin-top: 3px;">🟩 < 200ms | 🟥 > 200ms o timeout | Aggiornamento: ogni 30s</div>
+            card_mod:
+              style: >
+                ha-card {
+                  user-select: text !important;
+                  font-family: monospace;
+                  padding: 8px;
+                  text-align: center;
+                  font-size: 16px;
+                }
+
+          # --- STATO RETE DETTAGLIATO ---
+          - type: conditional
+            conditions:
+              - entity: sensor.network_status_diagnosis
+            card:
+              type: entity
+              entity: sensor.network_status_diagnosis
+              name: "Diagnosi Rete"
+              icon: mdi:shield-check-outline
+              card_mod:
+                style: >
+                  ha-card {
+                    background: {% if is_state('sensor.network_status_diagnosis', 'OK') %} rgba(46, 125, 50, 0.1) {% else %} rgba(211, 47, 47, 0.1) {% endif %};
+                    border: 2px solid {% if is_state('sensor.network_status_diagnosis', 'OK') %} #4caf50 {% else %} #d32f2f {% endif %};
+                    border-radius: 8px;
+                    padding: 6px;
+                    font-weight: bold;
+                    font-size: 13px;
+                  }
+                  ha-card .sensor-name { font-weight: bold; }
+
+          # --- ENTITÀ UTILIZZATE IN QUESTA DASHBOARD ---
+          - type: markdown
+            content: >
+              **Entità monitorate nel tab Status Apparati:**
+
+              • `binary_sensor.adguard_home_status` — DNS check porta 53 su 192.168.0.3 (60s)
+              • `sensor.usb_tether_status` — stato tethering (30s)
+              • `switch.cloudflare_tunnel` — tunnel Cloudflare (60s)
+              • `sensor.internet_ping` — latenza 1.1.1.1 (30s)
+              • `sensor.internet_ping_history` — cronologia ping (attributo `ping_history`)
+              • `sensor.network_status_diagnosis` — sintesi diagnosi rete
+              • `sensor.internet_packet_loss` — perdita pacchetti WAN
+              • `sensor.internet_jitter` — jitter WAN (ms)
+              • `sensor.wan_saturation_percent` — saturazione banda (%)
+              • `input_boolean.network_boost_mode` — boost monitoraggio
+            card_mod:
+              style: "ha-card { padding: 6px 12px; font-size: 12px; }"
+

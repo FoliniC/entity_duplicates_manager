@@ -1133,3 +1133,1769 @@ Thread 0x00007f658af80b28 [python3] (most recent call first):
   File "/usr/src/homeassistant/homeassistant/__main__.py", line 227 in <module>
   File "<frozen runpy>", line 88 in _run_code
   File "<frozen runpy>", line 203 in _run_module_as_main
+Timeout (0:03:00)!
+Thread 0x00007f8ad1c49b30 [SyncWorker_63] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad1e80b30 [SyncWorker_62] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad20b7b30 [SyncWorker_61] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad22eeb30 [SyncWorker_60] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad2525b30 [SyncWorker_59] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad275cb30 [SyncWorker_58] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad2993b30 [SyncWorker_57] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad2bc8b30 [SyncWorker_56] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad2df9b30 [SyncWorker_55] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad302ab30 [SyncWorker_54] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad325bb30 [SyncWorker_53] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad348cb30 [SyncWorker_52] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad36bdb30 [SyncWorker_51] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad3b1fb30 [SyncWorker_50] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad3d50b30 [SyncWorker_49] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad3f87b30 [SyncWorker_48] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad41beb30 [SyncWorker_47] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad43f1b30 [SyncWorker_46] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad4622b30 [SyncWorker_45] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad4877b30 [SyncWorker_44] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad4aa8b30 [SyncWorker_43] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad4cd9b30 [SyncWorker_42] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad4f0ab30 [SyncWorker_41] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad4fd7b30 [python3] (most recent call first):
+  <no Python frame>
+
+Thread 0x00007f8ad5238b30 [Thread-11] (most recent call first):
+  File "/usr/local/lib/python3.14/threading.py", line 369 in wait
+  File "/usr/local/lib/python3.14/queue.py", line 199 in get
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/api.py", line 379 in dispatch_events
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/api.py", line 213 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad5469b30 [Thread-12] (most recent call first):
+  File "/usr/local/lib/python3.14/threading.py", line 369 in wait
+  File "/usr/local/lib/python3.14/site-packages/watchdog/utils/delayed_queue.py", line 47 in get
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/inotify_buffer.py", line 38 in read_event
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/inotify.py", line 136 in queue_events
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/api.py", line 158 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad569ab30 [Thread-16] (most recent call first):
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/inotify_c.py", line 163 in do_poll
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/inotify_c.py", line 313 in read_events
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/inotify_buffer.py", line 82 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad591bb30 [SyncWorker_40] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad5b50b30 [SyncWorker_39] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad5d81b30 [SyncWorker_38] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad5fb2b30 [SyncWorker_37] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad61e3b30 [SyncWorker_36] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad641cb30 [SyncWorker_35] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad665db30 [SyncWorker_34] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad688eb30 [SyncWorker_33] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad6abfb30 [SyncWorker_32] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad6cf0b30 [SyncWorker_31] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad6f4ab30 [SyncWorker_30] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad7181b30 [SyncWorker_29] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad73bab30 [SyncWorker_28] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad75efb30 [SyncWorker_27] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad7820b30 [SyncWorker_26] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad7a67b30 [SyncWorker_25] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad7c9cb30 [SyncWorker_24] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad7ed3b30 [SyncWorker_23] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad810ab30 [SyncWorker_22] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad8341b30 [SyncWorker_21] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad857eb30 [SyncWorker_20] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad87b5b30 [SyncWorker_19] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad89ecb30 [SyncWorker_18] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad8c23b30 [SyncWorker_17] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad8e5ab30 [SyncWorker_16] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad9091b30 [SyncWorker_15] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad92c2b30 [SyncWorker_14] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad94f3b30 [SyncWorker_13] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad9752b30 [SyncWorker_12] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad99feb30 [SyncWorker_11] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad9c53b30 [SyncWorker_10] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ad9e85b30 [Thread-15] (most recent call first):
+  File "/usr/local/lib/python3.14/selectors.py", line 452 in select
+  File "/usr/local/lib/python3.14/site-packages/pychromecast/socket_client.py", line 581 in _run_once
+  File "/usr/local/lib/python3.14/site-packages/pychromecast/socket_client.py", line 547 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ada0dfb30 [Thread-13] (most recent call first):
+  File "/usr/local/lib/python3.14/threading.py", line 373 in wait
+  File "/usr/local/lib/python3.14/threading.py", line 670 in wait
+  File "/usr/local/lib/python3.14/site-packages/pychromecast/discovery.py", line 341 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ada316b30 [Thread-14] (most recent call first):
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8adacbdb30 [Thread-10 (_han] (most recent call first):
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 579 in _handle_results
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8adaeeeb30 [Thread-9 (_hand] (most recent call first):
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 531 in _handle_tasks
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8adb11fb30 [Thread-8 (_hand] (most recent call first):
+  File "/usr/local/lib/python3.14/selectors.py", line 398 in select
+  File "/usr/local/lib/python3.14/multiprocessing/connection.py", line 1190 in wait
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 502 in _wait_for_updates
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 522 in _handle_workers
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8adb350b30 [Thread-7 (worke] (most recent call first):
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 114 in worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8adb581b30 [Thread-6 (worke] (most recent call first):
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 114 in worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8adb7b2b30 [Thread-5 (worke] (most recent call first):
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 114 in worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8adb9e3b30 [Thread-4 (worke] (most recent call first):
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 114 in worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8adbc14b30 [SyncWorker_0] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8adbe45b30 [KNX Interface] (most recent call first):
+  File "/usr/local/lib/python3.14/selectors.py", line 452 in select
+  File "/usr/local/lib/python3.14/asyncio/base_events.py", line 2018 in _run_once
+  File "/usr/local/lib/python3.14/asyncio/base_events.py", line 677 in run_forever
+  File "/usr/local/lib/python3.14/site-packages/xknx/io/knxip_interface.py", line 529 in _init_connection_loop
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8adc36bb30 [Thread-3] (most recent call first):
+  File "/usr/local/lib/python3.14/site-packages/aiosqlite/core.py", line 97 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8adcda8b30 [influxdb] (most recent call first):
+  File "/usr/src/homeassistant/homeassistant/components/influxdb/__init__.py", line 627 in get_events_json
+  File "/usr/src/homeassistant/homeassistant/components/influxdb/__init__.py", line 676 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ae36b2b30 [DbWorker_3] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/src/homeassistant/homeassistant/components/recorder/executor.py", line 20 in _worker_with_shutdown_hook
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ae38e7b30 [DbWorker_2] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/src/homeassistant/homeassistant/components/recorder/executor.py", line 20 in _worker_with_shutdown_hook
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ae3b1fb30 [DbWorker_1] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/src/homeassistant/homeassistant/components/recorder/executor.py", line 20 in _worker_with_shutdown_hook
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8ae3d50b30 [DbWorker_0] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/src/homeassistant/homeassistant/components/recorder/executor.py", line 20 in _worker_with_shutdown_hook
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8af0341b38 [python3] (most recent call first):
+  <no Python frame>
+
+Thread 0x00007f8af031eb38 [Thread-2 (_run_] (most recent call first):
+  File "/usr/local/lib/python3.14/site-packages/pycares/__init__.py", line 430 in _run_safe_shutdown_loop
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8af0e0ab38 [Recorder] (most recent call first):
+  File "/usr/src/homeassistant/homeassistant/components/recorder/core.py", line 841 in _run_event_loop
+  File "/usr/src/homeassistant/homeassistant/components/recorder/core.py", line 802 in _run
+  File "/usr/src/homeassistant/homeassistant/components/recorder/core.py", line 676 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8af109cb38 [SyncWorker_9] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8af12a3b38 [SyncWorker_8] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8af14aab38 [SyncWorker_7] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8af16bdb38 [SyncWorker_6] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8af18c0b38 [SyncWorker_5] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8af1ac3b38 [SyncWorker_4] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8af1cc6b38 [SyncWorker_3] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8af1ec9b38 [SyncWorker_2] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8af20ccb38 [SyncWorker_1] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8af22cfb38 [ImportExecutor_] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8af252eb38 [Thread-1 (_moni] (most recent call first):
+  File "/usr/local/lib/python3.14/logging/handlers.py", line 1559 in dequeue
+  File "/usr/local/lib/python3.14/logging/handlers.py", line 1613 in _monitor
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8af2737b38 [SyncWorker_0] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f8af7711b28 [python3] (most recent call first):
+  File "/usr/local/lib/python3.14/threading.py", line 369 in wait
+  File "/usr/local/lib/python3.14/concurrent/futures/_base.py", line 449 in result
+  File "/usr/src/homeassistant/homeassistant/core.py", line 2853 in call
+  File "/config/custom_components/pyscript/eval.py", line 1915 in call_func
+  File "/config/custom_components/pyscript/eval.py", line 1882 in ast_call
+  File "/config/custom_components/pyscript/eval.py", line 935 in aeval
+  File "/config/custom_components/pyscript/eval.py", line 1335 in ast_expr
+  File "/config/custom_components/pyscript/eval.py", line 935 in aeval
+  File "/config/custom_components/pyscript/eval.py", line 799 in call
+  File "/config/custom_components/pyscript/eval.py", line 1897 in call_func
+  File "/config/custom_components/pyscript/decorator.py", line 278 in _call
+  File "/config/custom_components/pyscript/function.py", line 442 in run_coro
+  File "/usr/local/lib/python3.14/asyncio/events.py", line 94 in _run
+  File "/usr/local/lib/python3.14/asyncio/base_events.py", line 2056 in _run_once
+  File "/usr/local/lib/python3.14/asyncio/base_events.py", line 677 in run_forever
+  File "/usr/local/lib/python3.14/asyncio/base_events.py", line 706 in run_until_complete
+  File "/usr/src/homeassistant/homeassistant/runner.py", line 290 in run
+  File "/usr/src/homeassistant/homeassistant/__main__.py", line 213 in main
+  File "/usr/src/homeassistant/homeassistant/__main__.py", line 227 in <module>
+  File "<frozen runpy>", line 88 in _run_code
+  File "<frozen runpy>", line 203 in _run_module_as_main
+Timeout (0:03:00)!
+Thread 0x00007f36e1bddb30 [SyncWorker_63] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e1e0eb30 [SyncWorker_62] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e203fb30 [SyncWorker_61] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e2270b30 [SyncWorker_60] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e24a1b30 [SyncWorker_59] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e26d2b30 [SyncWorker_58] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e2903b30 [SyncWorker_57] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e2b34b30 [SyncWorker_56] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e2d65b30 [SyncWorker_55] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e2f96b30 [SyncWorker_54] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e31c7b30 [SyncWorker_53] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e33f8b30 [SyncWorker_52] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e3629b30 [SyncWorker_51] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e385ab30 [SyncWorker_50] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e3a8bb30 [SyncWorker_49] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e3cbcb30 [SyncWorker_48] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e3eedb30 [SyncWorker_47] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e411eb30 [SyncWorker_46] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e4580b30 [SyncWorker_45] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e47b1b30 [SyncWorker_44] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e49e2b30 [SyncWorker_43] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e4c13b30 [SyncWorker_42] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e4e44b30 [SyncWorker_41] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e5075b30 [SyncWorker_40] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e52a6b30 [SyncWorker_39] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e54d7b30 [SyncWorker_38] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e5708b30 [SyncWorker_37] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e5a52b30 [SyncWorker_36] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e5b09b30 [python3] (most recent call first):
+  <no Python frame>
+
+Thread 0x00007f36e5d3ab30 [Thread-11] (most recent call first):
+  File "/usr/local/lib/python3.14/threading.py", line 369 in wait
+  File "/usr/local/lib/python3.14/queue.py", line 199 in get
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/api.py", line 379 in dispatch_events
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/api.py", line 213 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e5f6bb30 [Thread-12] (most recent call first):
+  File "/usr/local/lib/python3.14/threading.py", line 369 in wait
+  File "/usr/local/lib/python3.14/site-packages/watchdog/utils/delayed_queue.py", line 47 in get
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/inotify_buffer.py", line 38 in read_event
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/inotify.py", line 136 in queue_events
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/api.py", line 158 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e619cb30 [Thread-16] (most recent call first):
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/inotify_c.py", line 163 in do_poll
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/inotify_c.py", line 313 in read_events
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/inotify_buffer.py", line 82 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e6448b30 [SyncWorker_35] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e667fb30 [SyncWorker_34] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e68b0b30 [SyncWorker_33] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e6ae1b30 [SyncWorker_32] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e6d33b30 [SyncWorker_31] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e6f6ab30 [SyncWorker_30] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e71a1b30 [SyncWorker_29] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e73d8b30 [SyncWorker_28] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e760fb30 [SyncWorker_27] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e7846b30 [SyncWorker_26] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e7a7db30 [SyncWorker_25] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e7cb4b30 [SyncWorker_24] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e7eebb30 [SyncWorker_23] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e8122b30 [SyncWorker_22] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e8359b30 [SyncWorker_21] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e8590b30 [SyncWorker_20] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e87c7b30 [SyncWorker_19] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e89feb30 [SyncWorker_18] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e8c35b30 [SyncWorker_17] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e8e6ab30 [SyncWorker_16] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e90a1b30 [SyncWorker_15] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e92d8b30 [SyncWorker_14] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e950fb30 [SyncWorker_13] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e9746b30 [SyncWorker_12] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e997bb30 [SyncWorker_11] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e9bb0b30 [SyncWorker_10] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36e9de1b30 [SyncWorker_9] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36ea096b30 [Thread-15] (most recent call first):
+  File "/usr/local/lib/python3.14/selectors.py", line 452 in select
+  File "/usr/local/lib/python3.14/site-packages/pychromecast/socket_client.py", line 581 in _run_once
+  File "/usr/local/lib/python3.14/site-packages/pychromecast/socket_client.py", line 547 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36ea2fab30 [SyncWorker_8] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36ea535b30 [Thread-13] (most recent call first):
+  File "/usr/local/lib/python3.14/threading.py", line 373 in wait
+  File "/usr/local/lib/python3.14/threading.py", line 670 in wait
+  File "/usr/local/lib/python3.14/site-packages/pychromecast/discovery.py", line 341 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36ea76cb30 [Thread-14] (most recent call first):
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36eabb7b30 [SyncWorker_0] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36eade8b30 [KNX Interface] (most recent call first):
+  File "/usr/local/lib/python3.14/selectors.py", line 452 in select
+  File "/usr/local/lib/python3.14/asyncio/base_events.py", line 2018 in _run_once
+  File "/usr/local/lib/python3.14/asyncio/base_events.py", line 677 in run_forever
+  File "/usr/local/lib/python3.14/site-packages/xknx/io/knxip_interface.py", line 529 in _init_connection_loop
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36ebe41b30 [Thread-10] (most recent call first):
+  File "/usr/local/lib/python3.14/site-packages/aiosqlite/core.py", line 97 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36ec078b30 [Thread-9 (_hand] (most recent call first):
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 579 in _handle_results
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36ec2afb30 [Thread-8 (_hand] (most recent call first):
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 531 in _handle_tasks
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36ec4e6b30 [Thread-7 (_hand] (most recent call first):
+  File "/usr/local/lib/python3.14/selectors.py", line 398 in select
+  File "/usr/local/lib/python3.14/multiprocessing/connection.py", line 1190 in wait
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 502 in _wait_for_updates
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 522 in _handle_workers
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36ec71db30 [Thread-6 (worke] (most recent call first):
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 114 in worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36ec954b30 [Thread-5 (worke] (most recent call first):
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 114 in worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36ecb8bb30 [Thread-4 (worke] (most recent call first):
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 114 in worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36ecdc0b30 [Thread-3 (worke] (most recent call first):
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 114 in worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36ed138b30 [influxdb] (most recent call first):
+  File "/usr/src/homeassistant/homeassistant/components/influxdb/__init__.py", line 627 in get_events_json
+  File "/usr/src/homeassistant/homeassistant/components/influxdb/__init__.py", line 676 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36f3b2eb30 [DbWorker_3] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/src/homeassistant/homeassistant/components/recorder/executor.py", line 20 in _worker_with_shutdown_hook
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36f3d63b30 [DbWorker_2] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/src/homeassistant/homeassistant/components/recorder/executor.py", line 20 in _worker_with_shutdown_hook
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36f3f9bb30 [DbWorker_1] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/src/homeassistant/homeassistant/components/recorder/executor.py", line 20 in _worker_with_shutdown_hook
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f36f41ccb30 [DbWorker_0] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/src/homeassistant/homeassistant/components/recorder/executor.py", line 20 in _worker_with_shutdown_hook
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f370075fb38 [python3] (most recent call first):
+  <no Python frame>
+
+Thread 0x00007f370073cb38 [Thread-2 (_run_] (most recent call first):
+  File "/usr/local/lib/python3.14/site-packages/pycares/__init__.py", line 430 in _run_safe_shutdown_loop
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f370122ab38 [Recorder] (most recent call first):
+  File "/usr/src/homeassistant/homeassistant/components/recorder/core.py", line 841 in _run_event_loop
+  File "/usr/src/homeassistant/homeassistant/components/recorder/core.py", line 802 in _run
+  File "/usr/src/homeassistant/homeassistant/components/recorder/core.py", line 676 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f37014b6b38 [SyncWorker_7] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f37016c9b38 [SyncWorker_6] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f37018ccb38 [SyncWorker_5] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f3701acfb38 [SyncWorker_4] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f3701cd2b38 [SyncWorker_3] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f3701ed5b38 [SyncWorker_2] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f37020d8b38 [SyncWorker_1] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f37022dbb38 [ImportExecutor_] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f370253ab38 [Thread-1 (_moni] (most recent call first):
+  File "/usr/local/lib/python3.14/logging/handlers.py", line 1559 in dequeue
+  File "/usr/local/lib/python3.14/logging/handlers.py", line 1613 in _monitor
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f3702743b38 [SyncWorker_0] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007f370771db28 [python3] (most recent call first):
+  File "/usr/local/lib/python3.14/threading.py", line 369 in wait
+  File "/usr/local/lib/python3.14/concurrent/futures/_base.py", line 449 in result
+  File "/usr/src/homeassistant/homeassistant/core.py", line 2853 in call
+  File "/config/custom_components/pyscript/eval.py", line 1915 in call_func
+  File "/config/custom_components/pyscript/eval.py", line 1882 in ast_call
+  File "/config/custom_components/pyscript/eval.py", line 935 in aeval
+  File "/config/custom_components/pyscript/eval.py", line 1335 in ast_expr
+  File "/config/custom_components/pyscript/eval.py", line 935 in aeval
+  File "/config/custom_components/pyscript/eval.py", line 1010 in ast_if
+  File "/config/custom_components/pyscript/eval.py", line 935 in aeval
+  File "/config/custom_components/pyscript/eval.py", line 1025 in ast_for
+  File "/config/custom_components/pyscript/eval.py", line 935 in aeval
+  File "/config/custom_components/pyscript/eval.py", line 799 in call
+  File "/config/custom_components/pyscript/eval.py", line 848 in call
+  File "/config/custom_components/pyscript/eval.py", line 1897 in call_func
+  File "/config/custom_components/pyscript/eval.py", line 1882 in ast_call
+  File "/config/custom_components/pyscript/eval.py", line 935 in aeval
+  File "/config/custom_components/pyscript/eval.py", line 1335 in ast_expr
+  File "/config/custom_components/pyscript/eval.py", line 935 in aeval
+  File "/config/custom_components/pyscript/eval.py", line 1010 in ast_if
+  File "/config/custom_components/pyscript/eval.py", line 935 in aeval
+  File "/config/custom_components/pyscript/eval.py", line 799 in call
+  File "/config/custom_components/pyscript/eval.py", line 1897 in call_func
+  File "/config/custom_components/pyscript/decorator.py", line 278 in _call
+  File "/config/custom_components/pyscript/function.py", line 442 in run_coro
+  File "/usr/local/lib/python3.14/asyncio/events.py", line 94 in _run
+  File "/usr/local/lib/python3.14/asyncio/base_events.py", line 2056 in _run_once
+  File "/usr/local/lib/python3.14/asyncio/base_events.py", line 677 in run_forever
+  File "/usr/local/lib/python3.14/asyncio/base_events.py", line 706 in run_until_complete
+  File "/usr/src/homeassistant/homeassistant/runner.py", line 290 in run
+  File "/usr/src/homeassistant/homeassistant/__main__.py", line 213 in main
+  File "/usr/src/homeassistant/homeassistant/__main__.py", line 227 in <module>
+  File "<frozen runpy>", line 88 in _run_code
+  File "<frozen runpy>", line 203 in _run_module_as_main
+Timeout (0:03:00)!
+Thread 0x00007fe2549bab30 [SyncWorker_63] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe254bebb30 [SyncWorker_62] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe254e1cb30 [SyncWorker_61] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25504db30 [SyncWorker_60] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25527eb30 [SyncWorker_59] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe2554afb30 [SyncWorker_58] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe2556e0b30 [SyncWorker_57] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe255911b30 [SyncWorker_56] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe255b42b30 [SyncWorker_55] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe255d73b30 [SyncWorker_54] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe255fa4b30 [SyncWorker_53] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe2561d5b30 [SyncWorker_52] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe256406b30 [SyncWorker_51] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe256637b30 [SyncWorker_50] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe256868b30 [SyncWorker_49] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe256a99b30 [SyncWorker_48] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe256ccab30 [SyncWorker_47] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25712cb30 [SyncWorker_46] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25735db30 [SyncWorker_45] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25758eb30 [SyncWorker_44] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe2577bfb30 [SyncWorker_43] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe2579f0b30 [SyncWorker_42] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe257c21b30 [SyncWorker_41] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe257e52b30 [SyncWorker_40] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe2587a6b30 [python3] (most recent call first):
+  <no Python frame>
+
+Thread 0x00007fe258083b30 [Thread-11] (most recent call first):
+  File "/usr/local/lib/python3.14/threading.py", line 369 in wait
+  File "/usr/local/lib/python3.14/queue.py", line 199 in get
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/api.py", line 379 in dispatch_events
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/api.py", line 213 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe2582b4b30 [Thread-12] (most recent call first):
+  File "/usr/local/lib/python3.14/threading.py", line 369 in wait
+  File "/usr/local/lib/python3.14/site-packages/watchdog/utils/delayed_queue.py", line 47 in get
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/inotify_buffer.py", line 38 in read_event
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/inotify.py", line 136 in queue_events
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/api.py", line 158 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe2584e5b30 [Thread-16] (most recent call first):
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/inotify_c.py", line 163 in do_poll
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/inotify_c.py", line 313 in read_events
+  File "/usr/local/lib/python3.14/site-packages/watchdog/observers/inotify_buffer.py", line 82 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe258a31b30 [SyncWorker_39] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe258c62b30 [SyncWorker_38] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe258e93b30 [SyncWorker_37] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe2590cab30 [SyncWorker_36] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe259301b30 [SyncWorker_35] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe259538b30 [SyncWorker_34] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25976fb30 [SyncWorker_33] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe2599a6b30 [SyncWorker_32] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe259bddb30 [SyncWorker_31] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe259e14b30 [SyncWorker_30] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25a04bb30 [SyncWorker_29] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25a282b30 [SyncWorker_28] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25a4b9b30 [SyncWorker_27] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25a6f0b30 [SyncWorker_26] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25a925b30 [SyncWorker_25] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25ab56b30 [SyncWorker_24] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25adbdb30 [SyncWorker_23] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25afeeb30 [SyncWorker_22] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25b276b30 [SyncWorker_21] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25b4abb30 [Thread-15] (most recent call first):
+  File "/usr/src/homeassistant/homeassistant/util/loop.py", line 201 in protected_loop_func
+  File "/usr/local/lib/python3.14/site-packages/pychromecast/socket_client.py", line 436 in initialize_connection
+  File "/usr/local/lib/python3.14/site-packages/pychromecast/socket_client.py", line 532 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25b6f4b30 [SyncWorker_20] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25b92bb30 [SyncWorker_19] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25bb62b30 [SyncWorker_18] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25bd99b30 [SyncWorker_17] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25bfd0b30 [SyncWorker_16] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25c207b30 [SyncWorker_15] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25c43eb30 [SyncWorker_14] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25c675b30 [SyncWorker_13] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25c8acb30 [SyncWorker_12] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25cae3b30 [SyncWorker_11] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25cd1ab30 [Thread-13] (most recent call first):
+  File "/usr/local/lib/python3.14/threading.py", line 373 in wait
+  File "/usr/local/lib/python3.14/threading.py", line 670 in wait
+  File "/usr/local/lib/python3.14/site-packages/pychromecast/discovery.py", line 341 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25cf51b30 [SyncWorker_10] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25d184b30 [Thread-14] (most recent call first):
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25d3b5b30 [SyncWorker_9] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25d606b30 [SyncWorker_8] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25d837b30 [SyncWorker_7] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25da94b30 [SyncWorker_0] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25dcc5b30 [KNX Interface] (most recent call first):
+  File "/usr/local/lib/python3.14/selectors.py", line 452 in select
+  File "/usr/local/lib/python3.14/asyncio/base_events.py", line 2018 in _run_once
+  File "/usr/local/lib/python3.14/asyncio/base_events.py", line 677 in run_forever
+  File "/usr/local/lib/python3.14/site-packages/xknx/io/knxip_interface.py", line 529 in _init_connection_loop
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25e1feb30 [Thread-10] (most recent call first):
+  File "/usr/local/lib/python3.14/site-packages/aiosqlite/core.py", line 97 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25ec30b30 [Thread-9 (_hand] (most recent call first):
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 579 in _handle_results
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25ee67b30 [Thread-8 (_hand] (most recent call first):
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 531 in _handle_tasks
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25f09fb30 [Thread-7 (_hand] (most recent call first):
+  File "/usr/local/lib/python3.14/selectors.py", line 398 in select
+  File "/usr/local/lib/python3.14/multiprocessing/connection.py", line 1190 in wait
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 502 in _wait_for_updates
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 522 in _handle_workers
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25f2dfb30 [Thread-6 (worke] (most recent call first):
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 114 in worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25f517b30 [Thread-5 (worke] (most recent call first):
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 114 in worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25f750b30 [Thread-4 (worke] (most recent call first):
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 114 in worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe25f995b30 [Thread-3 (worke] (most recent call first):
+  File "/usr/local/lib/python3.14/multiprocessing/pool.py", line 114 in worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe26024ab30 [influxdb] (most recent call first):
+  File "/usr/src/homeassistant/homeassistant/components/influxdb/__init__.py", line 627 in get_events_json
+  File "/usr/src/homeassistant/homeassistant/components/influxdb/__init__.py", line 676 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe266c3ab30 [DbWorker_3] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/src/homeassistant/homeassistant/components/recorder/executor.py", line 20 in _worker_with_shutdown_hook
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe266e71b30 [DbWorker_2] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/src/homeassistant/homeassistant/components/recorder/executor.py", line 20 in _worker_with_shutdown_hook
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe2670b6b30 [DbWorker_1] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/src/homeassistant/homeassistant/components/recorder/executor.py", line 20 in _worker_with_shutdown_hook
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe2672e7b30 [DbWorker_0] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/src/homeassistant/homeassistant/components/recorder/executor.py", line 20 in _worker_with_shutdown_hook
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe273ab5b38 [python3] (most recent call first):
+  <no Python frame>
+
+Thread 0x00007fe273a92b38 [Thread-2 (_run_] (most recent call first):
+  File "/usr/local/lib/python3.14/site-packages/pycares/__init__.py", line 430 in _run_safe_shutdown_loop
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe274316b38 [Recorder] (most recent call first):
+  File "/usr/src/homeassistant/homeassistant/components/recorder/core.py", line 841 in _run_event_loop
+  File "/usr/src/homeassistant/homeassistant/components/recorder/core.py", line 802 in _run
+  File "/usr/src/homeassistant/homeassistant/components/recorder/core.py", line 676 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe2745adb38 [SyncWorker_6] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe2747b0b38 [SyncWorker_5] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe2749b3b38 [SyncWorker_4] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe274bb6b38 [SyncWorker_3] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe274db9b38 [SyncWorker_2] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe274fbcb38 [SyncWorker_1] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe2751bfb38 [ImportExecutor_] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe27541eb38 [Thread-1 (_moni] (most recent call first):
+  File "/usr/local/lib/python3.14/logging/handlers.py", line 1559 in dequeue
+  File "/usr/local/lib/python3.14/logging/handlers.py", line 1613 in _monitor
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe275627b38 [SyncWorker_0] (most recent call first):
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 116 in _worker
+  File "/usr/local/lib/python3.14/threading.py", line 1024 in run
+  File "/usr/local/lib/python3.14/threading.py", line 1082 in _bootstrap_inner
+  File "/usr/local/lib/python3.14/threading.py", line 1044 in _bootstrap
+
+Thread 0x00007fe27a601b28 [python3] (most recent call first):
+  File "/usr/local/lib/python3.14/threading.py", line 369 in wait
+  File "/usr/local/lib/python3.14/concurrent/futures/_base.py", line 449 in result
+  File "/usr/src/homeassistant/homeassistant/core.py", line 2853 in call
+  File "/config/custom_components/pyscript/eval.py", line 1915 in call_func
+  File "/config/custom_components/pyscript/eval.py", line 1882 in ast_call
+  File "/config/custom_components/pyscript/eval.py", line 935 in aeval
+  File "/config/custom_components/pyscript/eval.py", line 1335 in ast_expr
+  File "/config/custom_components/pyscript/eval.py", line 935 in aeval
+  File "/config/custom_components/pyscript/eval.py", line 1010 in ast_if
+  File "/config/custom_components/pyscript/eval.py", line 935 in aeval
+  File "/config/custom_components/pyscript/eval.py", line 1025 in ast_for
+  File "/config/custom_components/pyscript/eval.py", line 935 in aeval
+  File "/config/custom_components/pyscript/eval.py", line 799 in call
+  File "/config/custom_components/pyscript/eval.py", line 848 in call
+  File "/config/custom_components/pyscript/eval.py", line 1897 in call_func
+  File "/config/custom_components/pyscript/eval.py", line 1882 in ast_call
+  File "/config/custom_components/pyscript/eval.py", line 935 in aeval
+  File "/config/custom_components/pyscript/eval.py", line 1335 in ast_expr
+  File "/config/custom_components/pyscript/eval.py", line 935 in aeval
+  File "/config/custom_components/pyscript/eval.py", line 1010 in ast_if
+  File "/config/custom_components/pyscript/eval.py", line 935 in aeval
+  File "/config/custom_components/pyscript/eval.py", line 799 in call
+  File "/config/custom_components/pyscript/eval.py", line 1897 in call_func
+  File "/config/custom_components/pyscript/decorator.py", line 278 in _call
+  File "/config/custom_components/pyscript/function.py", line 442 in run_coro
+  File "/usr/local/lib/python3.14/asyncio/events.py", line 94 in _run
+  File "/usr/local/lib/python3.14/asyncio/base_events.py", line 2056 in _run_once
+  File "/usr/local/lib/python3.14/asyncio/base_events.py", line 677 in run_forever
+  File "/usr/local/lib/python3.14/asyncio/base_events.py", line 706 in run_until_complete
+  File "/usr/src/homeassistant/homeassistant/runner.py", line 290 in run
+  File "/usr/src/homeassistant/homeassistant/__main__.py", line 213 in main
+  File "/usr/src/homeassistant/homeassistant/__main__.py", line 227 in <module>
+  File "<frozen runpy>", line 88 in _run_code
+  File "<frozen runpy>", line 203 in _run_module_as_main

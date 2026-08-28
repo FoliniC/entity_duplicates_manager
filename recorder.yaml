@@ -1,0 +1,14 @@
+# AUTO-GENERATED FROM .env - DO NOT EDIT DIRECTLY
+# Edit /home/carlo/docker/.env on the host instead
+# Note: !secret is not supported inside db_url connection strings in HA recorder config
+
+db_url: mysql://homeassistant:mariaDb@192.168.0.3:3306/homeassistant
+auto_purge: true
+purge_keep_days: 10
+commit_interval: 1
+exclude:
+  entity_globs:
+    - sensor.*_diagnostic_*
+    - sensor.*_last_reset
+    - sensor.*_update_category
+    - sensor.*_update_version

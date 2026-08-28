@@ -44,14 +44,31 @@ sensor:
       unique_id: fancoil_%%id%%_temp_sources_history
       state: >-
         {% set defaults = ['sensor.fancoil_%%id%%_temperature'] %}
-        {% if "%%ref_sensor%%" != "%%" ~ "ref_sensor" ~ "%%" and "%%ref_sensor%%" != "" %}
+        {% if "%%ref_sensor%%" != "%%" ~ "ref_sensor" ~ "%%" and "%%ref_sensor%%" != "" and "%%ref_sensor%%" != "sensor.fancoil_%%id%%_temperature" %}
           {% set defaults = defaults + ["%%ref_sensor%%"] %}
         {% endif %}
-        {% if "%%knx_temp_sensor%%" != "%%" ~ "knx_temp_sensor" ~ "%%" and "%%knx_temp_sensor%%" != "" %}
+        {% if "%%knx_temp_sensor%%" != "%%" ~ "knx_temp_sensor" ~ "%%" and "%%knx_temp_sensor%%" != "" and "%%knx_temp_sensor%%" != "sensor.fancoil_%%id%%_temperature" %}
           {% set defaults = defaults + ["%%knx_temp_sensor%%"] %}
         {% endif %}
         
-        {% set current_list = (this.state | default(defaults | join(','))).split(',') %}
+        {# Validate previous state: discard if it only contains unknown/unavailable #}
+        {% set prev_state = this.state | default(defaults | join(',')) %}
+        {% set prev_list = prev_state.split(',') %}
+        {% set clean_prev = [] %}
+        {% for opt in prev_list %}
+          {% if opt | trim not in ['unknown', 'unavailable', ''] %}
+            {% set clean_prev = clean_prev + [opt | trim] %}
+          {% endif %}
+        {% endfor %}
+        {# Deduplicate while preserving order #}
+        {% set deduped = [] %}
+        {% for opt in clean_prev %}
+          {% if opt not in deduped %}
+            {% set deduped = deduped + [opt] %}
+          {% endif %}
+        {% endfor %}
+        {% set current_list = deduped if deduped | length > 0 else defaults %}
+
         {% set new_entity = states('input_text.fancoil_%%id%%_add_temp_entity') %}
         {% if trigger.entity_id is defined and trigger.entity_id == 'input_text.fancoil_%%id%%_add_temp_entity' and new_entity != "" and new_entity not in current_list %}
           {{ (current_list + [new_entity]) | join(',') }}

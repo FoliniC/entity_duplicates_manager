@@ -1,4 +1,12 @@
 command_line:
+  - binary_sensor:
+      name: AdGuard Home Status
+      unique_id: adguard_home_status
+      command: "nc -z -u -w 2 192.168.0.3 53 && echo ON || echo OFF"
+      payload_on: "ON"
+      payload_off: "OFF"
+      scan_interval: 60
+
   - sensor:
       name: Router Traffic Stats
       unique_id: router_traffic_stats
@@ -109,6 +117,13 @@ input_number:
     name: "Boost Sample Count"
     min: 0
     max: 1000
+
+input_text:
+  ping_history_buffer:
+    name: "Ping History Buffer"
+    initial: "[]"
+    # Home Assistant input_text supports al massimo 255 caratteri.
+    max: 255
 
 input_select:
   network_graph_span:
@@ -269,6 +284,24 @@ automation:
             - sensor.router_traffic_stats
             - sensor.realtime_per_device_speed
 
+  - alias: "Ping History Accumulator"
+    trigger:
+      - platform: state
+        entity_id: sensor.internet_ping
+    action:
+      - variables:
+          new_val: "{{ states('sensor.internet_ping') | float(0) }}"
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.ping_history_buffer
+        data:
+          value: >
+            {% set hist = states('input_text.ping_history_buffer') | from_json | default([], true) %}
+            {% if new_val > 0 %}
+              {% set hist = hist + [new_val] %}
+            {% endif %}
+            {{ hist[-20:] | tojson }}
+
 template:
   - sensor:
       - name: "Network Boost Countdown"
@@ -341,6 +374,20 @@ template:
         state: "{{ states('sensor.internet_ping_cli') | float(0) | round(1) }}"
         unit_of_measurement: "ms"
         icon: mdi:gauge
+
+      - name: "Internet Ping History"
+        unique_id: internet_ping_history
+        state: "{{ states('sensor.internet_ping') | float(0) }}"
+        attributes:
+          ping_history: >
+            {% set buf = states('input_text.ping_history_buffer') %}
+            {% if buf and buf != '[]' %}
+              {{ buf | from_json }}
+            {% else %}
+              []
+            {% endif %}
+        icon: mdi:ping
+
 
       - name: "WAN Download Speed Realtime"
         unique_id: wan_download_speed_realtime

@@ -65,3 +65,5 @@ temp/
 # Dynamic runtime & agent directories
 .esphome/
 .zcode/
+# .storage contains runtime data including config entries with tokens
+.storage/

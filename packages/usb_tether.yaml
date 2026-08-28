@@ -50,7 +50,7 @@ command_line:
       command: >
         /config/helpers/usb_tether_ha.sh status server auto "{{ states('input_number.usb_tether_max_duration') | int(60) }}"
       value_template: "{{ value_json.state | default('error') }}"
-      command_timeout: 30
+      command_timeout: 60
       json_attributes:
         - mode
         - phone_if
@@ -60,7 +60,7 @@ command_line:
         - remaining_min
         - auto_expire
         - message
-      scan_interval: 30
+      scan_interval: 60
   - sensor:
       name: USB Tether Log
       unique_id: usb_tether_log

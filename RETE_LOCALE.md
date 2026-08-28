@@ -71,6 +71,26 @@ L'integrazione del sistema Tenda Mesh5 e la gestione dei canali su OpenWrt hanno
 - Il server Debian (`192.168.0.3`) funge da centro di controllo sia per la domotica che per i servizi di rete critici (DNS/DHCP tramite AdGuard).
 - L'accesso al router OpenWrt è possibile via Web UI (LuCI) o terminale (SSH).
 
+## Riferimenti Documentazione Correlata
+- **Tuya Devices & Selective WAN Isolation**: `tuya_handshake.md` — gestione firewall nftables, DHCP blacklist, e allowlist per dispositivi Tuya a batteria (sensori TH3C/TH2B). Importante per problemi di connettività di dispositivi IoT.
+- **USB Tethering & Android Webcam**: `ANDROID_NOTE11_ROUTER_USB_TETHERING_ANALYSIS.md` — configurazione ADB, tethering USB su OpenWrt, stream IP Webcam via WiFi/LAN, ottimizzazione scrcpy e gestione telefoni Android convertiti in webcam.
+- **Surveillance NVR & IP Cameras**: `TELECAMERE.md` — architettura Frigate, Agent DVR container, stream RTSP/MJPEG da smartphone riciclati. Include regole DNAT/SNAT su OpenWrt per RTMP forwarding.
+- **Storage Migration & Forensics**: `INTERVENTI_DISCO_SDB.md` — migrazione volumi Docker su disco esterno, fix InfluxDB token, permessi e symlink. Rilevante per problemi di persistenza dati e storage.
+
+## 📊 Dashboard "Traffico Internet" (Status Apparati di Rete)
+- **URL**: [`https://home.vialeformica.org/internet-traffic`](https://home.vialeformica.org/internet-traffic)
+- **Descrizione**: Dashboard Lovelace con **3 tab** in sidebar — il punto di accesso centrale per il monitoraggio della rete locale e del traffico internet.
+- **Tab 1 — Traffico internet**: Diagnosi avanzata (packet loss/jitter/latenza), stato Cloudflare Tunnel, boost mode, top 5 dispositivi, real-time bandwidth.
+- **Tab 2 — Tethering USB**: Controllo attivazione tethering via smartphone con stato banner colorato (verde/arancione/rosso/grigio), pulsanti Normale/Server/Intranet, log in tempo reale.
+- **Tab 3 — Status Apparati** (NUOVO): Indicatori visivi colorati e compattti in tempo reale per i componenti critici:
+  - **AdGuard Home** (`binary_sensor.adguard_home_status`): verde se DNS porta 53 risponde, rosso se down — DNS/DHCP per tutta la rete (intervallo 60s).
+  - **USB Tethering** (`sensor.usb_tether_status`): verde se `active`, arancione se in standby — verifica se il traffico internet passa via smartphone.
+  - **Cloudflare Tunnel** (`switch.cloudflare_tunnel`): verde se `on`, rosso se `off` — stato tunnel reverse proxy.
+  - **Ping Internet** (`sensor.internet_ping`): latenza ms verso 1.1.1.1 — verde se < 200ms.
+  - **Barra ping visiva**: quadratini 🟩/🟥 per gli ultimi 15 tentativi accumulati in `input_text.ping_history_buffer` via automation "Ping History Accumulator"; i dati sono esposti dall'attributo `ping_history` di `sensor.internet_ping_history`.
+  - **Diagnosi Rete** (`sensor.network_status_diagnosis`): verde se `OK`, rosso se problemi — sintesi automatica incrociando WAN quality + saturazione + per-device nftables.
+- **Entità monitorate nel tab Status Apparati**: elenco puntato compatto in fondo al tab (invece di tabella markdown) per garantire corretto wrapping su mobile/desktop.
+
 ## Monitoraggio del Traffico di Rete
 
 Per diagnosticare rallentamenti e identificare dispositivi che saturano la banda, è stato implementato un sistema di monitoraggio integrato.
