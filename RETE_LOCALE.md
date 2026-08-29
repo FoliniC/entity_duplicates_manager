@@ -198,17 +198,76 @@ ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no carlo_2@192.168.0.8
  | Windows (192.168.0.8) | `usb_tether.ps1` (PowerShell) | `C:\Scripts\usb_tether.ps1` |
  
  **Architettura attuale (Agosto 2026):**
- 
+
  Il package Home Assistant (`packages/usb_tether.yaml`) delega tutta la logica SSH a uno **script helper unificato** (`/config/helpers/usb_tether_ha.sh`) che gira nel container HA. Questo script:
  - Usa **SSH Multiplexing** (`ControlMaster=auto`, `ControlPersist=60s`) su tutte le connessioni (Debian, Windows, Router) per eliminare l'overhead di handshake.
  - Esegue comandi **async**: ritorna subito `{"state":"activating",...}` / `{"state":"restoring",...}` mentre il lavoro prosegue in background.
  - Chiama gli script nativi sui due host:
    - **Debian**: `/home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh` (bash)
    - **Windows**: `C:\Scripts\usb_tether.ps1` (PowerShell)
- - Gestisce lato **router OpenWrt** le transizioni graceful con **CONNMARK + ip rule table 88**:
+ - Gestisce lato **router OpenWrt** le transizioni graceful con **CONNMARK + ip rule table 88/89**:
    - **Attivazione intranet (Windows)**: mantiene la WAN router `usb0 metric 10` per `ACTIVATE_GRACE_SECONDS` (default 120s), poi la rimuove in background (`router_cutover_windows`).
    - **Restore (Windows)**: marca le connessioni ESTABLISHED/RELATED in ingresso su `br-lan` con mark `0x88`, le dirotta via tabella 88 verso l'IP Windows per `RESTORE_GRACE_SECONDS` (default 180s), poi pulisce mark/regole/tabella in background (`router_finish_restore_windows`).
-   - **Debian**: logica invariata (watchdog detached + route metric 50/100 + NAT router).
+   - **Debian**: logica invariata (watchdog detached + route metric 50/100 + NAT router + **router_add_fallback_route robusto**).
+
+ ### Fix Robustezza Router Route Fallback (Agosto 2026)
+
+ Le funzioni `router_add_fallback_route()` e `router_del_fallback_route()` in `usb_tether.sh` sono state riscritte per essere resilienti a transient SSH failures o race conditions kernel:
+
+ ```bash
+ # router_add_fallback_route - retry con backoff + verifica
+ local max_retries=3
+ local retry=0
+ while [ $retry -lt $max_retries ]; do
+     if router_ssh "ip route replace default via 192.168.0.3 dev br-lan metric 30"; then
+         sleep 1
+         if router_ssh "ip route show default | grep -q 'via 192.168.0.3 dev br-lan metric 30'"; then
+             echo "Route fallback aggiunta sul router (metric 30) - verificata."
+             return 0
+         fi
+     fi
+     retry=$((retry + 1))
+     [ $retry -lt $max_retries ] && sleep $((retry * 2))
+ done
+ # Ritorna 1 se fallisce -> enable_nat_router propaga l'errore
+ ```
+
+ Stesso pattern per `router_del_fallback_route()` con verifica di assenza route.
+
+ **Perché serve**: in precedenza un timeout SSH o un ritardo nell'aggiornamento della tabella di routing kernel lasciava il router senza route fallback, isolando la LAN. Ora lo script riprova automaticamente e conferma lo stato reale prima di proseguire.
+
+ ### Fix Intranet Mode Router WAN (Agosto 2026)
+
+ **Bug critico risolto**: in modalità `intranet`, la funzione `router_wan_down()` rimuoveva la route WAN (`usb0 metric 10`) con un ciclo `ip route del`, ma **netifd la reinseriva entro secondi**, riportando la LAN su un upstream morto (il telefono era collegato a Debian, non al router).
+
+ **Fix**: `router_wan_down()` ora usa `ifdown wan` su netifd invece di rimuovere solo la route. Questo:
+ 1. Rimuove la route `usb0 metric 10` immediatamente
+ 2. Impedisce a netifd di ri-aggiungerla (interfaccia disabilitata)
+ 3. Lascia solo la route fallback Debian (`br-lan metric 30`) attiva
+
+ `router_wan_up()` (chiamata da `restore`/`_watch`) esegue `ifup wan` per ripristinare l'interfaccia WAN originale.
+
+ **Comando aggiuntivo**: `force_activate` rimuove lo state file (`/run/usb_tether_state`) se il watcher è morto, utile per recovery manuale senza sudo interattivo.
+
+### Sensore Diagnostica Router (Status Apparati - Agosto 2026)
+
+Per rendere visibile il problema sulla dashboard è stato aggiunto un sensore di diagnosi che **pinga dal router stesso** (non da Debian/HA), rilevando il caso in cui la LAN perde internet pur apparendo "attiva":
+
+- **`sensor.router_internet_check`** (command_line, poll 60s): esegue `usb_tether_ha.sh router_check` via SSH router.
+  - Attributi: `router_primary_route` (rotta default ordinata per metric), `router_internet` (ok/dead), `router_ping_ms`, `wan_down_expected`, `problem`
+  - Stati: `ok` (nessun problema), `wan_route_priority_intranet` (BUG: usb0 metric 10 primaria in intranet), `no_default_route`, `primary_route_no_internet`, `unknown`
+- **`sensor.router_diagnosi_messaggio`** (template): **unica fonte di verità** per la dashboard.
+  - `state`: `OK` (verde) | `PROBLEMA` (rosso) | `IN_AGGIORNAMENTO`
+  - `causa`: spiegazione in italiano del problema rilevato
+  - `soluzione`: azione consigliata (es. premere 🌐 Intranet o comando `force_activate`)
+  - `detail`: rotta attiva / stato internet / ping dal router (grezzo, per debug)
+  - **Nota**: il template usa `states('sensor.router_internet_check')` (lo state, sempre disponibile) non gli attributi, perché al primo render del template gli attributi del sensore sorgente possono essere vuoti.
+
+**Perché serve**: `sensor.internet_ping` pinga da Debian (HA), quindi non vede il problema del router. Il nuovo sensore esegue il ping **dal router** e verifica quale rotta è effettivamente primaria.
+
+**Indicatori dashboard** (`dashboards/internet_traffic.yaml`, tab **Status Apparati**):
+- Card rossa "⚠️ Problema Rotta Router" con **Causa** + **Soluzione** quando `sensor.router_diagnosi_messaggio` ≠ `OK`
+- Card verde "Rotta Router: OK" quando tutto funziona
  
  **Comandi disponibili da Home Assistant (via shell_command):**
  
@@ -223,7 +282,7 @@ ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no carlo_2@192.168.0.8
  ```
  
  **Sensori:**
- - `sensor.usb_tether_status` (command_line, poll 30s): stato JSON + attributi (mode, phone_if, phone_gw, remaining_min, active_since, auto_expire, message)
+ - `sensor.usb_tether_status` (command_line, poll 60s): stato JSON + attributi (mode, phone_if, phone_gw, remaining_min, active_since, auto_expire, message)
  - `sensor.usb_tether_log` (command_line, poll 15s, python3 `/config/helpers/read_usb_tether_log.py`): espone il log file `/config/logs/usb_tether/usb_tether.log` con attributi `line_count`, `updated`, `text`, `lines`
  
  **Dashboard "Tethering USB" (`dashboards/internet_traffic.yaml`, path `tethering-usb`):**

@@ -2,8 +2,9 @@ command_line:
   - binary_sensor:
       name: Cloudflare Tunnel External Status
       unique_id: cloudflare_tunnel_external_status
-      # Controlla se l'URL risponde con codice 200
-      command: "curl -I -s --connect-timeout 5 https://home.vialeformica.org | grep -q '200' && echo ON || echo OFF"
+      # Controlla se l'URL risponde (GET, non HEAD: Cloudflare/HA rifiutano
+      # HEAD con 405 anche quando il tunnel e' attivo). Accetta 2xx/3xx.
+      command: "code=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 5 https://home.vialeformica.org); if [ \"$code\" -ge 200 ] && [ \"$code\" -lt 400 ]; then echo ON; else echo OFF; fi"
       payload_on: "ON"
       payload_off: "OFF"
       scan_interval: 60

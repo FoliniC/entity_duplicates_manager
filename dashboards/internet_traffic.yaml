@@ -1016,6 +1016,51 @@ views:
                         font-size: 13px;
                       }
 
+              # 5. Router Internet Path (rileva bug intranet WAN prioritaria)
+              # Una sola entità (sensor.router_diagnosi_messaggio) come fonte di verità:
+              # stato OK -> verde, tutto il resto -> rosso con causa + soluzione.
+              - type: conditional
+                conditions:
+                  - entity: sensor.router_diagnosi_messaggio
+                    state_not: "OK"
+                card:
+                  type: markdown
+                  content: |
+                    ## ⚠️ Problema Rotta Router
+                    **Causa:** {{ state_attr('sensor.router_diagnosi_messaggio', 'causa') }}
+
+                    **Soluzione:** {{ state_attr('sensor.router_diagnosi_messaggio', 'soluzione') }}
+
+                    <sub>{{ state_attr('sensor.router_diagnosi_messaggio', 'detail') }}</sub>
+                  card_mod:
+                    style: |
+                      ha-card {
+                        background: rgba(198, 40, 40, 0.12);
+                        border: 2px solid #c62828;
+                        border-radius: 8px;
+                        padding: 10px;
+                        user-select: text;
+                      }
+              - type: conditional
+                conditions:
+                  - entity: sensor.router_diagnosi_messaggio
+                    state: "OK"
+                card:
+                  type: entity
+                  entity: sensor.router_diagnosi_messaggio
+                  name: "Rotta Router"
+                  icon: mdi:router-wireless
+                  card_mod:
+                    style: |
+                      ha-card {
+                        background: rgba(46, 125, 50, 0.1);
+                        border: 2px solid #4caf50;
+                        border-radius: 8px;
+                        padding: 6px;
+                        font-size: 13px;
+                        font-weight: bold;
+                      }
+
           # --- BARRE PING ---
           - type: markdown
             content: >
@@ -1074,6 +1119,8 @@ views:
               • `sensor.internet_ping` — latenza 1.1.1.1 (30s)
               • `sensor.internet_ping_history` — cronologia ping (attributo `ping_history`)
               • `sensor.network_status_diagnosis` — sintesi diagnosi rete
+              • `sensor.router_internet_check` — rotta primaria router + ping dal router (60s), rileva bug intranet WAN prioritaria
+              • `sensor.router_diagnosi_messaggio` — messaggio leggibile problema rotta router
               • `sensor.internet_packet_loss` — perdita pacchetti WAN
               • `sensor.internet_jitter` — jitter WAN (ms)
               • `sensor.wan_saturation_percent` — saturazione banda (%)

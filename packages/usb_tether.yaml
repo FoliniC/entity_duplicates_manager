@@ -74,8 +74,77 @@ command_line:
         - lines
       scan_interval: 15
 
-# --- Sensore template: messaggio dashboard ---------------------------------
+  # --- Diagnostica router: rotta primaria + ping dal router stesso ----------
+  # Rileva il bug "intranet con WAN prioritaria": la LAN perde internet mentre
+  # il tethering risulta attivo, perche' la route usb0 (metric 10) resta
+  # davanti alla fallback Debian (br-lan, metric 30).
+  - sensor:
+      name: "Router Internet Check"
+      unique_id: router_internet_check
+      command: "/config/helpers/usb_tether_ha.sh router_check"
+      value_template: >-
+        {% if value_json is defined and value_json.problem is defined %}
+          {{ value_json.problem if value_json.problem != "" else "ok" }}
+        {% else %} unknown {% endif %}
+      command_timeout: 20
+      json_attributes:
+        - router_primary_route
+        - router_internet
+        - router_ping_ms
+        - wan_down_expected
+        - problem
+      scan_interval: 60
+
+# --- Sensore template: messaggio diagnosi router ----------------------------
 template:
+  - sensor:
+      - name: "Router Diagnosi Messaggio"
+        unique_id: router_diagnosis_message
+        icon: mdi:router-wireless
+        # Stato breve usato dalla dashboard per scegliere colore/visibilita'.
+        # Basato sullo STATE di router_internet_check (sempre disponibile),
+        # non sugli attributi (che possono essere vuoti al primo render).
+        state: >-
+          {% set s = states('sensor.router_internet_check') %}
+          {% if s in ['wan_route_priority_intranet', 'no_default_route', 'primary_route_no_internet'] %} PROBLEMA
+          {% elif s == 'ok' %} OK
+          {% else %} IN_AGGIORNAMENTO
+          {% endif %}
+        attributes:
+          causa: >-
+            {% set s = states('sensor.router_internet_check') %}
+            {% set route = state_attr('sensor.router_internet_check', 'router_primary_route') | default('') %}
+            {% if s == 'wan_route_priority_intranet' %}
+              In modalità Intranet la LAN dovrebbe uscire da Debian/Windows (gateway 192.168.0.3), ma il router sta ancora usando la porta WAN (USB telefono sul router, metrica 10) come rotta prioritaria. Poiché in Intranet il telefono è collegato all'host e non al router, quella porta è morta: la LAN perde Internet anche se il tethering risulta attivo.
+            {% elif s == 'no_default_route' %}
+              Il router non ha nessuna rotta predefinita verso Internet: la LAN è completamente isolata.
+            {% elif s == 'primary_route_no_internet' %}
+              La rotta primaria del router ({{ route }}) non riesce a raggiungere Internet (ping 8.8.8.8 fallito).
+            {% elif s == 'ok' %}
+              Il router raggiunge Internet correttamente attraverso la rotta attiva.
+            {% else %}
+              Diagnostica in aggiornamento ( SSH router non ancora risposto o sensore in polling ).
+            {% endif %}
+          soluzione: >-
+            {% set s = states('sensor.router_internet_check') %}
+            {% if s == 'wan_route_priority_intranet' %}
+              Nella dashboard "Tethering USB" premi 🌐 Intranet per riapplicare il routing corretto (disattiva la WAN e forza il fallback su Debian). Se persiste: su Debian esegui "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh force_activate 30 intranet".
+            {% elif s == 'no_default_route' %}
+              Premi 🔄 Normale su "Tethering USB" per ripristinare il routing standard, oppure verifica che il router abbia una connessione WAN (USB telefono o modem) attiva.
+            {% elif s == 'primary_route_no_internet' %}
+              Verifica che l'host upstream (Debian/Windows o modem WAN) abbia Internet. Prova a riattivare il tethering o ricollegare il cavo WAN.
+            {% elif s == 'ok' %}
+              Nessuna azione necessaria.
+            {% else %}
+              Attendi il prossimo aggiornamento (60s) o ricarica la dashboard.
+            {% endif %}
+          detail: >-
+            {% set route = state_attr('sensor.router_internet_check', 'router_primary_route') | default('N/D') %}
+            {% set net = state_attr('sensor.router_internet_check', 'router_internet') | default('N/D') %}
+            {% set ms = state_attr('sensor.router_internet_check', 'router_ping_ms') | default('N/D') %}
+            Rotta attiva: {{ route }} | Internet: {{ net }} | Ping dal router: {{ ms }} ms
+
+# --- Sensore template: messaggio dashboard ---------------------------------
   - sensor:
       - name: "USB Tether Dashboard"
         unique_id: usb_tether_dashboard

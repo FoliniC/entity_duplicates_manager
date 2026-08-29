@@ -427,6 +427,7 @@ logger:
     custom_components.mg_saic: warning
     esphome: error
     homeassistant.helpers.script: warning
+    custom_components.pyscript: debug
 # ============================================================================
 # LOGBOOK & RECORDER
 # ============================================================================
@@ -566,7 +567,6 @@ pyscript:
   apps:
     halog2026_app: null
     btc_tracker_app: null
-    phone_price_projection_app: null
 
 # ============================================================================
 # SAVER

@@ -1,9 +1,8 @@
 # ============================================================================
-# BITCOIN INVESTMENT TRACKER - Dashboard Lovelace
+# BITCOIN INVESTMENT TRACKER - Dashboard Lovelace (Enhanced)
 # ============================================================================
-# Dashboard per monitorare investimento BTC vs obiettivo telefono
-# Versione con calcoli NETTO tasse italiane 2026+ (33% su tutte le plusvalenze, nessuna esenzione)
-# Art. 1 c.24 L. Bilancio 2025: aliquota 33% per plusvalenze realizzate dal 1/1/2026
+# Versione con calcoli NETTO tasse italiane 2026+ (33% su tutte le plusvalenze)
+# AggIUNTA: sensori di proiezione prezzo telefono
 # ============================================================================
 
 title: "₿ BTC Investment Tracker"
@@ -56,6 +55,59 @@ views:
                   --paper-item-icon-color: #4CAF50;
                   --primary-text-color: #4CAF50;
                 }
+
+      # Phone Price Projection section
+      - type: entities
+        title: "📱 Proiezione Prezzo Telefono (pattern storico Ultra)"
+        show_header_toggle: false
+        style: |
+          ha-card {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border: 2px solid #9C27B0;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(156, 39, 176, 0.2);
+          }
+        entities:
+            - entity: sensor.phone_projection_status
+              name: "Stato Proiezione"
+              icon: "mdi:chart-line"
+              secondary_info: last-changed
+            - entity: sensor.target_phone_price
+              name: "Prezzo Attuale"
+              icon: "mdi:cellphone"
+              secondary_info: "Prezzo corrente"
+            - entity: sensor.phone_current_of_launch
+              name: "% del Prezzo di Lancio"
+              icon: "mdi:percent"
+              secondary_info: "Sconto rispetto al lancio"
+            - entity: sensor.phone_discount_vs_launch
+              name: "Sconto vs Lancio"
+              icon: "mdi:trending-down"
+              secondary_info: "Discount vs launch price"
+            - entity: sensor.phone_projection_12m
+              name: "Prezzo Consigliato (median)"
+              icon: "mdi:calculator"
+              secondary_info: "Prezzo atteso basato sul pattern storico"
+            - entity: sensor.phone_days_to_successor
+              name: "Giorni al Successore"
+              icon: "mdi:calendar-clock"
+              secondary_info: "When next model launches"
+            - entity: sensor.phone_projection_3m
+              name: "Proiezione 3 mesi"
+              icon: "mdi:clock-outline"
+              secondary_info: "Expected in 3 months"
+            - entity: sensor.phone_projection_6m
+              name: "Proiezione 6 mesi"
+              icon: "mdi:clock-outline"
+              secondary_info: "Expected in 6 months"
+            - entity: sensor.phone_projection_12m
+              name: "Proiezione 9 mesi"
+              icon: "mdi:clock-outline"
+              secondary_info: "Expected in 9 months"
+            - entity: sensor.phone_projection_12m
+              name: "Proiezione 12 mesi (successore)"
+              icon: "mdi:clock-end"
+              secondary_info: "At successor launch ~Feb 2027"
 
       # Bitcoin Price Card
       - type: custom:apexcharts-card
@@ -174,6 +226,37 @@ views:
             name: "Break-even BTC €"
             icon: "mdi:target-account"
 
+      # Proiezione Prezzo Telefono Mini-chart
+      - type: custom:apexcharts-card
+        header:
+          show: true
+          title: "📱 Proiezione Prezzo Telefono (pattern storico Ultra)"
+          show_states: true
+        span: 7d
+        series:
+          - entity: sensor.target_phone_price
+            name: "Prezzo Attuale"
+            type: line
+            color: "#9C27B0"
+            stroke_width: 2
+          - entity: sensor.phone_projection_12m
+            name: "Prezzo Consigliato (median)"
+            type: line
+            color: "#E91E63"
+            stroke_width: 2
+            show:
+              fill: false
+          - entity: sensor.phone_projection_12m
+            name: "Proiezione 12m (successore)"
+            type: line
+            color: "#673AB7"
+            stroke_width: 2
+            show:
+              fill: false
+        yaxis:
+          - decimals: 0
+            unit: "€"
+
   # ----------------------------------------------------------------------
   # Vista Configurazione
   # ----------------------------------------------------------------------
@@ -216,6 +299,17 @@ views:
           - entity: sensor.btc_delta_to_phone_net
           - entity: sensor.btc_break_even_phone_price
           - entity: sensor.btc_days_to_phone_estimate
+          - type: section
+            label: "Proiezione Prezzo Telefono (pattern storico)"
+          - entity: sensor.phone_projection_status
+          - entity: sensor.target_phone_price
+          - entity: sensor.phone_current_of_launch
+          - entity: sensor.phone_discount_vs_launch
+          - entity: sensor.phone_projection_12m
+          - entity: sensor.phone_days_to_successor
+          - entity: sensor.phone_projection_3m
+          - entity: sensor.phone_projection_6m
+          - entity: sensor.phone_projection_12m
 
       - type: entities
         title: "🔧 Azioni Rapide"
@@ -247,7 +341,7 @@ views:
                 entity_id: automation.btc_tracker_milestone_50
 
   # ----------------------------------------------------------------------
-  # Vista Storico/Analisi
+  # Vista Analisi
   # ----------------------------------------------------------------------
   - title: "📈 Analisi"
     icon: "mdi:chart-timeline-variant"
@@ -333,6 +427,31 @@ views:
               text: "🎉 OBIETTIVO!"
               color: "#F7931A"
               font_weight: "bold"
+
+      - type: custom:apexcharts-card
+        header:
+          show: true
+          title: "📱 Proiezione Prezzo Telefono - Pattern Storico (30g)"
+          show_states: true
+        span: 30d
+        series:
+          - entity: sensor.phone_current_of_launch
+            name: "Attuale % lancio"
+            type: line
+            color: "#9C27B0"
+            stroke_width: 2
+            show:
+              extremas: true
+          - entity: sensor.phone_projection_12m
+            name: "Prezzo consigliato"
+            type: line
+            color: "#E91E63"
+            stroke_width: 2
+            show:
+              fill: false
+        yaxis:
+          - decimals: 0
+            unit: "€"
 
       - type: history-graph
         title: "Storico Sensori Principali (NETTO tasse)"

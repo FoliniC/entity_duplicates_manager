@@ -80,20 +80,69 @@ router_ssh() {
 }
 
 # Aggiunge/rimuove la route di default sul router via server (metric 30).
+# Robusto: retry con backoff + verifica che la route sia effettivamente presente.
 router_add_fallback_route() {
-    router_ssh "ip route replace default via 192.168.0.3 dev br-lan metric $ROUTER_ROUTE_METRIC" \
-        && echo "Route fallback aggiunta sul router (metric $ROUTER_ROUTE_METRIC)." \
-        || echo "WARN: impossibile aggiungere route fallback sul router." >&2
+    local max_retries=3
+    local retry=0
+    local target_gw="192.168.0.3"
+    local target_dev="br-lan"
+    local target_metric="$ROUTER_ROUTE_METRIC"
+    local route_cmd="ip route replace default via $target_gw dev $target_dev metric $target_metric"
+    local verify_cmd="ip route show default | grep -q \"via $target_gw dev $target_dev metric $target_metric\""
+    
+    while [ $retry -lt $max_retries ]; do
+        if router_ssh "$route_cmd"; then
+            sleep 1  # dai tempo al kernel di aggiornare la tabella
+            if router_ssh "$verify_cmd"; then
+                echo "Route fallback aggiunta sul router (metric $target_metric) - verificata."
+                return 0
+            else
+                echo "WARN: route command succeeded but verification failed (retry $((retry+1))/$max_retries)" >&2
+            fi
+        else
+            echo "WARN: router_ssh failed for route add (retry $((retry+1))/$max_retries)" >&2
+        fi
+        retry=$((retry + 1))
+        [ $retry -lt $max_retries ] && sleep $((retry * 2))  # backoff: 2s, 4s
+    done
+    
+    echo "ERRORE: impossibile aggiungere route fallback sul router dopo $max_retries tentativi." >&2
+    return 1
 }
 
 router_del_fallback_route() {
     # Protegge (se PROTECTED_DEVICE_IP e' configurato) i flussi del device
     # che stavano ancora usando l'anchor prima di toglierla.
     router_graceful_begin "$ROUTER_TABLE_LEAVE_ANCHOR" "$ROUTER_MARK_LEAVE_ANCHOR" "192.168.0.3" "br-lan"
-    router_ssh "ip route del default via 192.168.0.3 dev br-lan metric $ROUTER_ROUTE_METRIC 2>/dev/null; true" \
-        && echo "Route fallback rimossa dal router." \
-        || echo "WARN: impossibile rimuovere route fallback dal router (forse gia assente)." >&2
+    
+    local max_retries=3
+    local retry=0
+    local target_gw="192.168.0.3"
+    local target_dev="br-lan"
+    local target_metric="$ROUTER_ROUTE_METRIC"
+    local route_cmd="ip route del default via $target_gw dev $target_dev metric $target_metric 2>/dev/null; true"
+    local verify_cmd="! ip route show default | grep -q \"via $target_gw dev $target_dev metric $target_metric\""
+    
+    while [ $retry -lt $max_retries ]; do
+        if router_ssh "$route_cmd"; then
+            sleep 1
+            if router_ssh "$verify_cmd"; then
+                echo "Route fallback rimossa dal router - verificata."
+                router_graceful_end "$ROUTER_TABLE_LEAVE_ANCHOR" "$ROUTER_MARK_LEAVE_ANCHOR" "$ROUTER_DRAIN_CEILING"
+                return 0
+            else
+                echo "WARN: route del command succeeded but route still present (retry $((retry+1))/$max_retries)" >&2
+            fi
+        else
+            echo "WARN: router_ssh failed for route del (retry $((retry+1))/$max_retries)" >&2
+        fi
+        retry=$((retry + 1))
+        [ $retry -lt $max_retries ] && sleep $((retry * 2))
+    done
+    
+    echo "ERRORE: impossibile rimuovere route fallback dal router dopo $max_retries tentativi." >&2
     router_graceful_end "$ROUTER_TABLE_LEAVE_ANCHOR" "$ROUTER_MARK_LEAVE_ANCHOR" "$ROUTER_DRAIN_CEILING"
+    return 1
 }
 
 # Legge da netifd il gateway DHCP attuale della WAN USB del router.
@@ -116,9 +165,13 @@ router_wan_down() {
     if [[ "$cur_gw" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         router_graceful_begin "$ROUTER_TABLE_LEAVE_WAN" "$ROUTER_MARK_LEAVE_WAN" "$cur_gw" "$ROUTER_WAN_IF"
     fi
-    router_ssh "while ip route del default dev $ROUTER_WAN_IF metric 10 2>/dev/null; do :; done; true" \
-        && echo "WAN router disattivata (route $ROUTER_WAN_IF rimossa)." \
-        || echo "WARN: WAN router gia assente o errore." >&2
+    # Disattiva l'interfaccia WAN su netifd: rimuove la route e impedisce a
+    # netifd di ri-aggiungerla (altrimenti il ciclo "ip route del" rimuove solo
+    # la route corrente ma netifd la reinserisce entro secondi, riportando la
+    # LAN su un upstream morto).
+    router_ssh "ifdown wan >/dev/null 2>&1; true" \
+        && echo "WAN router disattivata (ifdown wan)." \
+        || echo "WARN: ifdown wan fallito." >&2
     if [[ "$cur_gw" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         router_graceful_end "$ROUTER_TABLE_LEAVE_WAN" "$ROUTER_MARK_LEAVE_WAN" "$ROUTER_DRAIN_CEILING"
     fi
@@ -996,13 +1049,14 @@ case "${1:-status}" in
     status)      cmd_status ;;
     renat)       cmd_renat ;;
     diagnose)    cmd_diagnose ;;
+    force_activate) shift; rm -f "$STATE_FILE" "$PID_FILE" 2>/dev/null; cmd_activate "$@" ;;
     _netstat)    cmd_netstat ;;
     _wan_down)   router_wan_down ;;
     _wan_up)     router_wan_up ;;
     _watch)      shift; cmd_watch "$@" ;;
     _drain)      shift; cmd_drain "$@" ;;
     *)
-        echo "Uso: $0 {detect|activate [max_min] [intranet|server]|rndis_activate [max_min] [intranet|server]|restore|renat|status|diagnose}" >&2
+        echo "Uso: $0 {detect|activate [max_min] [intranet|server]|rndis_activate [max_min] [intranet|server]|restore|renat|status|diagnose|force_activate}" >&2
         exit 64
         ;;
 esac

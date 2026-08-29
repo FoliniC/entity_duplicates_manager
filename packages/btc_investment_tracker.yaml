@@ -269,10 +269,102 @@ template:
         unique_id: btc_delta_to_phone_net
         icon: "mdi:calculator-variant"
         unit_of_measurement: "EUR"
-        state: >
+        state: >-
           {% set net_profit = states('sensor.btc_profit_loss_net') | float(0) %}
           {% set phone = states('sensor.target_phone_price') | float(0) %}
           {{ (phone - net_profit) | round(2) }}
+
+  # ============================================================
+  # PHONE PRICE PROJECTION (pattern storico Xiaomi Ultra)
+  # Calcoli in Jinja usando i dati storici normalizzati.
+  # Launch 17 Ultra: 2026-03-10, prezzo lancio 1499.90€
+  # ============================================================
+  - sensor:
+      # Mesi dall'uscita del 17 Ultra
+      - name: "Phone Months Since Launch"
+        unique_id: phone_months_since_launch
+        icon: "mdi:calendar-clock"
+        unit_of_measurement: "months"
+        state_class: measurement
+        state: >-
+          {% set launch = strptime('2026-03-10', '%Y-%m-%d').timestamp() %}
+          {% set now = now().timestamp() %}
+          {{ ((now - launch) / 86400 / 30.4375) | round(1) }}
+
+      # % del prezzo di lancio attuale
+      - name: "Phone Current % of Launch"
+        unique_id: phone_current_pct_of_launch
+        icon: "mdi:percent"
+        unit_of_measurement: "%"
+        state_class: measurement
+        state: >-
+          {% set price = states('input_number.target_phone_price') | float(0) %}
+          {% set launch_price = 1499.90 %}
+          {{ (price / launch_price * 100) | round(1) }}
+
+      # Sconto vs lancio
+      - name: "Phone Discount vs Launch"
+        unique_id: phone_discount_vs_launch
+        icon: "mdi:trending-down"
+        unit_of_measurement: "%"
+        state_class: measurement
+        state: >-
+          {% set price = states('input_number.target_phone_price') | float(0) %}
+          {% set launch_price = 1499.90 %}
+          {{ (100 - (price / launch_price * 100)) | round(1) }}
+
+      # Giorni al lancio del successore (stimato 2027-03-10)
+      - name: "Phone Days To Successor"
+        unique_id: phone_days_to_successor
+        icon: "mdi:calendar-clock"
+        unit_of_measurement: "days"
+        state: >-
+          {% set succ = strptime('2027-03-10', '%Y-%m-%d').timestamp() %}
+          {% set now = now().timestamp() %}
+          {{ ((succ - now) / 86400) | round(0) | int }}
+
+      # Proiezione 12m (successore) - mediana storica ~67% del prezzo lancio
+      - name: "Phone Projection 12m"
+        unique_id: phone_projection_12m
+        icon: "mdi:chart-line"
+        device_class: monetary
+        unit_of_measurement: "EUR"
+        state: >-
+          {% set launch_price = 1499.90 %}
+          {% set median_discount_pct = 66.7 %}
+          {{ (launch_price * median_discount_pct / 100) | round(2) }}
+
+      # Proiezione 6m - mediana storica ~80% del prezzo lancio
+      - name: "Phone Projection 6m"
+        unique_id: phone_projection_6m
+        icon: "mdi:chart-line"
+        device_class: monetary
+        unit_of_measurement: "EUR"
+        state: >-
+          {% set launch_price = 1499.90 %}
+          {% set median_discount_pct = 79.9 %}
+          {{ (launch_price * median_discount_pct / 100) | round(2) }}
+
+      # Proiezione 3m - mediana storica ~75% del prezzo lancio
+      - name: "Phone Projection 3m"
+        unique_id: phone_projection_3m
+        icon: "mdi:chart-line"
+        device_class: monetary
+        unit_of_measurement: "EUR"
+        state: >-
+          {% set launch_price = 1499.90 %}
+          {% set median_discount_pct = 75.0 %}
+          {{ (launch_price * median_discount_pct / 100) | round(2) }}
+
+      # Stato proiezione (testo)
+      - name: "Phone Projection Status"
+        unique_id: phone_projection_status
+        icon: "mdi:chart-line"
+        state: >-
+          {% set price = states('input_number.target_phone_price') | float(0) %}
+          {% set pct = states('sensor.phone_current_pct_of_launch') | float(0) %}
+          {% set months = states('sensor.phone_months_since_launch') | float(0) %}
+          €{{ '%.2f' | format(price) }} | {{ pct }}% lancio | {{ months }}m
 
 # ============================================================================
 # INPUT HELPERS - SENZA "initial:" -> i valori persistono in .storage

@@ -519,20 +519,84 @@ router_finish_restore_windows() {
 restore_debian() {
   local out rc
   touch "$RESTORE_MARKER" 2>/dev/null || true
-  out="$(ssh_debian "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh restore" 2>&1)"
-  rc=$?
+  # Esegue il restore Debian in background: il comando puo' impiegare >60s
+  # (ifup wan, graceful drain, conntrack flush sul router). Se restasse in
+  # foreground, HA shell_command (timeout 60s) ucciderebbe il processo a meta',
+  # lasciando il router senza route (stato "NESSUNA" nel sensore di diagnosi).
+  # Restituiamo subito "restoring" e il lavoro prosegue in background.
+  setsid bash -c "ssh_debian \"sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh restore\" >/dev/null 2>&1 </dev/null &"
+  log_line INFO "EXEC Debian restore avviato in background (host: $HOST)"
   rm -f "$RESTORE_MARKER" 2>/dev/null || true
-  log_line INFO "EXEC Debian restore rc=$rc | $(printf '%s' "$out" | tail -c 500)"
-  if (( rc != 0 )); then
-    json_error "restore Debian fallito rc=$rc"
-    return 0
-  fi
   printf '{"state":"restoring","mode":"server","message":"Ripristino in corso..."}\n'
+}
+
+run_router_check() {
+  # Diagnostica la rotta primaria del router e verifica che l'Internet
+  # sia effettivamente raggiungibile ATTRAVERSO la rotta attiva.
+  #
+  # Problema che rileva: in modalita intranet, se la route WAN (usb0, metric 10)
+  # resta prioritaria sulla fallback Debian (br-lan, metric 30), la LAN perde
+  # Internet anche se il tethering Debian e' attivo. Il ping da HA (Debian)
+  # non vede il problema perche' parte da Debian stessa.
+  #
+  # Restituisce JSON:
+  #   {"router_primary_route": "192.168.0.3 dev br-lan metric 30",
+  #    "router_internet": "ok|dead",
+  #    "router_ping_ms": 35.2,
+  #    "wan_down_expected": true|false,
+  #    "problem": ""|"wan_route_priority_intranet"}
+  local primary_route ping_out ping_ms router_internet problem wan_down_expected
+
+  primary_route=$(ssh_router "ip route show default 2>/dev/null" | sort -t' ' -k5 -n | head -1)
+  if [[ -z "$primary_route" ]]; then
+    primary_route="NESSUNA"
+    router_internet="dead"
+    ping_ms=0
+    problem="no_default_route"
+  else
+    ping_out=$(ssh_router "ping -c 2 -W 3 8.8.8.8 2>&1" | tail -2)
+    if echo "$ping_out" | grep -qE "[1-9][0-9]*% packet loss" && ! echo "$ping_out" | grep -qE " 0% packet loss"; then
+      router_internet="dead"
+      ping_ms=0
+      problem="primary_route_no_internet"
+    else
+      router_internet="ok"
+      ping_ms=$(echo "$ping_out" | grep -oE "min/avg/max = [0-9.]+/[0-9.]+/[0-9.]+" | grep -oE "[0-9.]+/[0-9.]+/[0-9.]+" | cut -d'/' -f2)
+      ping_ms=${ping_ms:-0}
+      problem=""
+    fi
+  fi
+
+  # In intranet la WAN (usb0) NON deve essere la rotta primaria.
+  # Ma in modalita' Normale/Server, usb0 primaria e' CORRETTO (il telefono e'
+  # fisicamente sul router). Quindi il bug si segnala SOLO se siamo in intranet.
+  # Lo stato intranet lo leggiamo dal sensore HA via file di stato locale.
+  local mode_active=""
+  if [[ -f /config/.usb_tether_mode ]]; then
+    mode_active=$(cat /config/.usb_tether_mode 2>/dev/null)
+  fi
+  if [[ "$primary_route" == *"usb0"* ]]; then
+    wan_down_expected=false
+    if [[ "$mode_active" == "intranet" ]]; then
+      # Bug: in intranet il router non deve usare la WAN (il telefono e' sull'host)
+      if [[ "$primary_route" == *"metric 10"* ]]; then
+        problem="wan_route_priority_intranet"
+      fi
+    fi
+  else
+    wan_down_expected=true
+  fi
+
+  printf '{"router_primary_route":"%s","router_internet":"%s","router_ping_ms":%s,"wan_down_expected":%s,"problem":"%s"}\n' \
+    "$primary_route" "$router_internet" "$ping_ms" "$wan_down_expected" "$problem"
 }
 
 case "$ACTION" in
   status)
     run_status
+    ;;
+  router_check)
+    run_router_check
     ;;
   router_cutover_windows)
     router_cutover_windows
@@ -561,6 +625,9 @@ case "$ACTION" in
       log_line INFO "[USER_ACTION] PREMUTO BOTTONE: Attivazione modalita $MODE (host: $HOST, max_durata: ${DURATION}m)"
       nohup /config/helpers/failsafe_watchdog.sh "normale" "$HOST" 35 >/dev/null 2>&1 &
     fi
+    # Salva la modalita' corrente per il sensore router_check (deve sapere se
+    # siamo in intranet per segnalare correttamente usb0 come bug o come OK).
+    echo "$MODE" > /config/.usb_tether_mode 2>/dev/null || true
     if [[ "$HOST" == *"Windows"* ]]; then
       activate_windows
     else
@@ -575,6 +642,8 @@ case "$ACTION" in
       log_line INFO "[USER_ACTION] PREMUTO BOTTONE: Ripristino modalita NORMALE (host: $HOST, max_durata: ${DURATION}m)"
       nohup /config/helpers/failsafe_watchdog.sh "intranet" "$HOST" 45 >/dev/null 2>&1 &
     fi
+    # Modalita' tornata normale: rimuovi il file di stato per router_check.
+    rm -f /config/.usb_tether_mode 2>/dev/null || true
     if [[ "$HOST" == *"Windows"* ]]; then
       restore_windows
     else
