@@ -38,7 +38,11 @@ LAN_NET="192.168.0.0/24"
 LAN_IF="enp2s0"                       # interfaccia LAN del server
 ROUTER_IP="192.168.0.11"              # IP router OpenWrt (sorgente traffico da NATare)
 ROUTER_SSH_KEY="/home/carlo/docker/homeassistant/config/.ssh/router_key"
-ROUTER_ROUTE_METRIC=30                # metric della route sul router (dopo wan=10, wwan=20)
+ROUTER_ROUTE_METRIC=9                 # metric della route intranet sul router.
+                                      # VALE 9 = INFERIORE a usb0 (metric 10) cosi' l'anchor
+                                      # intranet vince SEMPRE sulla WAN locale anche quando netifd
+                                      # re-inietta la rotta usb0 metric 10 (bug "Intranet morta").
+                                      # Restore/renat usano la stessa metrica, quindi sono idempotenti.
 ROUTER_WAN_IF="usb0"                  # interfaccia WAN USB del router OpenWrt
 
 # --- Graceful transition: tabelle/mark dedicati per non collidere fra loro ---
@@ -89,7 +93,14 @@ router_add_fallback_route() {
     local target_metric="$ROUTER_ROUTE_METRIC"
     local route_cmd="ip route replace default via $target_gw dev $target_dev metric $target_metric"
     local verify_cmd="ip route show default | grep -q \"via $target_gw dev $target_dev metric $target_metric\""
-    
+
+    # Se la route e' gia' presente, nessun bisogno di aggiungerla (evita errori
+    # su "replace" quando la route e' identica o il router la ha gia' ripristinata).
+    if router_ssh "$verify_cmd"; then
+        echo "Route fallback gia' presente sul router (metric $target_metric) - nessuna azione necessaria."
+        return 0
+    fi
+
     while [ $retry -lt $max_retries ]; do
         if router_ssh "$route_cmd"; then
             sleep 1  # dai tempo al kernel di aggiornare la tabella
@@ -105,7 +116,7 @@ router_add_fallback_route() {
         retry=$((retry + 1))
         [ $retry -lt $max_retries ] && sleep $((retry * 2))  # backoff: 2s, 4s
     done
-    
+
     echo "ERRORE: impossibile aggiungere route fallback sul router dopo $max_retries tentativi." >&2
     return 1
 }
@@ -172,6 +183,16 @@ router_wan_down() {
     router_ssh "ifdown wan >/dev/null 2>&1; true" \
         && echo "WAN router disattivata (ifdown wan)." \
         || echo "WARN: ifdown wan fallito." >&2
+    # BLOCCO PRESERVATIVO: l'hotplug USB del telefono router o un evento di
+    # carrier sul router OpenWrt (netifd) ri-aggiungono la rotta usb0 metric 10
+    # ENTRO SECONDI, anche se l'interfaccia e' "down". Questo riporterebbe la LAN
+    # su un upstream morto e riprodurrebbe il bug "Intranet morta".
+    # Impostiamo auto=0: netifd non riporta up l'interfaccia wan in autonomia
+    # (blocca la re-iniezione usb0 metric 10), ma lascia intatto il proto cosi'
+    # che il restore (router_wan_up -> ifup wan) funzioni ancora. Idempotente.
+    router_ssh "uci set network.wan.auto='0'; uci commit network; true" \
+        && echo "WAN router bloccata (auto=0) per evitare re-iniezione usb0." \
+        || echo "WARN: blocco uci wan fallito (riprovare a mano: uci set network.wan.auto=0; uci commit)." >&2
     if [[ "$cur_gw" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         router_graceful_end "$ROUTER_TABLE_LEAVE_WAN" "$ROUTER_MARK_LEAVE_WAN" "$ROUTER_DRAIN_CEILING"
     fi
@@ -179,8 +200,21 @@ router_wan_down() {
 
 router_wan_up() {
     local gw
-    # Impostiamo l'upstream del tethering su sola rete cellulare (0,5) in modo che il Wi-Fi possa rimanere attivo senza dirottare il traffico USB
-    router_ssh "/usr/bin/adb_router shell settings put global tether_upstream_types 0,5 >/dev/null 2>&1; /usr/bin/adb_router shell settings put global mobile_data_always_on 1 >/dev/null 2>&1; /usr/bin/adb_router shell settings put global network_avoid_bad_wifi 1 >/dev/null 2>&1; /usr/bin/adb_router shell svc data enable >/dev/null 2>&1; /usr/bin/adb_router shell svc usb setFunctions rndis >/dev/null 2>&1; /usr/bin/enable_usb_tether.sh >/dev/null 2>&1; ifup wan >/dev/null 2>&1"
+    # Ripristina auto=1 (eventualmente impostato da router_wan_down per bloccare
+    # la re-iniezione usb0 metric 10 in intranet). Con auto=1 il successivo
+    # ifup wan riporta su la WAN reale senza problemi.
+    router_ssh "uci set network.wan.auto='1'; uci commit network; true" >/dev/null 2>&1 || true
+    # router_ssh ha gia' ConnectTimeout=5: se il router non risponde, fallisce
+    # velocemente. Il vecchio ramo ADB (airplane-mode toggle) che si bloccava
+    # per minuti e' stato rimosso. Se la WAN non si attiva, ripristiniamo il
+    # fallback Debian invece di isolare la LAN.
+    router_ssh "/usr/bin/adb_router shell settings put global airplane_mode 0 >/dev/null 2>&1; /usr/bin/adb_router shell settings put global mobile_data 1 >/dev/null 2>&1; /usr/bin/adb_router shell svc data enable >/dev/null 2>&1; /usr/bin/adb_router shell settings put global tether_upstream_types 0,5 >/dev/null 2>&1; /usr/bin/adb_router shell settings put global mobile_data_always_on 1 >/dev/null 2>&1; /usr/bin/adb_router shell settings put global network_avoid_bad_wifi 1 >/dev/null 2>&1; /usr/bin/adb_router shell settings put global wifi_calling_enabled 0 >/dev/null 2>&1; /usr/bin/adb_router shell svc usb setFunctions rndis >/dev/null 2>&1; /usr/bin/enable_usb_tether.sh >/dev/null 2>&1; ifup wan >/dev/null 2>&1"
+    # Se usb0 non si e' creata (telefono in standby / tethering non partito),
+    # forza il tethering RNDIS via service call connectivity e riprova.
+    if ! router_ssh "ip link show $ROUTER_WAN_IF >/dev/null 2>&1"; then
+        router_ssh "/usr/bin/adb_router shell service call connectivity 33 i32 1 >/dev/null 2>&1; sleep 4; /usr/bin/adb_router shell svc usb setFunctions rndis >/dev/null 2>&1; ifup wan >/dev/null 2>&1" >/dev/null 2>&1 || true
+        sleep 3
+    fi
     sleep 3
     gw=$(router_wan_gateway | head -1)
     if [[ "$gw" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -192,26 +226,14 @@ router_wan_up() {
     if router_ssh "ping -c 2 -W 3 1.1.1.1 >/dev/null 2>&1 || ping -c 2 -W 3 8.8.8.8 >/dev/null 2>&1"; then
         echo "OK: router WAN connettivita' internet verificata."
         return 0
-    else
-        # Secondo tentativo con ADB airplane mode toggle sul telefono via router
-        echo "WARN: router WAN privo di internet - tentativo di ripristino via ADB..." >&2
-        router_ssh "/usr/bin/adb_router shell cmd connectivity airplane-mode enable >/dev/null 2>&1"
-        sleep 1
-        router_ssh "/usr/bin/adb_router shell cmd connectivity airplane-mode disable >/dev/null 2>&1"
-        sleep 4
-        router_ssh "/usr/bin/enable_usb_tether.sh >/dev/null 2>&1 || ifup wan >/dev/null 2>&1"
-        sleep 3
-        gw=$(router_wan_gateway | head -1)
-        if [[ "$gw" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            router_ssh "ip route replace default via $gw dev $ROUTER_WAN_IF metric 10 2>/dev/null; true"
-        fi
-        if router_ssh "ping -c 2 -W 3 1.1.1.1 >/dev/null 2>&1 || ping -c 2 -W 3 8.8.8.8 >/dev/null 2>&1"; then
-            echo "OK: router WAN connettivita' internet recuperata via ADB."
-            return 0
-        fi
-        echo "ERROR: connettivita' router non recuperabile." >&2
-        return 1
     fi
+
+    # WAN non raggiungibile (es. telefono non sul router in modalita' intranet).
+    # NON lasciare il router isolato: se la WAN non funziona, ripristina il
+    # fallback su Debian perche' la LAN continui ad avere Internet.
+    echo "WARN: router WAN privo di internet - ripristino fallback su Debian per evitare isolamento LAN." >&2
+    router_add_fallback_route || echo "ERROR: impossibile ripristinare fallback Debian!" >&2
+    return 1
 }
 
 # ============================================================================
@@ -498,13 +520,56 @@ cmd_activate() {
     [ "$max_min" -lt 1 ] 2>/dev/null && max_min=1
     [ "$max_min" -gt 480 ] 2>/dev/null && max_min=480
 
-    # Gia' attivo? Rifiuta (evita doppi swap). Ha senso solo se lo stato e' coerente.
+    # Gia' attivo? In modalita' intranet NON rifiutiamo: il bottone 🌐 Intranet
+    # deve essere CORRETTIVO/idempotente (es. la WAN router usb0 e' rimasta
+    # primaria e morta, o la metrica dell'anchor e' sbagliata). In quel caso
+    # riapplichiamo il routing intranet senza forzare un restore+activate.
+    # Nelle altre modalita' (server/normale) il blocco resta per evitare doppi swap.
     if [ -f "$STATE_FILE" ]; then
         local cur_state
         cur_state=$(grep -E '^state=' "$STATE_FILE" 2>/dev/null | cut -d= -f2-)
         if [ "$cur_state" = "active" ]; then
-            echo "GIA ATTIVO: usa 'restore' prima di riattivare." >&2
-            return 1
+            if [ "$mode" = "intranet" ]; then
+                echo "INTRANET gia' segnata attiva: riapplico routing correttivo (WAN router down + anchor metric $ROUTER_ROUTE_METRIC + NAT)." >&2
+                router_wan_down
+                # Garantisce (idempotente) che l'anchor verso l'host sia presente
+                # a metric $ROUTER_ROUTE_METRIC (9), cosi' vince su usb0 metric 10
+                # anche se netifd la re-inietta.
+                router_add_fallback_route || echo "WARN: ripristino anchor intranet fallito." >&2
+                # Rileva l'interfaccia USB corrente (quella che porta a Internet su
+                # Debian) e riapplica MASQUERADE+FORWARD: senza di questo la LAN
+                # non naviga e il failsafe cancella il passaggio.
+                local phone_if
+                phone_if=$(ip route get 8.8.8.8 2>/dev/null | awk '{for(i=1;i<=NF;i++){if($i=="dev"){print $(i+1); exit}}}')
+                [ -z "$phone_if" ] && phone_if=$(ip -br addr show 2>/dev/null | grep -E '^enx' | awk '{print $1}' | head -1)
+                if [ -n "$phone_if" ]; then
+                    enable_nat_router "$phone_if" || echo "WARN: riapplicazione NAT intranet fallita." >&2
+                else
+                    echo "WARN: interfaccia telefono non rilevata, NAT non riapplicato." >&2
+                fi
+                # Aggiorna il STATE_FILE con l'interfaccia corrente (altrimenti
+                # cmd_status legge la vecchia phone_if morta e ritorna 'error',
+                # facendo scattare il failsafe). Rileva gw e lan_gw attuali.
+                local cur_gw cur_lan_gw now_ts exp_ts
+                cur_gw=$(ip route get 8.8.8.8 2>/dev/null | awk '{for(i=1;i<=NF;i++){if($i=="via"){print $(i+1); exit}}}')
+                [ -z "$cur_gw" ] && cur_gw="$gw"
+                cur_lan_gw=$(get_default_gw); [ -z "$cur_lan_gw" ] && cur_lan_gw="192.168.0.11"
+                now_ts=$(now_epoch); exp_ts=$((now_ts + max_min * 60))
+                {
+                    echo "state=active"
+                    echo "mode=$mode"
+                    echo "phone_if=$phone_if"
+                    echo "phone_gw=$cur_gw"
+                    echo "lan_gw=$cur_lan_gw"
+                    echo "activated_at=$now_ts"
+                    echo "expire_at=$exp_ts"
+                } > "$STATE_FILE"
+                echo "Modalita' INTRANET (correttiva): WAN router down, anchor + NAT + stato ripristinati."
+                return 0
+            else
+                echo "GIA ATTIVO: usa 'restore' prima di riattivare." >&2
+                return 1
+            fi
         fi
     fi
 
@@ -789,10 +854,13 @@ cmd_restore() {
         graceful_begin "$LOCAL_TABLE_RESTORE" 0x2 "$phone_gw" "$phone_if"
 
         # 2. Ripristina la WAN del router (route del router, indipendente).
-        if ! router_wan_up; then
-            echo "ERROR: Ripristino WAN router fallito! Mantenuta route fallback via Debian per evitare la caduta della connessione LAN." >&2
-            return 1
-        fi
+        # In Intranet il telefono e' su Debian, quindi la WAN del router NON ha
+        # internet per definizione: router_wan_up rileva il ping fallito e
+        # ripristina il fallback Debian, ma NON deve far abortire il restore.
+        # Il passaggio a "Normale" deve completare comunque (rimuove anchor
+        # Intranet + stato), anche se la WAN sara' isolata finche' non torna
+        # attiva (es. telefono ricollegato al router / modem).
+        router_wan_up || echo "WARN: WAN router riattivata ma senza internet verificato; la LAN sara' isolata finche' la WAN non sara' attiva. Proseguo con la pulizia dello stato." >&2
 
         # 3. Rimuovi SUBITO la route telefono da main: le nuove connessioni
         #    vedono solo la LAN/router come default. Quelle marcate restano
@@ -804,11 +872,10 @@ cmd_restore() {
         #    davvero (o scade il tetto), poi ripulisce tabella/rule/chain.
         graceful_end_async "$LOCAL_TABLE_RESTORE" 0x2 "$LOCAL_DRAIN_CEILING"
     else
-        # Nessuna route tethering attiva, restore immediato
-        if ! router_wan_up; then
-            echo "ERROR: Ripristino WAN router fallito!" >&2
-            return 1
-        fi
+        # Nessuna route tethering attiva, restore immediato.
+        # Stessa logica: non abortire se la WAN non ha internet (es. Intranet
+        # con telefono su Debian). Il restore "Normale" completa comunque.
+        router_wan_up || echo "WARN: WAN router riattivata ma senza internet verificato. Proseguo con la pulizia dello stato." >&2
     fi
 
     # Pulizia finale idempotente (no-op se il ramo sopra ha gia' rimosso tutto).
@@ -887,29 +954,95 @@ cmd_status() {
     local now
     now=$(now_epoch)
 
-    if [ -f "$STATE_FILE" ]; then
-        state=$(grep -E '^state=' "$STATE_FILE" | cut -d= -f2-)
-        mode=$(grep -E '^mode=' "$STATE_FILE" | cut -d= -f2-)
-        phone_if=$(grep -E '^phone_if=' "$STATE_FILE" | cut -d= -f2-)
-        phone_gw=$(grep -E '^phone_gw=' "$STATE_FILE" | cut -d= -f2-)
-        lan_gw=$(grep -E '^lan_gw=' "$STATE_FILE" | cut -d= -f2-)
-        active_since=$(grep -E '^activated_at=' "$STATE_FILE" | cut -d= -f2-)
-        local expire
-        expire=$(grep -E '^expire_at=' "$STATE_FILE" | cut -d= -f2-)
-        if [ -n "$expire" ] && [ -n "$active_since" ]; then
-            remaining_min=$(( (expire - now) / 60 ))
-            [ "$remaining_min" -lt 0 ] && remaining_min=0
-            auto_expire="true"
+    # === MISURAZIONE DIRETTA DEI DEVICE (realtà, NON STATE_FILE) =============
+    # 1. Telefono su Debian? (interfaccia enx attiva con IPv4)
+    local debian_phone_if=""
+    for ifc in $(ip -br link 2>/dev/null | awk '{print $1}'); do
+        [[ "$ifc" =~ ^enx ]] || continue
+        if ip link show "$ifc" >/dev/null 2>&1 && ip -4 addr show dev "$ifc" 2>/dev/null | grep -q 'inet '; then
+            debian_phone_if="$ifc"; break
         fi
-        # Coerenza: lo stato dice active ma la route non c'e' piu' (es. reboot parziale)?
-        if [ "$state" = "active" ]; then
-            if ! ip route show default metric 50 >/dev/null 2>&1 \
-               || [ -z "$(ip route show default metric 50 2>/dev/null)" ]; then
-                state="error"
-                message="Stato attivo ma route telefonica assente: eseguire restore."
+    done
+    # 2. Router default route (misura reale via SSH)
+    local router_route="" router_ok=false
+    if router_ssh "true" >/dev/null 2>&1; then
+        router_ok=true
+        router_route=$(router_ssh "ip route show default 2>/dev/null" 2>/dev/null | head -1)
+    fi
+
+    # === DETERMINA STATO REALE (la realtà vince sullo STATE_FILE) ===========
+    if $router_ok; then
+        if [[ "$router_route" == *"usb0"* ]]; then
+            # Normale: il router esce dal tethering USB del Note 11 sul router.
+            state="idle"; mode="server"
+            message="Normale: router su WAN Note 11 (usb0)"
+        elif [[ "$router_route" == *"192.168.0.3"* ]]; then
+            # Anchor Intranet presente sul router.
+            if [[ -n "$debian_phone_if" ]]; then
+                # Intranet ATTIVA: telefono su Debian + anchor presente.
+                state="active"; mode="intranet"; phone_if="$debian_phone_if"
+                phone_gw=$(ip -4 addr show dev "$debian_phone_if" 2>/dev/null | grep -oE 'inet [0-9.]+' | awk '{print $2}')
+                message="Attivo via ${debian_phone_if} (intranet: LAN via Debian)"
             else
-                message="Attivo via ${phone_if}"
+                # Anchor Intranet presente ma telefono su Debian ASSENTE: STALE.
+                # Realtà: il tethering è morto. Segnala errore ma usa dati diretti.
+                state="error"; mode="intranet"
+                message="Anchor Intranet presente ma telefono su Debian assente: eseguire restore o riattivare il tethering USB."
             fi
+        elif [[ -z "$router_route" ]]; then
+            state="error"; mode="server"
+            message="Router isolato: nessuna default route verso Internet."
+        else
+            state="error"; mode="server"
+            message="Rotta primaria sconosciuta: $router_route"
+        fi
+    else
+        # Router NON raggiungibile: impossibile misurare la realtà -> FALLBACK STATE_FILE.
+        if [ -f "$STATE_FILE" ]; then
+            state=$(grep -E '^state=' "$STATE_FILE" | cut -d= -f2-)
+            mode=$(grep -E '^mode=' "$STATE_FILE" | cut -d= -f2-)
+            phone_if=$(grep -E '^phone_if=' "$STATE_FILE" | cut -d= -f2-)
+            phone_gw=$(grep -E '^phone_gw=' "$STATE_FILE" | cut -d= -f2-)
+            lan_gw=$(grep -E '^lan_gw=' "$STATE_FILE" | cut -d= -f2-)
+            active_since=$(grep -E '^activated_at=' "$STATE_FILE" | cut -d= -f2-)
+            local expire
+            expire=$(grep -E '^expire_at=' "$STATE_FILE" | cut -d= -f2-)
+            if [ -n "$expire" ] && [ -n "$active_since" ]; then
+                remaining_min=$(( (expire - now) / 60 ))
+                [ "$remaining_min" -lt 0 ] && remaining_min=0
+                auto_expire="true"
+            fi
+            message="Router non raggiungibile: stato da STATE_FILE (fallback)"
+        else
+            state="error"; mode="server"
+            message="Router non raggiungibile e nessuno STATE_FILE: impossibile determinare lo stato."
+        fi
+    fi
+
+    # === FALLBACK STATE_FILE per metadati (solo se coerente con la realtà) ===
+    # Se lo STATE_FILE esiste e descrive lo STESSO stato misurato, usa i suoi
+    # timestamp (active_since, expire_at) e l'eventuale phone_if non rilevato.
+    if [ -f "$STATE_FILE" ] && [[ "$state" != "error" ]]; then
+        local sf_state sf_mode sf_phone_if sf_expire sf_activated
+        sf_state=$(grep -E '^state=' "$STATE_FILE" | cut -d= -f2-)
+        sf_mode=$(grep -E '^mode=' "$STATE_FILE" | cut -d= -f2-)
+        sf_phone_if=$(grep -E '^phone_if=' "$STATE_FILE" | cut -d= -f2-)
+        sf_expire=$(grep -E '^expire_at=' "$STATE_FILE" | cut -d= -f2-)
+        sf_activated=$(grep -E '^activated_at=' "$STATE_FILE" | cut -d= -f2-)
+        if [[ "$state" == "$sf_state" ]] && [[ "$mode" == "$sf_mode" ]]; then
+            [ -n "$sf_activated" ] && active_since="$sf_activated"
+            if [ -n "$sf_expire" ]; then
+                remaining_min=$(( (sf_expire - now) / 60 ))
+                [ "$remaining_min" -lt 0 ] && remaining_min=0
+                auto_expire="true"
+            fi
+            [[ -z "$phone_if" ]] && [[ -n "$sf_phone_if" ]] && phone_if="$sf_phone_if"
+        fi
+        # Se la realtà è idle (Normale) ma STATE_FILE dice active: STATO_FILE STALE.
+        # La realtà ha gia' vinto (state=idle sopra). Non rimuoviamo qui (solo lettura),
+        # ma segnaliamo che il file e' inconsistente.
+        if [[ "$state" == "idle" ]] && [[ "$sf_state" == "active" ]]; then
+            message="Normale (router su usb0): STATE_FILE obsoleto ignorato."
         fi
     fi
 

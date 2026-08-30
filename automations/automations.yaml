@@ -31,3 +31,41 @@
             - action: light.turn_on
               target:
                 entity_id: light.luce_scale
+- id: usb_tether_auto_restore_normale
+  alias: "USB Tether - auto-ripristino Normale su connessione reale errata"
+  description: >-
+    Se usb_tether_status = error (es. "Router isolato") o router_internet_check
+    perde internet (dati mobile spenti / tethering caduto) per 30-45s in modalita'
+    Normale, richiama il restore che rialza la WAN (router_wan_up riaccende dati + tethering).
+  mode: single
+  triggers:
+    - trigger: state
+      entity_id: sensor.usb_tether_status
+      to: "error"
+      for: "00:00:30"
+    - trigger: state
+      entity_id: sensor.connessione_attiva_reale
+      to: "ISOLATA"
+      for: "00:00:45"
+    - trigger: state
+      entity_id: sensor.router_internet_check
+      attribute: router_internet
+      to: "dead"
+      for: "00:00:45"
+  conditions:
+    - condition: state
+      entity_id: input_select.usb_tether_mode
+      state: "Normale"
+  actions:
+    - action: persistent_notification.create
+      data:
+        notification_id: usb_tether_autorestore
+        title: "🔧 Ripristino Normale automatico"
+        message: >-
+          Connessione reale = {{ states('sensor.connessione_attiva_reale') }} / internet = {{ state_attr('sensor.router_internet_check','router_internet') }}
+          ma modalita' Normale. Rilancio il restore (riaccende dati mobile + tethering USB del Note 11).
+    - action: shell_command.usb_tether_restore
+    - delay: "00:00:05"
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.usb_tether_status

@@ -90,6 +90,31 @@ def _set_state(entity_id, value, attributes=None):
     hass.states.async_set(entity_id, value, attributes or {})
 
 
+def safe_notify(message, title=None, target=None, data=None):
+    """Invia una notifica FUORI dall'event loop (non bloccante).
+
+    Le chiamate dirette a hass.services.call('notify', ...) sono sincrone e
+    girano sull'event loop di HA: se il servizio notify (es. mobile_app verso
+    l'app non raggiungibile) si blocca/impiega molto, INCHIODA l'intero event
+    loop di Home Assistant (stall del frontend, freeze totale). Lanciando il
+    notify come task separato via async_create_task, anche un notify lento o
+    bloccato non può più fermare HA.
+    """
+    try:
+        svc_data = {"message": message}
+        if title:
+            svc_data["title"] = title
+        if target:
+            svc_data["target"] = target if isinstance(target, list) else [target]
+        if data:
+            svc_data["data"] = data
+        hass.async_create_task(
+            hass.services.async_call("notify", "send_message", svc_data, blocking=False)
+        )
+    except Exception as e:
+        log.warning(f"BTC Tracker: safe_notify fallita: {e}")
+
+
 def _prezzo_netto_per_btc(prezzo_attuale, costo=None):
     """
     Calcola il prezzo netto equivalente per BTC dopo tasse 33%.
@@ -269,16 +294,16 @@ def check_milestones():
     
     for threshold, label in milestones:
         if progress >= threshold and last_notified < threshold:
-            hass.services.call('notify', 'send_message', {
-                'target': ['notify.mobile_app_redmi_note_13_pro_5g'],
-                'message': f"{label}\n\nProgresso NETTO: {progress:.1f}%\nProfitto netto: {profit_net:.2f} € / {phone_price:.2f} €\n{phone_name}",
-                'title': f"₿ BTC Tracker: {label}",
-                'data': {
+            safe_notify(
+                message=f"{label}\n\nProgresso NETTO: {progress:.1f}%\nProfitto netto: {profit_net:.2f} € / {phone_price:.2f} €\n{phone_name}",
+                title=f"₿ BTC Tracker: {label}",
+                target=['notify.mobile_app_redmi_note_13_pro_5g'],
+                data={
                     'tag': f'btc_milestone_{int(threshold)}',
                     'importance': 'high' if threshold >= 90 else 'default',
                     'notification_icon': 'mdi:bitcoin'
                 }
-            })
+            )
             triggered.append(threshold)
             data['last_milestone'] = threshold
     
@@ -449,16 +474,16 @@ async def daily_report_pyscript():
 • Break-even BTC price: {_get_state('sensor.btc_break_even_phone_price'):.0f} €/BTC
     """.strip()
     
-    hass.services.call('notify', 'send_message', {
-        'target': ['notify.mobile_app_redmi_note_13_pro_5g'],
-        'message': message,
-        'title': "📊 BTC Tracker: Report Giornaliero (NETTO 33%)",
-        'data': {
+    safe_notify(
+        message=message,
+        title="📊 BTC Tracker: Report Giornaliero (NETTO 33%)",
+        target=['notify.mobile_app_redmi_note_13_pro_5g'],
+        data={
             'tag': 'btc_daily_report_pyscript',
             'importance': 'default',
             'notification_icon': 'mdi:chart-line'
         }
-    })
+    )
 
 
 # Startup: verifica stato e ripristina milestone tracking

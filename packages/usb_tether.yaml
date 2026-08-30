@@ -93,6 +93,7 @@ command_line:
         - router_ping_ms
         - wan_down_expected
         - problem
+        - connection_reality
       scan_interval: 60
 
 # --- Sensore template: messaggio diagnosi router ----------------------------
@@ -144,6 +145,32 @@ template:
             {% set ms = state_attr('sensor.router_internet_check', 'router_ping_ms') | default('N/D') %}
             Rotta attiva: {{ route }} | Internet: {{ net }} | Ping dal router: {{ ms }} ms
 
+# --- Sensore template: connessione ATTIVA REALE (misurata, non dai flag script)
+# Mostra QUALI device stanno realmente instradando il traffico del router, letto
+# dalla default route reale (usb0 = Note 11 sul router / 192.168.0.3 = Debian/Note 13).
+# Questo e' la fonte di verita' della dashboard, indipendente da usb_tether_status.
+  - sensor:
+      - name: "Connessione Attiva Reale"
+        unique_id: connessione_attiva_reale
+        icon: mdi:network-route
+        state: >-
+          {% set cr = state_attr('sensor.router_internet_check', 'connection_reality') | default('') %}
+          {% if 'Normale' in cr %} WAN_NOTE11
+          {% elif 'Intranet' in cr %} INTRANET_DEBIAN
+          {% elif 'Isolata' in cr %} ISOLATA
+          {% else %} N/D
+          {% endif %}
+        attributes:
+          descrizione: >-
+            {% set cr = state_attr('sensor.router_internet_check', 'connection_reality') | default('Misura in corso...') %}
+            {{ cr }}
+          rotta_attiva: >-
+            {{ state_attr('sensor.router_internet_check', 'router_primary_route') | default('N/D') }}
+          internet: >-
+            {{ state_attr('sensor.router_internet_check', 'router_internet') | default('N/D') }}
+          ping_ms: >-
+            {{ state_attr('sensor.router_internet_check', 'router_ping_ms') | default('N/D') }}
+
 # --- Sensore template: messaggio dashboard ---------------------------------
   - sensor:
       - name: "USB Tether Dashboard"
@@ -194,10 +221,10 @@ shell_command:
   usb_tether_activate_intranet: >
     /config/helpers/usb_tether_ha.sh activate intranet "{{ states('input_select.usb_tether_host') }}" "{{ states('input_number.usb_tether_max_duration') | int(60) }}"
 
-  usb_tether_restore: >
+  usb_tether_restore: >-
     /config/helpers/usb_tether_ha.sh restore server "{{ states('input_select.usb_tether_host') }}" "{{ states('input_number.usb_tether_max_duration') | int(60) }}"
 
-  usb_tether_reset: >
+  usb_tether_reset: >-
     /config/helpers/usb_tether_ha.sh reset server "{{ states('input_select.usb_tether_host') }}" "{{ states('input_number.usb_tether_max_duration') | int(60) }}"
 
   usb_tether_reactivate_router: >
@@ -216,10 +243,19 @@ shell_command:
 
   # Riabilita Wi-Fi sul telefono router (69a47f6d3a61) via ADB_ROUTER.
   # Usare per connettere il telefono alla LAN (192.168.0.14) per ADB/scrcpy senza disabilitare il tethering.
-  usb_tether_wifi_on_router: >
+  usb_tether_wifi_on_router: >-
     ssh -i /config/.ssh/router_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@192.168.0.11 "/usr/bin/adb_router -s 69a47f6d3a61 shell 'cmd wifi set-wifi-enabled enabled'"
 
-# --- Script: azioni con messaggio e gestione errori ----------
+  # Disabilita/riabilita solo il WiFi Calling (IWLAN) sul telefono router (69a47f6d3a61) via ADB_ROUTER.
+  # Lasciandolo OFF, il bearer LTE resta aperto anche con il WiFi attivo sulla LAN di casa,
+  # cosi' il tethering USB da' internet al router senza loop (router->WiFi->telefono->tethering->router).
+  usb_tether_wificall_off_router: >-
+    ssh -i /config/.ssh/router_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@192.168.0.11 "/usr/bin/adb_router -s 69a47f6d3a61 shell 'settings put global wifi_calling_enabled 0'"
+
+  usb_tether_wificall_on_router: >-
+    ssh -i /config/.ssh/router_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@192.168.0.11 "/usr/bin/adb_router -s 69a47f6d3a61 shell 'settings put global wifi_calling_enabled 1'"
+
+# --- Script: azioni con messaggio e gestione errori ----------\n
 script:
   usb_tether_normale:
     alias: "Tethering: routing normale"
@@ -235,40 +271,17 @@ script:
           subsystem: usb_tether
           level: INFO
           message: "AVVIO: Ripristino routing normale (host: {{ states('input_select.usb_tether_host') }})"
+      # Il comando restore e' asincrono (ritorna subito "restoring"), il lavoro
+      # prosegue in background su Debian. Non aspettiamo il sensore qui: il
+      # wait_template bloccante causava il timeout di HA (script appeso >4min
+      # quando il restore impiegava molto). Il sensore si aggiorna da solo.
       - action: shell_command.usb_tether_restore
-      - delay: "00:00:02"
+      - delay: "00:00:03"
       - action: homeassistant.update_entity
         target:
           entity_id: sensor.usb_tether_status
-      # Aspetta che il sensore esca dallo stato 'active'.
-      # 'restoring' = drenaggio flussi in corso sul router (può durare ore): è uno
-      # stato valido, non un errore. L'errore reale è se il sensore resta 'active'
-      # oltre il timeout (nessuna transizione avvenuta), che indica un problema
-      # nell'esecuzione del comando restore stesso.
-      - wait_template: "{{ not is_state('sensor.usb_tether_status', 'active') }}"
-        timeout: "00:04:00"
-      - if:
-          - condition: template
-            # Errore SOLO se il sensore è ancora 'active' dopo il timeout
-            # (il restore non è nemmeno partito). 'restoring' e 'idle' sono entrambi OK.
-            value_template: "{{ is_state('sensor.usb_tether_status', 'active') }}"
-        then:
-          - action: input_text.set_value
-            target:
-              entity_id: input_text.usb_tether_status_message
-            data:
-              value: "ERRORE: routing normale non ripristinate - controlla log"
-          - event: halog2026_write_event
-            event_data:
-              subsystem: usb_tether
-              level: ERROR
-              message: "ERRORE: Ripristino fallito (timeout)"
-        else:
-          - action: input_text.set_value
-            target:
-              entity_id: input_text.usb_tether_status_message
-            data:
-              value: ""
+      # Nessun wait_template: se il restore fallisce, il sensore resta in stato
+      # di errore e la dashboard lo mostra. Non blocchiamo HA per questo.
 
   usb_tether_reset:
     alias: "Tethering: Reset di emergenza"
@@ -443,6 +456,11 @@ automation:
         event: start
     action:
       - choose:
+          # idle ha la precedenza: pulisce SEMPRE il messaggio (anche se conteneva
+          # "in corso"), altrimenti un restore fallito lasciava il messaggio di
+          # transizione appeso per sempre. active pulisce anch'esso (operazione
+          # completata). I messaggi "in corso" restano SOLO durante le transizioni
+          # attive (activating/restoring), non a stato consolidato.
           - conditions:
               - condition: state
                 entity_id: sensor.usb_tether_status
@@ -454,16 +472,24 @@ automation:
                 data:
                   value: ""
           - conditions:
-              - condition: template
-                value_template: "{{ 'ERRORE' in states('input_text.usb_tether_status_message') or 'in corso' in states('input_text.usb_tether_status_message') }}"
-            sequence: []
-          - conditions: []
+              - condition: state
+                entity_id: sensor.usb_tether_status
+                state: "active"
             sequence:
               - action: input_text.set_value
                 target:
                   entity_id: input_text.usb_tether_status_message
                 data:
                   value: ""
+          # ERRORE resta visibile (cosi' l'utente vede cosa e' andato storto),
+          # ma solo se lo stato NON e' idle/active (es. durante una transizione
+          # andata in errore). Se lo stato e' idle, ha gia' pulito sopra.
+          - conditions:
+              - condition: template
+                value_template: "{{ 'ERRORE' in states('input_text.usb_tether_status_message') }}"
+            sequence: []
+          - conditions: []
+            sequence: []
       - event: halog2026_write_event
         event_data:
           subsystem: usb_tether

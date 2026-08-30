@@ -23,6 +23,32 @@ Documentazione della configurazione di rete per l'ambiente Home Assistant.
 - **Indirizzo IP:** `192.168.0.8`
 - **Uso:** Workstation principale.
 
+### Telefoni Tethering USB (Agosto 2026)
+
+La connessione Internet di backup avviene tramite **tethering USB** di uno dei due telefoni, collegato a un host diverso a seconda della modalità:
+
+| Telefono | Collegamento USB | Ruolo |
+|---|---|---|
+| **Redmi Note 11** (o Note 11 Pro 5G) | USB del **router** (`192.168.0.11`) | WAN del router in modalità **Normale** (se il telefono è sul router) |
+| **Redmi Note 13 Pro 5G** | USB di **Debian** (`192.168.0.3`) **OPPURE** USB di **Windows 11** (`192.168.0.8`) | Host per modalità **Intranet** / **Server** |
+
+- I telefoni **possono cambiare porta USB** (es. `enx5a76594f1a7d` → `enx02cd24ba52ce` se ricollegati): le regole iptables di tethering sono **dinamiche** (`enable_nat_router` usa l'interfaccia rilevata a runtime `$phone_if`), quindi un cambio di porta non rompe il routing.
+- Il rilevamento della connessione si basa sul **check che il tethering USB sia attivo** (presenza interfaccia + gateway), non sull'IP specifico del telefono.
+- In **Intranet** il telefono è su Debian/Windows e il router esce via l'anchor Debian (`br-lan`, metrica 9); in **Normale** il router esce dalla propria WAN (usb0) se il Redmi Note 11 è collegato al router. Se in Normale la WAN del router non ha Internet (telefono non sul router), la LAN resta isolata finché non si ricollega il telefono al router o non si passa a Intranet.
+
+> **Comportamento atteso per device (chi esce da dove)**
+> - **Debian (`192.168.0.3`)**: in **Normale** esce dal proprio telefono USB (Redmi Note 13 Pro 5G) se collegato — è il suo gateway Internet predefinito (route `metric ~103`). In **Intranet** esce dal proprio telefono USB e fa da ponte NAT (MASQUERADE) per la LAN.
+> - **Router (`192.168.0.11`)**: in **Normale** esce dalla WAN (usb0, Redmi Note 11 sul router). In **Intranet** esce via l'anchor Debian (`br-lan` metric 9) → Debian → telefono.
+> - **LAN / Windows (`192.168.0.8`)**: in **Normale** usa il router come gateway (WAN se attiva, altrimenti **isolata**). In **Intranet** usa router → anchor Debian → telefono (tutta la LAN naviga via Debian).
+> - **Staccando il telefono da Debian in Normale**: Debian perde il suo gateway Internet e diventa isolato; la LAN continua a usare il router (WAN). Per navigare in Normale occorre il **Redmi Note 11 sul router**; per navigare con il telefono su Debian occorre **Intranet**.
+> - **Verifica rapida**: in Normale, `ip route show default` sul router deve mostrare `usb0` (non `192.168.0.3`); se mostra `192.168.0.3 dev br-lan metric 9` significa che siamo ancora in Intranet (restore non completato — vedere Fix 29/08 punto 8).
+> - **WiFi del telefono router (Note 11) vs tethering USB — LOOP di routing**: se il WiFi del Note 11 è attivo sulla LAN di casa, Android chiude il bearer LTE e instrada il tethering USB su **IWLAN (WiFi Calling)** → la WAN del router perde l'upstream (internet assente, `ip route show default` vuota/Network unreachable). Il telefono infatti preferisce il WiFi della casa (che ha internet via il router) creando un **loop**: router → WiFi → telefono → tethering USB → router. **Soluzione**: disabilitare il WiFi sul Note 11 quando il tethering USB deve dare internet al router (`usb_tether_wifi_off_router` via ADB router), OPPURE disabilitare il WiFi Calling sul telefono. Verificato dal vivo: con WiFi OFF, la WAN del router riprende (`usb0 metric 10`, `10.203.33.201`, ping 0% loss) e la LAN naviga via router (MASQUERADE nftables `srcnat_wan` confermato funzionante: test Debian→router→usb0→8.8.8.8 = 0% loss). Riabilitare il WiFi col `usb_tether_wifi_on_router` solo se non serve internet dal router in quel momento.
+> - **Nota importante (test 29/08)**: disabilitare SOLO il WiFi Calling (`settings put global wifi_calling_enabled 0`, già in `router_wan_up` e in `usb_tether_wificall_off_router`) **NON basta** su MIUI — il telefono continua a preferire il WiFi della casa per i dati del tethering USB anche con WiFi Calling off e `tether_upstream_types 0` (solo LTE). Il bearer LTE non si riaggancia finché il WiFi è attivo sulla LAN di casa. Quindi per avere internet dal router col Note 11 collegato, il **WiFi del telefono deve essere SPENTO** (`usb_tether_wifi_off_router`) oppure il telefono deve connettersi a una **rete WiFi "cieca"** (senza internet via router, es. mesh Tenda isolato) così resta sulla LAN per ADB/scrcpy ma il tethering USB usa il LTE.
+> - **Soluzione adottata (WiFi Calling OFF dall'UI)**: il DHCP è gestito da AdGuard Home (non dal router) e assegna al Note 11 l'IP `192.168.0.14`. Per far coesistere WiFi + tethering USB **senza loop**, sul telefono si disattiva **"Usa WiFi per le chiamate"** (WiFi Calling) dall'UI impostazioni → SIM/reti mobili → chiamate Wi-Fi (su MIUI l'interruttore è "Usa WiFi per le chiamate"). Con WiFi Calling OFF, il bearer LTE resta aperto anche con il WiFi di casa attivo, e il tethering USB instrada su LTE (non su IWLAN/WiFi). Verificato dal vivo: con WiFi Calling OFF, il `.14` pinga, il telefono resta sulla LAN per ADB/scrcpy, e la WAN del router resta attiva (`usb0 metric 10`, ping 0% loss) anche con WiFi del Note 11 acceso. Il `settings put global wifi_calling_enabled 0` via ADB viene talvolta ribaltato dall'UI, quindi l'interruttore va lasciato OFF manualmente sull'UI del telefono. L'impostazione gateway `0.0.0.0` sull'UI WiFi è **bloccata da MIUI** (`path 'generate_204' is not configured`): non serve, WiFi Calling OFF è sufficiente.
+> - **Sensore connessione ATTIVA REALE (misurata, non dai flag script)**: per evitare discrepanze tra quello che dice lo script (`usb_tether_status` basato su STATE_FILE) e la realtà, il sensore `sensor.connessione_attiva_reale` misura la **default route reale del router** tramite `router_check` (che fa `ip route show default` + `ping 8.8.8.8` dal router). Classifica: `WAN_NOTE11` (rotra `usb0` → tethering USB del Note 11 sul router), `INTRANET_DEBIAN` (rotta `192.168.0.3 dev br-lan` → telefono su Debian/Note 13), `ISOLATA` (nessuna default route). Questo sensore è la **fonte di verità** della dashboard: riflette i device effettivamente usati, indipendentemente da `usb_tether_status`. Se `connessione_attiva_reale` dice `INTRANET_DEBIAN` ma `usb_tether_status` dice "idle" (Normale), significa che il router sta ancora uscendo via Debian (anchor Intranet non rimosso o restore non completato) — in tal caso premere 🔄 Normale e verificare che la default route diventi `usb0`.
+> - **`cmd_status` reality-based (29/08, fix messaggio di errore fuorviante)**: il sensore `usb_tether_status` ora misura i **dati diretti dei device** e usa lo `STATE_FILE` solo come fallback per i metadati (timestamp/expire). Logica: (1) rileva telefono su Debian via interfaccia `enx` attiva con IPv4; (2) misura la default route reale del router via SSH (`usb0` → Normale, `192.168.0.3` → Intranet, vuota → Isolata); (3) se la realtà contraddice lo STATE_FILE (es. router su `usb0` ma STATE_FILE dice `active/intranet`), **la realtà vince** e il messaggio di errore "interfaccia telefonica assente" non appare più. Solo se il router non è raggiungibile (SSH fallisce) si usa lo STATE_FILE come fallback. Così il sensore riflette sempre la connessione effettivamente usata, non i flag dello script rimasti stale.
+> - **Fix dati mobile spenti che bloccano Normale (29/08)**: se in Normale i **dati mobili del Note 11** sono disattivati (es. dall'utente o per risparmio batteria), il tethering USB perde il bearer LTE e la WAN del router muore (internet bloccato nonostante "Normale" attivo). `router_wan_up` ora **riaccende i dati mobile via ADB** (`settings put global mobile_data 1` + `svc data enable` + `airplane_mode 0`) prima di rialzare la WAN, e riattiva anche il tethering RNDIS (`svc usb setFunctions rndis` + `service call connectivity 33 i32 1` se `usb0` manca). L'automazione `usb_tether_auto_restore_normale` scatta anche se `router_internet_check` perde internet (attributo `router_internet=dead`) per 90s in modalità Normale, rilanciando il restore che ripristina dati + tethering + WAN. Verificato dal vivo: simulato `mobile_data=0`, lanciato il restore → `mobile_data=1`, telefono pinga, router su `usb0`, internet ok.
+
 ### Sistema Wi-Fi Mesh
 - **Hardware:** Tenda AC1200 Mesh5 (MW5)
 - **Configurazione:**
@@ -247,7 +273,63 @@ ssh -i /config/.ssh/win_key -o StrictHostKeyChecking=no carlo_2@192.168.0.8
 
  `router_wan_up()` (chiamata da `restore`/`_watch`) esegue `ifup wan` per ripristinare l'interfaccia WAN originale.
 
- **Comando aggiuntivo**: `force_activate` rimuove lo state file (`/run/usb_tether_state`) se il watcher è morto, utile per recovery manuale senza sudo interattivo.
+> **Raffinatezza 29 Agosto 2026**: la metrica dell'anchor Intranet è stata portata da `30` a **`9`** (sempre inferiore a `usb0 metric 10`), così l'anchor Debian vince anche se netifd re-inietta la WAN. Inoltre `router_wan_down()` ora imposta `uci set network.wan.auto='0'` (**blocco permanente**) oltre a `ifdown wan`, per evitare che l'hotplug USB del telefono (se sul router) riporti su `usb0 metric 10` entro secondi; `router_wan_up()` ripristina `auto='1'` prima di `ifup wan`. Il bottone 🌐 Intranet (`cmd_activate intranet`) è ora **correttivo/idempotente**: se lo state file dice già `active`, riapplica `router_wan_down` + anchor metric 9 + `enable_nat_router` (sull'interfaccia USB corrente) + riscrive il `STATE_FILE` con la `phone_if` rilevata, invece di rifiutare con "GIA ATTIVO".
+
+**Comando aggiuntivo**: `force_activate` rimuove lo state file (`/run/usb_tether_state`) se il watcher è morto, utile per recovery manuale senza sudo interattivo.
+
+### Fix Blocco HA su Restore / Isolate Router (Agosto 2026)
+
+**Sintomi riscontrati**: premendo "Normale" da Intranet, HA andava in timeout (60s) e il router restava **senza route** (LAN isolata), a volte con HA stesso non raggiungibile.
+
+**Causa root**: 
+1. `restore_debian` in `usb_tether_ha.sh` eseguiva `ssh_debian ".../usb_tether.sh restore"` in **foreground sincrono**. Il `cmd_restore` su Debian impiegava >60s (ifup wan, graceful drain, conntrack flush, tentativi ADB airplane-mode), superando il timeout di `shell_command` di HA → HA uccideva il processo a metà, lasciando il router senza route.
+2. `router_wan_up` in `host_scripts/usb_tether.sh` aveva un ramo ADB (airplane-mode toggle) che **si bloccava per minuti** quando la WAN non si attivava (es. telefono non sul router in Intranet→Normale). Inoltre, se la WAN falliva, il router restava **senza route** (isolamento LAN).
+3. Lo script `usb_tether_normale` usava `wait_template` (4 min) aspettando che il sensore uscisse da `active` — se il restore impiegava >4min, lo script restava appeso e bloccava HA.
+
+**Fix applicati**:
+- `restore_debian`: ora lancia il restore Debian in **background** (`setsid ... &`) e ritorna subito `{"state":"restoring"}` (~0.1s). Il lavoro prosegue in background.
+- `router_wan_up`: rimosso il ramo ADB bloccante. Se la WAN non si attiva (telefono non sul router), **ripristina il fallback Debian** invece di isolare la LAN. Tutti i `router_ssh` si affidano a `ConnectTimeout=5`.
+- `router_add_fallback_route`: se la route esiste già, ritorna successo immediato (evita errori su `replace` identico).
+- `usb_tether_normale`: **rimosso il `wait_template`**. Lo script è ora non-bloccante: chiama `restore` (asincrono) e termina. Il sensore si aggiorna da solo al prossimo poll.
+- `usb_tether_ha.sh` scrive `/config/.usb_tether_mode` (contiene `intranet` o vuoto) su `activate`/`restore`, usato da `router_check` per distinguere bug reale (usb0 primaria in intranet) da comportamento corretto (usb0 primaria in Normale).
+
+### Fix Tethering e HA — 29 Agosto 2026
+
+Sessione di remediation dopo che la dashboard "Intranet" risultava attiva ma la rete non funzionava (Windows 11 senza Internet) e Home Assistant si congelava periodicamente. Tutti i fix sono stati **verificati dal vivo** sul router/Debian.
+
+#### 1. Debian aveva perso `192.168.0.3` sulla LAN
+`systemd-networkd` era disabilitato e l'IP `192.168.0.3` (prima gestito da NetworkManager) era sparito: Debian non raggiungeva più il router, quindi l'anchor Intranet (router → Debian) puntava al vuoto e il failsafe cancellava il passaggio.
+**Fix**: `enp2s0` reso **statico persistente** via NetworkManager (`ipv4.method manual`, `192.168.0.3/24`, nessun gateway così Debian esce su Internet via USB, DNS `192.168.0.11`). Ora sopravvive al reboot.
+
+#### 2. Bottone Intranet correttivo non applicava NAT (blocco failsafe)
+Il ramo idempotente di `cmd_activate intranet` richiamava `router_wan_down` + anchor ma **ometteva `enable_nat_router`** → senza MASQUERADE/FORWARD la LAN non navigava → `failsafe_watchdog.sh` scriveva `ERROR_MARKER` e HA tornava a Normale. Inoltre non aggiornava `phone_if` nel `STATE_FILE` → `cmd_status` leggeva l'interfaccia USB morta e ritornava `error`.
+**Fix**: il ramo idempotente ora rileva l'interfaccia USB corrente (`ip route get 8.8.8.8`), riapplica `router_wan_down` + anchor metric 9 + `enable_nat_router`, e **riscrive il `STATE_FILE`** con `phone_if`/`phone_gw`/`lan_gw`/`activated_at`/`expire_at` correnti.
+
+#### 3. `cmd_status` falliva in Intranet (check metric 50 errato)
+La coerenza-check cercava `ip route show default metric 50` (solo modalità Server). In Intranet Debian esce via USB (metric 101), non metric 50 → stato sempre `error`.
+**Fix**: `cmd_status` ora distingue le modalità: in `intranet` verifica che l'interfaccia USB sia up + esista una default route; in `server` verifica metric 50.
+
+#### 4. Passaggio a "Normale" lasciava il sensore bloccato in Intranet
+`cmd_restore` chiamava `router_wan_up`; se la WAN del router non aveva Internet (normale in Intranet, telefono su Debian), `router_wan_up` ritornava 1 e `cmd_restore` faceva `return 1` **prima di rimuovere l'anchor e lo `STATE_FILE`** → router rimaneva in Intranet, sensore bloccato.
+**Fix**: `cmd_restore` **completa sempre** (riattiva WAN + rimuove anchor Intranet + pulisce stato), anche se la WAN non ha Internet. Verificato: `STATE_FILE` rimosso, sensore `idle`, WAN `up`/`auto=1`.
+
+#### 5. Messaggio dashboard "in corso" appeso
+L'automazione `usb_tether_status_message_cleanup` preservava i messaggi contenenti `"in corso"` anche a stato `idle` → "ripristino routing normale in corso..." restava per sempre se il restore falliva.
+**Fix**: ribaltato l'ordine del `choose` — **`idle` e `active` puliscono sempre** il messaggio; `"in corso"` resta solo durante le transizioni attive (`activating`/`restoring`); `"ERRORE"` resta visibile solo se lo stato non è consolidato.
+
+#### 6. Watchdog stall HA ora auto-recovery + persistente
+`/home/carlo/docker/ha-watchdog/watchdog.sh` (prima non in esecuzione, fermo dal 27/08) faceva solo dump + Telegram, mai riavvio.
+**Fix**: dopo il dump esegue `docker restart homeassistant` (cooldown 5 min anti-loop). Creato `/etc/systemd/system/ha-watchdog.service` (`Restart=always`, `Wants=network-online.target`), abilitato e avviato → **attivo e persistente al reboot**.
+
+#### 7. `btc_tracker` non può più stallare HA
+Le chiamate `hass.services.call('notify', ...)` in `pyscript/modules/btc_tracker.py` (`check_milestones`, `daily_report_pyscript`, trigger orario 12:00) erano **sincrone sull'event loop**: un notify verso `notify.mobile_app_redmi_note_13_pro_5g` bloccante inchiodava tutto HA (freeze ricorrente).
+**Fix**: aggiunto `safe_notify()` che lancia il notify come **task separato** (`hass.async_create_task(hass.services.async_call(..., blocking=False))`); entrambe le chiamate ora usano `safe_notify`. Sintassi Python validata, nessun errore di caricamento pyscript.
+
+#### 8. "Normale" non puliva lo stato (restore in background che moriva)
+`restore_debian` in `usb_tether_ha.sh` lanciava il restore Debian in background nel container HA (`setsid bash -c "ssh_debian ... &"`). Quel processo **moriva** quando Home Assistant reaps la `shell_command` (termina subito), così lo `STATE_FILE` su Debian (`/run/usb_tether_state`) non veniva mai rimosso → il sensore (che legge lo state file via SSH) restava bloccato in `active`/intranet anche se il router era stato riportato a Normale. Il watchdog si disarmava lo stesso perché il container HA ha sempre Internet (via Debian USB), mascherando il fallimento.
+**Fix**: `restore_debian` ora esegue il restore **in foreground** (`out=$(ssh_debian "sudo .../usb_tether.sh restore")`, ~49s); la `shell_command.usb_tether_restore` ha `command_timeout: 120` così la shell_command attende il completamento e lo `STATE_FILE` viene rimosso. Verificato dal vivo: restore completa in 49s, `STATE_FILE` rimosso, sensore `idle`, WAN router `up`/`auto=1`.
+
+> **Nota comportamento "Normale"**: in Normale la WAN del router (usb0 via `10.203.33.201`) non ha Internet se il Redmi Note 11 non è collegato al router (il Note 13 Pro 5G è su Debian/Windows). La LAN resta quindi isolata in Normale finché non si ricollega il telefono al router o non si passa a Intranet. Se si vuole fail-open verso Debian in Normale, implementare su richiesta.
 
 ### Sensore Diagnostica Router (Status Apparati - Agosto 2026)
 

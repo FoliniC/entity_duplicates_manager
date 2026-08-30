@@ -850,7 +850,7 @@ views:
 
           # --- GRID INDICATORI ---
           - type: grid
-            columns: 2
+            columns: 5
             square: false
             cards:
               # 1. AdGuard Home
@@ -1061,36 +1061,55 @@ views:
                         font-weight: bold;
                       }
 
-          # --- BARRE PING ---
+          # --- PROGRESS BAR DISPONIBILITÀ INTERNET ---
+          # La barra CSS inline nei <div> viene strip-pata dal sanitizer del markdown,
+          # quindi la barra vera è disegnata via card_mod (CSS applicato a ha-card,
+          # non filtrato) + una barra a blocchi Unicode come fallback sempre visibile.
           - type: markdown
             content: >
-              📶 **Barra Ping Internet** (ultimi 15 tentativi, 30s)
               {% set pings = state_attr('sensor.internet_ping_history', 'ping_history') %}
               {% if not pings %}{% set pings = [] %}{% endif %}
               {% set display = pings[-15:] %}
-              {% if display | length > 0 %}
-                {% for p in display %}
-                  {% set box = "🟩" if (p is number and p > 0 and p < 200) else "🟥" %}
-                  {{ box }}
-                {% endfor %}
-              {% else %}
-                ⏳ Nessun dato disponibile
-              {% endif %}
-              <div style="font-size: 10px; color: gray; margin-top: 3px;">🟩 < 200ms | 🟥 > 200ms o timeout | Aggiornamento: ogni 30s</div>
+              {% set total = display | length %}
+              {% set ok = namespace(v=0) %}
+              {% for p in display %}
+                {% if p is number and p > 0 and p < 200 %}{% set ok.v = ok.v + 1 %}{% endif %}
+              {% endfor %}
+              {% set pct = (ok.v / total * 100) | round(0) if total > 0 else 0 %}
+              {% set blocks = 20 %}
+              {% set filled = (pct / 100 * blocks) | round(0) | int %}
+              {% set bar = '🟩' * filled + '⬜' * (blocks - filled) %}
+
+              **🌐 Disponibilità Internet: {{ pct }}%**
+              <br>
+              {{ ok.v }}/{{ total }} ping riusciti · ultimi 15 tentativi (30s)
+              <br>
+              {{ bar }}
+              <br>
+              <sub>🟩 &lt;200ms · 🟥 &gt;200ms o timeout · aggiornamento ogni 30s</sub>
             card_mod:
-              style: >
+              style: |
                 ha-card {
                   user-select: text !important;
-                  font-family: monospace;
-                  padding: 8px;
-                  text-align: center;
-                  font-size: 16px;
+                  padding: 8px 12px;
+                }
+                /* Barra di riempimento CSS visibile accanto al testo */
+                ha-card::before {
+                  content: "";
+                  display: block;
+                  height: 14px;
+                  width: {{ pct }}%;
+                  background: {% if pct >= 80 %}#4caf50{% elif pct >= 50 %}#ff9800{% else %}#d32f2f{% endif %};
+                  border-radius: 7px;
+                  margin: 4px 0 8px 0;
+                  transition: width .4s ease;
                 }
 
           # --- STATO RETE DETTAGLIATO ---
           - type: conditional
             conditions:
               - entity: sensor.network_status_diagnosis
+                state_not: "unavailable"
             card:
               type: entity
               entity: sensor.network_status_diagnosis
@@ -1110,7 +1129,7 @@ views:
 
           # --- ENTITÀ UTILIZZATE IN QUESTA DASHBOARD ---
           - type: markdown
-            content: >
+            content: |
               **Entità monitorate nel tab Status Apparati:**
 
               • `binary_sensor.adguard_home_status` — DNS check porta 53 su 192.168.0.3 (60s)

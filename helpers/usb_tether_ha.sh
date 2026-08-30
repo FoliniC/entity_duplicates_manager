@@ -519,15 +519,21 @@ router_finish_restore_windows() {
 restore_debian() {
   local out rc
   touch "$RESTORE_MARKER" 2>/dev/null || true
-  # Esegue il restore Debian in background: il comando puo' impiegare >60s
+  # Esegue il restore Debian in FOREGROUND: il comando puo' impiegare ~47s
   # (ifup wan, graceful drain, conntrack flush sul router). Se restasse in
-  # foreground, HA shell_command (timeout 60s) ucciderebbe il processo a meta',
-  # lasciando il router senza route (stato "NESSUNA" nel sensore di diagnosi).
-  # Restituiamo subito "restoring" e il lavoro prosegue in background.
-  setsid bash -c "ssh_debian \"sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh restore\" >/dev/null 2>&1 </dev/null &"
-  log_line INFO "EXEC Debian restore avviato in background (host: $HOST)"
+  # background, il processo muore quando HA reaps la shell_command, lasciando
+  # lo STATE_FILE su Debian NON rimosso e il sensore bloccato in Intranet
+  # (root cause del bug "Normale" che non puliva lo stato). La shell_command
+  # ha command_timeout 120s, quindi il restore completa e rimuove lo stato.
+  out=$(ssh_debian "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh restore" 2>&1)
+  rc=$?
+  log_line INFO "EXEC Debian restore completato rc=$rc | $(printf '%s' "$out" | tail -c 300)"
   rm -f "$RESTORE_MARKER" 2>/dev/null || true
-  printf '{"state":"restoring","mode":"server","message":"Ripristino in corso..."}\n'
+  if [ "$rc" -eq 0 ]; then
+    printf '{"state":"idle","mode":"server","message":"Ripristino completato"}\n'
+  else
+    printf '{"state":"error","mode":"server","message":"Errore restore (rc=%s): %s"}\n' "$rc" "$(printf '%s' "$out" | tail -c 200)"
+  fi
 }
 
 run_router_check() {
@@ -554,16 +560,29 @@ run_router_check() {
     ping_ms=0
     problem="no_default_route"
   else
-    ping_out=$(ssh_router "ping -c 2 -W 3 8.8.8.8 2>&1" | tail -2)
-    if echo "$ping_out" | grep -qE "[1-9][0-9]*% packet loss" && ! echo "$ping_out" | grep -qE " 0% packet loss"; then
+    # Ping con retry: un singolo calo transitorio del bearer LTE (es. cambio
+    # cella, scarso segnale) NON deve essere segnalato come "isolato". Ritenta
+    # una seconda volta prima di dichiarare dead, per evitare falsi allarmi.
+    local ping_ok=false
+    ping_out=$(ssh_router "ping -c 3 -W 3 8.8.8.8 2>&1" | tail -2)
+    if echo "$ping_out" | grep -qE " 0% packet loss"; then
+      ping_ok=true
+    else
+      sleep 2
+      ping_out=$(ssh_router "ping -c 3 -W 3 8.8.8.8 2>&1" | tail -2)
+      if echo "$ping_out" | grep -qE " 0% packet loss"; then
+        ping_ok=true
+      fi
+    fi
+    if $ping_ok; then
+      router_internet="ok"
+      ping_ms=$(echo "$ping_out" | grep -oE "min/avg/max = [0-9.]+/[0-9.]+/[0-9.]+" | grep -oE "[0-9.]+/[0-9.]+/[0-9.]+" | cut -d/ -f2)
+      ping_ms=${ping_ms:-0}
+      problem=""
+    else
       router_internet="dead"
       ping_ms=0
       problem="primary_route_no_internet"
-    else
-      router_internet="ok"
-      ping_ms=$(echo "$ping_out" | grep -oE "min/avg/max = [0-9.]+/[0-9.]+/[0-9.]+" | grep -oE "[0-9.]+/[0-9.]+/[0-9.]+" | cut -d'/' -f2)
-      ping_ms=${ping_ms:-0}
-      problem=""
     fi
   fi
 
@@ -579,7 +598,11 @@ run_router_check() {
     wan_down_expected=false
     if [[ "$mode_active" == "intranet" ]]; then
       # Bug: in intranet il router non deve usare la WAN (il telefono e' sull'host)
-      if [[ "$primary_route" == *"metric 10"* ]]; then
+      # L'anchor intranet e' a metric 9 (inferiore a usb0 metric 10), quindi se
+      # usb0 resta la rotta primaria (metric 10) la LAN e' su un upstream morto.
+      # Segnaliamo il bug SOLO se la WAN e' effettivamente morta (no internet):
+      # se ha internet, non e' un problema reale anche se il file di modo e' fuori sincrono.
+      if [[ "$primary_route" == *"metric 10"* ]] && [[ "$router_internet" == "dead" ]]; then
         problem="wan_route_priority_intranet"
       fi
     fi
@@ -587,8 +610,24 @@ run_router_check() {
     wan_down_expected=true
   fi
 
-  printf '{"router_primary_route":"%s","router_internet":"%s","router_ping_ms":%s,"wan_down_expected":%s,"problem":"%s"}\n' \
-    "$primary_route" "$router_internet" "$ping_ms" "$wan_down_expected" "$problem"
+  # Connessione effettiva (misurata sulla default route reale del router, non
+  # sui flag dello script): dice QUALI device stanno realmente instradando.
+  #   usb0                  -> Normale: tethering USB del Note 11 sul router (WAN)
+  #   192.168.0.3 dev br-lan -> Intranet: telefono su Debian (Note 13/Pro 5G)
+  #   NESSUNA               -> Isolata (nessun upstream attivo)
+  local connection_reality
+  if [[ "$primary_route" == *"usb0"* ]]; then
+    connection_reality="Normale: tethering USB Note 11 (WAN router)"
+  elif [[ "$primary_route" == *"192.168.0.3"* ]]; then
+    connection_reality="Intranet: telefono su Debian (Note 13/Pro 5G)"
+  elif [[ "$primary_route" == "NESSUNA" ]]; then
+    connection_reality="Isolata: nessun upstream attivo"
+  else
+    connection_reality="Sconosciuta: $primary_route"
+  fi
+
+  printf '{"router_primary_route":"%s","router_internet":"%s","router_ping_ms":%s,"wan_down_expected":%s,"problem":"%s","connection_reality":"%s"}\n' \
+    "$primary_route" "$router_internet" "$ping_ms" "$wan_down_expected" "$problem" "$connection_reality"
 }
 
 case "$ACTION" in
