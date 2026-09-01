@@ -162,6 +162,32 @@ Per diagnosticare rallentamenti e identificare dispositivi che saturano la banda
 ### Configurazione Grafico Top 5 Dispositivi
 ...
 ---
+## Stato Aggiornato: Rete Locale — 31 Agosto 2026 (Aggiornamento tunnel/proxy)
+
+### Riepilogo Intervento
+- **Porta HA**: spostata da `8123` → `8124` (configurazione attiva in HA).
+- **Nginx proxy**: `nginx_proxy/nginx.conf` aggiornata; ascolta su `8124`; proxy_pass verso `127.0.0.1:8124`.
+- **Cloudflare Tunnel**: singolo container attivo (`cloudflare-tunnel`, `77cd1a4a99dd`); container superflui (`charming_sinoussi`, `ecstatic_satoshi`) eliminati.
+- **Trusted proxies HA**: `192.168.0.14/32` aggiunto; `use_x_forwarded_for: true` attivo.
+- **Risultato**: `curl` su `127.0.0.1:8124/` restituisce 200; loop 400/403 da `X-Forwarded-For` risolto.
+
+### Contenitori Rete (stato attuale, 31 Ago 2026)
+| Nome | Stato | Note |
+|---|---|---|
+| `nginx-proxy` | Up | Ascolto `8124`; proxy verso HA `8124` |
+| `cloudflare-tunnel` | Up | Unico tunnel attivo (`77cd1a4a99dd`) |
+| `homeassistant` | Up | HA su `8124`; trusted proxies `192.168.0.14/32` |
+| `cloudflare-watchdog` | Up (5g) | Controllo ogni 60s |
+
+### Configurazioni chiave
+- **Nginx conf** (`nginx_proxy/nginx.conf`): `listen 8124`; proxy_pass `http://127.0.0.1:8124`.
+- **Cloudflare Tunnel** (`docker-compose.yml`): `command: tunnel ... --token ${CLOUDFLARE_TUNNEL_TOKEN}`; `network_mode: host`; `TUNNEL_LOGLEVEL=info`.
+- **HA http (UI)**: `use_x_forwarded_for: true`; proxy affidabili `192.168.0.14/32`.
+
+**Note:** i container `charming_sinoussi` ed `ecstatic_satoshi` (cloudflared duplicati) sono stati rimossi.
+
+---
+
 *Ultimo aggiornamento: 10 Giugno 2026*
 1.  **Sensori Template** (`/config/packages/network_monitoring.yaml`): Sono definiti 5 sensori individuali (`top_device_1_mb` ... `top_device_5_mb`). 
     - **Nome statico**: "Top Device X MB" per un'identificazione univoca nel database.
@@ -1893,6 +1919,47 @@ docker logs --tail 5 cloudflare-watchdog
 
 ---
 *Ultimo aggiornamento: 25 Agosto 2026*
+
+## Cloudflare Tunnel (Agosto 2026)
+
+### Configurazione
+- **Dominio:** `home.vialeformica.org`
+- **Tunnel ID:** `f4b56517-1fd9-4ebd-9083-89d2d5e36a88`
+- **Container:** `cloudflare-tunnel` (Docker, `network_mode: host`)
+- **Origine:** `http://192.168.0.3:8123` → nginx-proxy (porta 8123) → HA (porta 8124)
+- **Token:** In `/home/carlo/docker/.env` → `CLOUDFLARE_TUNNEL_TOKEN`
+
+### Nota importante sul token
+Il token nel file `.env` **appare troncato con `...`** (es. `eyJhIj...dyJ9`) quando visualizzato tramite gli strumenti dell'agente. **Questo è un meccanismo di sicurezza dell'agente** che maschera automaticamente segreti sensibili. Il token reale è **completo (~430 caratteri, JWT con 2 punti)** e **funziona correttamente** - il tunnel si connette a Cloudflare (precheck PASS, connessioni QUIC/HTTP2 registrate).
+
+**Verifica manuale:**
+```bash
+grep CLOUDFLARE_TUNNEL_TOKEN /home/carlo/docker/.env | cut -d'=' -f2- | wc -c  # deve dare ~430
+grep CLOUDFLARE_TUNNEL_TOKEN /home/carlo/docker/.env | cut -d'=' -f2- | grep -o "\." | wc -l  # deve dare 2
+```
+
+### Stato attuale (31 Agosto 2026)
+- ✅ Token valido e funzionante
+- ✅ Connessione a Cloudflare Edge: OK (precheck PASS)
+- ✅ Protocollo QUIC/HTTP2 verso Cloudflare: OK
+- ❌ **HTTP 400 Bad Request** da `https://home.vialeformica.org`
+
+### Causa HTTP 400
+**Mismatch protocollo verso origine (nginx-proxy):**
+- cloudflared usa **HTTP/2 (h2c)** verso origine (default quando `originRequest: {}` è vuoto)
+- nginx-proxy ascolta su porta 8123 solo **HTTP/1.1** (manca `listen 8123 http2;`)
+
+### Fix richiesto
+**Opzione A (Cloudflare Dashboard - consigliata):**
+1. Zero Trust → Networks → Tunnels → `home.vialeformica.org` → Configure
+2. Modifica ingress rule per `home.vialeformica.org`
+3. Origin Request → aggiungi `disableHTTP2: true`
+4. Salva
+
+**Opzione B (nginx-proxy config):**
+Aggiungi `listen 8123 http2;` nel server block di nginx-proxy (richiede ricarica nginx).
+
+---
 
 ## Integrazione Pulsante SCRCPY su Dashboard HA (25 Agosto 2026)
 

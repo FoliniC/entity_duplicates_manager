@@ -519,6 +519,23 @@ router_finish_restore_windows() {
 restore_debian() {
   local out rc
   touch "$RESTORE_MARKER" 2>/dev/null || true
+
+  # PRE-FLIGHT: verifica USB tethering prima di attivare "Normale".
+  # Se assente (telefono non collegato o tethering spento), blocca e logga.
+  log_line INFO "PRE-FLIGHT (normale): avvio preflight /config/helpers/usb_tether_preflight.sh"
+  local pf_out pf_rc
+  pf_out=$(bash /config/helpers/usb_tether_preflight.sh 2>&1)
+  pf_rc=$?
+  if [ "$pf_rc" -ne 0 ]; then
+    log_line ERROR "PRE-FLIGHT FALLITO per normale: $pf_out"
+    printf '%s\n%s\n' "USB tethering assente per normale: usb0 non rilevato" "$(date '+%Y-%m-%d %H:%M:%S')" > "$ERROR_MARKER"
+    printf '{"state":"error","mode":"server","message":"Preflight normale fallito: USB tethering non disponibile"}\n'
+    rm -f "$RESTORE_MARKER" 2>/dev/null || true
+    return 0
+  fi
+  log_line INFO "PRE-FLIGHT OK per normale: $pf_out"
+  rm -f "$ERROR_MARKER" 2>/dev/null || true
+
   # Esegue il restore Debian in FOREGROUND: il comando puo' impiegare ~47s
   # (ifup wan, graceful drain, conntrack flush sul router). Se restasse in
   # background, il processo muore quando HA reaps la shell_command, lasciando

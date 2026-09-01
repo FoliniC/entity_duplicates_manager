@@ -315,6 +315,14 @@ views:
         title: "🔧 Azioni Rapide"
         show_header_toggle: false
         entities:
+          - entity: script.phone_projection_refresh
+            name: "🔄 Aggiorna Proiezione Telefono"
+            icon: "mdi:refresh"
+            tap_action:
+              action: call-service
+              service: script.turn_on
+              service_data:
+                entity_id: script.phone_projection_refresh
           - entity: automation.btc_tracker_puoi_comprare_il_telefono
             name: "Test notifica obiettivo raggiunto"
             icon: "mdi:bell-ring"

@@ -1,0 +1,127 @@
+################################################################################
+# StreamPack Integration - LG-X150 IP Camera "Cucina"
+# Bridge tra IP Webcam RTSP e Home Assistant
+################################################################################
+#
+# NOTE: Generic Camera NON supporta più configurazione YAML (da HA 2025.1+).
+# Configura le 2 camere via UI: Settings > Devices & Services > Add Integration > Generic Camera
+#
+# Camera 1 - Finestra Cucina:
+#   Still Image URL: http://192.168.0.164:8080/photo.jpg
+#   Stream Source: rtsp://192.168.0.164:8554/video
+#   Verify SSL: false
+#   Framerate: 15
+#
+# Camera 2 - Locale Tecnico:
+#   Still Image URL: http://192.168.0.165:8080/photo.jpg
+#   Stream Source: rtsp://192.168.0.165:8554/video
+#   Verify SSL: false
+#   Framerate: 15
+#
+# Dopo configurazione UI, gli entity ID saranno:
+#   camera.finestra_cucina
+#   camera.locale_tecnico
+# (usati dalle automazioni/template sotto)
+
+################################################################################
+# Input Boolean per controlli
+################################################################################
+
+input_boolean:
+  finestra_cucina_aperta:
+    name: "Finestra Cucina Aperta"
+    icon: mdi:window-open
+  locale_tecnico_aperta:
+    name: "Locale Tecnico Aperta"
+    icon: mdi:window-open
+
+################################################################################
+# Sensori di stato stream
+################################################################################
+
+template:
+  - binary_sensor:
+      - name: "Stream Cucina Attivo"
+        state: "{{ states('camera.finestra_cucina') != 'idle' }}"
+        icon: "{{ 'mdi:camera' if states('camera.finestra_cucina') != 'idle' else 'mdi:camera-off' }}"
+      - name: "Stream Locale Tecnico Attivo"
+        state: "{{ states('camera.locale_tecnico') != 'idle' }}"
+        icon: "{{ 'mdi:camera' if states('camera.locale_tecnico') != 'idle' else 'mdi:camera-off' }}"
+
+################################################################################
+# Automazioni: attiva/disattiva stream con input_boolean
+################################################################################
+
+automation:
+  - alias: "Stream Cucina - Attiva su finestra aperta"
+    trigger:
+      - platform: state
+        entity_id: input_boolean.finestra_cucina_aperta
+        to: "on"
+    action:
+      - service: camera.turn_on
+        target:
+          entity_id: camera.finestra_cucina
+
+  - alias: "Stream Cucina - Disattiva su finestra chiusa"
+    trigger:
+      - platform: state
+        entity_id: input_boolean.finestra_cucina_aperta
+        to: "off"
+    action:
+      - service: camera.turn_off
+        target:
+          entity_id: camera.finestra_cucina
+
+  - alias: "Stream Locale Tecnico - Attiva su finestra aperta"
+    trigger:
+      - platform: state
+        entity_id: input_boolean.locale_tecnico_aperta
+        to: "on"
+    action:
+      - service: camera.turn_on
+        target:
+          entity_id: camera.locale_tecnico
+
+  - alias: "Stream Locale Tecnico - Disattiva su finestra chiusa"
+    trigger:
+      - platform: state
+        entity_id: input_boolean.locale_tecnico_aperta
+        to: "off"
+    action:
+      - service: camera.turn_off
+        target:
+          entity_id: camera.locale_tecnico
+
+################################################################################
+# Script per configurazione stream
+################################################################################
+
+script:
+  stream_cucina_start:
+    alias: "Avvia Stream Cucina"
+    sequence:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.finestra_cucina_aperta
+
+  stream_cucina_stop:
+    alias: "Ferma Stream Cucina"
+    sequence:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.finestra_cucina_aperta
+
+  stream_locale_tecnico_start:
+    alias: "Avvia Stream Locale Tecnico"
+    sequence:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.locale_tecnico_aperta
+
+  stream_locale_tecnico_stop:
+    alias: "Ferma Stream Locale Tecnico"
+    sequence:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.locale_tecnico_aperta

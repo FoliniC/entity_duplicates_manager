@@ -416,6 +416,25 @@ input_text:
     icon: "mdi:link"
 
 # ============================================================================
+# SCRIPT per forzare aggiornamento template sensors (usato dalla dashboard)
+# ============================================================================
+script:
+  phone_projection_refresh:
+    alias: "Aggiorna Proiezione Telefono"
+    sequence:
+      - service: homeassistant.update_entity
+        target:
+          entity_id:
+            - sensor.phone_months_since_launch
+            - sensor.phone_current_of_launch
+            - sensor.phone_discount_vs_launch
+            - sensor.phone_days_to_successor
+            - sensor.phone_projection_3m
+            - sensor.phone_projection_6m
+            - sensor.phone_projection_12m
+            - sensor.phone_projection_status
+
+# ============================================================================
 # REST sensors per prezzo Bitcoin (CoinGecko)
 # ============================================================================
 sensor:

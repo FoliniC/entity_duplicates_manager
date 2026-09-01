@@ -872,10 +872,22 @@ cmd_restore() {
         #    davvero (o scade il tetto), poi ripulisce tabella/rule/chain.
         graceful_end_async "$LOCAL_TABLE_RESTORE" 0x2 "$LOCAL_DRAIN_CEILING"
     else
-        # Nessuna route tethering attiva, restore immediato.
-        # Stessa logica: non abortire se la WAN non ha internet (es. Intranet
-        # con telefono su Debian). Il restore "Normale" completa comunque.
+        # Nessuna route tethering gestita da STATE_FILE.
+        # Ma nella NORMALE il tethering del Note 13 Pro 5G (via DHCP su enx*)
+        # potrebbe aver sovrascritto la default route via router (192.168.0.11):
+        # in questo caso il router NON fornisce Internet, perche' Debian esce
+        # direttamente via telefono invece del router. Rileva e correggi.
         router_wan_up || echo "WARN: WAN router riattivata ma senza internet verificato. Proseguo con la pulizia dello stato." >&2
+        # Se la default route punta a un IP NOT-VIA-192.168.0.11 (es. 10.87.160.73),
+        # togli la route del telefono cosi' la rete LAN usa il router (NORMALE).
+        local cur_gw
+        cur_gw=$(get_default_gw)
+        if [ -n "$cur_gw" ] && [ "$cur_gw" != "192.168.0.11" ]; then
+            echo "Restore NORMALE: rimuovo route del telefono ($cur_gw) -> uso router 192.168.0.11" >&2
+            while ip route del default metric 50 2>/dev/null; do :; done
+            ip route del default 2>/dev/null || true
+            ip route add default via 192.168.0.11 dev "$LAN_IF" metric 101 2>/dev/null || true
+        fi
     fi
 
     # Pulizia finale idempotente (no-op se il ramo sopra ha gia' rimosso tutto).
