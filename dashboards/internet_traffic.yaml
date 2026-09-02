@@ -614,6 +614,21 @@ views:
                         }
 
                   - type: button
+                    name: "📹 StreamPack RTMP"
+                    icon: mdi:video-wireless
+                    tap_action:
+                      action: perform-action
+                      perform_action: script.usb_tether_riavvia_streampack
+                    card_mod:
+                      style: |
+                        ha-card {
+                          background: #e65100 !important;
+                          --mdc-theme-primary: white;
+                          font-size: 13px;
+                          margin-top: 4px;
+                        }
+
+                  - type: button
                     name: "Wifi off on phone"
                     icon: mdi:wifi-off
                     tap_action:
@@ -770,6 +785,7 @@ views:
                   |---|---|
                   | ⚡ Riattiva ADB | Riattiva il tethering RNDIS su Phone 1 via ADB (se il cavo USB è stato scollegato/ricollegato a caldo) |
                   | 📱 Avvia SCRCPY | Connette ADB a Phone 1 (192.168.0.14:5555) e apre lo schermo del telefono sul display di Debian |
+                  | 📹 StreamPack RTMP | Rigenera la configurazione ed avvia lo streaming RTMP su rtmp://10.203.33.10:1935/live/telefono |
 
                   **Procedura**
 
@@ -982,6 +998,7 @@ views:
                 conditions:
                   - entity: sensor.internet_ping
                     state_not: "unavailable"
+                  - entity: sensor.internet_ping
                     state_not: "0"
                 card:
                   type: sensor

@@ -2953,7 +2953,7 @@
         {
           "title": "Alexa Control",
           "path": "alexa-control",
-          "icon": "mdi:amazon-alexa",
+          "icon": "mdi:alexa",
           "badges": [],
           "cards": [
             {

@@ -427,7 +427,7 @@ logger:
     custom_components.mg_saic: warning
     esphome: error
     homeassistant.helpers.script: warning
-    custom_components.pyscript: debug
+    custom_components.pyscript: warning
 # ============================================================================
 # LOGBOOK & RECORDER
 # ============================================================================

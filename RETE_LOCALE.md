@@ -416,6 +416,54 @@ ssh -i /config/.ssh/router_key root@192.168.0.11 "/usr/bin/enable_usb_tether.sh"
 ```
 
 ---
+*Ultimo aggiornamento: 1 Settembre 2026*
+
+### Risoluzione Routing StreamPack RTMP via USB Tethering (Alias IP 10.203.33.10)
+
+Durante l'integrazione dell'applicazione **StreamPack** sul Redmi Note 11 Pro 5G per lo streaming RTMP verso il server MediaMTX su Debian (`192.168.0.3`), le connessioni applicative venivano scartate a livello kernel dal telefono con l'errore `No route to host`.
+
+#### 1. Diagnosi del Problema (MIUI / Android Policy Routing SBPF)
+- **Policy Routing Android**: Il kernel MIUI/Android 13 applica un rigido Socket-Based Policy Routing (SBPF) con marcatura pacchetti `fwmark`. Le connessioni outbound generate dalle app utente vengono forzate sulla tabella della rete dati cellulare (`rmnet_data`), ignorando l'interfaccia USB tethering (`rndis0`) se l'IP di destinazione appartiene a subnet esterne (es. `192.168.0.0/24`) o se la tabella di tethering (`table 97`) non possiede una rotta locale esplicita.
+- **Blocco ADB non-root**: L'iniezione diretta di rotte manuali nelle tabelle Android via ADB (`adb shell ip route add ...`) non è consentita su dispositivi non-root (`Cannot talk to rtnetlink: Permission denied`).
+
+#### 2. Soluzione con Alias IP e Proxy ARP (`10.203.33.10`)
+Per superare la restrizione di routing di MIUI senza richiedere i permessi di root sul telefono, si è adottata una strategia basata su un **IP Alias appartenente alla subnet locale del tethering** (`10.203.33.0/24`):
+
+1. **Alias IP su Server Debian (`192.168.0.3`)**:
+   - Assegnato l'IP alias `10.203.33.10/32` sull'interfaccia LAN `enp2s0`:
+     `ip addr add 10.203.33.10/32 dev enp2s0`
+   - Poiché il servizio MediaMTX (Docker) è in ascolto su `*:1935`, risponde nativamente anche sui pacchetti destinati all'alias IP.
+
+2. **Proxy ARP e Rotta Statica su Router OpenWrt (`192.168.0.11`)**:
+   - Quando il Redmi invia una richiesta ARP sulla rete tethering per `10.203.33.10`, OpenWrt risponde per conto di Debian tramite **Proxy ARP** abilitato sull'interfaccia `usb0`:
+     `sysctl -w net.ipv4.conf.usb0.proxy_arp=1`
+     `ip neigh add proxy 10.203.33.10 dev usb0`
+   - Aggiunta la rotta sul router per dirottare i pacchetti ricevuti su `usb0` verso l'IP LAN reale di Debian (`192.168.0.3`):
+     `ip route replace 10.203.33.10 via 192.168.0.3 dev br-lan`
+
+3. **Configurazione StreamPack**:
+   - L'URL ingest RTMP configurato in StreamPack è: `rtmp://10.203.33.10:1935/live/telefono`.
+   - Riconoscendo `10.203.33.10` come appartenente alla propria subnet locale RNDIS (`10.203.33.0/24`), il kernel Android trasmette i pacchetti direttamente sull'interfaccia USB senza applicare i blocchi SBPF della rete cellulare.
+
+#### 3. Automazione e Persistenza
+- **Script Hotplug OpenWrt (`/usr/bin/streampack-rndis-configure.sh`)**:
+  - Invocato automaticamente da `/etc/hotplug.d/iface/97-streampack-rndis` ad ogni `ifup` dell'interfaccia USB `wan` (`usb0`).
+  - Abilita il Proxy ARP per `10.203.33.10` su `usb0`, imposta la rotta verso `192.168.0.3`, genera `/sdcard/Download/streampack.json` con l'URL `rtmp://10.203.33.10:1935/live/telefono` e riavvia StreamPack via ADB.
+- **Script Host Debian (`/home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh`)**:
+  - Integrata la funzione `enable_nat_router` e il comando `setup_alias` per assicurare che l'alias `10.203.33.10/32` sia sempre attivo su `enp2s0` quando le automazioni del tethering vengono richiamate da Home Assistant.
+
+#### 4. Troubleshooting & Warning (Saturazione Overlay JFFS2 su OpenWrt)
+- **Problematiche di scrittura su OpenWrt**: Se la memoria flash `/overlay` del router si satura (scendendo sotto i ~500KB liberi su file-system JFFS2), i tentativi di sovrascrittura di file in `/usr/bin/` o `/etc/` falliscono silenziosamente o restituiscono `Read-only file system`.
+- **Comportamento in caso di errore**: In caso di saturazione, lo script `/usr/bin/streampack-rndis-configure.sh` potrebbe non aggiornarsi su flash ed eseguire la vecchia versione (con `$GATEWAY` dinamico o path errato `telefono` invece di `live/telefono`), causando la rigenerazione di `/sdcard/Download/streampack.json` sul telefono con parametri errati e il conseguente blocco `No route to host`.
+- **Verifica e ripristino spazio `/overlay`**:
+  - Verificare lo spazio rimanente con `df -h /overlay`.
+  - In caso di overlay al >95%, verificare la directory `/overlay/upper/` per rimuovere eventuali residui di build o pacchetti non necessari.
+  - Per scrivere direttamente in `upperdir` scavalcando l'overlay layer quando il file esiste in ROM, accedere a `/overlay/upper/usr/bin/streampack-rndis-configure.sh`.
+- **Verifica configurazione sul telefono**:
+  - Verificare che il file `/sdcard/Download/streampack.json` sul telefono contenga sempre:
+    `{"url":"rtmp://10.203.33.10:1935/live/telefono","autostart":true,"autostart_delay_ms":1000,"auto_reconnect":true,"reconnect_interval_sec":5,"camera_id":"0","video_width":640,"video_height":480,"video_fps":15,"video_bitrate":1500000,"audio_enabled":false}`
+
+---
 *Ultimo aggiornamento: 1 Agosto 2026 (commit 28a1b44)*
 
 ### Note di sicurezza

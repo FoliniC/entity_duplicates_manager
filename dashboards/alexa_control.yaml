@@ -2,7 +2,7 @@ title: Alexa Control
 views:
   - title: Alexa Control
     path: alexa-control
-    icon: mdi:amazon-alexa
+    icon: mdi:alexa
     type: masonry
     cards:
       - type: heading

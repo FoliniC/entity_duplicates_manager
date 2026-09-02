@@ -449,7 +449,7 @@ sensor:
     value_template: "{{ value_json.bitcoin.eur | float(0) }}"
     unit_of_measurement: "EUR"
     device_class: monetary
-    state_class: measurement
+    state_class: total
     json_attributes:
       - "bitcoin.eur_24h_change"
       - "bitcoin.last_updated_at"

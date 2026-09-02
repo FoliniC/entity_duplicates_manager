@@ -58,13 +58,21 @@ Frigate pubblica gli eventi di rilevamento sul topic MQTT `frigate/events`. Home
 ## 📱 Smartphone convertiti in IP Camera (RTSP / MJPEG)
 
 ### 1. HONOR COL-L29 (Honor 10)
-- **Ruolo**: IP Camera RTSP dedicata per monitoraggio continuo.
-- **Sistema Operativo**: Android 10 (Magic UI / Kirin 970).
-- **App Principale**: `com.pas.webcam` (**IP Webcam**).
-- **App Backup**: `com.dev47apps.droidcam` (**DroidCam**).
-- **Porte di Streaming**:
-  - **HTTP / MJPEG**: Port `8080` (es. `http://<IP_PHONE>:8080/video`)
-  - **RTSP**: Port `8554` (es. `rtsp://<IP_PHONE>:8554/video`)
+|- **Ruolo**: IP Camera RTSP dedicata per monitoraggio continuo.
+|- **Sistema Operativo**: Android 10 (Magic UI / Kirin 970).
+|- **Collegamento Rete**: WiFi su rete locale (`192.168.0.x`)
+|- **App Principale**: `com.pas.webcam` (**IP Webcam**).
+|- **App Backup**: `com.dev47apps.droidcam` (**DroidCam**).
+|- **Porte di Streaming**:
+|  - **HTTP / MJPEG**: Port `8080` (es. `http://<IP_PHONE>:8080/video`)
+|  - **RTSP**: Port `8554` (es. `rtsp://<IP_PHONE>:8554/video`)
+
+### 2. LG-X150 (Android 5.0.2 / SDK 21)
+|- **Ruolo**: Dispositivo di diagnostica ADB (root richiesto).
+|- **Sistema Operativo**: Android 5.0.2 (SDK 21).
+|- **Collegamento Rete**: WiFi su rete locale (`192.168.0.x`). NON è collegato al router via USB — è usato per test/debug ADB diretto via cavo USB verso Debian.
+|- **App Principale**: Nessuna — configurazione di rete e ADB via `settings put`.
+|- **Note**: Il telefono non è mai stato rootato; le impostazioni di ottimizzazione e ADB vengono applicate via `settings put`. Il tethering USB è **disabilitato**; la rete avviene esclusivamente via WiFi.
 - **Stato Ottimizzazione ADB**:
   - 63 pacchetti bloatware disabilitati (Huawei AppGallery, Huawei Search, Google Apps pesanti).
   - Pressione Swap azzerata (kswapd0 < 1%).
@@ -74,9 +82,23 @@ Frigate pubblica gli eventi di rilevamento sul topic MQTT `frigate/events`. Home
   - [`DIAGNOSTICA_HONOR_COL-L29_PRE_OTTIMIZZAZIONE.md`](./DIAGNOSTICA_HONOR_COL-L29_PRE_OTTIMIZZAZIONE.md)
 
 ### 2. Redmi Note 9S
-- **Ruolo**: Dispositivo di diagnostica / IP Camera di supporto.
-- **Documentazione Dettagliata**:
-  - [`DIAGNOSTICA_REDMI_NOTE_9S_PRE_OTTIMIZZAZIONE.md`](./DIAGNOSTICA_REDMI_NOTE_9S_PRE_OTTIMIZZAZIONE.md)
+|- **Ruolo**: Dispositivo di diagnostica / IP Camera di supporto.
+|- **Documentazione Dettagliata**:
+|  - [`DIAGNOSTICA_REDMI_NOTE_9S_PRE_OTTIMIZZAZIONE.md`](./DIAGNOSTICA_REDMI_NOTE_9S_PRE_OTTIMIZZAZIONE.md)
+
+### 3. Redmi Note 11 Pro 5G (c9977cf0)
+|- **Collegamento Rete**: USB tethering con **router OpenWrt** (non collegato a Debian). IP su LAN `192.168.0.x` tramite DHCP.
+|- **Accesso ADB**:
+|  - Tunnel ADB tramite router → Debian: `adb connect 127.0.0.1:5555` (port forwarding da `scrpy-redmi.sh` su router)
+|  - Wireless (se abilitato): `adb connect 192.168.0.x:5555`
+|- **Ruolo**: Accesso internet alternativo (USB tethering Debian ↔ Windows 11) — **NON** camera principale
+|- **Sistema Operativo**: Android 14 (SDK 36)
+|- **Collegamento Rete**: USB tethering **alternativo** (collegato a Debian o Windows 11) per accesso internet
+|- **App Webcamera (opzionale)**: `io.github.thibaultbee.streampack.app` (**StreamPack**) — utilizzabile **in alternativa** al Note 11 Pro 5G
+|- **Porta streaming opzionale**: `rtsp://<IP_PHONE>:8080/video` (se StreamPack RTSP push configurata)
+|  ```bash
+|  adb -s <serial> shell am start -n io.github.thibaultbee.streampack.app/.MainActivity -e url http://192.168.0.3:1935/live/telefono
+|  ```
 
 ---
 
@@ -86,14 +108,13 @@ Le telecamere smartphone usano l'app custom **StreamPack** (`io.github.thibaultb
 
 ### Architettura e Inoltro di Rete
 ```
-StreamPack (Redmi Note 11 Pro 5G via USB Tethering)
-  ↓ [RTMP su interfaccia rndis0]
-Gateway OpenWrt RNDIS (10.203.33.202:1935)
-  ↓ [DNAT 1935 + SNAT Masquerade su br-lan]
-Debian Server MediaMTX (192.168.0.3:1935 / path 'live/telefono')
-  ↓ [RTSP :8890/live/telefono]
-Frigate NVR & Home Assistant
+Redmi Note 11 Pro 5G (USB tethering) → Router OpenWrt (RNDIS gw 10.203.33.202) → DNAT 1935 → Debian MediaMTX (192.168.0.3:1935) → Masquerade br-lan → Frigate/HA
 ```
+
+| **Telefono origine dello stream** | Collegamento | IP assegnato | Porta streaming | Destinazione | Note |
+|---|---|---|---|---|---|
+| Redmi Note 11 Pro 5G (`c9977cf0`) | USB tethering via router OpenWrt | DHCP LAN `192.168.0.x` | RTMP `10.203.33.202:1935/live/telefono` | MediaMTX Debian `192.168.0.3:1935` | **App principale StreamPack** |
+| Redmi Note 13 Pro 5G (alternativo) | USB tethering → Debian/Windows | DHCP LAN `192.168.0.x` | RTSP/MJPEG `192.168.0.x:8554` | HA Frigate | Usato come webcam di backup |
 
 ### Percorsi dei File nel Progetto
 - **Repository Locale**: `/home/carlo/streampack-telefono/`
@@ -102,9 +123,12 @@ Frigate NVR & Home Assistant
   - Repository storage: `/home/carlo/streampack-telefono/app/src/main/java/io/github/thibaultbee/streampack/app/data/storage/StorageRepository.kt`
   - Manager configurazione: `/home/carlo/streampack-telefono/app/src/main/java/io/github/thibaultbee/streampack/app/data/config/StreamConfig.kt`
 - **File di Configurazione dinamica sullo Smartphone**:
-  - Percorso file JSON: `/sdcard/Download/streampack.json`
-- **Script Auto-Healing Tunnel ADB/scrcpy**:
-  - Script locale: `/home/carlo/Desktop/scrcpy-redmi.sh`
+|  - **Percorso file JSON dinamico**: `/sdcard/Download/streampack.json` (salvato dall'app tramite "Salva")
+|  - **Percorso alternativo (Internal Storage)**: `/data/data/io.github.thibaultbee.streampack.app/files/streampack.json` (default; non accessibile senza root)
+|- **Script Auto-Healing Tunnel ADB/scrcpy**:
+|  - Script `scrpy-redmi.sh` gira sul **router OpenWrt** (tunnel ADB → Debian)
+|  - Accesso ADB: `adb connect 192.168.0.x:5555` oppure tunnel SSH da Debian → router
+|  - Controllo UI: `scrcpy --tcpip=192.168.0.x:5555`
 
 ---
 
@@ -136,10 +160,15 @@ cp /tmp/streampack-latest/app-debug.apk /home/carlo/Downloads/streampack-telefon
 ```
 
 #### 4. Deploy e Installazione sul Telefono via ADB
-Tramite il tunnel ADB stabilito con il router (porta `5555` / script `/home/carlo/Desktop/scrcpy-redmi.sh`):
-```bash
-# Installazione diretta APK
-adb -s 127.0.0.1:5555 install -r -g /home/carlo/Downloads/streampack-telefono-debug.apk
+|Tramite il tunnel ADB stabilito con il router (porta 5555) o ADB wireless (sezione `### 3. Redmi Note 11 Pro 5G`):
+|```bash
+|# Tunnel ADB tramite router → Debian (se non in wireless)
+|ssh -L 5555:localhost:5555 carlo@192.168.0.11
+|adb connect 127.0.0.1:5555  # oppure: adb connect 192.168.0.x:5555 (wireless)
+|
+|# Installazione diretta APK (app StreamPack principale → Note 11)
+|adb -s 127.0.0.1:5555 install -r -g /home/carlo/Downloads/streampack-telefono-debug.apk
+|```
 
 # Aggiornamento file di configurazione JSON sul telefono (opzionale)
 adb -s 127.0.0.1:5555 shell 'cat << "EOF" > /sdcard/Download/streampack.json

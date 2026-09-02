@@ -255,8 +255,22 @@ shell_command:
   usb_tether_wificall_on_router: >-
     ssh -i /config/.ssh/router_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@192.168.0.11 "/usr/bin/adb_router -s 69a47f6d3a61 shell 'settings put global wifi_calling_enabled 1'"
 
+  usb_tether_configure_streampack: >-
+    ssh -i /config/.ssh/router_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@192.168.0.11 "/usr/bin/streampack-rndis-configure.sh"
+
 # --- Script: azioni con messaggio e gestione errori ----------\n
 script:
+  usb_tether_riavvia_streampack:
+    alias: "StreamPack: Riavvia & Configura RTMP"
+    icon: mdi:video-wireless
+    sequence:
+      - action: shell_command.usb_tether_configure_streampack
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.usb_tether_status_message
+        data:
+          value: "StreamPack configurato su rtmp://10.203.33.10:1935/live/telefono"
+
   usb_tether_normale:
     alias: "Tethering: routing normale"
     icon: mdi:router-wireless

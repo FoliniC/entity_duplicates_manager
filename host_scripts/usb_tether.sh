@@ -315,6 +315,9 @@ router_graceful_end() {
 # MASQUERADE copre tutto il subnet LAN, non solo l'IP del router.
 enable_nat_router() {
     local phone_if="$1"
+    # 0) Configura alias 10.203.33.10 su Debian e proxy ARP/route su OpenWrt per StreamPack
+    ip addr add 10.203.33.10/32 dev "$LAN_IF" 2>/dev/null || true
+    router_ssh "sysctl -w net.ipv4.conf.usb0.proxy_arp=1 >/dev/null 2>&1; ip neigh add proxy 10.203.33.10 dev usb0 2>/dev/null || true; ip route replace 10.203.33.10 via 192.168.0.3 dev br-lan 2>/dev/null || true"
     # 1) Abilita forwarding (idempotente).
     sysctl -w net.ipv4.ip_forward=1 >/dev/null
     # 2) MASQUERADE per TUTTO il traffico LAN diretto al telefono.
@@ -334,7 +337,7 @@ enable_nat_router() {
             -m comment --comment "usb_tether_router_fwd" -j ACCEPT
     # 4) Aggiungi default route sul router via server (metric alta = fallback).
     router_add_fallback_route
-    echo "NAT/forwarding per LAN abilitato su $phone_if."
+    echo "NAT/forwarding per LAN abilitato su $phone_if (StreamPack alias 10.203.33.10 attivo)."
 }
 
 disable_nat_router() {
@@ -1185,11 +1188,17 @@ cmd_renat() {
     fi
 }
 
+cmd_setup_alias() {
+    ip addr add 10.203.33.10/32 dev enp2s0 2>/dev/null || true
+    echo "Alias 10.203.33.10/32 configurato su enp2s0."
+}
+
 # --- main -------------------------------------------------------------------
 case "${1:-status}" in
     detect)      cmd_detect ;;
     activate)    shift; cmd_activate "$@" ;;
     rndis_activate) shift; cmd_rndis_activate "$@" ;;
+    setup_alias) cmd_setup_alias ;;
     restore)     cmd_restore ;;
     status)      cmd_status ;;
     renat)       cmd_renat ;;
@@ -1201,7 +1210,7 @@ case "${1:-status}" in
     _watch)      shift; cmd_watch "$@" ;;
     _drain)      shift; cmd_drain "$@" ;;
     *)
-        echo "Uso: $0 {detect|activate [max_min] [intranet|server]|rndis_activate [max_min] [intranet|server]|restore|renat|status|diagnose|force_activate}" >&2
+        echo "Uso: $0 {detect|activate [max_min] [intranet|server]|rndis_activate [max_min] [intranet|server]|setup_alias|restore|renat|status|diagnose|force_activate}" >&2
         exit 64
         ;;
 esac
