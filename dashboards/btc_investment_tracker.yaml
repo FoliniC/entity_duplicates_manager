@@ -349,120 +349,56 @@ views:
                 entity_id: automation.btc_tracker_milestone_50
 
   # ----------------------------------------------------------------------
-  # Vista Analisi
+  # Vista Analisi - BTC Investment Tracker
   # ----------------------------------------------------------------------
-  - title: "📈 Analisi"
+  - title: "📈 Analysis View - BTC Investment Tracker"
     icon: "mdi:chart-timeline-variant"
     cards:
-      - type: custom:apexcharts-card
-        header:
-          show: true
-          title: "📊 Profitto/Perdita BTC - 30 giorni (LORDO vs NETTO)"
-          show_states: true
-        span: 30d
-        series:
+
+      # ----------------------------------------------------------------------
+      # Card 1: BTC Profit/Loss Chart (ID: apexchart_btc_profit_loss)
+      # ----------------------------------------------------------------------
+      - type: history-graph
+        id: "history_btc_profit_loss"
+        title: "[1] Profitto/Perdita BTC - 30g (NETTO tasse)"
+        hours_to_show: 720
+        refresh: 300
+        entities:
           - entity: sensor.btc_profit_loss
             name: "Profitto LORDO (€)"
-            type: area
-            show:
-              fill: gradient
-            color: "#2196F3"
-            stroke_width: 2
           - entity: sensor.btc_profit_loss_net
             name: "Profitto NETTO (€)"
-            type: line
-            color: "#4CAF50"
-            stroke_width: 3
-        yaxis:
-          - decimals: 2
-            unit: "€"
-        annotations:
-          - type: line
-            value: 0
-            border_color: "#fff"
-            border_width: 1
-            border_dasharray: "5,5"
 
-      - type: custom:apexcharts-card
-        header:
-          show: true
-          title: "🎯 Progresso verso telefono - 30 giorni (NETTO tasse)"
-          show_states: true
-        span: 30d
-        series:
+      # ----------------------------------------------------------------------
+      # Card 2: Phone Progress Chart (ID: apexchart_btc_progress_phone)
+      # ----------------------------------------------------------------------
+      - type: history-graph
+        id: "history_btc_progress_phone"
+        title: "[2] Progresso verso telefono - 30g (NETTO tasse)"
+        hours_to_show: 720
+        refresh: 300
+        entities:
           - entity: sensor.btc_progress_to_phone_net_pct
             name: "Progresso NETTO %"
-            type: line
-            color: "#2196F3"
-            stroke_width: 3
-            show:
-              extremas: true
-        yaxis:
-          - min: 0
-            max: 120
-            unit: "%"
-        annotations:
-          - type: line
-            value: 50
-            border_color: "#FF9800"
-            border_width: 1
-            border_dasharray: "5,5"
-            label:
-              text: "50%"
-              color: "#FF9800"
-          - type: line
-            value: 75
-            border_color: "#F7931A"
-            border_width: 1
-            border_dasharray: "5,5"
-            label:
-              text: "75%"
-              color: "#F7931A"
-          - type: line
-            value: 90
-            border_color: "#4CAF50"
-            border_width: 1
-            border_dasharray: "5,5"
-            label:
-              text: "90%"
-              color: "#4CAF50"
-          - type: line
-            value: 100
-            border_color: "#F7931A"
-            border_width: 2
-            border_dasharray: "5,5"
-            label:
-              text: "🎉 OBIETTIVO!"
-              color: "#F7931A"
-              font_weight: "bold"
+          - entity: sensor.btc_delta_to_phone_net
+            name: "Delta rimasto NETTO"
 
-      - type: custom:apexcharts-card
-        header:
-          show: true
-          title: "📱 Proiezione Prezzo Telefono - Pattern Storico (30g)"
-          show_states: true
-        span: 30d
-        series:
+      # ----------------------------------------------------------------------
+      # Card 3: Phone Price Projection Chart (ID: apexchart_phone_projection)
+      # ----------------------------------------------------------------------
+      - type: history-graph
+        id: "history_phone_projection"
+        title: "[3] Proiezione Prezzo Telefono - 30g"
+        hours_to_show: 720
+        refresh: 300
+        entities:
           - entity: sensor.phone_current_of_launch
             name: "Attuale % lancio"
-            type: line
-            color: "#9C27B0"
-            stroke_width: 2
-            show:
-              extremas: true
           - entity: sensor.phone_projection_12m
-            name: "Prezzo consigliato"
-            type: line
-            color: "#E91E63"
-            stroke_width: 2
-            show:
-              fill: false
-        yaxis:
-          - decimals: 0
-            unit: "€"
+            name: "Proiezione 12 mesi"
 
       - type: history-graph
-        title: "Storico Sensori Principali (NETTO tasse)"
+        title: "[4] Storico Sensori Principali (NETTO tasse)"
         hours_to_show: 168
         refresh: 300
         entities:
