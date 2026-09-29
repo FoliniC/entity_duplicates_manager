@@ -107,3 +107,97 @@ Tutti gli script e le automazioni Alexa scrivono messaggi di `info` nei log di H
 | `automation.alexa_risposta_buongiorno` | `Alexa Buongiorno: avvio sequenza mattutina` |
 
 Per visualizzare i log: **Developer Tools → Log** oppure nei log di HA in Docker.
+
+---
+
+## 3. emulated_hue Bridge per Controllo Dispositivi (Settembre 2026)
+
+### Architettura
+| Componente | Indirizzo | Porta | Note |
+|------------|-----------|-------|------|
+| **Nginx Proxy Manager** | `192.168.0.3` | 80, 81, 443, 8443 | Solo su IP primario |
+| **emulated_hue Bridge** | **`192.168.0.48`** | **80** | IP secondario statico su `enp2s0` |
+
+### Configurazione
+```yaml
+# configuration.yaml
+emulated_hue:
+  host_ip: 192.168.0.48
+  advertise_ip: 192.168.0.48
+  listen_port: 80
+  expose_by_default: false
+  entities:
+    input_boolean.buongiorno_alexa:
+      name: "Buongiorno"
+      hidden: false
+    input_boolean.alexa_accendi_uscita:
+      name: "Uscita"
+      hidden: false
+    input_boolean.alexa_accendi_entrata:
+      name: "Entrata"
+      hidden: false
+    input_boolean.alexa_ritorno_a_casa:
+      name: "Ritorno a Casa"
+      hidden: false
+```
+
+### IP Secondario Persistente
+```bash
+# Aggiunto via NetworkManager (sopravvive al reboot)
+sudo nmcli connection modify enp2s0 +ipv4.addresses 192.168.0.48/24
+sudo nmcli connection up enp2s0
+```
+- MAC interfaccia: `90:1B:0E:94:51:1C`
+- DHCP: **non riservare** `192.168.0.48` (stesso MAC di `.3`); escluderlo solo dal pool dinamico.
+
+### Entità Espe
+| ID Hue | Nome Alexa | Entità HA | Tipo | Automazione Trigger |
+|--------|------------|-----------|------|---------------------|
+| 45 | Buongiorno | `input_boolean.buongiorno_alexa` | Switch | `automation.alexa_risposta_buongiorno` (auto-reset 5s) |
+| — | Uscita | `input_boolean.alexa_accendi_uscita` | Switch | `automation.alexa_modalita_uscita` su `light.uscita` → ON |
+| — | Entrata | `input_boolean.alexa_accendi_entrata` | Switch | `automation.alexa_modalita_entrata` su `light.entrata` → ON |
+| — | Ritorno a Casa | `input_boolean.alexa_ritorno_a_casa` | Switch | `automation.alexa_ritorno_a_casa` su `light.ritorno_a_casa` → ON |
+
+### Pattern Voice → Automazione
+1. **Template Light** (`light.uscita`, `light.entrata`, `light.ritorno_a_casa`, `light.verifica`) backed da rispettivi `input_boolean`
+2. **Automation** trigger su `light.<nome>` → `on`
+3. **emulated_hue** espone l'`input_boolean` come switch Hue
+4. **Alexa** "accendi <nome>" → bridge Hue → `input_boolean` ON → `light.<nome>` ON → automation fires
+
+### Cosa fa ogni comando
+
+| Comando | Azioni principali |
+|---------|-------------------|
+| **Buongiorno** | Apre tapparella camera grande, dice "Buongiorno Carlo!", avvia radio m2o (auto-reset 5s) |
+| **Uscita** | Verifica modalità tethering = Normale, spegne luci, spegne radio, accende luci scale, dice "Arrivederci Carlo!" |
+| **Entrata** | Dice "Bentornato Carlo!", accende luce bancone se buio (<50 lux), avvia radio m2o |
+| **Ritorno a Casa** | Apre porta garage, dice "Bentornato Carlo!", accende luce bancone se buio (<50 lux), avvia radio m2o |
+
+### TTS
+Tutti i TTS usano `notify.send_message` su entità `notify.*_speak` (integrazione `alexa_devices`):
+```yaml
+- service: notify.send_message
+  target:
+    entity_id: notify.cucina_speak
+  data:
+    message: "Comando ricevuto"
+```
+
+### Discovery Alexa
+Dopo modifiche: **rimuovere** il vecchio device "Verifica" nell'app Alexa (mantenere il bridge), poi:
+> "Alexa, scopri dispositivi"
+
+Dovrebbero apparire **Buongiorno** e **Direzione**.
+
+### Log Chiave
+```bash
+# Bridge descriptor XML
+curl http://192.168.0.48/description.xml
+# API lights
+curl http://192.168.0.48/api/nouser/lights
+# SSDP announce (da log HA)
+# LOCATION: http://192.168.0.48:80/description.xml
+```
+
+### Nota su Porta 80
+Alexa **richiede** porta 80 per il bridge Hue emulato. Porta 8300 (precedente) non funziona per discovery. NPM è stato vincolato a `192.168.0.3:80` per liberare `:80` su `.48`.

@@ -33,13 +33,24 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
         is_rhd = lrd_value == "1"
 
-        # Set door names based on LHD/RHD
+        # Set door and window names based on LHD/RHD. The SAIC API reports the
+        # front doors and windows as "driver"/"passenger" (driverWindow,
+        # passengerWindow), NOT as left/right — so the physical side depends on
+        # which side the car is driven from. On a RHD car the driver sits front
+        # right, so driverWindow is the FRONT RIGHT window. Previously the front
+        # windows were hardcoded to the LHD assumption (driver = left), which
+        # inverted them on RHD cars (issues #235 and the related report — rear
+        # windows were unaffected because they use explicit left/right fields).
         if is_rhd:
             driver_door_name = "Door Front Right"
             passenger_door_name = "Door Front Left"
+            driver_window_name = "Window Front Right"
+            passenger_window_name = "Window Front Left"
         else:
             driver_door_name = "Door Front Left"
             passenger_door_name = "Door Front Right"
+            driver_window_name = "Window Front Left"
+            passenger_window_name = "Window Front Right"
 
         binary_sensors = [
             SAICMGBinarySensor(
@@ -145,22 +156,31 @@ async def async_setup_entry(hass, entry, async_add_entities):
             SAICMGBinarySensor(
                 coordinator,
                 entry,
-                "Window Front Left",
+                driver_window_name,
                 "driverWindow",
                 BinarySensorDeviceClass.WINDOW,
                 "mdi:car-door",
                 "status",
             ),
-            SAICMGBinarySensor(
-                coordinator,
-                entry,
-                "Window Front Right",
-                "passengerWindow",
-                BinarySensorDeviceClass.WINDOW,
-                "mdi:car-door",
-                "status",
-            ),
         ]
+
+        # Front passenger window — suppressed on models that only track the
+        # driver window (e.g. MG3 Hybrid / ZP22: the car returns a phantom
+        # passengerWindow reading, stuck at 1, and the iSmart app itself shows
+        # only the driver window). coordinator.has_front_passenger_window comes
+        # from the per-model VEHICLE_PROFILES entry. See #258.
+        if coordinator.has_front_passenger_window:
+            binary_sensors.append(
+                SAICMGBinarySensor(
+                    coordinator,
+                    entry,
+                    passenger_window_name,
+                    "passengerWindow",
+                    BinarySensorDeviceClass.WINDOW,
+                    "mdi:car-door",
+                    "status",
+                )
+            )
 
         # Rear doors — only present on 4-door vehicles (not e.g. Cyberster EC32).
         # coordinator.has_rear_doors comes from the per-model VEHICLE_PROFILES
@@ -272,6 +292,11 @@ class SAICMGBinarySensor(CoordinatorEntity, BinarySensorEntity):
         self._device_class = device_class
         self._icon = icon
         self._data_type = data_type
+        # Last known good state, retained so the entity does not drop to
+        # 'unavailable' when a poll returns no data (e.g. the car was
+        # unreachable and the status fetch failed with return code 4).
+        # Mirrors the numeric-sensor retention in sensor.py. See #238.
+        self._last_valid_state: bool | None = None
         vin_info = self.coordinator.vin_info
         self._unique_id = f"{entry.entry_id}_{vin_info.vin}_{field}_binary_sensor"
 
@@ -289,7 +314,18 @@ class SAICMGBinarySensor(CoordinatorEntity, BinarySensorEntity):
 
     @property
     def available(self):
-        """Return True if the entity is available."""
+        """Return True if the entity is available.
+
+        Once we have a retained last-known state, keep the entity available even
+        when the current poll returned no data (e.g. the car was unreachable and
+        the status fetch failed with return code 4). Staleness is surfaced
+        separately by the Vehicle Reachability sensor, so dependent automations
+        keep their reference instead of the entity flapping to 'unavailable'.
+        Mirrors the retention already applied to the numeric sensors in
+        sensor.py (reported by @SteveMSJ, #238).
+        """
+        if self._last_valid_state is not None:
+            return True
         required_data = self.coordinator.data.get(self._data_type)
         return self.coordinator.last_update_success and required_data is not None
 
@@ -303,15 +339,24 @@ class SAICMGBinarySensor(CoordinatorEntity, BinarySensorEntity):
                     value = getattr(status_data, self._field, None)
                     if value is not None:
                         if self._field == "lockStatus":
-                            return value == 0
-                        return bool(value)
+                            state = value == 0
+                        else:
+                            state = bool(value)
+                        self._last_valid_state = state
+                        return state
             elif self._data_type == "charging":
                 charging_status_data = getattr(data, "rvsChargeStatus", None)
                 if charging_status_data:
                     value = getattr(charging_status_data, self._field, None)
                     if value is not None:
-                        return bool(value)
-        return False
+                        state = bool(value)
+                        self._last_valid_state = state
+                        return state
+        # No fresh reading this cycle — retain the last known state rather than
+        # falsely reporting 'off' (or dropping to 'unavailable') while the car
+        # is temporarily unreachable. Returns None only before the first-ever
+        # successful reading, which correctly shows as unknown.
+        return self._last_valid_state
 
     @property
     def device_class(self):
@@ -406,6 +451,13 @@ class SAICMGChargingBinarySensor(CoordinatorEntity, BinarySensorEntity):
 
         self._device_info = create_device_info(coordinator, entry.entry_id)
 
+        # Last known good state, retained so the plug/charging state does not
+        # drop to 'unavailable' when a poll returns no charging data (e.g. the
+        # car was unreachable). Gun/plug state is persistent (not a live
+        # measurement), so holding the last value is appropriate — mirrors the
+        # status binary sensors. See #238.
+        self._last_valid_state: bool | None = None
+
     @property
     def unique_id(self):
         """Return the unique ID of the binary sensor."""
@@ -420,6 +472,8 @@ class SAICMGChargingBinarySensor(CoordinatorEntity, BinarySensorEntity):
     @property
     def available(self):
         """Return True if the entity is available."""
+        if self._last_valid_state is not None:
+            return True
         required_data = self.coordinator.data.get(self._data_type)
         return self.coordinator.last_update_success and required_data is not None
 
@@ -432,8 +486,12 @@ class SAICMGChargingBinarySensor(CoordinatorEntity, BinarySensorEntity):
             if data_source:
                 value = getattr(data_source, self._field, None)
                 if value is not None:
-                    return bool(value)
-        return None
+                    state = bool(value)
+                    self._last_valid_state = state
+                    return state
+        # No fresh reading — retain the last known state rather than dropping to
+        # 'unavailable' while the car is temporarily unreachable. See #238.
+        return self._last_valid_state
 
     @property
     def device_class(self):

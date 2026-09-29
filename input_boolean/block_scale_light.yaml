@@ -1,0 +1,4 @@
+block_scale_light_on_door_open:
+  name: "Blocca accensione luce scale all'apertura porta"
+  initial: off
+  icon: mdi:lightbulb-off-outline

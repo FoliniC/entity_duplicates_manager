@@ -5,7 +5,7 @@
 # AggIUNTA: sensori di proiezione prezzo telefono
 # ============================================================================
 
-title: "₿ BTC Investment Tracker"
+title: "₿ BTC Investment Tracker — DASHBOARD MODIFICATA (2026-09-03)"
 icon: "mdi:bitcoin"
 path: btc-tracker
 views:
@@ -21,7 +21,7 @@ views:
     cards:
       # Hero card - Stato principale
       - type: entities
-        title: "🎯 Stato Obiettivo Telefono (NETTO tasse)"
+        title: "[0] 🎯 Stato Obiettivo Telefono (NETTO tasse) — MODIFICATO 2026-09-03"
         show_header_toggle: false
         style: |
           ha-card {
@@ -34,7 +34,7 @@ views:
             - entity: sensor.btc_can_buy_phone_net
               name: "Puoi comprare il telefono? (NETTO)"
               icon: "mdi:check-circle-outline"
-              secondary_info: last-changed
+              secondary_info: "last_refresh"
             - entity: sensor.target_phone_name
               name: "Modello target"
               icon: "mdi:cellphone-information"
@@ -55,10 +55,14 @@ views:
                   --paper-item-icon-color: #4CAF50;
                   --primary-text-color: #4CAF50;
                 }
+            - entity: sensor.bitcoin_price_eur
+              name: "Ultima quotazione BTC (€)"
+              icon: "mdi:currency-btc"
+              secondary_info: "Ultimo aggiornamento"
 
       # Phone Price Projection section
       - type: entities
-        title: "📱 Proiezione Prezzo Telefono (pattern storico Ultra)"
+        title: "[1] 📱 Proiezione Prezzo Telefono — MODIFICATO 2026-09-03"
         show_header_toggle: false
         style: |
           ha-card {
@@ -108,154 +112,46 @@ views:
               name: "Proiezione 12 mesi (successore)"
               icon: "mdi:clock-end"
               secondary_info: "At successor launch ~Feb 2027"
+            - entity: sensor.phone_projection_3m
+              name: "Proiezione 3 mesi"
+              icon: "mdi:clock-outline"
+              secondary_info: "Expected in 3 months"
+            - entity: sensor.phone_projection_6m
+              name: "Proiezione 6 mesi"
+              icon: "mdi:clock-outline"
+              secondary_info: "Expected in 6 months"
+            - entity: sensor.phone_projection_12m
+              name: "Proiezione 9 mesi"
+              icon: "mdi:clock-outline"
+              secondary_info: "Expected in 9 months"
+            - entity: sensor.phone_projection_12m
+              name: "Proiezione 12 mesi (successore)"
+              icon: "mdi:clock-end"
+              secondary_info: "At successor launch ~Feb 2027"
 
-      # Bitcoin Price Card
-      - type: custom:apexcharts-card
-        header:
-          show: true
-          title: "₿ Bitcoin Price (EUR) - 24h"
-          show_states: true
-          colorize_states: true
-        span: 24h
-        series:
+      # BTC Price & Portfolio — Native history-graph
+      - type: history-graph
+        title: "📈 BTC Price & Portfolio Value (24h)"
+        hours_to_show: 24
+        refresh: 60
+        entities:
           - entity: sensor.bitcoin_price_eur
             name: "BTC/EUR"
-            type: line
-            show:
-              extremas: true
-              fill: gradient
-            curve: smooth
-            color: "#F7931A"
-            stroke_width: 2
-        yaxis:
-          - decimals: 2
-            unit: "€"
-
-      # Portfolio Value Card
-      - type: custom:apexcharts-card
-        header:
-          show: true
-          title: "💼 Valore Portafoglio BTC - 7 giorni"
-          show_states: true
-        span: 7d
-        series:
           - entity: sensor.btc_current_value
-            name: "Valore Attuale"
-            type: area
-            show:
-              fill: gradient
-            color: "#4CAF50"
-            stroke_width: 2
-          - entity: sensor.btc_investment_eur
-            name: "Investimento Iniziale"
-            type: line
-            color: "#F44336"
-            stroke_width: 2
-            show:
-              fill: false
-        yaxis:
-          - decimals: 2
-            unit: "€"
-
-      # Progress Bar Visual
-      - type: entities
-        title: "📊 Progresso Verso Telefono (NETTO tasse)"
-        show_header_toggle: false
-        style: |
-          ha-card {
-            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
-            border: 1px solid rgba(247, 147, 26, 0.3);
-          }
-        entities:
-            - entity: sensor.btc_progress_to_phone_net_pct
-              name: "Progresso NETTO"
-              icon: "mdi:progress-clock"
-            - entity: sensor.btc_delta_to_phone_net
-              name: "Delta rimanente NETTO"
-              icon: "mdi:calculator-variant"
-            - entity: sensor.btc_days_to_phone_estimate
-              name: "Giorni stimati (trend 24h NETTO)"
-              icon: "mdi:calendar-clock"
-            - entity: sensor.btc_break_even_phone_price
-              name: "Break-even BTC price (per telefono netto)"
-              icon: "mdi:target-account"
-
-      # Stats Grid
-      - type: grid
-        columns: 2
-        square: false
-        cards:
-          - type: entity
-            entity: sensor.bitcoin_price_eur
-            name: "BTC Price"
-            icon: "mdi:bitcoin"
-          - type: entity
-            entity: sensor.bitcoin_24h_change
-            name: "24h Change"
-            icon: "mdi:chart-line"
-          - type: entity
-            entity: sensor.btc_current_value
             name: "Valore Portafoglio"
-            icon: "mdi:currency-eur"
-          - type: entity
-            entity: sensor.btc_profit_loss_net
-            name: "Profitto NETTO"
-            icon: "mdi:chart-line"
-          - type: entity
-            entity: sensor.btc_roi_pct_net
-            name: "ROI NETTO %"
-            icon: "mdi:percent"
-          - type: entity
-            entity: sensor.target_phone_price
-            name: "Prezzo Telefono"
-            icon: "mdi:cellphone"
-          - type: entity
-            entity: sensor.btc_tax_amount
-            name: "Tasse stimate 33%"
-            icon: "mdi:cash-minus"
-          - type: entity
-            entity: sensor.btc_net_price_per_btc
-            name: "Netto per BTC (33%)"
-            icon: "mdi:cash-multiple"
-          - type: entity
-            entity: sensor.btc_to_sell_for_phone
-            name: "BTC da vendere x telefono"
-            icon: "mdi:bitcoin"
-          - type: entity
-            entity: sensor.btc_break_even_phone_price
-            name: "Break-even BTC €"
-            icon: "mdi:target-account"
 
-      # Proiezione Prezzo Telefono Mini-chart
-      - type: custom:apexcharts-card
-        header:
-          show: true
-          title: "📱 Proiezione Prezzo Telefono (pattern storico Ultra)"
-          show_states: true
-        span: 7d
-        series:
-          - entity: sensor.target_phone_price
-            name: "Prezzo Attuale"
-            type: line
-            color: "#9C27B0"
-            stroke_width: 2
-          - entity: sensor.phone_projection_12m
-            name: "Prezzo Consigliato (median)"
-            type: line
-            color: "#E91E63"
-            stroke_width: 2
-            show:
-              fill: false
-          - entity: sensor.phone_projection_12m
-            name: "Proiezione 12m (successore)"
-            type: line
-            color: "#673AB7"
-            stroke_width: 2
-            show:
-              fill: false
-        yaxis:
-          - decimals: 0
-            unit: "€"
+      # Trailing Stop Suggestion — consiglia quando impostare lo stop loss
+      - type: entities
+        title: "🔧 Trailing Stop Suggestion (3% trail)"
+        show_header_toggle: false
+        entities:
+          - entity: sensor.btc_trailing_stop_suggestion
+            name: "Stato Trailing Stop"
+            icon: "mdi:chart-arrow-up"
+          - entity: sensor.btc_trailing_stop_price
+            name: "Prezzo Trailing Stop (3%)"
+            icon: "mdi:flag-checkered"
+            secondary_info: "Vendi se scendi sotto"
 
   # ----------------------------------------------------------------------
   # Vista Configurazione
@@ -282,6 +178,27 @@ views:
           - entity: sensor.btc_tax_amount
           - entity: sensor.btc_profit_loss_net
           - entity: sensor.btc_roi_pct_net
+          - entity: input_text.refresh_ops_log
+          - entity: input_text.btc_can_buy_phone_net_last_update
+            name: "⏰ Ultimo aggiornamento btc_can_buy_phone_net"
+
+      - type: markdown
+        title: "📋 Log Operazioni BTC Tracker (storia completa)"
+        content: >
+          {% set log_text = state_attr('sensor.btc_tracker_log', 'text') %}
+          {% set updated = state_attr('sensor.btc_tracker_log', 'updated') %}
+          {% if log_text %}
+          **Ultimo aggiornamento log:** {{ updated | default('N/A') }} ({{ state_attr('sensor.btc_tracker_log', 'line_count') | int(0) }} righe)
+
+          ```
+          {{ log_text }}
+          ```
+          {% else %}
+          _Nessun log disponibile_ — premi 🔄 Aggiorna Proiezione Telefono per generare il log.
+          {% endif %}
+        card_mod:
+          style: |
+            ha-card { font-family: monospace; font-size: 11px; line-height: 1.4; white-space: pre-wrap; }
 
       - type: entities
         title: "📱 Parametri Telefono Target (Xiaomi 17 Ultra 16/512GB)"
@@ -356,13 +273,13 @@ views:
     cards:
 
       # ----------------------------------------------------------------------
-      # Card 1: BTC Profit/Loss Chart (ID: apexchart_btc_profit_loss)
+      # Card 1: BTC Profit/Loss Chart
       # ----------------------------------------------------------------------
       - type: history-graph
         id: "history_btc_profit_loss"
-        title: "[1] Profitto/Perdita BTC - 30g (NETTO tasse)"
-        hours_to_show: 720
-        refresh: 300
+        title: "🔴 [1] PROFITTO/PERDITA BTC — MODIFICATO 2026-09-03 (NETTO tasse)"
+        hours_to_show: 24
+        refresh: 60
         entities:
           - entity: sensor.btc_profit_loss
             name: "Profitto LORDO (€)"
@@ -370,13 +287,13 @@ views:
             name: "Profitto NETTO (€)"
 
       # ----------------------------------------------------------------------
-      # Card 2: Phone Progress Chart (ID: apexchart_btc_progress_phone)
+      # Card 2: Phone Progress Chart
       # ----------------------------------------------------------------------
       - type: history-graph
         id: "history_btc_progress_phone"
-        title: "[2] Progresso verso telefono - 30g (NETTO tasse)"
-        hours_to_show: 720
-        refresh: 300
+        title: "🔴 [2] PROGRESSO VERSO TELEFONO — MODIFICATO 2026-09-03 (NETTO tasse)"
+        hours_to_show: 24
+        refresh: 60
         entities:
           - entity: sensor.btc_progress_to_phone_net_pct
             name: "Progresso NETTO %"
@@ -384,12 +301,12 @@ views:
             name: "Delta rimasto NETTO"
 
       # ----------------------------------------------------------------------
-      # Card 3: Phone Price Projection Chart (ID: apexchart_phone_projection)
+      # Card 3: Phone Price Projection Chart
       # ----------------------------------------------------------------------
       - type: history-graph
         id: "history_phone_projection"
-        title: "[3] Proiezione Prezzo Telefono - 30g"
-        hours_to_show: 720
+        title: "Proiezione Prezzo Telefono"
+        hours_to_show: 168
         refresh: 300
         entities:
           - entity: sensor.phone_current_of_launch
@@ -398,9 +315,9 @@ views:
             name: "Proiezione 12 mesi"
 
       - type: history-graph
-        title: "[4] Storico Sensori Principali (NETTO tasse)"
-        hours_to_show: 168
-        refresh: 300
+        title: "Storico Sensori Principali (NETTO tasse)"
+        hours_to_show: 24
+        refresh: 60
         entities:
           - sensor.bitcoin_price_eur
           - sensor.btc_current_value

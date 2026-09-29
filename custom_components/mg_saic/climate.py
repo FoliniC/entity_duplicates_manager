@@ -19,6 +19,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .api import CommandsLimitReachedException
 from .const import (
     DOMAIN,
+    FRONT_DEFROST_TEMP_C,
     LOGGER,
 )
 from .utils import create_device_info
@@ -94,7 +95,10 @@ class SAICMGClimateEntity(CoordinatorEntity, ClimateEntity):
         # Common initial state
         self._attr_min_temp = self.min_temp
         self._attr_max_temp = self.max_temp
-        self._attr_target_temperature = 22.0
+        # target_temperature is shared with the Climate Target Temperature
+        # number entity through the coordinator (see the target_temperature
+        # property below), so both stay in sync. It is display-only and never
+        # sends a command on its own.
         self._attr_hvac_mode = HVACMode.OFF
         # Monotonic timestamp of the last climate command we sent, used to
         # bound the "preserve local state on status 0" grace window (see
@@ -102,25 +106,73 @@ class SAICMGClimateEntity(CoordinatorEntity, ClimateEntity):
         self._last_command_ts = 0.0
 
         if self._scheme == "mode_select":
-            # Mode-select cars: no fan slider, but add Heat + presets.
+            # Mode-select cars: no fan slider. Heat and the Defrost preset are
+            # only offered when the profile actually defines them. Some variants
+            # (e.g. the MG4 EV URBAN, series AH4EM — see #243) have no heat mode
+            # at all; offering an HVAC mode the car can't perform is misleading
+            # and sending it does nothing useful.
+            hvac_modes = [HVACMode.OFF, HVACMode.FAN_ONLY, HVACMode.COOL]
+            if coordinator.climate_status_heat:
+                hvac_modes.append(HVACMode.HEAT)
+            self._attr_hvac_modes = hvac_modes
+
+            preset_modes = [PRESET_NONE]
+            # Offer Max Cool either when the car has a genuinely distinct
+            # max-cool mode value, or when the profile asks Max Cool to pin the
+            # setpoint to the minimum (cars whose plain Cool is already the
+            # strongest cool — e.g. AH4EM, #243).
+            if (
+                coordinator.climate_mode_max_cool != coordinator.climate_mode_cool
+                or coordinator.max_cool_forces_min_temp
+            ):
+                preset_modes.append(PRESET_MAX_COOL)
+            if coordinator.climate_status_defrost:
+                preset_modes.append(PRESET_DEFROST)
+            self._attr_preset_modes = preset_modes
+            self._attr_preset_mode = PRESET_NONE
+
             self._attr_supported_features = (
                 ClimateEntityFeature.TARGET_TEMPERATURE
                 | ClimateEntityFeature.PRESET_MODE
                 | ClimateEntityFeature.TURN_ON
                 | ClimateEntityFeature.TURN_OFF
             )
-            self._attr_hvac_modes = [
-                HVACMode.OFF,
-                HVACMode.FAN_ONLY,
-                HVACMode.COOL,
-                HVACMode.HEAT,
-            ]
-            self._attr_preset_modes = [PRESET_NONE, PRESET_MAX_COOL, PRESET_DEFROST]
-            self._attr_preset_mode = PRESET_NONE
+            self._attr_fan_modes = None
+            self._attr_fan_mode = None
+        elif coordinator.cool_uses_start_ac:
+            # Cars that only honour the simple start_ac command (e.g. the MG3
+            # Hybrid, series ZP22 — see #258). control_climate (with a fan byte)
+            # is silently ignored, and there is no mode byte — start_ac just
+            # drives the cabin to a target temperature, heating or cooling as
+            # needed. So we expose Cool and Heat as the two ends of the range:
+            # Cool = coldest (min temp), Heat = hottest (max temp), each a single
+            # tap that also moves the setpoint. No fan slider, no Fan Only, no
+            # Defrost (all of those need control_climate, which the car ignores).
+            self._attr_supported_features = (
+                ClimateEntityFeature.TARGET_TEMPERATURE
+                | ClimateEntityFeature.TURN_ON
+                | ClimateEntityFeature.TURN_OFF
+            )
+            self._attr_hvac_modes = [HVACMode.OFF, HVACMode.COOL, HVACMode.HEAT]
+            self._attr_fan_modes = None
+            self._attr_fan_mode = None
+        elif coordinator.climate_fan_auto is not None:
+            # Cars with no remote fan control (e.g. MG HS PHEV / AS33P — #262).
+            # Same control_climate cooling path as the classic scheme, but with
+            # no fan slider: a fixed AUTO fan value is always sent. Fan Only maps
+            # to the car's separate AC-Airflow ventilation command when the
+            # profile sets climate_fan_only_airflow.
+            self._attr_supported_features = (
+                ClimateEntityFeature.TARGET_TEMPERATURE
+                | ClimateEntityFeature.TURN_ON
+                | ClimateEntityFeature.TURN_OFF
+            )
+            self._attr_hvac_modes = [HVACMode.OFF, HVACMode.COOL, HVACMode.FAN_ONLY]
+            if coordinator.climate_status_heat:
+                self._attr_hvac_modes.append(HVACMode.HEAT)
             self._attr_fan_modes = None
             self._attr_fan_mode = None
         else:
-            # Classic fan-speed cars: Low/Med/High fan slider.
             self._attr_supported_features = (
                 ClimateEntityFeature.TARGET_TEMPERATURE
                 | ClimateEntityFeature.FAN_MODE
@@ -132,6 +184,12 @@ class SAICMGClimateEntity(CoordinatorEntity, ClimateEntity):
                 HVACMode.COOL,
                 HVACMode.FAN_ONLY,
             ]
+            # Some fan-speed cars also have a heater (e.g. the MG4's PTC
+            # resistive heater — #173). Only offer Heat when the profile defines
+            # a heat status, so cars without confirmed heating don't show a mode
+            # that does nothing.
+            if coordinator.climate_status_heat:
+                self._attr_hvac_modes.append(HVACMode.HEAT)
             self._attr_fan_modes = [FAN_LOW, FAN_MEDIUM, FAN_HIGH]
             self._attr_fan_mode = FAN_MEDIUM
 
@@ -192,6 +250,22 @@ class SAICMGClimateEntity(CoordinatorEntity, ClimateEntity):
         Off, so the entity never gets stuck showing an active mode after the
         car shuts its climate off on its own (issue #204).
         """
+        # Simple-AC cars (start_ac only, e.g. MG3): the car reports the same
+        # status (2) whether it is heating or cooling — it can't tell us which.
+        # So trust the mode we last asked for (Cool/Heat) while the car reports
+        # it is running, and Off when it reports off. Falls back to Off if we
+        # never sent anything.
+        if self.coordinator.cool_uses_start_ac:
+            status = self._current_climate_status()
+            if status == 0:
+                self._attr_hvac_mode = HVACMode.OFF
+                return HVACMode.OFF
+            if status is None:
+                return self._attr_hvac_mode or HVACMode.OFF
+            if self._attr_hvac_mode in (HVACMode.COOL, HVACMode.HEAT):
+                return self._attr_hvac_mode
+            return HVACMode.COOL
+
         climate_status = self._current_climate_status()
 
         if climate_status is not None:
@@ -267,16 +341,39 @@ class SAICMGClimateEntity(CoordinatorEntity, ClimateEntity):
     def _temperature_idx(self):
         """Return the API temperature index for the current target temp."""
         temp_clamped = int(
-            max(self.min_temp, min(self.max_temp, round(self._attr_target_temperature)))
+            max(self.min_temp, min(self.max_temp, round(self.coordinator.requested_target_temp)))
         )
         return self.coordinator.get_ac_temperature_idx(temp_clamped)
 
-    async def _send_climate_command(self, mode_value: int, hvac_mode, preset=PRESET_NONE):
+    async def _send_climate_command(
+        self,
+        mode_value: int,
+        hvac_mode,
+        preset=PRESET_NONE,
+        temperature_override: int | None = None,
+    ):
         """Send a climate command using a raw mode/fan integer, update state,
-        and schedule the post-action refresh. Shared by both schemes."""
+        and schedule the post-action refresh. Shared by both schemes.
+
+        temperature_override forces a specific temperature (°C) instead of the
+        user's target temperature — used by front defrost, which the iSmart app
+        always sends at a fixed 22°C regardless of the AC temperature setting
+        (confirmed by decrypted capture: slider at 26°C still sent paramId
+        20=8, i.e. 22°C). The user's target temperature is deliberately NOT
+        changed by this: the app keeps displaying the user's own setting too,
+        and overwriting it would lose their preference when defrost auto-cancels
+        after ~10 minutes.
+        """
+        if temperature_override is not None:
+            temperature_idx = self.coordinator.get_ac_temperature_idx(
+                temperature_override
+            )
+        else:
+            temperature_idx = self._temperature_idx()
+
         await self._client.start_climate(
             self._vin,
-            temperature_idx=self._temperature_idx(),
+            temperature_idx=temperature_idx,
             fan_speed=mode_value,
             ac_on=True,
         )
@@ -331,17 +428,67 @@ class SAICMGClimateEntity(CoordinatorEntity, ClimateEntity):
     async def _set_hvac_fan_speed(self, hvac_mode):
         """Handle HVAC mode changes for the classic fan_speed scheme."""
         if hvac_mode == HVACMode.COOL:
-            await self._client.start_climate(
-                self._vin,
-                temperature_idx=self._temperature_idx(),
-                fan_speed=self._fan_speed_to_int(),
-                ac_on=True,
-            )
+            if self.coordinator.cool_uses_start_ac:
+                # start_ac is the only command this car acts on (#258). "Cool"
+                # means "as cold as possible": drive to the minimum temperature.
+                # Move the visible setpoint too so the slider reflects it.
+                self.coordinator.requested_target_temp = self.min_temp
+                await self._client.start_ac(
+                    vin=self._vin,
+                    temperature_idx=self._temperature_idx(),
+                )
+            else:
+                await self._client.start_climate(
+                    self._vin,
+                    temperature_idx=self._temperature_idx(),
+                    fan_speed=self._fan_speed_to_int(),
+                    ac_on=True,
+                )
+        elif hvac_mode == HVACMode.HEAT:
+            if self.coordinator.cool_uses_start_ac:
+                # This car has no heat *mode* — start_ac just drives the cabin to
+                # a target temperature, so "Heat" means "as hot as possible":
+                # drive to the maximum temperature (same command as Cool, other
+                # end of the range). Move the visible setpoint to match.
+                self.coordinator.requested_target_temp = self.max_temp
+                await self._client.start_ac(
+                    vin=self._vin,
+                    temperature_idx=self._temperature_idx(),
+                )
+            else:
+                # PTC resistive heating (e.g. MG4). Confirmed from decrypted
+                # iSmart traffic (#173): the heater engages only with the
+                # compressor OFF (ac_on=False) AND the AUTO fan value; any other
+                # fan value does nothing. The app drives it to the top of the
+                # temperature range, so we send the max index. Only reachable
+                # when the profile defines a heat status (see __init__), so cars
+                # without a confirmed heater never hit this path.
+                await self._client.start_climate(
+                    self._vin,
+                    temperature_idx=self.coordinator.get_ac_temperature_idx(
+                        int(self.max_temp)
+                    ),
+                    fan_speed=self.coordinator.heat_fan_speed,
+                    ac_on=False,
+                )
         elif hvac_mode == HVACMode.FAN_ONLY:
-            await self._client.start_ac(
-                vin=self._vin,
-                temperature_idx=self._temperature_idx(),
-            )
+            if self.coordinator.climate_fan_only_airflow:
+                # Separate cabin-ventilation mode (no cooling) — see #262. The
+                # car requires the AC to be off first. If it's on, warn and do
+                # NOT send: auto-switching the AC off (or sending an airflow
+                # command the car rejects) would waste one of the 3 limited
+                # remote commands. HA ignores the request but tells the user.
+                if self.coordinator.is_climate_blocking_airflow():
+                    await self.coordinator.notify_ac_airflow_blocked(
+                        self._vin, source="climate.set_hvac_mode"
+                    )
+                    return
+                await self._client.control_ac_airflow(self._vin)
+            else:
+                await self._client.start_ac(
+                    vin=self._vin,
+                    temperature_idx=self._temperature_idx(),
+                )
         else:
             LOGGER.warning("Unsupported HVAC mode: %s", hvac_mode)
             return
@@ -364,12 +511,33 @@ class SAICMGClimateEntity(CoordinatorEntity, ClimateEntity):
         try:
             c = self.coordinator
             if preset_mode == PRESET_MAX_COOL:
+                if c.max_cool_forces_min_temp:
+                    # Mirror the iSmart app's LOW-cool button: strongest cool
+                    # mode + coldest setpoint in a single tap. Set the visible
+                    # target temperature to the profile minimum first — this is
+                    # persistent and user-intended (unlike Defrost's transient
+                    # fixed temp), so the card should reflect it — then send the
+                    # cool mode, which picks up the new setpoint via
+                    # _temperature_idx().
+                    self.coordinator.requested_target_temp = self.min_temp
                 await self._send_climate_command(
                     c.climate_mode_max_cool, HVACMode.COOL, preset=PRESET_MAX_COOL
                 )
             elif preset_mode == PRESET_DEFROST:
+                # The vehicle will not start front defrost while the AC is
+                # already running (the iSmart app blocks this client-side and
+                # tells the user to turn AC Auto mode off first). Mirror that
+                # rather than sending a command the car ignores.
+                if c.is_climate_blocking_defrost():
+                    await c.notify_front_defrost_blocked(
+                        self._vin, "climate.set_preset_mode"
+                    )
+                    return
                 await self._send_climate_command(
-                    c.climate_mode_defrost, HVACMode.COOL, preset=PRESET_DEFROST
+                    c.climate_mode_defrost,
+                    HVACMode.COOL,
+                    preset=PRESET_DEFROST,
+                    temperature_override=FRONT_DEFROST_TEMP_C,
                 )
             elif preset_mode == PRESET_NONE:
                 # Returning to "none" means plain cool (auto fan).
@@ -385,15 +553,6 @@ class SAICMGClimateEntity(CoordinatorEntity, ClimateEntity):
             LOGGER.error("Error setting preset mode for VIN %s: %s", self._vin, e)
             self.coordinator.record_command_error("Error setting preset mode", e)
 
-    async def async_turn_on(self):
-        """Turn the climate entity on (defaults to Cool)."""
-        await self.async_set_hvac_mode(HVACMode.COOL)
-        await self.coordinator.schedule_action_refresh(
-            self._vin,
-            self.coordinator.after_action_delay,
-            self.coordinator.ac_long_interval,
-        )
-
     async def async_turn_off(self):
         """Turn the climate entity off."""
         await self.async_set_hvac_mode(HVACMode.OFF)
@@ -402,6 +561,48 @@ class SAICMGClimateEntity(CoordinatorEntity, ClimateEntity):
             self.coordinator.after_action_delay,
             self.coordinator.ac_long_interval,
         )
+
+    @property
+    def target_temperature(self):
+        """Return the shared target temperature.
+
+        Backed by coordinator.requested_target_temp so the climate entity and
+        the Climate Target Temperature number entity always show the same
+        value — changing it in either place updates both.
+        """
+        return self.coordinator.requested_target_temp
+
+    async def async_added_to_hass(self):
+        """Register this climate entity so the A/C switch and Climate Mode
+        select can delegate their commands to it (single dispatch path)."""
+        await super().async_added_to_hass()
+        self.coordinator.climate_entity = self
+
+    async def async_turn_on(self):
+        """Turn the A/C on at the current setpoint (no mode extreme).
+
+        The plain on control — the climate power button and the separate A/C
+        switch — means "run at whatever temperature is set", not a Cool/Heat
+        extreme. For most cars that's identical to selecting Cool (which uses
+        the setpoint). For simple-AC cars (e.g. the MG3) Cool means "coldest",
+        so we send start_ac at the setpoint directly and report Cool as the
+        on-state.
+        """
+        if getattr(self.coordinator, "cool_uses_start_ac", False):
+            self._attr_hvac_mode = HVACMode.COOL
+            await self._client.start_ac(
+                vin=self._vin,
+                temperature_idx=self._temperature_idx(),
+            )
+            self._last_command_ts = time.monotonic()
+            self.async_write_ha_state()
+            await self.coordinator.schedule_action_refresh(
+                self._vin,
+                self.coordinator.after_action_delay,
+                self.coordinator.ac_long_interval,
+            )
+        else:
+            await self.async_set_hvac_mode(HVACMode.COOL)
 
     async def async_set_temperature(self, **kwargs):
         """Update the target temperature in local state only.
@@ -417,13 +618,15 @@ class SAICMGClimateEntity(CoordinatorEntity, ClimateEntity):
 
         temp_clamped = int(max(self.min_temp, min(self.max_temp, round(temperature))))
 
-        if temp_clamped != self._attr_target_temperature:
+        if temp_clamped != self.coordinator.requested_target_temp:
             LOGGER.debug(
                 "Target temperature updated to %s°C (will apply on next AC command)",
                 temp_clamped,
             )
-            self._attr_target_temperature = temp_clamped
+            self.coordinator.requested_target_temp = temp_clamped
             self.async_write_ha_state()
+            # Keep the shared Climate Target Temperature number in sync.
+            self.coordinator.async_update_listeners()
 
     @property
     def fan_mode(self):
@@ -468,6 +671,9 @@ class SAICMGClimateEntity(CoordinatorEntity, ClimateEntity):
         and defrost on some models, so per-model values are stored in the
         coordinator's fan_speed_low/medium/high from VEHICLE_PROFILES.
         """
+        if self.coordinator.climate_fan_auto is not None:
+            # No remote fan control: always send the fixed AUTO value.
+            return self.coordinator.climate_fan_auto
         return {
             FAN_LOW: self.coordinator.fan_speed_low,
             FAN_MEDIUM: self.coordinator.fan_speed_medium,

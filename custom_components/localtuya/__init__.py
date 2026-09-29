@@ -472,9 +472,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         if (host := dev_config.get(CONF_HOST)) and host != "0.0.0.0":
             connections.add(("ip", host))
 
-        via_device = None
+        via_device_id = None
         if gateway_id := dev_config.get(CONF_GATEWAY_ID):
-            via_device = (DOMAIN, f"local_{gateway_id}")
+            via_device_id = (DOMAIN, f"local_{gateway_id}")
 
         device_registry.async_get_or_create(
             config_entry_id=entry.entry_id,
@@ -484,7 +484,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             model=model_str,
             sw_version=str(dev_config.get(CONF_PROTOCOL_VERSION, "auto")),
             configuration_url=f"http://{host}" if host and host != "0.0.0.0" else None,
-            via_device=via_device,
+            via_device_id=via_device_id,
             connections=connections if connections else None,
         )
 

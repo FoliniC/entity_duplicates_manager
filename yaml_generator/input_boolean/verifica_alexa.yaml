@@ -1,0 +1,4 @@
+verifica_alexa:
+  name: "Verifica Alexa State"
+  initial: false
+  icon: mdi:check-circle

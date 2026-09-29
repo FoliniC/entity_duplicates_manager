@@ -1,3 +1,15 @@
 buongiorno_alexa:
   name: "Buongiorno (Alexa)"
   icon: mdi:sun-greeting
+alexa_accendi_verifica:
+  name: "Accendi Verifica (Alexa)"
+  icon: mdi:check-circle
+alexa_accendi_uscita:
+  name: "Accendi Uscita (Alexa)"
+  icon: mdi:exit-run
+alexa_accendi_entrata:
+  name: "Accendi Entrata (Alexa)"
+  icon: mdi:home-import
+alexa_ritorno_a_casa:
+  name: "Ritorno a Casa (Alexa)"
+  icon: mdi:home-account

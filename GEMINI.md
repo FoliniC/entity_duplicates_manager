@@ -43,6 +43,23 @@ action:
 - Rete Locale: `/config/RETE_LOCALE.md`.
 - Alexa: `/config/alexa.md`.
 - Ottimizzazione Telefono: `/config/OTTIMIZZAZIONE_TELEFONO.md`.
+- Interventi Router JFFS2: `/config/INTERVENTI_JFFS2_ROUTER.md`.
+- Interventi Disco SDB: `/config/INTERVENTI_DISCO_SDB.md`.
+- Analisi Tethering USB: `/config/ANDROID_NOTE11_ROUTER_USB_TETHERING_ANALYSIS.md`.
+- ADB TCP 5555 Success: `/config/ADB_TCPIP_5555_SUCCESS.md`.
+- ADB Wireless Attempt (fallito): `/config/ADB_WIRELESS_ATTEMPT.md`.
+- Diagnostica Honor: `/config/DIAGNOSTICA_HONOR_COL-L29_PRE_OTTIMIZZAZIONE.md`.
+- Diagnostica Redmi: `/config/DIAGNOSTICA_REDMI_NOTE_9S_PRE_OTTIMIZZAZIONE.md`.
+- Telecamere / Frigate: `/config/TELECAMERE.md`.
+- Tuya / Handshake: `/config/tuya_handshake.md`.
+- Recupero / Backup: `/config/RECOVERY.md`.
+- Monitoraggio Rete: `/config/README_MONITOR.md`.
+- Ottimizzazione Telefono (post): `/config/OTTIMIZZAZIONE_HONOR_COL-L29_POST_IP_CAMERA.md`.
+- Config Samba: `/config/samba_config.md`.
+- Monitoraggio Bluetooth M5 Atom: `/config/M5_ATOM_ECHO_BT_PROXY_SETUP.md`.
+- Pianificazione Clima: `/config/PIANO_CLIMATIZZAZIONE_FINESTRE_UMIDITA.md`.
+- Setup Xiaomi BLE: `/config/XIAOMI_BLE_SETUP.md`.
+- Cloudflare Tunnel: `/config/troubleshoot_cloudflare_tunnel.md`.
 
 
 ## 🔌 SSH verso l'Host da shell_command

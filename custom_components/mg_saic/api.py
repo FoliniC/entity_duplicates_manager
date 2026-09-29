@@ -13,6 +13,7 @@ from .const import (
     LOGGER,
     REGION_API_CODES,
     REGION_BASE_URIS,
+    SAIC_RETURN_CODE_UNREACHABLE,
     BatterySoc,
     ChargeCurrentLimitOption,
 )
@@ -136,9 +137,14 @@ class SAICMGAPIClient:
             if not self.saic_api.is_logged_in:
                 raise Exception("Login failed")
             LOGGER.debug("Login successful, initializing vehicle APIs.")
-        except Exception as e:
-            LOGGER.error("Failed to log in to MG SAIC API: %s", e)
-            self.saic_api = None
+        except Exception:
+            # Do NOT discard self.saic_api here (issue #233): the object owns
+            # an httpx.AsyncClient, and clearing the reference would leave the
+            # caller's close() with nothing to close, leaking the transport.
+            # The reference is retained so async_setup_entry's cleanup path can
+            # close it; a fresh SaicApi is constructed on the next login
+            # attempt regardless. The raw error is intentionally not logged
+            # here (issue #234) — it is chained by the caller.
             raise
 
     # GET VEHICLE DATA
@@ -161,6 +167,13 @@ class SAICMGAPIClient:
             return charging_status
         except Exception as e:
             LOGGER.error("Error retrieving charging information for VIN %s: %s", target_vin, e)
+            # Return code 4 = "can't reach the car right now". Propagate it so the
+            # coordinator can flag the Vehicle Reachability sensor as
+            # 'unreachable'; previously this was swallowed into a None return,
+            # which the coordinator reported only as a generic "is None" error
+            # and never recognised as an unreachable condition (#238).
+            if f"return code: {SAIC_RETURN_CODE_UNREACHABLE}" in str(e):
+                raise
             return None
 
     async def get_vehicle_info(self):
@@ -190,6 +203,13 @@ class SAICMGAPIClient:
             return vehicle_status
         except Exception as e:
             LOGGER.error("Error retrieving vehicle status for VIN %s: %s", target_vin, e)
+            # Return code 4 = "can't reach the car right now". Propagate it so the
+            # coordinator can flag the Vehicle Reachability sensor as
+            # 'unreachable'; previously this was swallowed into a None return,
+            # which the coordinator reported only as a generic "is None" error
+            # and never recognised as an unreachable condition (#238).
+            if f"return code: {SAIC_RETURN_CODE_UNREACHABLE}" in str(e):
+                raise
             return None
 
     # ACTIONS
@@ -450,6 +470,8 @@ class SAICMGAPIClient:
         except ValueError as e:
             LOGGER.error("Invalid charging current limit: %s", current_limit_code)
             raise
+        except CommandsLimitReachedException:
+            raise
         except Exception as e:
             LOGGER.error("Error setting charging current limit for VIN %s: %s", vin, e)
             raise
@@ -496,6 +518,8 @@ class SAICMGAPIClient:
             LOGGER.info(
                 "Set target SOC to %d%% for VIN: %s", target_soc_percentage, vin
             )
+        except CommandsLimitReachedException:
+            raise
         except Exception as e:
             LOGGER.error("Error setting target SOC for VIN %s: %s", vin, e)
             raise
@@ -517,6 +541,8 @@ class SAICMGAPIClient:
                 right_side_level,
                 vin,
             )
+        except CommandsLimitReachedException:
+            raise
         except Exception as e:
             LOGGER.error("Error controlling heated seats for VIN %s: %s", vin, e)
             raise
@@ -649,6 +675,8 @@ class SAICMGAPIClient:
                 self.saic_api.control_rear_window_heat, vin, enable=enable
             )
             LOGGER.info("Rear window heat %sed successfully.", action)
+        except CommandsLimitReachedException:
+            raise
         except Exception as e:
             LOGGER.error("Error controlling rear window heat: %s", e)
             raise
@@ -674,6 +702,26 @@ class SAICMGAPIClient:
                 LOGGER.info(f"AC started without temperature index for VIN: {vin}.")
         except Exception as e:
             LOGGER.error(f"Error starting AC for VIN {vin}: {e}")
+            raise
+
+    async def control_ac_airflow(self, vin: str):
+        """Turn on the cabin AC-Airflow (ventilation) mode.
+
+        A separate fresh-air blower mode with no cooling, distinct from the
+        normal AC. Decoded from iSmart traffic (#262, MG HS PHEV / AS33P):
+        rvcReqType=6 with paramId 19=1 (fan low), 20=0 (no temperature),
+        22=1 (airflow), 255=0. The app requires AC Auto to be off first; from
+        the API the command is sent directly.
+        """
+        try:
+            await self._send_raw_rvc_command(
+                vin, "6", [(19, 1), (20, 0), (22, 1), (255, 0)]
+            )
+            LOGGER.info("AC Airflow (ventilation) mode enabled for VIN: %s", vin)
+        except CommandsLimitReachedException:
+            raise
+        except Exception as e:
+            LOGGER.error("Error enabling AC Airflow for VIN %s: %s", vin, e)
             raise
 
     async def start_climate(
@@ -704,6 +752,8 @@ class SAICMGAPIClient:
                 fan_speed,
                 vin,
             )
+        except CommandsLimitReachedException:
+            raise
         except Exception as e:
             LOGGER.error("Error starting AC with settings for VIN %s: %s", vin, e)
             raise
@@ -713,6 +763,8 @@ class SAICMGAPIClient:
         try:
             await self._make_api_call(self.saic_api.start_front_defrost, vin)
             LOGGER.info("Front defrost started successfully.")
+        except CommandsLimitReachedException:
+            raise
         except Exception as e:
             LOGGER.error("Error starting front defrost: %s", e)
             raise
@@ -722,6 +774,8 @@ class SAICMGAPIClient:
         try:
             await self._make_api_call(self.saic_api.stop_ac, vin)
             LOGGER.info("AC stopped successfully.")
+        except CommandsLimitReachedException:
+            raise
         except Exception as e:
             LOGGER.error("Error stopping AC: %s", e)
             raise
@@ -738,6 +792,8 @@ class SAICMGAPIClient:
                 "unlocked" if unlock else "locked",
                 vin,
             )
+        except CommandsLimitReachedException:
+            raise
         except Exception as e:
             LOGGER.error("Error controlling charging port lock for VIN %s: %s", vin, e)
             raise
@@ -747,6 +803,8 @@ class SAICMGAPIClient:
         try:
             await self._make_api_call(self.saic_api.lock_vehicle, vin)
             LOGGER.info("Vehicle locked successfully.")
+        except CommandsLimitReachedException:
+            raise
         except Exception as e:
             LOGGER.error("Error locking vehicle: %s", e)
             raise
@@ -756,6 +814,8 @@ class SAICMGAPIClient:
         try:
             await self._make_api_call(self.saic_api.open_tailgate, vin)
             LOGGER.info("Tailgate opened successfully.")
+        except CommandsLimitReachedException:
+            raise
         except Exception as e:
             LOGGER.error("Error opening tailgate: %s", e)
             raise
@@ -765,6 +825,8 @@ class SAICMGAPIClient:
         try:
             await self._make_api_call(self.saic_api.unlock_vehicle, vin)
             LOGGER.info("Vehicle unlocked successfully.")
+        except CommandsLimitReachedException:
+            raise
         except Exception as e:
             LOGGER.error("Error unlocking vehicle: %s", e)
             raise
@@ -783,6 +845,8 @@ class SAICMGAPIClient:
                 action_name,
                 vin,
             )
+        except CommandsLimitReachedException:
+            raise
         except Exception as e:
             LOGGER.error("Error controlling sunroof for VIN %s: %s", vin, e)
             raise
@@ -851,23 +915,28 @@ class SAICMGAPIClient:
             LOGGER.info(
                 "Windows %s command sent successfully for VIN: %s", action_key, vin
             )
+        except CommandsLimitReachedException:
+            raise
         except Exception as e:
             LOGGER.error("Error controlling windows for VIN %s: %s", vin, e)
             raise
 
     # SESSION MANAGEMENT
     async def close(self):
-        """Close the client session."""
+        """Close the client session and release the underlying transport.
+
+        mg-saic-client (>=0.9.4) exposes a public close() on SaicApi that shuts
+        down the internal httpx.AsyncClient; without it the transport leaks on
+        teardown (issue #233). Failures are logged rather than raised so
+        teardown never fails on cleanup.
+        """
         if self.saic_api is None:
             return
 
         try:
-            if hasattr(self.saic_api, "close"):
-                await self.saic_api.close()
-                LOGGER.info("Closed MG SAIC API session.")
-            else:
-                LOGGER.debug(
-                    "MG SAIC API session has no close method — nothing to close."
-                )
+            await self.saic_api.close()
+            LOGGER.info("Closed MG SAIC API session.")
         except Exception as e:
-            LOGGER.error("Error closing MG SAIC API session: %s", e)
+            LOGGER.warning("Error closing MG SAIC API session: %s", e)
+        finally:
+            self.saic_api = None

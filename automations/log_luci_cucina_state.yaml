@@ -82,8 +82,7 @@
         - condition: template
           value_template: "{{ to_state in ['on', 'off'] }}"
       then:
-        # notify.send_message è il pattern corretto in HA 2024.x+
-        # (notify.redmi_note_13_pro_5g esiste come entità, non come servizio legacy)
+        # Usare notify.send_message con l'entity come target (servizio standard)
         - action: notify.send_message
           target:
             entity_id: notify.redmi_note_13_pro_5g

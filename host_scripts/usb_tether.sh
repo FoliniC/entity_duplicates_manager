@@ -209,13 +209,17 @@ router_wan_up() {
     # per minuti e' stato rimosso. Se la WAN non si attiva, ripristiniamo il
     # fallback Debian invece di isolare la LAN.
     router_ssh "/usr/bin/adb_router shell settings put global airplane_mode 0 >/dev/null 2>&1; /usr/bin/adb_router shell settings put global mobile_data 1 >/dev/null 2>&1; /usr/bin/adb_router shell svc data enable >/dev/null 2>&1; /usr/bin/adb_router shell settings put global tether_upstream_types 0,5 >/dev/null 2>&1; /usr/bin/adb_router shell settings put global mobile_data_always_on 1 >/dev/null 2>&1; /usr/bin/adb_router shell settings put global network_avoid_bad_wifi 1 >/dev/null 2>&1; /usr/bin/adb_router shell settings put global wifi_calling_enabled 0 >/dev/null 2>&1; /usr/bin/adb_router shell svc usb setFunctions rndis >/dev/null 2>&1; /usr/bin/enable_usb_tether.sh >/dev/null 2>&1; ifup wan >/dev/null 2>&1"
-    # Se usb0 non si e' creata (telefono in standby / tethering non partito),
+    # Se usb0 non si e' creato (telefono in standby / tethering non partito),
     # forza il tethering RNDIS via service call connectivity e riprova.
     if ! router_ssh "ip link show $ROUTER_WAN_IF >/dev/null 2>&1"; then
         router_ssh "/usr/bin/adb_router shell service call connectivity 33 i32 1 >/dev/null 2>&1; sleep 4; /usr/bin/adb_router shell svc usb setFunctions rndis >/dev/null 2>&1; ifup wan >/dev/null 2>&1" >/dev/null 2>&1 || true
         sleep 3
     fi
     sleep 3
+    # Rimuove la route Intranet residua (br-lan metric 9) che puo' ancora
+    # essere prioritaria sulla WAN usb0 (metric 10) anche dopo ifup wan.
+    # Senza questo passo la LAN esce via Debian (intranet) anche in Normale.
+    router_ssh "ip route del default via 192.168.0.3 dev br-lan metric 9 2>/dev/null || true" >/dev/null 2>&1 || true
     gw=$(router_wan_gateway | head -1)
     if [[ "$gw" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         router_ssh "ip route replace default via $gw dev $ROUTER_WAN_IF metric 10 2>/dev/null; true"
@@ -315,9 +319,12 @@ router_graceful_end() {
 # MASQUERADE copre tutto il subnet LAN, non solo l'IP del router.
 enable_nat_router() {
     local phone_if="$1"
-    # 0) Configura alias 10.203.33.10 su Debian e proxy ARP/route su OpenWrt per StreamPack
-    ip addr add 10.203.33.10/32 dev "$LAN_IF" 2>/dev/null || true
-    router_ssh "sysctl -w net.ipv4.conf.usb0.proxy_arp=1 >/dev/null 2>&1; ip neigh add proxy 10.203.33.10 dev usb0 2>/dev/null || true; ip route replace 10.203.33.10 via 192.168.0.3 dev br-lan 2>/dev/null || true"
+    # 0) Derive dynamic alias from router USB gateway, then configure on host + router
+    GATEWAY=$(ssh -i /home/carlo/docker/homeassistant/config/.ssh/router_key -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=no root@192.168.0.11 'ip -4 addr show dev usb0 2>/dev/null | grep "inet " | cut -d" " -f6 | cut -d/ -f1 | head -n 1' 2>/dev/null || echo "")
+    ALIAS="${GATEWAY%.*}.10"
+    [ -n "$GATEWAY" ] || ALIAS="10.203.33.10"
+    ip addr add ${ALIAS}/32 dev "$LAN_IF" 2>/dev/null || true
+    router_ssh "sysctl -w net.ipv4.conf.usb0.proxy_arp=1 >/dev/null 2>&1; ip neigh add proxy ${ALIAS} dev usb0 2>/dev/null || true; ip route replace ${ALIAS} via 192.168.0.3 dev br-lan 2>/dev/null || true"
     # 1) Abilita forwarding (idempotente).
     sysctl -w net.ipv4.ip_forward=1 >/dev/null
     # 2) MASQUERADE per TUTTO il traffico LAN diretto al telefono.
@@ -881,11 +888,42 @@ cmd_restore() {
         # in questo caso il router NON fornisce Internet, perche' Debian esce
         # direttamente via telefono invece del router. Rileva e correggi.
         router_wan_up || echo "WARN: WAN router riattivata ma senza internet verificato. Proseguo con la pulizia dello stato." >&2
+        # In NORMALE qualunque tethering USB collegato a Debian deve restare
+        # disponibile senza poter diventare gateway: disabilita persistentemente
+        # la default route DHCP sul suo profilo NetworkManager, anche se la
+        # route via router e' gia' prioritaria al momento del restore.
+        if command -v nmcli >/dev/null 2>&1; then
+            while IFS=: read -r nm_device nm_connection; do
+                [ -z "$nm_device" ] || [ -z "$nm_connection" ] && continue
+                [ "$nm_device" = "$LAN_IF" ] && continue
+                [ "$nm_connection" = "--" ] && continue
+                nm_gw=$(nmcli -g IP4.GATEWAY device show "$nm_device" 2>/dev/null | head -1)
+                [ -z "$nm_gw" ] && continue
+                nmcli connection modify "$nm_connection" ipv4.never-default yes 2>/dev/null || true
+                nmcli connection up "$nm_connection" 2>/dev/null || true
+                echo "Restore NORMALE: $nm_connection su $nm_device impostata never-default=yes." >&2
+            done < <(nmcli -t -f DEVICE,CONNECTION device status 2>/dev/null)
+        fi
+
         # Se la default route punta a un IP NOT-VIA-192.168.0.11 (es. 10.87.160.73),
         # togli la route del telefono cosi' la rete LAN usa il router (NORMALE).
         local cur_gw
         cur_gw=$(get_default_gw)
         if [ -n "$cur_gw" ] && [ "$cur_gw" != "192.168.0.11" ]; then
+            # In NORMALE il telefono collegato a Debian non deve mai reintrodurre
+            # una default route DHCP: NetworkManager la reinserirebbe dopo ogni
+            # renew/link event, riportando Debian (e l'anchor del router) verso
+            # il Note 13 invece che Router -> Note 11.
+            local phone_default_if phone_nm_connection
+            phone_default_if=$(ip route show default | awk '$1 == "default" { for (i=1; i<=NF; i++) if ($i == "dev") { print $(i+1); exit } }')
+            if [ -n "$phone_default_if" ] && [ "$phone_default_if" != "$LAN_IF" ] && command -v nmcli >/dev/null 2>&1; then
+                phone_nm_connection=$(nmcli -g GENERAL.CONNECTION device show "$phone_default_if" 2>/dev/null | head -1)
+                if [ -n "$phone_nm_connection" ] && [ "$phone_nm_connection" != "--" ]; then
+                    nmcli connection modify "$phone_nm_connection" ipv4.never-default yes 2>/dev/null || true
+                    nmcli connection up "$phone_nm_connection" 2>/dev/null || true
+                    echo "Restore NORMALE: $phone_nm_connection su $phone_default_if impostata never-default=yes." >&2
+                fi
+            fi
             echo "Restore NORMALE: rimuovo route del telefono ($cur_gw) -> uso router 192.168.0.11" >&2
             while ip route del default metric 50 2>/dev/null; do :; done
             ip route del default 2>/dev/null || true
@@ -1188,9 +1226,72 @@ cmd_renat() {
     fi
 }
 
+
+cmd_reset() {
+    log_line INFO "=== AVVIO RESET DI EMERGENZA RETE ==="
+    if ! command -v nmcli >/dev/null 2>&1; then
+        log_line ERROR "nmcli non disponibile - reset interrotto"
+        return 1
+    fi
+    # Prova a ripristinare connessione su Debian USB
+    local iface
+    iface=$(ip -br link show 2>/dev/null | grep -E '^enx' | awk '{print $1}' | head -1)
+    if [ -n "$iface" ]; then
+        log_line INFO "Interfaccia USB Debian: $iface"
+        ip link set "$iface" up 2>/dev/null || true
+        sleep 1
+        local conn_name="usb-tether-reset-${iface}"
+        nmcli con delete "$conn_name" 2>/dev/null || true
+        nmcli con add type ethernet ifname "$iface" con-name "$conn_name"             ipv4.method auto ipv6.method ignore connection.autoconnect no ipv4.never-default yes 2>/dev/null || true
+        timeout 30 nmcli con up "$conn_name" 2>/dev/null || true
+        sleep 2
+        nmcli con delete "$conn_name" 2>/dev/null || true
+        if ip -4 addr show dev "$iface" 2>/dev/null | grep -q 'inet '; then
+            local gw
+            gw=$(ip route get 8.8.8.8 2>/dev/null | awk '{for(i=1;i<=NF;i++){if($i=="via"){print $(i+1);exit}}}')
+            if [ -n "$gw" ] && ! [[ "$gw" =~ ^192\.168\.0\. ]]; then
+                ip route replace default via "$gw" dev "$iface" metric 50 2>/dev/null || true
+                log_line INFO "Reset: default via $gw su $iface"
+                rm -f /run/usb_tether_state
+                echo '{"state":"idle","message":"Reset completato - connessione ripristinata su USB Debian"}'
+                return 0
+            fi
+        fi
+    fi
+    # Se Debian non funziona, prova router USB (se disponibile)
+    log_line WARN "Reset su Debian fallito, tentativo router USB"
+    # Nota: il reset completo su router USB richiede script separato (reset_network.sh)
+    echo '{"state":"error","message":"Reset incompleto: Debian non disponibile, usare reset_network.sh per router"}'
+    return 1
+}
+
 cmd_setup_alias() {
-    ip addr add 10.203.33.10/32 dev enp2s0 2>/dev/null || true
-    echo "Alias 10.203.33.10/32 configurato su enp2s0."
+    # Optional arg is supplied by the router hotplug script after it derives the
+    # current usb0 gateway. Without it, derive the same alias through SSH.
+    local requested_alias="${1:-}" gateway="" alias=""
+
+    if [[ -n "$requested_alias" ]]; then
+        if [[ "$requested_alias" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+            alias="$requested_alias"
+        else
+            echo "ERRORE: alias non valido: $requested_alias" >&2
+            return 64
+        fi
+    else
+        gateway=$(router_ssh "ip -4 -o addr show dev usb0 2>/dev/null | awk '{split(\$4,a,\"/\"); print a[1]; exit}'" 2>/dev/null || true)
+        [[ -n "$gateway" ]] || { echo "ERRORE: gateway usb0 router non disponibile" >&2; return 1; }
+        alias="${gateway%.*}.10"
+    fi
+
+    # Remove only stale StreamPack aliases from former USB /24 subnets. Keep
+    # the normal LAN address and all unrelated aliases intact.
+    while read -r old_alias; do
+        [[ -z "$old_alias" || "$old_alias" == "$alias" ]] && continue
+        ip addr del "$old_alias/32" dev "$LAN_IF" 2>/dev/null || true
+    done < <(ip -4 -o addr show dev "$LAN_IF" | awk '$4 ~ /^10\.[0-9]+\.[0-9]+\.10\/32$/ {sub(/\/32$/, "", $4); print $4}')
+
+    ip addr replace "$alias/32" dev "$LAN_IF"
+    echo "Dynamic alias ${alias}/32 configurato su $LAN_IF (gateway=${gateway:-passed-from-router})."
 }
 
 # --- main -------------------------------------------------------------------
@@ -1209,8 +1310,9 @@ case "${1:-status}" in
     _wan_up)     router_wan_up ;;
     _watch)      shift; cmd_watch "$@" ;;
     _drain)      shift; cmd_drain "$@" ;;
+    reset)       cmd_reset "$@" ;;
     *)
-        echo "Uso: $0 {detect|activate [max_min] [intranet|server]|rndis_activate [max_min] [intranet|server]|setup_alias|restore|renat|status|diagnose|force_activate}" >&2
+        echo "Uso: $0 {detect|activate [max_min] [intranet|server]|rndis_activate [max_min] [intranet|server]|setup_alias|restore|renat|status|diagnose|force_activate|reset}" >&2
         exit 64
         ;;
 esac

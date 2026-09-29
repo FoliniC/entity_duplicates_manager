@@ -83,7 +83,7 @@ template:
           {% if profit > 0 %}
             {{ profit }}
           {% else %}
-            0
+            unknown
           {% endif %}
 
       - name: "BTC Profit Loss Pct"
@@ -185,7 +185,7 @@ template:
           {% if net > 0 %}
             {{ net }}
           {% else %}
-            0
+            unknown
           {% endif %}
 
       - name: "BTC ROI Pct Net"
@@ -276,6 +276,8 @@ template:
           {% else %}
             "NO ❌"
           {% endif %}
+        attributes:
+          last_refresh: "{{ states('input_text.btc_can_buy_phone_net_last_update') | default('Mai aggiornato') }}"
 
       - name: "BTC Delta To Phone Net"
         unique_id: btc_delta_to_phone_net
@@ -386,6 +388,87 @@ template:
 # ============================================================================
 # INPUT HELPERS - SENZA "initial:" -> i valori persistono in .storage
 # ============================================================================
+# Trailing Stop Sensor — suggerisce quando attivare lo stop loss
+# ============================================================
+      - name: "BTC Trailing Stop Suggestion"
+        unique_id: btc_trailing_stop_suggestion
+        icon: mdi:chart-arrow-up
+        state: >
+          {% set current_price = states('sensor.bitcoin_price_eur') | float(0) %}
+          {% set cost_price = 54000 %}
+          {% set invested = states('sensor.btc_investment_eur') | float(0) %}
+          {% set btc = invested / cost_price %}
+          {% set net_profit_after_tax = ((btc * current_price) - invested) * 0.67 %}
+          {% set trailing_pct = 3 %}
+          {% set trailing_stop = current_price * (1 - trailing_pct / 100) %}
+          {% set gain_pct = (current_price / cost_price - 1) * 100 %}
+          {% if current_price == 0 %}
+            unknown
+          {% elif gain_pct <= 0 %}
+            WAIT
+          {% elif gain_pct < 10 %}
+            WAIT
+          {% elif net_profit_after_tax >= states('input_number.target_phone_price') | float(0) %}
+            VENDI
+          {% elif current_price <= trailing_stop %}
+            VENDI
+          {% else %}
+            TRAIL
+          {% endif %}
+
+      - name: "BTC Trailing Stop Price"
+        unique_id: btc_trailing_stop_price
+        icon: mdi:flag-checkered
+        state: >
+          {% set current_price = states('sensor.bitcoin_price_eur') | float(0) %}
+          {% set trailing_pct = 3 %}
+          {% if current_price == 0 %}
+            unknown
+          {% else %}
+            {{ (current_price * (1 - trailing_pct / 100)) | round(0) }}
+          {% endif %}
+        unit_of_measurement: EUR
+
+      - name: "BTC Trailing Stop Suggestion Short"
+        unique_id: btc_trailing_stop_suggestion_short
+        icon: mdi:signal
+        state: >
+          {% set current_price = states('sensor.bitcoin_price_eur') | float(0) %}
+          {% set cost_price = 54000 %}
+          {% set invested = states('sensor.btc_investment_eur') | float(0) %}
+          {% set btc = invested / cost_price %}
+          {% set net_profit_after_tax = ((btc * current_price) - invested) * 0.67 %}
+          {% set trailing_stop = current_price * 0.97 %}
+          {% set gain_pct = (current_price / cost_price - 1) * 100 %}
+          {% if current_price == 0 %}
+            unknown
+          {% elif gain_pct <= 0 %}
+            LOSS
+          {% elif net_profit_after_tax >= states('input_number.target_phone_price') | float(0) %}
+            SELL
+          {% elif current_price <= trailing_stop %}
+            STOP
+          {% else %}
+            TRAIL
+          {% endif %}
+
+# ============================================================================
+# LOG SENSOR - read BTC tracker operation history (like usb_tether_log pattern)
+# ============================================================================
+command_line:
+  - sensor:
+      name: "BTC Tracker Log"
+      unique_id: btc_tracker_log
+      command: "python3 /config/helpers/read_btc_tracker_log.py"
+      value_template: "{{ value_json.state | default('empty') }}"
+      command_timeout: 10
+      json_attributes:
+        - line_count
+        - updated
+        - text
+        - lines
+      scan_interval: 15
+
 input_number:
   btc_investment_eur:
     name: "BTC Investment EUR"
@@ -426,11 +509,16 @@ input_number:
 input_text:
   target_phone_name:
     name: "Modello telefono target"
-    icon: "mdi:cellphone-information"
+    icon: mdi:cellphone-information
 
   target_phone_url:
     name: "URL monitoraggio prezzo telefono"
-    icon: "mdi:link"
+    icon: mdi:link
+
+  btc_can_buy_phone_net_last_update:
+    name: "Last update of btc_can_buy_phone_net"
+    icon: mdi:update
+    max: 255
 
 # ============================================================================
 # SCRIPT per forzare aggiornamento template sensors (usato dalla dashboard)
@@ -439,10 +527,16 @@ script:
   phone_projection_refresh:
     alias: "Aggiorna Proiezione Telefono"
     sequence:
+      # Log: avvio refresh via HALog2026
+      - event: halog2026_write_event
+        event_data:
+          subsystem: btc_tracker
+          level: INFO
+          message: "🔄 Refresh avviato alle {{ now().strftime('%H:%M:%S') }} - Aggiornamento sensori in corso..."
+      # Proiezione telefono (template)
       - service: homeassistant.update_entity
         target:
           entity_id:
-            # Proiezione telefono (template)
             - sensor.phone_months_since_launch
             - sensor.phone_current_of_launch
             - sensor.phone_discount_vs_launch
@@ -455,8 +549,41 @@ script:
             - sensor.btc_profit_loss_net
             - sensor.btc_current_value
             - sensor.btc_profit_loss
+            - sensor.btc_can_buy_phone_net
+            # Trailing Stop Suggestion
+            - sensor.btc_trailing_stop_suggestion
+            - sensor.btc_trailing_stop_price
+            # Trailing Stop Suggestion Short
+            - sensor.btc_trailing_stop_suggestion_short
+      # Attendi brevemente il riconoscimento dei sensori aggiornati
+      - delay: "00:00:02"
+      # Timestamp aggiornamento per btc_can_buy_phone_net (PRIMA del log, per evidenza)
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.btc_can_buy_phone_net_last_update
+        data:
+          value: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+      # Log: completamento refresh via HALog2026 — include il timestamp dell'entità
+      - event: halog2026_write_event
+        event_data:
+          subsystem: btc_tracker
+          level: INFO
+          message: "✅ Refresh completato alle {{ now().strftime('%H:%M:%S') }} - Trailing stop aggiornati - Last refresh sensor.btc_can_buy_phone_net: {{ state_attr('sensor.btc_can_buy_phone_net', 'last_refresh') | default('N/A') }}"
+      # Aggiorna anche il log command_line sensor (force re-read)
+      - service: homeassistant.update_entity
+        target:
+          entity_id:
+            - sensor.btc_tracker_log
+      # Aggiorna anche input_text.refresh_ops_log con timestamp ultimo refresh
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.refresh_ops_log
+        data:
+          value: "{{ states('sensor.btc_tracker_log') if states('sensor.btc_tracker_log') not in ['unavailable', 'unknown'] else '' }}"
 
 # ============================================================================
+
+# ============================================================
 # REST sensors per prezzo Bitcoin (CoinGecko)
 # ============================================================================
 sensor:
@@ -488,3 +615,6 @@ sensor:
     unit_of_measurement: "%"
     state_class: measurement
     icon: "mdi:chart-line"
+
+  # ============================================================
+  # ============================================================

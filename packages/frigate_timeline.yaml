@@ -1,0 +1,69 @@
+# Frigate Timeline Navigation Helper - Package
+input_datetime:
+  frigate_timeline_date:
+    name: Frigate Timeline Date
+    has_date: true
+    has_time: false
+    initial: "2026-09-04"
+
+input_select:
+  frigate_timeline_camera:
+    name: Frigate Timeline Camera
+    options:
+      - cucina
+      - locale_tecnico
+      - honor
+      - honor_ip_webcam
+    initial: cucina
+
+template:
+  - sensor:
+      - name: "Frigate Timeline Date"
+        unique_id: frigate_timeline_date
+        state: "{{ states('input_datetime.frigate_timeline_date').split(' ')[0] }}"
+
+      - name: "Frigate Timeline Clips Count"
+        unique_id: frigate_timeline_clips_count
+        state: "0"
+
+script:
+  frigate_timeline_navigate:
+    alias: "Navigate Frigate Timeline"
+    fields:
+      camera:
+        description: "Camera name"
+        example: "cucina"
+        required: true
+      direction:
+        description: "Direction: prev, next, prev_day, next_day"
+        example: "next"
+        required: true
+      date:
+        description: "Current date in YYYY-MM-DD format"
+        example: "2026-09-04"
+        required: true
+    sequence:
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ direction == 'prev' or direction == 'next' }}"
+            sequence:
+              - service: input_datetime.set_datetime
+                data:
+                  datetime: |
+                    {% set d = date %}
+                    {% set delta = 0 if direction == 'prev' else 1 if direction == 'next' else 0 %}
+                    {{ (d ~ ' 00:00:00') | as_timestamp + (delta * 86400) | timestamp_custom('%Y-%m-%d %H:%M:%S') }}
+                  entity_id: input_datetime.frigate_timeline_date
+          - conditions:
+              - condition: template
+                value_template: "{{ direction == 'prev_day' or direction == 'next_day' }}"
+            sequence:
+              - service: input_datetime.set_datetime
+                data:
+                  datetime: |
+                    {% set d = date %}
+                    {% set delta = 0 if direction == 'prev_day' else 1 if direction == 'next_day' else 0 %}
+                    {{ (d ~ ' 00:00:00') | as_timestamp + (delta * 86400) | timestamp_custom('%Y-%m-%d %H:%M:%S') }}
+                  entity_id: input_datetime.frigate_timeline_date
+        default: []

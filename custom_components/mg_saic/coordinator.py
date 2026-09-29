@@ -4,13 +4,23 @@ from datetime import datetime, timedelta, timezone
 import asyncio
 from contextlib import suppress
 from homeassistant.config_entries import ConfigEntryNotReady
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_point_in_utc_time
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util.dt import utcnow
 from .api import SAICMGAPIClient, CommandsLimitReachedException
 from .backends import Feature
 from .backends import backend_supports as _backend_supports
-from .logic import select_update_interval
+from .logic import (
+    TARGET_SOC_PERCENT_BY_CODE,
+    apply_energy_correction,
+    electric_range_km,
+    project_range_at_target,
+    odometer_km,
+    resolve_battery_capacity,
+    select_update_interval,
+)
+from .trip_stats import TripStatsManager, TripSnapshot, ChargeSnapshot
 
 # After the car turns off, fire extra refreshes at these intervals (seconds)
 # to catch plug-in as quickly as possible.  The coordinator is still on its
@@ -21,9 +31,30 @@ from .logic import select_update_interval
 POST_SHUTDOWN_REFRESH_SEQUENCE = [60, 120, 240, 480, 600]
 
 from .const import (
+    DATA_DECIMAL_CORRECTION,
+    DATA_DECIMAL_CORRECTION_SOC,
+    MILEAGE_UINT16_SATURATION,
     AFTER_ACTION_UPDATE_INTERVAL_DELAY,
     CHARGING_STATUS_CODES,
+    CHARGE_SESSION_STATUS_CODES,
+    CONF_ABRP_API_KEY,
+    CONF_ABRP_USER_TOKEN,
     DEFAULT_AC_LONG_INTERVAL,
+    CONF_HOLIDAY_UPDATE_INTERVAL,
+    CONF_STALE_DATA_THRESHOLD,
+    CONF_BATTERY_CAPACITY_OVERRIDE,
+    parse_capacity_override,
+    DEFAULT_HOLIDAY_UPDATE_INTERVAL_HOURS,
+    DEFAULT_STALE_DATA_THRESHOLD_HOURS,
+    REMOTE_CLIMATE_STATUS_DEFROST,
+    REMOTE_CLIMATE_STATUS_OFF,
+    SAIC_RETURN_CODE_UNREACHABLE,
+    DATA_FRESHNESS_LIVE,
+    DATA_FRESHNESS_CACHED,
+    DATA_FRESHNESS_FAILED,
+    VEHICLE_REACHABILITY_AWAKE,
+    VEHICLE_REACHABILITY_LIKELY_ASLEEP,
+    VEHICLE_REACHABILITY_UNREACHABLE,
     DEFAULT_ALARM_LONG_INTERVAL,
     DEFAULT_BATTERY_HEATING_LONG_INTERVAL,
     DEFAULT_CHARGING_CURRENT_LONG_INTERVAL,
@@ -46,16 +77,27 @@ from .const import (
     RETRY_LIMIT,
     STARTUP_API_TIMEOUT,
     STARTUP_CHARGING_TIMEOUT,
+    RUNTIME_CHARGING_TIMEOUT,
     STATUS_TIMESTAMP_FUTURE_TOLERANCE,
     STATUS_TIMESTAMP_MAX_AGE,
     UPDATE_INTERVAL,
     UPDATE_INTERVAL_AFTER_SHUTDOWN,
+    UPDATE_INTERVAL_AFTER_FAILURE,
+    MAX_FAST_RETRIES_AFTER_FAILURE,
     UPDATE_INTERVAL_CHARGING,
     UPDATE_INTERVAL_DC_CHARGING,
     UPDATE_INTERVAL_GRACE_PERIOD,
     UPDATE_INTERVAL_POWERED,
     VEHICLE_PROFILES,
 )
+
+
+# Number of consecutive polls that must fail to bring fresh data (with a return
+# code 4) before the Vehicle Reachability sensor is flagged 'unreachable'. A
+# single transient "remote control instruction failed, please try again later"
+# during a drive should not flip the sensor; a car that's genuinely out of
+# contact will fail repeatedly and cross this threshold. See #238.
+UNREACHABLE_CONSECUTIVE_POLL_THRESHOLD = 2
 
 
 class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
@@ -108,6 +150,44 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
 
         # Next Update Time
         self.next_update_time = None
+        # Holiday mode (runtime poll-rate override), persisted flag from options.
+        self.holiday_mode = config_entry.options.get("holiday_mode", False)
+        self.holiday_update_interval = timedelta(
+            hours=config_entry.options.get(
+                CONF_HOLIDAY_UPDATE_INTERVAL,
+                DEFAULT_HOLIDAY_UPDATE_INTERVAL_HOURS,
+            )
+        )
+        self.stale_data_threshold = timedelta(
+            hours=config_entry.options.get(
+                CONF_STALE_DATA_THRESHOLD,
+                DEFAULT_STALE_DATA_THRESHOLD_HOURS,
+            )
+        )
+        self._last_command_unreachable = False
+        self._last_command_unreachable_time = None
+        # Debounce for the code-4 'unreachable' signal: only flag after this many
+        # consecutive polls fail to bring fresh data, so a single transient "try
+        # again later" during a drive doesn't flip the sensor (#238). Reset by
+        # any positive proof of reachability (fresh status, detected activity, a
+        # successful command).
+        self._consecutive_unreachable_polls = 0
+        self._code4_this_cycle = False
+        # Highest vehicle-reported statusTime we've seen. A response whose
+        # statusTime advances beyond this is positive proof the telematics just
+        # reported fresh data (not a cached response served while asleep), and
+        # is used to clear the 'unreachable' flag when the car wakes. See #238.
+        self._last_status_time = None
+        # Bounded fast-retry after a failed update cycle (#238). A failed poll
+        # skips interval selection, so without this the coordinator would keep
+        # the last successful cycle's interval — potentially a multi-hour idle
+        # value — and miss an active charge. Reset on any successful cycle.
+        self._consecutive_update_failures = 0
+        self.failure_retry_interval = UPDATE_INTERVAL_AFTER_FAILURE
+        # Data Freshness (#238): result of the most recent poll — live (fresh
+        # data), cached (poll succeeded but data unchanged), or failed (poll
+        # errored). None until the first cycle completes.
+        self._last_poll_result = None
         self._action_refresh_task = None
         self._action_refresh_generation = 0
 
@@ -124,6 +204,7 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
         # Track previous powered-on state so we detect the transition even
         # when status_data is None (generic response during power-down)
         self._prev_is_powered_on: bool = False
+        self._prev_is_charging: bool = False
 
         # Initialize with default values
         self.vehicle_series = None
@@ -131,6 +212,14 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
         self.max_temp = 28  # Default fallback
         self.temp_offset = 2  # Default fallback
         self.known_battery_capacity_kwh = None  # Set once series is detected
+        # The per-model profile's capacity, BEFORE any user override is applied.
+        # Kept so async_update_options can recompute known_battery_capacity_kwh
+        # (override > this > None) when the user changes the override without a
+        # full integration reload — see async_update_options.
+        self._profile_battery_capacity_kwh = None
+        self.known_fuel_tank_litres = None  # Per-model tank size, for fuel stats (#301)
+        # Trip/efficiency stats manager (#301). Created and loaded in async_setup.
+        self.trip_stats = None
         # Climate control profile — set from VEHICLE_PROFILES on first data fetch.
         # Defaults match original integration behaviour so unrecognised models
         # continue to work as before.
@@ -155,6 +244,16 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
         #                   Defrost), each mapping to a fixed mode value. No fan
         #                   slider is shown for these models.
         self.climate_control_scheme: str = "fan_speed"
+        # Shared climate control state, so the climate entity and the separate
+        # A/C switch / temperature number / mode select all reflect one source
+        # of truth (a change in any of them updates the others). requested_target
+        # _temp is display-only and never sends a command on its own — it rides
+        # along with the next actual A/C command, preserving the 3-command limit.
+        # climate_entity is a back-reference the switch/select delegate to so the
+        # command dispatch lives in exactly one place. Both are set up before any
+        # command can be issued by a user.
+        self.requested_target_temp: float = 22.0
+        self.climate_entity = None
         # mode_select value map (only used when scheme == "mode_select").
         # Maps each logical climate action to the integer sent via the API's
         # fan_speed parameter. Defaults are the IS31P-confirmed values but are
@@ -163,12 +262,29 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
         self.climate_mode_cool: int = 2       # HVACMode.COOL (auto fan, follows temp)
         self.climate_mode_heat: int = 4       # HVACMode.HEAT
         self.climate_mode_max_cool: int = 3   # preset "Max Cool" (fixed strong fan)
+        # When True, the Max Cool preset also pins the target temperature to the
+        # profile minimum (mirrors the iSmart app's one-tap LOW-cool button).
+        # Used by cars whose plain Cool mode is already the strongest cool, so
+        # the only extra thing Max Cool adds is the coldest setpoint (e.g. the
+        # MG4 EV URBAN, AH4EM — see #243).
+        self.max_cool_forces_min_temp: bool = False
         self.climate_mode_defrost: int = 5    # preset "Defrost"
         # Reverse map: remoteClimateStatus values that mean "heating".
         # (cool/fan_only reverse maps already exist as climate_status_cool /
         # climate_status_fan_only above.)
         self.climate_status_heat: set = set()
         self.climate_status_defrost: set = set()
+        # Fan value that engages PTC resistive heating on fan-speed cars that
+        # have a heater (compressor off + this AUTO value). MG4-confirmed as 2
+        # (#173). Only used when the profile defines a heat status.
+        self.heat_fan_speed: int = 2
+        # Fixed AUTO fan value for cars with no remote fan control (the fan
+        # slider is hidden and this value is always sent). None = classic
+        # Low/Med/High slider. climate_fan_only_airflow makes Fan Only send the
+        # separate AC-Airflow ventilation command. Both set from the profile
+        # (AS33P / MG HS PHEV — see const.py, #262).
+        self.climate_fan_auto: int | None = None
+        self.climate_fan_only_airflow: bool = False
         # Per-model feature flags — set from VEHICLE_PROFILES on first data fetch.
         self.supports_target_soc: bool = True
         self.reliable_fuel_range_elec: bool = True
@@ -283,6 +399,14 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
         self.has_sunroof = config_entry.options.get(
             "has_sunroof", config_entry.data.get("has_sunroof", False)
         )
+        # User-supplied usable battery capacity (kWh). Highest-priority source
+        # for the capacity used by the Total Battery Capacity sensor and the
+        # SOC×capacity trip-energy fallback: user override > our profile override
+        # > API value. None/0/blank means "no override". Applied where
+        # known_battery_capacity_kwh is resolved once the series is known.
+        self.battery_capacity_override = parse_capacity_override(
+            config_entry.options.get(CONF_BATTERY_CAPACITY_OVERRIDE, None)
+        )
         self.has_heated_seats = config_entry.options.get(
             "has_heated_seats", config_entry.data.get("has_heated_seats", False)
         )
@@ -317,6 +441,16 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
         # before _update_state runs.
         self.has_rear_doors = True
         self.has_rear_windows = True
+        # Front passenger window / front defrost are present on all normally
+        # profiled cars; a per-model profile can turn them off (e.g. the MG3
+        # Hybrid tracks only the driver window and ignores the defrost command
+        # — see #258).
+        self.has_front_passenger_window = True
+        self.has_front_defrost = True
+        # When True, the fan-speed "Cool" mode is sent via the simple start_ac
+        # command instead of the full control_climate command (for cars that
+        # only honour start_ac — e.g. the MG3 Hybrid, #258).
+        self.cool_uses_start_ac = False
 
         # Post-shutdown refresh sequence — enabled by default, opt-out via options.
         # When enabled, the coordinator fires a rapid series of refreshes after
@@ -402,6 +536,20 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             started_at: timezone-aware datetime derived from the vehicle-start
                         message.  Callers must ensure UTC-aware before passing.
         """
+        # A power-on time can never be in the future. Clamp defensively so a
+        # bad message timestamp can't poison the power-on time or the duration
+        # maths downstream, regardless of the caller.
+        now_utc = datetime.now(timezone.utc)
+        if started_at > now_utc:
+            LOGGER.debug(
+                "hint_vehicle_started: VIN %s clamping future start time "
+                "%s to now (%s)",
+                self.vin,
+                started_at,
+                now_utc,
+            )
+            started_at = now_utc
+
         # Guard: don't regress a more-recent confirmed power-on timestamp
         if (
             self.is_powered_on
@@ -450,6 +598,14 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             return timedelta(
                 minutes=options.get(
                     option_key, int(default_interval.total_seconds() / 60)
+                )
+            )
+
+        def get_interval_hours(option_key, default_interval):
+            """Retrieve interval in hours from options or fallback to default."""
+            return timedelta(
+                hours=options.get(
+                    option_key, int(default_interval.total_seconds() / 3600)
                 )
             )
 
@@ -542,6 +698,30 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
         self.enable_shutdown_refresh_sequence = options.get(
             "enable_shutdown_refresh_sequence", self.enable_shutdown_refresh_sequence
         )
+        self.holiday_mode = options.get("holiday_mode", self.holiday_mode)
+        self.holiday_update_interval = get_interval_hours(
+            CONF_HOLIDAY_UPDATE_INTERVAL, self.holiday_update_interval
+        )
+        self.stale_data_threshold = timedelta(
+            hours=options.get(
+                CONF_STALE_DATA_THRESHOLD,
+                int(self.stale_data_threshold.total_seconds() / 3600),
+            )
+        )
+
+        # Battery capacity override: re-read from the just-saved options and
+        # recompute the effective capacity. Without this, saving a new/cleared
+        # override here had no effect until the integration was fully reloaded
+        # (async_setup, where this is first resolved, doesn't run again on a
+        # plain options save) — the sensor kept showing the stale/API value.
+        self.battery_capacity_override = parse_capacity_override(
+            options.get(CONF_BATTERY_CAPACITY_OVERRIDE, None)
+        )
+        self.known_battery_capacity_kwh = (
+            self.battery_capacity_override
+            if self.battery_capacity_override is not None
+            else self._profile_battery_capacity_kwh
+        )
 
         LOGGER.debug(
             f"Update intervals updated via options: "
@@ -568,6 +748,11 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
 
         if not getattr(self, "_action_interval_active", False):
             self._adjust_update_interval()
+            # Notify entities so the Next/Last Update Time sensors reflect the
+            # new interval immediately (e.g. when holiday mode is toggled, which
+            # reschedules without a data fetch). Without this the time sensors
+            # would keep showing the previous schedule until the next poll.
+            self.async_update_listeners()
         else:
             self.next_update_time = utcnow() + self.update_interval
             self.async_update_listeners()
@@ -576,6 +761,17 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
         """Set up the coordinator."""
         self.is_initial_setup = True
         vin = self.vin
+
+        # Trip/efficiency statistics (#301). Load the persisted open/last trip
+        # so a drive in progress survives a restart and the sensors repopulate.
+        try:
+            self.trip_stats = TripStatsManager(
+                self.hass, self.config_entry.entry_id, self.vin
+            )
+            await self.trip_stats.async_load()
+        except Exception as e:  # noqa: BLE001 - stats must never block setup
+            LOGGER.warning("Trip stats unavailable for VIN %s: %s", self.vin, e)
+            self.trip_stats = None
 
         # Restore last known values for activity and power-off times
         entity_id_last_activity = f"sensor.{DOMAIN}_{self.vin}_last_vehicle_activity"
@@ -668,7 +864,7 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             # The coordinator will retry on next scheduled update
             pass
 
-        if self.data and "info" in self.data and self.data["info"]:
+        if "info" in self.data and self.data["info"]:
             # Find the vehicle info matching the current VIN
             vin_info = next(
                 (v for v in self.data.get("info", []) if v.vin == vin), None
@@ -676,15 +872,6 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
 
             if not vin_info:
                 LOGGER.error(f"No vehicle data found for VIN: {vin}")
-                if self.is_initial_setup:
-                    LOGGER.warning(
-                        "VIN %s not found in vehicle data during setup — "
-                        "will retry on next scheduled update",
-                        vin,
-                    )
-                    # Return without setting data - will retry later
-                    self.is_initial_setup = False
-                    return {}
                 raise UpdateFailed("No matching vehicle data found.")
 
             # Store the matching vehicle info
@@ -709,6 +896,12 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             self.max_temp = profile["max_temp"]
             self.temp_offset = profile["temp_offset"]
             self.known_battery_capacity_kwh = profile["battery_capacity_kwh"]
+            self._profile_battery_capacity_kwh = profile["battery_capacity_kwh"]
+            # Precedence: user override > our profile override > API value.
+            # Applied here so every downstream capacity consumer picks it up.
+            if self.battery_capacity_override is not None:
+                self.known_battery_capacity_kwh = self.battery_capacity_override
+            self.known_fuel_tank_litres = profile.get("fuel_tank_litres")
             self.climate_status_cool = profile.get("climate_status_cool", {3})
             self.climate_status_fan_only = profile.get("climate_status_fan_only", {2})
             self.fan_speed_low = profile.get("fan_speed_low", 1)
@@ -722,9 +915,17 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             self.climate_mode_cool = profile.get("climate_mode_cool", 2)
             self.climate_mode_heat = profile.get("climate_mode_heat", 4)
             self.climate_mode_max_cool = profile.get("climate_mode_max_cool", 3)
+            self.max_cool_forces_min_temp = profile.get(
+                "max_cool_forces_min_temp", False
+            )
             self.climate_mode_defrost = profile.get("climate_mode_defrost", 5)
             self.climate_status_heat = profile.get("climate_status_heat", set())
             self.climate_status_defrost = profile.get("climate_status_defrost", set())
+            self.heat_fan_speed = profile.get("heat_fan_speed", 2)
+            self.climate_fan_auto = profile.get("climate_fan_auto", None)
+            self.climate_fan_only_airflow = profile.get(
+                "climate_fan_only_airflow", False
+            )
             self.supports_target_soc = profile.get("supports_target_soc", True)
             self.reliable_fuel_range_elec = profile.get("reliable_fuel_range_elec", True)
             self.charging_capacity_correction = profile.get("charging_capacity_correction", None)
@@ -736,6 +937,11 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             # rear doors/windows) for any unprofiled or 4-door/4-window car.
             self.has_rear_doors = profile.get("has_rear_doors", True)
             self.has_rear_windows = profile.get("has_rear_windows", True)
+            self.has_front_passenger_window = profile.get(
+                "has_front_passenger_window", True
+            )
+            self.has_front_defrost = profile.get("has_front_defrost", True)
+            self.cool_uses_start_ac = profile.get("cool_uses_start_ac", False)
 
             LOGGER.debug(
                 "Vehicle series detected: %s (profile: %s). "
@@ -778,13 +984,10 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
 
         else:
             LOGGER.error(f"No 'info' data found for VIN: {vin}")
-            LOGGER.warning(
-                f"MG SAIC API returned no vehicle info for VIN {vin} - "
-                f"integration will be marked as available with limited functionality."
+            raise ConfigEntryNotReady(
+                f"No vehicle info returned by SAIC API for VIN {vin}. "
+                f"HA will retry automatically."
             )
-            # Complete setup successfully so HA doesn't block on this integration
-            # The coordinator will retry on next scheduled update
-            pass
 
         # Update capabilities from options
         self.has_sunroof = self.config_entry.options.get(
@@ -816,6 +1019,57 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
         return True
 
     async def _async_update_data(self):
+        """Coordinator entry point.
+
+        Wraps the real update cycle so that a failed cycle doesn't leave the
+        coordinator parked on a long idle interval. When the cycle raises before
+        interval selection runs (e.g. a transient "return code 4" that exhausts
+        its retries), the last successful cycle's interval would otherwise stand
+        — which can be several hours — so an active charge that began just before
+        the failed poll would go unpolled until the next idle wake-up (#238).
+
+        On failure we shorten the next retry (capped so it never *lengthens* an
+        already-short interval), but only for a bounded number of consecutive
+        failures, so a car that is genuinely away or asleep isn't polled every
+        few minutes forever. Any successful cycle resets the counter.
+        """
+        try:
+            data = await self._run_update_cycle()
+        except Exception:
+            self._consecutive_update_failures += 1
+            self._last_poll_result = DATA_FRESHNESS_FAILED
+            if self._consecutive_update_failures <= MAX_FAST_RETRIES_AFTER_FAILURE:
+                # Possibly a transient failure at the start of a charge — retry
+                # soon, capped so we never lengthen an already-short interval.
+                self.update_interval = min(
+                    self.update_interval, self.failure_retry_interval
+                )
+                LOGGER.debug(
+                    "Update cycle failed for VIN %s (failure %d/%d); retrying in "
+                    "%s instead of the idle interval.",
+                    self.vin,
+                    self._consecutive_update_failures,
+                    MAX_FAST_RETRIES_AFTER_FAILURE,
+                    self.update_interval,
+                )
+            else:
+                # Sustained failure: the car is probably genuinely away or
+                # asleep. Fall back to the normal idle cadence so we don't keep
+                # polling (and risk waking) it every few minutes indefinitely.
+                self.update_interval = self.default_update_interval
+                LOGGER.debug(
+                    "Update cycle still failing for VIN %s after %d fast retries; "
+                    "backing off to the idle interval (%s).",
+                    self.vin,
+                    MAX_FAST_RETRIES_AFTER_FAILURE,
+                    self.update_interval,
+                )
+            raise
+        else:
+            self._consecutive_update_failures = 0
+            return data
+
+    async def _run_update_cycle(self):
         """Fetch data from the API.
 
         All network calls are made while holding the account-level _api_lock.
@@ -829,6 +1083,9 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
         account.
         """
         data = {}
+        # Reset the per-cycle marker; note_command_unreachable() sets it if a
+        # code 4 is seen during this cycle's fetches (#238 debounce).
+        self._code4_this_cycle = False
 
         # _api_lock is injected by __init__ before async_setup is called.
         # Fall back to a no-op context if somehow not set (single-entry case
@@ -847,28 +1104,12 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             )
 
             if not data["info"]:
-                if self.is_initial_setup:
-                    LOGGER.warning(
-                        "Vehicle info unavailable during setup for VIN %s — "
-                        "will retry on next scheduled update",
-                        self.vin,
-                    )
-                    data["info"] = []
-                else:
-                    raise UpdateFailed("Cannot proceed without vehicle info.")
+                raise UpdateFailed("Cannot proceed without vehicle info.")
 
             vin = self.config_entry.data.get("vin")
             filtered_info = [v for v in data["info"] if v.vin == vin]
             if not filtered_info:
-                if self.is_initial_setup:
-                    LOGGER.warning(
-                        "VIN %s not found in vehicle list during setup — "
-                        "will retry on next scheduled update",
-                        self.vin,
-                    )
-                    data["info"] = []
-                else:
-                    raise UpdateFailed(f"No data found for VIN: {vin}")
+                raise UpdateFailed(f"No data found for VIN: {vin}")
 
             # Overwrite info with the filtered result and store it in an attribute
             data["info"] = filtered_info
@@ -915,51 +1156,47 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             if self.vehicle_type in ["BEV", "PHEV"] and self.backend_supports(
                 Feature.CHARGING_DATA
             ):
+                # Charging data is non-essential (status is the core payload) and
+                # its endpoint can be slow or fail for long stretches (SAIC-side,
+                # return code 4) independently of everything else. Cap the fetch
+                # and never let it block or abort the rest of the cycle. On
+                # failure proceed with charging=None: the charging sensors retain
+                # their last displayed value via their own retention logic, and
+                # the coordinator treats the resulting is_charging change as
+                # activity so a grace-period poll re-checks soon rather than
+                # jumping to the slow idle interval (reported by @HarryFlatter,
+                # #262 — a failing charging fetch used to hold up / abort the
+                # whole refresh, including manual refreshes).
+                charging_timeout = (
+                    STARTUP_CHARGING_TIMEOUT
+                    if self.is_initial_setup
+                    else RUNTIME_CHARGING_TIMEOUT
+                )
                 try:
-                    if self.is_initial_setup:
-                        # At startup, cap the charging fetch so a slow/degraded
-                        # charging endpoint (issue #216) can't consume the whole
-                        # STARTUP_API_TIMEOUT budget. Charging is non-essential
-                        # for load — info + status are enough. If it doesn't
-                        # return in time, proceed without it; it populates on the
-                        # next scheduled refresh.
-                        data["charging"] = await asyncio.wait_for(
-                            self._fetch_with_retries(
-                                lambda: self.client.get_charging_info(vin),
-                                self._is_generic_response_charging,
-                                "charging info",
-                            ),
-                            timeout=STARTUP_CHARGING_TIMEOUT,
-                        )
-                    else:
-                        data["charging"] = await self._fetch_with_retries(
+                    data["charging"] = await asyncio.wait_for(
+                        self._fetch_with_retries(
                             lambda: self.client.get_charging_info(vin),
                             self._is_generic_response_charging,
                             "charging info",
-                        )
+                        ),
+                        timeout=charging_timeout,
+                    )
                 except asyncio.TimeoutError:
-                    # Startup-only: charging took longer than STARTUP_CHARGING_TIMEOUT.
                     LOGGER.warning(
-                        "Charging info did not return within %ss during setup for "
-                        "VIN %s — proceeding without it; will retry on next update",
-                        STARTUP_CHARGING_TIMEOUT,
+                        "Charging info did not return within %ss for VIN %s — "
+                        "proceeding without it; will retry on the next update",
+                        charging_timeout,
                         self.vin,
                     )
                     data["charging"] = None
                 except Exception as e:
-                    # During first setup, a charging info failure must not prevent
-                    # the integration from loading — entities will show unavailable
-                    # until the next successful poll.
-                    if self.is_initial_setup:
-                        LOGGER.warning(
-                            "Charging info unavailable during setup for VIN %s: %s — "
-                            "will retry on next scheduled update",
-                            self.vin,
-                            e,
-                        )
-                        data["charging"] = None
-                    else:
-                        raise
+                    LOGGER.warning(
+                        "Charging info unavailable for VIN %s: %s — proceeding "
+                        "without it; will retry on the next update",
+                        self.vin,
+                        e,
+                    )
+                    data["charging"] = None
 
             # Fetch the scheduled battery heating configuration (cheap GET).
             # Non-fatal: on failure, retain the last known value so the
@@ -1014,6 +1251,39 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
 
         # Set the last update time
         self.last_update_time = datetime.now(timezone.utc)
+        # Clear the "unreachable" (code 4) flag when we have positive proof the
+        # car is reachable again. Two things qualify:
+        #   1. it reports powered-on, OR
+        #   2. it returned a status response whose statusTime ADVANCED beyond
+        #      the last one we saw — i.e. the telematics actually reported fresh
+        #      data this cycle.
+        # A *cached* status poll is still NOT sufficient: the SAIC backend
+        # serves cached status (same, unchanged statusTime) even while the car
+        # is asleep and rejecting live commands, so clearing on any status
+        # success would wrongly show "awake" while commands keep failing. Using
+        # statusTime advancement rather than mere success preserves that
+        # guarantee while also releasing the flag once the car genuinely wakes
+        # and answers a poll (previously it stayed stuck on 'unreachable' until
+        # the car was driven — the flip-side of now SETTING the flag on
+        # status-poll code 4). A successful command also clears it (see
+        # record_command_ok). See #238.
+        fresh_status = False
+        new_status = data.get("status")
+        if new_status is not None:
+            new_status_time = getattr(new_status, "statusTime", None)
+            if new_status_time is not None and (
+                self._last_status_time is None
+                or new_status_time > self._last_status_time
+            ):
+                fresh_status = True
+                self._last_status_time = new_status_time
+        self._update_reachability_after_poll(fresh_status)
+        # Record how current this cycle's data was, for the Data Freshness
+        # sensor. A poll that returns unchanged/cached status is "cached", not
+        # "live" — the same distinction the reachability debounce relies on.
+        self._last_poll_result = (
+            DATA_FRESHNESS_LIVE if fresh_status else DATA_FRESHNESS_CACHED
+        )
 
         # Include capabilities in the returned data
         data["capabilities"] = {
@@ -1025,9 +1295,354 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             "has_window_control": self.has_window_control,
         }
 
+        # Push telemetry to ABRP, but only on a genuinely fresh status response
+        # (advanced statusTime) so we never feed ABRP a cached/stale SoC. Reuses
+        # the freshness signal computed above for the reachability flag.
+        await self._maybe_send_abrp(data, fresh_status)
+
         return data
 
+    async def _maybe_send_abrp(self, data, fresh_status):
+        """Send this cycle's telemetry to ABRP if configured and fresh.
+
+        No-ops silently unless a user token is set for this vehicle. Never
+        raises — an ABRP failure must not affect the coordinator update.
+        """
+        if not fresh_status:
+            return
+
+        options = self.config_entry.options
+        user_token = (options.get(CONF_ABRP_USER_TOKEN) or "").strip()
+        if not user_token:
+            return  # ABRP not enabled for this vehicle
+
+        api_key = (options.get(CONF_ABRP_API_KEY) or "").strip()
+        if not api_key:
+            LOGGER.debug(
+                "ABRP: user token set for VIN %s but no API key — "
+                "both credentials are required; skipping",
+                self.vin,
+            )
+            return
+
+        status = data.get("status")
+        if status is None:
+            return
+
+        try:
+            from .abrp import AbrpApi
+
+            session = async_get_clientsession(self.hass)
+            sent, message = await AbrpApi(session, api_key, user_token).async_send(
+                status, data.get("charging")
+            )
+            if sent:
+                LOGGER.debug("ABRP telemetry sent for VIN %s", self.vin)
+            else:
+                LOGGER.debug(
+                    "ABRP telemetry not sent for VIN %s: %s", self.vin, message
+                )
+        except Exception as err:  # noqa: BLE001 - never break the update loop
+            LOGGER.warning("ABRP telemetry failed for VIN %s: %s", self.vin, err)
+
     # Update Vehicle State
+    # ── Trip statistics (#301) ───────────────────────────────────────────────
+
+    def _trip_snapshot(self, basic_status, charging_data):
+        """Build a TripSnapshot from the current poll's data.
+
+        Mirrors the odometer/SOC extraction used by the mileage and SOC
+        sensors (decimal correction, uint16 saturation, -128 sentinels), so a
+        trip boundary reads the same numbers the user sees. Returns None if we
+        can't establish a valid odometer reading.
+        """
+        odometer = self._extract_odometer_km(basic_status, charging_data)
+        if odometer is None:
+            return None
+        km, kwh = self._extract_since_charge(charging_data)
+        return TripSnapshot(
+            ts=datetime.now(timezone.utc).isoformat(),
+            odometer_km=odometer,
+            soc_pct=self._extract_soc_pct(basic_status, charging_data),
+            fuel_pct=self._extract_fuel_pct(basic_status),
+            since_charge_km=km,
+            since_charge_kwh=kwh,
+        )
+
+    @staticmethod
+    def _extract_since_charge_raw(charging_data):
+        """(distance_km, energy_kWh) since last charge from rvsChargeStatus, or
+        (None, None), WITHOUT the per-model energy correction. Internal."""
+        rcs = getattr(charging_data, "rvsChargeStatus", None) if charging_data else None
+        if rcs is None:
+            return None, None
+        km_raw = getattr(rcs, "mileageSinceLastCharge", None)
+        kwh_raw = getattr(rcs, "powerUsageSinceLastCharge", None)
+        km = km_raw * DATA_DECIMAL_CORRECTION if km_raw is not None and km_raw >= 0 else None
+        kwh = kwh_raw * DATA_DECIMAL_CORRECTION if kwh_raw is not None and kwh_raw >= 0 else None
+        return km, kwh
+
+    def _extract_since_charge(self, charging_data):
+        """(distance_km, energy_kWh) since last charge from rvsChargeStatus, or
+        (None, None). The car's own cumulative counters — preferred source for
+        trip distance/energy (see trip_stats.compute_completed_trip).
+
+        Some PHEVs (e.g. HS PHEV / AS33P) report energy fields inflated by ~3×
+        (the same quirk corrected for totalBatteryCapacity/lastChargeEndingPower),
+        so apply the profile's charging_capacity_correction to the ENERGY only —
+        distance is never inflated — giving real kWh for trip energy/efficiency."""
+        km, kwh = self._extract_since_charge_raw(charging_data)
+        kwh = apply_energy_correction(
+            "powerUsageSinceLastCharge", kwh, self.charging_capacity_correction
+        )
+        return km, kwh
+
+    @staticmethod
+    def _extract_odometer_km(basic_status, charging_data):
+        """Odometer in km, or None. Rejects 0/-128 and the uint16 saturation.
+
+        Delegates to logic.odometer_km so the source preference and the
+        fallback order are unit-testable without Home Assistant — see #262,
+        where the charging-data fallback read a field that doesn't exist and
+        nothing caught it because nothing could test it directly.
+        """
+        return odometer_km(
+            basic_status,
+            charging_data,
+            factor=DATA_DECIMAL_CORRECTION,
+            saturation=MILEAGE_UINT16_SATURATION,
+        )
+
+    @staticmethod
+    def _extract_soc_pct(basic_status, charging_data):
+        """SOC % — charging bmsPackSOCDsp (×0.1), else basic extendedData1 (int %).
+
+        Mirrors the SOC sensor's own fallback so a momentary charging-endpoint
+        dropout doesn't leave a trip snapshot with no SOC — which would drop the
+        whole trip's efficiency (energy needs a start AND end SOC).
+        """
+        chrg = getattr(charging_data, "chrgMgmtData", None) if charging_data else None
+        raw = getattr(chrg, "bmsPackSOCDsp", None) if chrg is not None else None
+        if raw is not None and raw != -128:
+            return raw * DATA_DECIMAL_CORRECTION_SOC
+        raw = getattr(basic_status, "extendedData1", None) if basic_status else None
+        if raw is not None and raw not in (-128, -1):
+            return float(raw)
+        return None
+
+    @staticmethod
+    def _extract_fuel_pct(basic_status):
+        """Fuel level % from basicVehicleStatus (0 is a valid reading), or None."""
+        raw = getattr(basic_status, "fuelLevelPrc", None) if basic_status else None
+        if raw is not None and 0 <= raw <= 100:
+            return float(raw)
+        return None
+
+    def _update_trip_state(self, power_mode, basic_status, charging_data):
+        """Open/close a trip based on the current power mode (#301).
+
+        Keyed off power_mode + whether a trip is already open — NOT the
+        is_powered_on transition, which the 323 start-message hint pre-sets
+        before the poll runs (so a transition-based hook would never fire an
+        open). This is also robust to HA restarts mid-drive and installing the
+        feature mid-drive. State is mutated synchronously; only the persist is
+        scheduled.
+        """
+        if self.trip_stats is None:
+            return
+        # Track the since-charge counters every poll so a charge reset is caught
+        # promptly and the next trip's distance/energy baseline is correct.
+        km, kwh = self._extract_since_charge(charging_data)
+        if self.trip_stats.note_since_charge(km, kwh):
+            self._schedule_trip_save()
+
+        snap = self._trip_snapshot(basic_status, charging_data)
+        trip_kwargs = dict(
+            capacity_kwh=self.effective_battery_capacity_kwh,
+            tank_litres=self.known_fuel_tank_litres,
+            is_electric=self.vehicle_type in ("BEV", "PHEV"),
+            is_combustion=self.vehicle_type in ("ICE", "HEV", "PHEV"),
+        )
+
+        # Safety net: force-close a trip that's been open implausibly long (a
+        # missed power-off), so it stops blocking new trips.
+        now_iso = datetime.now(timezone.utc).isoformat()
+        if self.trip_stats.force_close_if_stale(now_iso, snap, **trip_kwargs) is not None:
+            LOGGER.debug("Stale trip force-closed for VIN %s", self.vin)
+            self._schedule_trip_save()
+
+        driving = power_mode in (2, 3)
+        open_snap = self.trip_stats.open_snapshot
+        if driving:
+            if open_snap is None and snap is not None and self.trip_stats.open(snap):
+                LOGGER.debug("Trip opened for VIN %s at %s km", self.vin, snap.odometer_km)
+                self._schedule_trip_save()
+            return
+        # Parked (or unknown) — a reading is needed to close or reconstruct.
+        if snap is None:
+            return
+        # Track the SOC-based "since reset" baseline only while parked, so a
+        # mid-drive regen SOC uptick can never be mistaken for a charge (#301:
+        # this sensor is deliberately independent of the since-charge counter
+        # fields, which are unreliable on some cars and absent on others).
+        if self.trip_stats.note_soc_reset_baseline(snap.soc_pct, snap.odometer_km, snap.ts):
+            self._schedule_trip_save()
+        if open_snap is not None:
+            trip = self.trip_stats.close(snap, **trip_kwargs)
+            LOGGER.debug("Trip closed for VIN %s: %s", self.vin, trip)
+            self._schedule_trip_save()
+        else:
+            # No trip open + parked: reconstruct a drive that was never seen live
+            # (e.g. the car wasn't polled while powered). Advances the parked
+            # baseline either way; persist when a trip lands or we just seeded it.
+            was_seeded = self.trip_stats.last_parked_snapshot is None
+            trip = self.trip_stats.detect_missed_trip(snap, **trip_kwargs)
+            if trip is not None:
+                LOGGER.debug("Missed trip reconstructed for VIN %s: %s", self.vin, trip)
+                self._schedule_trip_save()
+            elif was_seeded:
+                self._schedule_trip_save()
+
+    @property
+    def battery_capacity_resolution(self):
+        """(capacity_kwh, source) using override > profile > API, or (None, None).
+
+        Every capacity consumer reads this, so the Total Battery Capacity
+        sensor and the energy maths derived from it can no longer disagree
+        about what the pack holds — which they did: the sensor honoured the
+        API tier while the derived figures did not, leaving unprofiled cars
+        with a populated capacity next to three blank sensors (#262, #302).
+        """
+        return resolve_battery_capacity(
+            self.battery_capacity_override,
+            getattr(self, "_profile_battery_capacity_kwh", None),
+            self._api_battery_capacity_raw(),
+            factor=DATA_DECIMAL_CORRECTION,
+        )
+
+    @property
+    def effective_battery_capacity_kwh(self):
+        """Usable capacity in kWh from any tier, or None if nothing is usable."""
+        return self.battery_capacity_resolution[0]
+
+    def _api_battery_capacity_raw(self):
+        """The car's own totalBatteryCapacity, raw and uncorrected, or None."""
+        charging_data = (self.data or {}).get("charging")
+        rcs = getattr(charging_data, "rvsChargeStatus", None) if charging_data else None
+        raw = getattr(rcs, "totalBatteryCapacity", None) if rcs is not None else None
+        return raw if raw is not None and raw > 0 else None
+
+    def _target_soc_pct(self, charging_data):
+        """The SOC this charge is heading for, as a percentage.
+
+        Falls back to 100 when the car has no target: PHEVs don't support
+        target SOC at all, and a charge with no ceiling runs to full (#262).
+        """
+        chrg = getattr(charging_data, "chrgMgmtData", None) if charging_data else None
+        code = getattr(chrg, "bmsOnBdChrgTrgtSOCDspCmd", None) if chrg else None
+        mapped = TARGET_SOC_PERCENT_BY_CODE.get(code)
+        return mapped if mapped is not None else 100.0
+
+    def projected_range_after_charging_km(self):
+        """Our own estimate of the range at the end of this charge, or None.
+
+        Only used when the car declines to report one. Pure ratio work on the
+        range and SOC the car does give us — no battery capacity involved, so
+        a user's capacity override can't skew it.
+        """
+        data = self.data or {}
+        status = data.get("status")
+        basic_status = getattr(status, "basicVehicleStatus", None) if status else None
+        charging_data = data.get("charging")
+        return project_range_at_target(
+            electric_range_km(
+                basic_status, charging_data, factor=DATA_DECIMAL_CORRECTION
+            ),
+            self._extract_soc_pct(basic_status, charging_data),
+            self._target_soc_pct(charging_data),
+        )
+
+    def _extract_pack_energy_kwh(self, charging_data):
+        """Energy currently held in the pack (kWh), per the car's own figures.
+
+        ``lastChargeEndingPower`` is what the pack held when the last charge
+        finished; ``powerUsageSinceLastCharge`` is what has been taken out
+        since. The difference is therefore the energy in the pack right now,
+        and it holds at both charge boundaries — at the end of a charge the
+        since-charge counter is ~0, so it collapses to lastChargeEndingPower.
+
+        Both fields are inflated ~3× on some models, so both get the profile's
+        charging_capacity_correction (#262). Returns None if either is missing.
+        """
+        rcs = getattr(charging_data, "rvsChargeStatus", None) if charging_data else None
+        if rcs is None:
+            return None
+        raw = getattr(rcs, "lastChargeEndingPower", None)
+        if raw is None or raw < 0:
+            return None
+        ending = apply_energy_correction(
+            "lastChargeEndingPower",
+            raw * DATA_DECIMAL_CORRECTION,
+            self.charging_capacity_correction,
+        )
+        _, used = self._extract_since_charge(charging_data)
+        return ending - (used or 0.0)
+
+    def _charge_snapshot(self, basic_status, charging_data):
+        """Build a ChargeSnapshot for the charge-session tracker, or None."""
+        return ChargeSnapshot(
+            ts=datetime.now(timezone.utc).isoformat(),
+            soc_pct=self._extract_soc_pct(basic_status, charging_data),
+            pack_energy_kwh=self._extract_pack_energy_kwh(charging_data),
+            odometer_km=self._extract_odometer_km(basic_status, charging_data),
+            range_km=electric_range_km(
+                basic_status, charging_data, factor=DATA_DECIMAL_CORRECTION
+            ),
+        )
+
+    def _update_charge_state(self, basic_status, charging_data):
+        """Open/close a charging session so Last Charge Energy can report how
+        much went IN — the API has no such field (#262, @HarryFlatter).
+
+        Only ever evaluated when the charging endpoint actually answered. A
+        failed charging fetch drops charging_data to None and would look
+        identical to the charge ending, and on some cars that endpoint goes
+        quiet the instant a session completes — so a dropout must not be
+        allowed to close (or open) a session.
+        """
+        if self.trip_stats is None:
+            return
+        chrg_mgmt_data = (
+            getattr(charging_data, "chrgMgmtData", None) if charging_data else None
+        )
+        if chrg_mgmt_data is None:
+            return
+        status = getattr(chrg_mgmt_data, "bmsChrgSts", None)
+        if status is None:
+            return
+        charge, changed = self.trip_stats.note_charge_state(
+            status in CHARGE_SESSION_STATUS_CODES,
+            self._charge_snapshot(basic_status, charging_data),
+            capacity_kwh=self.effective_battery_capacity_kwh,
+            now_iso=datetime.now(timezone.utc).isoformat(),
+        )
+        if charge is not None:
+            LOGGER.debug("Charge session completed for VIN %s: %s", self.vin, charge)
+            self.trip_stats.fire_charge_event(charge)
+        if changed:
+            self._schedule_trip_save()
+
+    def _schedule_trip_save(self):
+        """Persist trip state in the background (best-effort)."""
+        try:
+            self.config_entry.async_create_background_task(
+                self.hass,
+                self.trip_stats.async_save(),
+                f"mg_saic_trip_save_{self.vin}",
+            )
+        except Exception as e:  # noqa: BLE001 - persistence must never break a poll
+            LOGGER.debug("Trip save scheduling failed for VIN %s: %s", self.vin, e)
+
     def _update_state(self, data):
         """Update state variables based on fetched data."""
         status_data = data.get("status")
@@ -1045,6 +1660,11 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             self._update_ventilation_from_status(basic_status)
 
             power_mode = getattr(basic_status, "powerMode", None)
+
+            # Trip open/close (#301) — evaluated every poll from power_mode, so
+            # it's independent of the is_powered_on transition (which the 323
+            # start-message hint pre-sets before this poll runs).
+            self._update_trip_state(power_mode, basic_status, charging_data)
 
             # Detect Power State
             # Track previous state so we catch the transition even if a prior
@@ -1079,6 +1699,32 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
                     getattr(chrg_mgmt_data, "bmsChrgSts", None) in CHARGING_STATUS_CODES
                 )
 
+        # Charge-session tracking for Last Charge Energy (#262). Runs before
+        # the transition handling below because it needs the raw charging data
+        # to distinguish a real charge-stop from the endpoint dropping out.
+        self._update_charge_state(
+            getattr(status_data, "basicVehicleStatus", None) if status_data else None,
+            charging_data,
+        )
+
+        # A charging -> not-charging transition (charge complete, or the
+        # charging endpoint dropping out) is registered as activity so the
+        # grace-period poll re-checks soon, instead of the interval jumping
+        # straight to the slow idle poll and missing the "Charging Complete /
+        # Connecting" transition (reported by @HarryFlatter, #262). Note that a
+        # failed charging fetch drops charging_data to None, which flips
+        # is_charging to False — so this also recovers quickly when the charging
+        # endpoint blips. We only trigger on charge-stop; plug-in is already
+        # caught by the lock/shutdown-sequence logic.
+        if self._prev_is_charging and not self.is_charging:
+            LOGGER.debug(
+                "Charging stopped/dropped for VIN %s — flagging activity so a "
+                "grace-period poll re-checks",
+                self.vin,
+            )
+            recent_activity = True
+        self._prev_is_charging = self.is_charging
+
         # Missed-transition guard: if vehicle status was unavailable (None) but
         # charging data confirms the car is now charging, we know the car must
         # have powered off. Fire the shutdown sequence if we haven't already.
@@ -1108,6 +1754,10 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
                 LOGGER.debug(
                     "Updated Last Vehicle Activity: %s", self.last_vehicle_activity
                 )
+            # Genuine detected activity (doors, lock, engine, journey change) is
+            # positive proof the car is awake — clear any stale unreachable flag.
+            # This is distinct from a plain cached-status poll, which is not.
+            self._mark_reachable()
 
         # Notify listeners of data changes
         self.async_update_listeners()
@@ -1263,6 +1913,8 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             dc_charging_update_interval=self.dc_charging_update_interval,
             grace_period_update_interval=self.grace_period_update_interval,
             after_shutdown_update_interval=self.after_shutdown_update_interval,
+            holiday_mode=self.holiday_mode,
+            holiday_update_interval=self.holiday_update_interval,
         )
 
         if self.is_powered_on:
@@ -1285,6 +1937,10 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
     # Additional Update Intervals for Actions and Confirmation
     async def schedule_action_refresh(self, vin, immediate_interval, long_interval):
         """Schedule non-blocking follow-up refreshes after an action."""
+        # A command reached this point, which means it succeeded (failures raise
+        # before here) — positive proof the car is reachable, so clear any
+        # unreachable flag. Covers every command centrally.
+        self.note_command_ok()
         self._action_refresh_generation += 1
         generation = self._action_refresh_generation
 
@@ -1353,7 +2009,8 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
         coordinator may not poll again for up to 15 minutes after the car
         turns off (it was on the powered-on interval). This sequence fires
         a series of extra refreshes at POST_SHUTDOWN_REFRESH_SEQUENCE intervals
-        so that plug-in events are detected within ~1-5 minutes.
+        so that plug-in events are detected within ~1-25 minutes (refreshes at
+        1, 3, 7, 15 and 25 minutes), exiting early as soon as charging is seen.
         """
         # Cancel any existing shutdown refresh from a previous cycle
         if self._shutdown_refresh_task and not self._shutdown_refresh_task.done():
@@ -1459,6 +2116,169 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
                 source or "unknown command"
             )
 
+    def is_climate_blocking_defrost(self) -> bool:
+        """True when a running climate mode would block front defrost.
+
+        The iSmart app refuses to send front defrost while the AC is already
+        running, telling the user to "turn off AC Auto mode" first. This is
+        confirmed by a decrypted capture (2026-07-16): pressing front defrost
+        with the AC on (remoteClimateStatus=2) sent NO command at all — the app
+        blocked it client-side. Only after the AC was switched off
+        (remoteClimateStatus=0) did the defrost command go through.
+
+        We mirror that guard so the user gets a clear, actionable message
+        rather than a command that the vehicle silently ignores — and which
+        would still count against the vehicle's daily remote-command limit.
+
+        Off (0) and defrost itself (5) do not block. Any other active climate
+        mode does: cool / max-cool / heat / fan-only, or 6 (the climate running
+        under local in-car control).
+
+        NOTE: only the cool case (2) is confirmed to be blocked by the app; the
+        other active modes are blocked here on the same principle but are
+        unverified. Over-blocking fails safe — the user is told to turn the AC
+        off, which they can do — whereas under-blocking silently wastes one of
+        the vehicle's limited remote commands.
+        """
+        # Only meaningful on backends that actually offer front defrost. The
+        # India (TAP) backend does not expose front defrost and synthesises
+        # remoteClimateStatus into 0/2 only, so guarding there would wrongly
+        # block on a value that doesn't carry the same meaning. Gate on the
+        # capability so this stays correct if profiles change in future.
+        from .backends import Feature
+
+        if not self.backend_supports(Feature.FRONT_DEFROST):
+            return False
+
+        status = self.data.get("status") if self.data else None
+        basic_status = getattr(status, "basicVehicleStatus", None)
+        if basic_status is None:
+            return False
+        remote_climate = getattr(basic_status, "remoteClimateStatus", None)
+        if remote_climate is None:
+            return False
+        return remote_climate not in (
+            REMOTE_CLIMATE_STATUS_OFF,
+            REMOTE_CLIMATE_STATUS_DEFROST,
+        )
+
+    async def notify_front_defrost_blocked(
+        self, vin: str, source: str | None = None
+    ) -> None:
+        """Fire a persistent notification when front defrost is blocked.
+
+        Mirrors notify_command_limit_reached: raises a persistent notification
+        in the HA UI so the user knows why nothing happened, and records a
+        command_error event so there is a queryable Logbook history.
+
+        Args:
+            vin: the vehicle's VIN.
+            source: short identifier of which control was used, e.g.
+                "switch.front_defrost.turn_on" or "climate.set_preset_mode".
+        """
+        vin_info = getattr(self, "vin_info", None)
+        if vin_info is not None:
+            vehicle_label = f"{vin_info.brandName} {vin_info.modelName} (VIN: {vin})"
+        else:
+            vehicle_label = f"VIN: {vin}"
+
+        await self.hass.services.async_call(
+            "persistent_notification",
+            "create",
+            {
+                "title": "MG SAIC: Front Defrost Blocked",
+                "message": (
+                    f"Front defrost was not started on {vehicle_label} because "
+                    "the air conditioning is already running.\n\n"
+                    "**To fix:** turn the air conditioning off first, then start "
+                    "front defrost.\n\n"
+                    "This mirrors the iSmart app, which also requires AC Auto "
+                    "mode to be turned off before front defrost can be used. The "
+                    "command was not sent, so it has not used up one of the "
+                    "vehicle's limited remote commands."
+                ),
+                "notification_id": f"mg_saic_front_defrost_blocked_{vin}",
+            },
+        )
+        LOGGER.warning(
+            "Front defrost blocked (AC already running) for %s", vehicle_label
+        )
+        self.record_command_error(
+            source or "front_defrost",
+            "Front defrost blocked: the air conditioning is already running",
+        )
+
+    def is_climate_blocking_airflow(self) -> bool:
+        """True when the AC is running and would block AC Airflow.
+
+        The MG HS PHEV (and its app) require the AC to be turned off before the
+        separate AC Airflow ventilation mode can be enabled — the app shows
+        "To turn on airflow, please turn off AC Auto mode" and blocks it
+        client-side (confirmed by decrypted capture, #262). Sending it with the
+        AC on would just be rejected by the car while still using up one of the
+        3 limited remote commands, so we guard it the same way as front defrost
+        and warn the user instead of auto-switching the AC off (which would also
+        cost a command).
+
+        Only meaningful on profiles that map Fan Only to AC Airflow. Off (0) and
+        the car's fan-only/airflow status itself do not block; any other active
+        climate status does.
+        """
+        if not self.climate_fan_only_airflow:
+            return False
+        status = self.data.get("status") if self.data else None
+        basic_status = getattr(status, "basicVehicleStatus", None)
+        if basic_status is None:
+            return False
+        remote_climate = getattr(basic_status, "remoteClimateStatus", None)
+        if remote_climate is None:
+            return False
+        return remote_climate not in (
+            REMOTE_CLIMATE_STATUS_OFF,
+            *self.climate_status_fan_only,
+        )
+
+    async def notify_ac_airflow_blocked(
+        self, vin: str, source: str | None = None
+    ) -> None:
+        """Fire a persistent notification when AC Airflow is blocked.
+
+        Mirrors notify_front_defrost_blocked: the command is NOT sent (so it
+        doesn't waste one of the vehicle's limited remote commands), and the
+        user is told to turn the AC off first.
+        """
+        vin_info = getattr(self, "vin_info", None)
+        if vin_info is not None:
+            vehicle_label = f"{vin_info.brandName} {vin_info.modelName} (VIN: {vin})"
+        else:
+            vehicle_label = f"VIN: {vin}"
+
+        await self.hass.services.async_call(
+            "persistent_notification",
+            "create",
+            {
+                "title": "MG SAIC: AC Airflow Blocked",
+                "message": (
+                    f"AC Airflow was not started on {vehicle_label} because the "
+                    "air conditioning is already running.\n\n"
+                    "**To fix:** turn the air conditioning off first, then select "
+                    "Fan Only to start AC Airflow.\n\n"
+                    "This mirrors the iSmart app, which requires AC Auto mode to "
+                    "be turned off before AC Airflow can be used. The command was "
+                    "not sent, so it has not used up one of the vehicle's limited "
+                    "remote commands."
+                ),
+                "notification_id": f"mg_saic_ac_airflow_blocked_{vin}",
+            },
+        )
+        LOGGER.warning(
+            "AC Airflow blocked (AC already running) for %s", vehicle_label
+        )
+        self.record_command_error(
+            source or "ac_airflow",
+            "AC Airflow blocked: the air conditioning is already running",
+        )
+
     def set_ventilation_active(self, active: bool) -> None:
         """Set/clear the optimistic ventilation flag (called by window buttons)."""
         self.ventilation_active = active
@@ -1498,6 +2318,194 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             self.ventilation_active = False
             self._ventilation_windows_seen_open = False
 
+    async def async_set_holiday_mode(self, enabled: bool) -> None:
+        """Turn holiday mode on/off and persist it.
+
+        Writes ONLY the holiday_mode flag into the config entry options (never
+        the user's configured intervals), which triggers the options update
+        listener -> async_update_options, re-reading the flag and rescheduling
+        the next poll at the holiday (or normal) cadence. Persisting to options
+        means the setting survives a Home Assistant restart — important, since
+        the whole point is to leave the car alone while you're away.
+        """
+        self.holiday_mode = enabled
+        new_options = {**self.config_entry.options, "holiday_mode": enabled}
+        self.hass.config_entries.async_update_entry(
+            self.config_entry, options=new_options
+        )
+        LOGGER.info(
+            "Holiday mode %s for VIN %s",
+            "enabled" if enabled else "disabled",
+            getattr(self, "vin", "?"),
+        )
+
+    def note_command_ok(self) -> None:
+        """Clear the unreachable flag after a command SUCCEEDS.
+
+        A successful remote command is positive proof the car is reachable, so
+        it clears the flag immediately (unlike a status poll, which can be
+        served from cache while the car is asleep).
+        """
+        if self._last_command_unreachable:
+            LOGGER.debug(
+                "Command succeeded; clearing unreachable flag for VIN %s",
+                getattr(self, "vin", "?"),
+            )
+        self._mark_reachable()
+
+    def _mark_reachable(self) -> None:
+        """Clear the unreachable flag and reset the debounce counter.
+
+        Called on positive proof the car is reachable: a status response with a
+        fresh (advanced) statusTime, genuine detected activity, or a successful
+        live command.
+        """
+        self._last_command_unreachable = False
+        self._last_command_unreachable_time = None
+        self._consecutive_unreachable_polls = 0
+
+    def _update_reachability_after_poll(self, fresh_status: bool) -> None:
+        """Apply the code-4 debounce at the end of a poll cycle.
+
+        - Fresh status this cycle → proof of reachability, reset everything.
+        - Otherwise, if this cycle saw a code 4 with no fresh data, count it;
+          flag 'unreachable' only once enough consecutive polls have failed, so
+          a transient mid-drive hiccup doesn't flip the sensor (#238).
+        """
+        if fresh_status:
+            self._mark_reachable()
+        elif self._code4_this_cycle:
+            self._consecutive_unreachable_polls += 1
+            if (
+                self._consecutive_unreachable_polls
+                >= UNREACHABLE_CONSECUTIVE_POLL_THRESHOLD
+                and not self._last_command_unreachable
+            ):
+                self._last_command_unreachable = True
+                self._last_command_unreachable_time = datetime.now(timezone.utc)
+                LOGGER.debug(
+                    "Vehicle flagged unreachable after %s consecutive failed "
+                    "polls for VIN %s",
+                    self._consecutive_unreachable_polls,
+                    getattr(self, "vin", "?"),
+                )
+
+    def note_command_unreachable(self) -> None:
+        """Record that a live command/poll failed with the 'can't reach car'
+        code (4) this cycle.
+
+        This no longer flips the Vehicle Reachability sensor on its own. A single
+        code 4 ("remote control instruction failed, please try again later") is
+        often just a transient backend hiccup — flagging on the first one made
+        the sensor flip-flop to 'unreachable' and back throughout a drive
+        (reported by @SteveMSJ on #238). Instead we mark that this cycle saw a
+        code 4; only after several consecutive polls fail to bring fresh data
+        (see the debounce in _run_update_cycle) is the car flagged unreachable.
+        This also fixes the related edge case Steve raised — a car that stops in
+        a no-signal spot right after a drive: is_powered_on is still 'on' from
+        the last good poll, but because fresh data stops arriving the consecutive
+        failures still cross the threshold and it correctly reads 'unreachable'.
+        """
+        self._code4_this_cycle = True
+        LOGGER.debug(
+            "Return code %s seen this cycle for VIN %s (consecutive so far: %s)",
+            SAIC_RETURN_CODE_UNREACHABLE,
+            getattr(self, "vin", "?"),
+            self._consecutive_unreachable_polls,
+        )
+
+    @property
+    def current_remote_climate_status(self):
+        """The car's raw remoteClimateStatus value, or None if unavailable."""
+        status = self.data.get("status") if self.data else None
+        basic = getattr(status, "basicVehicleStatus", None) if status else None
+        return getattr(basic, "remoteClimateStatus", None) if basic else None
+
+    def climate_mode_from_status(self):
+        """Decode remoteClimateStatus into a mode string.
+
+        Returns one of "off", "cool", "fan_only", "heat", "defrost",
+        "on_local", "unknown", or None when no status is available. Uses the
+        same per-model reverse maps the climate entity uses, so the A/C switch
+        and the Climate Mode sensor agree with the climate entity's hvac_mode.
+        """
+        s = self.current_remote_climate_status
+        if s is None:
+            return None
+        if s in self.climate_status_heat:
+            return "heat"
+        if s in self.climate_status_defrost:
+            return "defrost"
+        if s in self.climate_status_cool:
+            return "cool"
+        if s in self.climate_status_fan_only:
+            return "fan_only"
+        if s == 0:
+            return "off"
+        if s == 6:
+            # 6 = the climate is running under LOCAL control — i.e. the driver
+            # is operating it from the dashboard (typically while driving), not
+            # a remote command. Confirmed SAIC-wide, not tied to a profile.
+            return "on_local"
+        return "unknown"
+
+    @property
+    def vehicle_reachability(self) -> str:
+        """Inferred reachability state for the Vehicle Reachability sensor.
+
+        - unreachable:   a live command recently failed with code 4
+        - awake:         car powered on, or the car reported recently
+        - likely_asleep: the car has not reported for longer than the
+                         stale-data threshold
+
+        The staleness basis is the vehicle's OWN status timestamp
+        (`statusTime` — when the car last reported to SAIC), NOT our polling
+        cadence, so slowing polling (holiday mode) cannot falsely flip it to
+        asleep. Using statusTime rather than our activity detection also means
+        a car that is awake and returning fresh data reads "awake" even if
+        none of the monitored fields happened to change between polls — the
+        previous behaviour left such a car stuck on "likely_asleep" (reported
+        by @SteveMSJ on #238).
+        """
+        if self._last_command_unreachable:
+            return VEHICLE_REACHABILITY_UNREACHABLE
+        if self.is_powered_on:
+            return VEHICLE_REACHABILITY_AWAKE
+
+        # Prefer the car's own reported timestamp; fall back to detected
+        # activity if the response didn't carry one.
+        reference = None
+        status = self.data.get("status") if self.data else None
+        status_time = getattr(status, "statusTime", None)
+        if status_time is not None:
+            try:
+                reference = datetime.fromtimestamp(status_time, tz=timezone.utc)
+            except (ValueError, OSError, OverflowError):
+                reference = None
+        if reference is None:
+            reference = self.last_vehicle_activity
+
+        if reference is not None:
+            stale_for = datetime.now(timezone.utc) - reference
+            if stale_for >= self.stale_data_threshold:
+                return VEHICLE_REACHABILITY_LIKELY_ASLEEP
+        return VEHICLE_REACHABILITY_AWAKE
+
+    @property
+    def data_freshness(self) -> str | None:
+        """How current the data from the most recent poll was (#238).
+
+        A separate axis from vehicle_reachability:
+        - live:   the poll returned a status whose timestamp advanced (proof of
+                  live contact with the car).
+        - cached: the poll succeeded but SAIC served the same, unchanged status
+                  (the car is asleep / not reporting fresh data).
+        - failed: the poll errored (e.g. a transient "return code 4").
+
+        None until the first poll cycle completes.
+        """
+        return self._last_poll_result
+
     def record_command_error(self, source: str, error: Exception | str) -> None:
         """Record a generic command failure via the command-error Event entity.
 
@@ -1515,6 +2523,12 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
                 "climate.set_hvac_mode" or "switch.sunroof.turn_on".
             error: the exception or error message that occurred.
         """
+        # Detect the "can't reach the car" return code (4) from any command
+        # failure and flag reachability. All command errors flow through here,
+        # so this single hook covers every entity without per-handler changes.
+        if f"return code: {SAIC_RETURN_CODE_UNREACHABLE}" in str(error):
+            self.note_command_unreachable()
+
         if self._command_error_event_entity is None:
             return
         try:
@@ -1590,8 +2604,6 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
                 data = await fetch_func()
                 if data is None:
                     LOGGER.warning("%s returned None.", data_name.capitalize())
-                    if self.is_initial_setup:
-                        return None
                     raise UpdateFailed(f"{data_name.capitalize()} is None.")
                 if is_generic_func(data):
                     LOGGER.warning("Generic %s response received.", data_name)
@@ -1600,6 +2612,16 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             except (UpdateFailed, GenericResponseException, Exception) as e:
                 retries += 1
                 exc_str = str(e)
+
+                # Return code 4 = "can't reach the car". Previously only failed
+                # *commands* set the Reachability sensor to 'unreachable'; a
+                # failed *status* poll (manual or scheduled refresh) left it
+                # showing 'awake' for the whole retry window. Flag it as soon as
+                # the car rejects the fetch so the sensor reflects reality
+                # immediately (reported by @SteveMSJ, #238). Cleared again by a
+                # fresh status response or a successful command.
+                if f"return code: {SAIC_RETURN_CODE_UNREACHABLE}" in exc_str:
+                    self.note_command_unreachable()
 
                 # 401 means our token was invalidated — re-login immediately
                 # rather than waiting RETRY_BACKOFF_FACTOR seconds.  This is
@@ -1620,46 +2642,6 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
                             "Re-login failed for VIN %s: %s", self.vin, login_exc
                         )
                     # No sleep — retry immediately after re-auth
-                    continue
-
-                # Check for specific return code 4 errors (remote control instruction failed)
-                error_lower = exc_str.lower()
-                if "return code: 4" in error_lower or "remote control instruction failed" in error_lower:
-                    LOGGER.warning(
-                        "MG SAIC API return code 4 (remote control failed) for VIN %s - "
-                        "attempt %d/%d: %s. This often indicates server maintenance "
-                        "or rate limiting. Will retry with longer backoff.",
-                        self.vin,
-                        retries,
-                        RETRY_LIMIT,
-                        e,
-                    )
-                    delay = RETRY_BACKOFF_FACTOR * (2 ** retries)
-                    # Longer backoff for rate limiting errors
-                    delay = min(delay * 2, 60)  # Extra delay for rate limiting
-                    await asyncio.sleep(delay)
-                    continue
-
-                # Check for "Starting MG SAIC" messages or similar startup indicators
-                if any(
-                    startup_indicator in error_lower
-                    for startup_indicator in [
-                        "starting mg saic",
-                        "not everything will be available",
-                        "startup",
-                        "initializing",
-                    ]
-                ):
-                    LOGGER.warning(
-                        "MG SAIC server appears to be starting/updating for VIN %s - "
-                        "attempt %d/%d: %s. Server may be unavailable temporarily - will retry.",
-                        self.vin,
-                        retries,
-                        RETRY_LIMIT,
-                        e,
-                    )
-                    delay = RETRY_BACKOFF_FACTOR * (2 ** retries)
-                    await asyncio.sleep(delay)
                     continue
 
                 delay = RETRY_BACKOFF_FACTOR

@@ -1,0 +1,68 @@
+- alias: "Alexa: Modalità Uscita"
+  id: alexa_modalita_uscita
+  trigger:
+    - platform: state
+      entity_id: light.uscita
+      to: "on"
+  action:
+    # 0. Attiva blocco per evitare che l'apertura porta riaccenda la luce scale
+    - service: input_boolean.turn_on
+      target:
+        entity_id: input_boolean.block_scale_light_on_door_open
+    # 1. Verifica modalità tethering = Normale
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ states('input_select.usb_tether_mode') != 'Normale' }}"
+          sequence:
+            - action: system_log.write
+              data:
+                level: warning
+                message: "Alexa Uscita: modalità tethering NON è Normale (attuale: {{ states('input_select.usb_tether_mode') }})"
+            - service: notify.send_message
+              target:
+                entity_id: notify.cucina_speak
+              data:
+                message: "Attenzione: la connessione non è in modalità Normale. Attualmente è {{ states('input_select.usb_tether_mode') }}. Cambiala in Normale prima di uscire."
+    # 2. Spegni tutte le luci (tranne light.uscita che è il trigger)
+    - service: light.turn_off
+      target:
+        entity_id:
+          - light.luce_scale
+          - light.verifica
+    - service: switch.turn_off
+      target:
+        entity_id:
+          - switch.luci_cucina
+          - switch.bancone_cucina
+          - switch.tavolo_cucina
+          - switch.cucina_luci_cucina_switch_4
+    # 3. Spegni radio/sistema audio se in riproduzione
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: media_player.sistema_audio
+              state: "playing"
+          sequence:
+            - service: media_player.media_stop
+              target:
+                entity_id: media_player.sistema_audio
+    # 4. Accendi luci scale (per percorso uscita)
+    - service: light.turn_on
+      target:
+        entity_id: light.luce_scale
+    # 5. Saluto finale
+    - service: notify.send_message
+      target:
+        entity_id: notify.cucina_speak
+      data:
+        message: "Arrivederci Carlo!"
+    # 6. Auto-reset input_boolean dopo 3 secondi
+    - delay: "00:00:03"
+    - service: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.alexa_accendi_uscita
+    # 7. Disattiva blocco apertura porta
+    - service: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.block_scale_light_on_door_open

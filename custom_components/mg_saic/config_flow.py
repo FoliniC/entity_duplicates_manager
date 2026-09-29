@@ -6,9 +6,18 @@ from contextlib import suppress
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .backends import REGION_INDIA, create_backend
 from .backends.india import IndiaBackendNotReadyError, hash_india_pin
 from .const import (
+    ABRP_DOC_URL,
+    CONF_ABRP_API_KEY,
+    CONF_ABRP_USER_TOKEN,
+    CONF_HOLIDAY_UPDATE_INTERVAL,
+    CONF_STALE_DATA_THRESHOLD,
+    CONF_BATTERY_CAPACITY_OVERRIDE,
+    DEFAULT_HOLIDAY_UPDATE_INTERVAL_HOURS,
+    DEFAULT_STALE_DATA_THRESHOLD_HOURS,
     AFTER_ACTION_UPDATE_INTERVAL_DELAY,
     CONF_HAS_BATTERY_HEATING,
     CONF_HAS_HEATED_SEATS,
@@ -41,8 +50,36 @@ from .const import (
     UPDATE_INTERVAL_GRACE_PERIOD,
     UPDATE_INTERVAL_POWERED,
 )
+from .logic import build_vehicle_options
 from saic_ismart_client_ng import SaicApi
 from saic_ismart_client_ng.model import SaicApiConfiguration
+
+# A masked (password-type) text input for the credential fields.  The import is
+# wrapped so the integration still loads under the lightweight import-based test
+# harness (tests/), which stubs homeassistant.helpers without a real selector
+# module; there it falls back to a plain string field.
+try:  # pragma: no cover - exercised at runtime, shimmed under tests
+    from homeassistant.helpers.selector import (
+        TextSelector,
+        TextSelectorConfig,
+        TextSelectorType,
+    )
+
+    PASSWORD_SELECTOR = TextSelector(
+        TextSelectorConfig(type=TextSelectorType.PASSWORD)
+    )
+except Exception:  # noqa: BLE001 - any import failure means "no selector here"
+    PASSWORD_SELECTOR = str
+
+
+class NoVehiclesFoundError(Exception):
+    """Login succeeded, but the account has no vehicles linked to it.
+
+    Raised by the vehicle-fetch helpers so the config flow can surface a
+    distinct, actionable "add a car in the iSMART app first" message instead
+    of the generic "check your credentials" error — the credentials are, in
+    fact, correct in this case (issue #294).
+    """
 
 
 @callback
@@ -70,6 +107,9 @@ class SAICMGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self.india_pin_hash = None
         self.vin = None
         self.vehicles = []
+        self._existing_entry = None
+        self.vehicle_options = {}
+        self.vehicle_label = None
         self.vehicle_type = None
 
         self.has_sunroof = False
@@ -99,7 +139,10 @@ class SAICMGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             self.username = user_input["username"]
-            self.password = user_input["password"]
+            # Strip stray whitespace: passwords are frequently pasted from a
+            # password manager and a trailing space or newline otherwise causes
+            # a silent, hard-to-diagnose login failure (issue #250).
+            self.password = user_input["password"].strip()
             username_is_email = self.login_type == "email"
 
             self.region = user_input["region"]
@@ -120,6 +163,11 @@ class SAICMGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 await self.fetch_vehicle_data(username_is_email)
                 return await self.async_step_select_vehicle()
+            except NoVehiclesFoundError as e:
+                errors["base"] = "no_vehicles"
+                LOGGER.warning(
+                    "Login succeeded but the account has no vehicles: %s", e
+                )
             except Exception as e:
                 errors["base"] = "auth"
                 LOGGER.error(f"Failed to authenticate or fetch vehicle data: {e}")
@@ -128,7 +176,7 @@ class SAICMGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema = vol.Schema(
                 {
                     vol.Required("username"): str,
-                    vol.Required("password"): str,
+                    vol.Required("password"): PASSWORD_SELECTOR,
                     vol.Required("region"): vol.In(REGION_CHOICES),
                 }
             )
@@ -138,7 +186,7 @@ class SAICMGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required("country_code"): vol.In(country_options),
                     vol.Required("username"): str,
-                    vol.Required("password"): str,
+                    vol.Required("password"): PASSWORD_SELECTOR,
                     vol.Required("region"): vol.In(REGION_CHOICES),
                 }
             )
@@ -165,6 +213,11 @@ class SAICMGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 await self.fetch_vehicle_data(username_is_email)
                 return await self.async_step_select_vehicle()
+            except NoVehiclesFoundError as e:
+                errors["base"] = "no_vehicles"
+                LOGGER.warning(
+                    "Login succeeded but the account has no vehicles: %s", e
+                )
             except Exception as e:
                 errors["base"] = "auth"
                 LOGGER.error(f"Failed to authenticate or fetch vehicle data: {e}")
@@ -208,6 +261,12 @@ class SAICMGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     return await self.async_step_select_vehicle()
                 except IndiaBackendNotReadyError:
                     return self.async_abort(reason="india_backend_not_ready")
+                except NoVehiclesFoundError as e:
+                    errors["base"] = "no_vehicles"
+                    LOGGER.warning(
+                        "Login succeeded but the account has no vehicles (India): %s",
+                        e,
+                    )
                 except Exception as e:
                     errors["base"] = "auth"
                     LOGGER.error(
@@ -247,8 +306,11 @@ class SAICMGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             await backend.login()
             vehicles = await backend.get_vehicle_info()
             if not vehicles:
-                raise Exception("India vehicle list returned no vehicles")
-            self.vehicles = [getattr(v, "vin", v) for v in vehicles]
+                raise NoVehiclesFoundError(
+                    "India vehicle list returned no vehicles"
+                )
+            self.vehicle_options = build_vehicle_options(vehicles)
+            self.vehicles = list(self.vehicle_options)
             LOGGER.info("Fetched India vehicle data successfully.")
         finally:
             with suppress(Exception):
@@ -261,6 +323,7 @@ class SAICMGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self.vehicle_type = user_input["vehicle_type"]  # Store vehicle type
 
             self.vin = selected_vin
+            self.vehicle_label = self.vehicle_options.get(selected_vin, selected_vin)
             return await self.async_step_vehicle_capabilities()
 
         # Filter out VINs that are already configured in HA so the user cannot
@@ -272,10 +335,14 @@ class SAICMGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Every VIN on this account is already set up — nothing to add.
             return self.async_abort(reason="already_configured")
 
+        available_vehicle_options = {
+            vin: self.vehicle_options.get(vin, vin) for vin in available_vehicles
+        }
+
         # Add vehicle_type selection with fallback for user confirmation
         data_schema = vol.Schema(
             {
-                vol.Required("vin"): vol.In(available_vehicles),
+                vol.Required("vin"): vol.In(available_vehicle_options),
                 vol.Required("vehicle_type"): vol.In(["BEV", "PHEV", "HEV", "ICE"]),
             }
         )
@@ -298,7 +365,7 @@ class SAICMGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self.has_window_control = user_input["has_window_control"]
 
             return self.async_create_entry(
-                title=f"MG SAIC - {self.vin}",
+                title=f"MG SAIC - {self.vehicle_label or self.vin}",
                 data={
                     "username": self.username,
                     "password": self.password,
@@ -341,6 +408,78 @@ class SAICMGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="vehicle_capabilities", data_schema=data_schema, errors=errors
+        )
+
+    # ── Re-authentication / reconfigure ─────────────────────────────────────
+    #
+    # Issue #250: when the iSmart password is changed, the stored one stops
+    # working.  Previously the only fix was to delete and re-add the
+    # integration.  async_setup_entry now raises ConfigEntryAuthFailed on a
+    # credential failure, which drives Home Assistant into async_step_reauth
+    # below; the user can also start async_step_reconfigure themselves at any
+    # time from the integration's menu.  Both reuse every stored account
+    # detail and ask only for the new password.
+
+    async def async_step_reauth(self, entry_data=None):
+        """Handle re-authentication triggered by a credential failure."""
+        return await self._start_credential_update()
+
+    async def async_step_reconfigure(self, user_input=None):
+        """Handle a user-initiated password update from the entry menu."""
+        return await self._start_credential_update()
+
+    async def _start_credential_update(self):
+        """Load the existing entry's account details before asking for a new
+        password."""
+        self._existing_entry = self.hass.config_entries.async_get_entry(
+            self.context["entry_id"]
+        )
+        data = self._existing_entry.data
+        self.login_type = data.get("login_type")
+        self.username = data.get("username")
+        self.country_code = data.get("country_code")
+        self.region = data.get("region")
+        self.custom_base_uri = data.get("custom_base_uri")
+        self.custom_region_code = data.get("region_code")
+        self.custom_tenant_id = data.get("tenant_id")
+        self.india_pin_hash = data.get("india_pin_hash")
+        self.vin = data.get("vin")
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(self, user_input=None):
+        """Ask for the new password, validate it, and update the entry."""
+        errors = {}
+        if user_input is not None:
+            # Same whitespace guard as the initial login (issue #250).
+            self.password = user_input["password"].strip()
+            try:
+                username_is_email = self.login_type == "email"
+                if self.region == REGION_INDIA:
+                    await self.fetch_vehicle_data_india()
+                else:
+                    await self.fetch_vehicle_data(username_is_email)
+            except NoVehiclesFoundError as e:  # noqa: BLE001 - surfaced as a form error
+                errors["base"] = "no_vehicles"
+                LOGGER.warning(
+                    "Re-authentication succeeded but the account has no vehicles: %s",
+                    e,
+                )
+            except Exception as e:  # noqa: BLE001 - surfaced as a form error
+                errors["base"] = "auth"
+                LOGGER.error("Re-authentication failed: %s", e)
+            else:
+                return self.async_update_reload_and_abort(
+                    self._existing_entry,
+                    data={**self._existing_entry.data, "password": self.password},
+                )
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=vol.Schema(
+                {vol.Required("password"): PASSWORD_SELECTOR}
+            ),
+            description_placeholders={"username": self.username or ""},
+            errors=errors,
         )
 
     async def fetch_vehicle_data(self, username_is_email):
@@ -390,7 +529,9 @@ class SAICMGConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 not hasattr(vehicle_list_resp, "vinList")
                 or not vehicle_list_resp.vinList
             ):
-                raise Exception("Vehicle list API returned no vehicles")
+                raise NoVehiclesFoundError(
+                    "Vehicle list API returned no vehicles"
+                )
 
             # Now safely iterate over vinList
             self.vehicles = [car.vin for car in vehicle_list_resp.vinList]
@@ -415,10 +556,32 @@ class SAICMGOptionsFlowHandler(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
-        if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+        errors = {}
+        def _normalise_capacity(user_input, errors):
+            """Blank clears the override; otherwise store a validated float."""
+            raw = user_input.get(CONF_BATTERY_CAPACITY_OVERRIDE, "")
+            if raw in (None, ""):
+                user_input.pop(CONF_BATTERY_CAPACITY_OVERRIDE, None)
+                return
+            try:
+                value = float(raw)
+            except (TypeError, ValueError):
+                errors[CONF_BATTERY_CAPACITY_OVERRIDE] = "capacity_invalid"
+                return
+            if not 1 <= value <= 250:
+                errors[CONF_BATTERY_CAPACITY_OVERRIDE] = "capacity_out_of_range"
+                return
+            user_input[CONF_BATTERY_CAPACITY_OVERRIDE] = value
 
-        self.options = self.config_entry.options
+        if user_input is not None:
+            errors = await self._validate_abrp(user_input)
+            _normalise_capacity(user_input, errors)
+            if not errors:
+                return self.async_create_entry(title="", data=user_input)
+
+        # On first render use the saved options; on a validation error re-render
+        # with the values the user just entered so nothing is lost.
+        self.options = {**self.config_entry.options, **(user_input or {})}
 
         # Access options directly using self.options
         data_schema = vol.Schema(
@@ -466,6 +629,42 @@ class SAICMGOptionsFlowHandler(config_entries.OptionsFlow):
                         self.config_entry.data.get("has_window_control", False),
                     ),
                 ): bool,
+                # Usable battery capacity override (kWh). Takes priority over our
+                # per-model value and the API's reported capacity, and feeds the
+                # Total Battery Capacity sensor and the efficiency/trip energy
+                # calculations. A plain text field (so it serialises and can be
+                # cleared); validated/normalised to a float on submit. Uses
+                # suggested_value (not default) so blank clears the override.
+                vol.Optional(
+                    CONF_BATTERY_CAPACITY_OVERRIDE,
+                    description={
+                        "suggested_value": self.options.get(
+                            CONF_BATTERY_CAPACITY_OVERRIDE, ""
+                        )
+                    },
+                ): str,
+                # A Better Route Planner (ABRP) live-data push. Both the user
+                # token and the API key are user-supplied and required to enable
+                # ABRP for this vehicle; clear both to disable it.
+                #
+                # NOTE: these use `suggested_value`, NOT `default`. With a
+                # default, Home Assistant re-applies the old value when the field
+                # is submitted empty, so the field can never be cleared —
+                # meaning ABRP could not be turned off once set.
+                vol.Optional(
+                    CONF_ABRP_USER_TOKEN,
+                    description={
+                        "suggested_value": self.options.get(
+                            CONF_ABRP_USER_TOKEN, ""
+                        )
+                    },
+                ): str,
+                vol.Optional(
+                    CONF_ABRP_API_KEY,
+                    description={
+                        "suggested_value": self.options.get(CONF_ABRP_API_KEY, "")
+                    },
+                ): str,
                 # Behaviour options
                 vol.Optional(
                     "enable_shutdown_refresh_sequence",
@@ -478,6 +677,24 @@ class SAICMGOptionsFlowHandler(config_entries.OptionsFlow):
                     "update_interval",
                     default=self.options.get(
                         "update_interval", self.get_minutes(UPDATE_INTERVAL)
+                    ),
+                ): vol.All(vol.Coerce(int), vol.Range(min=1)),
+                # Holiday-mode idle interval (HOURS) and stale-data threshold
+                # (HOURS). Holiday mode itself is toggled via its switch entity,
+                # not here — these just tune its interval and the reachability
+                # sensor's "likely asleep" threshold.
+                vol.Optional(
+                    CONF_HOLIDAY_UPDATE_INTERVAL,
+                    default=self.options.get(
+                        CONF_HOLIDAY_UPDATE_INTERVAL,
+                        DEFAULT_HOLIDAY_UPDATE_INTERVAL_HOURS,
+                    ),
+                ): vol.All(vol.Coerce(int), vol.Range(min=1)),
+                vol.Optional(
+                    CONF_STALE_DATA_THRESHOLD,
+                    default=self.options.get(
+                        CONF_STALE_DATA_THRESHOLD,
+                        DEFAULT_STALE_DATA_THRESHOLD_HOURS,
                     ),
                 ): vol.All(vol.Coerce(int), vol.Range(min=1)),
                 vol.Optional(
@@ -617,7 +834,58 @@ class SAICMGOptionsFlowHandler(config_entries.OptionsFlow):
             }
         )
 
-        return self.async_show_form(step_id="init", data_schema=data_schema)
+        return self.async_show_form(
+            step_id="init",
+            data_schema=data_schema,
+            errors=errors,
+            description_placeholders={"abrp_doc_url": ABRP_DOC_URL},
+        )
+
+    async def _validate_abrp(self, user_input):
+        """Validate ABRP credentials when the token was set or changed.
+
+        Returns an ``errors`` dict (empty when OK). Validation only runs when a
+        token is present and either the token or the key differs from what is
+        already stored, so saving unrelated options never triggers a network
+        call.
+        """
+        errors = {}
+        token = (user_input.get(CONF_ABRP_USER_TOKEN) or "").strip()
+        api_key = (user_input.get(CONF_ABRP_API_KEY) or "").strip()
+
+        # Normalise stored values back into user_input so we persist trimmed
+        # strings regardless of the validation outcome.
+        user_input[CONF_ABRP_USER_TOKEN] = token
+        user_input[CONF_ABRP_API_KEY] = api_key
+
+        if not token:
+            return errors  # ABRP disabled — nothing to validate
+
+        stored = self.config_entry.options
+        stored_token = (stored.get(CONF_ABRP_USER_TOKEN) or "").strip()
+        stored_key = (stored.get(CONF_ABRP_API_KEY) or "").strip()
+        if token == stored_token and api_key == stored_key:
+            return errors  # unchanged — assume still valid, skip network call
+
+        # Both credentials are user-supplied; there is no shared default key.
+        # A token without its API key means ABRP can't be enabled.
+        if not api_key:
+            errors["base"] = "abrp_no_api_key"
+            return errors
+
+        from .abrp import AbrpApi, AbrpAuthError, AbrpConnectionError
+
+        session = async_get_clientsession(self.hass)
+        try:
+            await AbrpApi(session, api_key, token).async_validate()
+        except AbrpAuthError:
+            errors["base"] = "abrp_invalid_auth"
+        except AbrpConnectionError:
+            errors["base"] = "abrp_cannot_connect"
+        except Exception:  # noqa: BLE001
+            LOGGER.exception("Unexpected error validating ABRP credentials")
+            errors["base"] = "abrp_unknown"
+        return errors
 
     def get_minutes(self, interval):
         """Convert timedelta to minutes."""

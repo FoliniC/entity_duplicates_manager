@@ -108,8 +108,23 @@ Le telecamere smartphone usano l'app custom **StreamPack** (`io.github.thibaultb
 
 ### Architettura e Inoltro di Rete
 ```
-Redmi Note 11 Pro 5G (USB tethering) → Router OpenWrt (RNDIS gw 10.203.33.202) → DNAT 1935 → Debian MediaMTX (192.168.0.3:1935) → Masquerade br-lan → Frigate/HA
+Redmi Note 11 Pro 5G (rndis0, IP dinamico) → Router OpenWrt usb0 (IP dinamico)
+  → alias dinamico <subnet>.10 su Debian (192.168.0.3 / MediaMTX:1935)
+  → RTMP path live/telefono → MediaMTX RTSP :8890 → Frigate locale_tecnico
 ```
+
+#### StreamPack su USB tethering anche in modalità Intranet — verificato 2026-09-16
+
+Il tethering RNDIS può restare **attivo come link locale** anche quando il router è in **Intranet**: la default route del router resta `default via 192.168.0.3 dev br-lan metric 9`; non va sostituita con usb0. Il flusso RTMP usa invece la subnet USB direttamente.
+
+1. Ottenere il lease USB su `usb0` **senza aggiungere una default route**; quindi ricavare `ALIAS="${USB0_IP%.*}.10"`.
+2. Sul router: `proxy_arp=1`, neighbor proxy per `ALIAS`, route `ALIAS via 192.168.0.3 dev br-lan`, e masquerade da `<subnet>.0/24` verso `192.168.0.3:1935`.
+3. Su Debian: assegnare `ALIAS/32` a `enp2s0`; MediaMTX ascolta su `:1935`.
+4. Scrivere nell'app: `rtmp://ALIAS:1935/live/telefono` (mai un IP storico fisso).
+
+Esempio verificato: telefono `rndis0=10.101.166.82`, router `usb0=10.101.166.9`, alias Debian `10.101.166.10`; il router è rimasto in Intranet. Evidenze end-to-end: MediaMTX `is publishing to path 'live/telefono'` / `stream is available and online`, e Frigate `locale_tecnico.camera_fps≈5`.
+
+Gli script `/usr/bin/streampack-rndis-configure.sh` (router) e `host_scripts/streampack_alias_sync_tick.sh` (Debian) mantengono questa sincronizzazione dinamica.
 
 | **Telefono origine dello stream** | Collegamento | IP assegnato | Porta streaming | Destinazione | Note |
 |---|---|---|---|---|---|

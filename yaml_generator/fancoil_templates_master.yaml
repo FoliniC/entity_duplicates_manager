@@ -2,6 +2,10 @@
 - binary_sensor: !include_dir_merge_list managed_binary_sensors/
 - !include ev_charge_2025_triggers.yaml
 - !include luce_scale_template.yaml
+- !include templates/verifica_light.yaml
+- !include templates/uscita_light.yaml
+- !include templates/entrata_light.yaml
+- !include templates/ritorno_a_casa_light.yaml
 - !include managed_trigger_sensors/cucina_climate_advice.yaml
 - !include managed_trigger_sensors/camera_grande_climate_advice.yaml
 - !include managed_trigger_sensors/camera_climate_advice.yaml

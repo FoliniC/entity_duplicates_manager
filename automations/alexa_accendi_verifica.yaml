@@ -1,0 +1,22 @@
+- alias: "Alexa: Comando Accendi Verifica"
+  id: alexa_accendi_verifica
+  trigger:
+    - platform: state
+      entity_id: input_boolean.alexa_accendi_verifica
+      to: "on"
+  action:
+    # 1. Log che la chiamata ha funzionato
+    - action: system_log.write
+      data:
+        level: info
+        message: "Alexa Accendi Verifica: chiamata verificata com successo"
+    # 2. Invia messaggio al device alexa della cucina
+    - service: notify.send_message
+      target:
+        entity_id: notify.cucina_speak
+      data:
+        message: "Comando accendi verificato con successo - sistema pronto"
+    # 3. Spegni input_boolean
+    - service: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.alexa_accendi_verifica

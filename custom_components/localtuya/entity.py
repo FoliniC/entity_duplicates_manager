@@ -19,7 +19,6 @@ from homeassistant.const import (
     EntityCategory,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
-    ATTR_VIA_DEVICE,
 )
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import (
@@ -266,7 +265,7 @@ class LocalTuyaEntity(RestoreEntity, pytuya.ContextualLogger):
         )
 
         if self._device.is_subdevice and self._device.id != self._device.gateway.id:
-            device_info[ATTR_VIA_DEVICE] = (DOMAIN, f"local_{self._device.gateway.id}")
+            device_info["via_device_id"] = (DOMAIN, f"local_{self._device.gateway.id}")
         return device_info
 
     @property

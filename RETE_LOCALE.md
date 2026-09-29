@@ -2023,3 +2023,129 @@ Aggiunto un pulsante dedicato nella dashboard `/internet-traffic/tethering-usb` 
 - **Pulsante Dashboard (`dashboards/internet_traffic.yaml`)**:
   Pulsante viola `"📱 AVVIA SCRCPY (SCHERMO DEBIAN 192.168.0.3)"` sotto i comandi tethering della vista `/internet-traffic/tethering-usb`.
 
+---
+
+## Fix NetworkManager: Connessione duplicata su enp2s0 (23 Settembre 2026)
+
+### Problema riscontrato
+La modalità **Intranet** (tethering USB via Debian) non funzionava: il router perdeva internet nonostante il tethering USB fosse attivo e il preflight passasse.
+
+### Root cause
+NetworkManager aveva **due connessioni configurate per la stessa interfaccia fisica `enp2s0`**:
+
+| Connessione | Gateway | `never-default` | DNS |
+|-------------|---------|-----------------|-----|
+| **LAN** | `192.168.0.11` (router) | `no` | `192.168.0.3` (self) |
+| **enp2s0** | (nessuno) | **`yes`** | `192.168.0.11` (router) |
+
+In modalità **Intranet**, Debian deve:
+- Avere IP statico `192.168.0.3` su `enp2s0` **senza default gateway** (altrimenti il traffico LAN va verso il router invece che verso il tethering USB)
+- Usare il tethering USB (`enx*`) come default route per internet
+- Fare NAT per il router
+
+La connessione **"LAN"** con gateway e `never-default: no` **rompeva l'Intranet** perché aggiungeva una default route via router (metric 102), competendo con la route tethering USB (metric 101).
+
+### Fix applicato
+```bash
+sudo nmcli con delete 'LAN'
+```
+
+### Verifica post-fix
+- Una sola connessione per `enp2s0` con `never-default: yes` e nessun gateway
+- Default route via USB tethering (`enx*` metric 101)
+- LAN `192.168.0.0/24` su `enp2s0` metric 102 (no default route)
+- Intranet confermata funzionante: router su `br-lan metric 9` → Debian → USB tethering → internet
+
+### Lezione
+NetworkManager applica **tutte** le connessioni attive per un'interfaccia. Se ce ne sono più di una con proprietà contrastanti (gateway sì/no, never-default sì/no), il risultato è imprevedibile. Per interfacce critiche come `enp2s0` (LAN + anchor Intranet), **deve esistere una sola connessione NM**.
+
+---
+
+## emulated_hue Bridge su IP Secondario (25 Settembre 2026)
+
+### Contesto
+Alexa **richiede porta 80** per il bridge Hue emulato. L'integrazione `emulated_hue` su porta 8300 non permetteva il discovery di nuovi dispositivi.
+
+### Soluzione: IP Secondario Statico
+| Servizio | IP | Porta | Binding |
+|----------|-----|-------|---------|
+| Nginx Proxy Manager | `192.168.0.3` | 80, 81, 443, 8443 | `192.168.0.3:80` only |
+| emulated_hue Bridge | **`192.168.0.48`** | **80** | `192.168.0.48:80` |
+
+### Implementazione
+
+#### 1. IP Secondario Persistente su enp2s0
+```bash
+# NetworkManager (sopravvive a reboot)
+sudo nmcli connection modify enp2s0 +ipv4.addresses 192.168.0.48/24
+sudo nmcli connection up enp2s0
+```
+Verifica:
+```bash
+ip -4 addr show dev enp2s0
+# enp2s0: 192.168.0.3/24, 192.168.0.48/24
+```
+
+- MAC: `90:1B:0E:94:51:1C` (stesso di `.3`)
+- **Non creare prenotazione DHCP** per `.48` (stesso MAC); escludere solo dal pool dinamico AdGuard.
+
+#### 2. Nginx Proxy Manager — Vincolo a IP Primario
+```yaml
+# docker-compose.yml
+npm:
+  ports:
+    - 192.168.0.3:80:80
+    - 192.168.0.3:81:81
+    - 192.168.0.3:443:443
+    - 192.168.0.3:8443:8443
+```
+Risultato: `docker inspect npm` mostra porte mappate solo su `192.168.0.3`.
+
+#### 3. emulated_hue — Configurazione su IP Secondario
+```yaml
+# configuration.yaml
+emulated_hue:
+  host_ip: 192.168.0.48
+  advertise_ip: 192.168.0.48
+  listen_port: 80
+  expose_by_default: false
+  entities:
+    input_boolean.buongiorno_alexa:
+      name: "Buongiorno"
+      type: switch
+    input_boolean.verifica_alexa:
+      name: "Direzione"
+      type: switch
+```
+
+### Verifica Funzionamento
+```bash
+# SSDP announce (log HA)
+# LOCATION: http://192.168.0.48:80/description.xml
+
+# Bridge descriptor
+curl http://192.168.0.48/description.xml
+# <URLBase>http://192.168.0.48:80/</URLBase>
+
+# API dispositivi
+curl http://192.168.0.48/api/nouser/lights
+# {"45":{"name":"Buongiorno",...},"46":{"name":"Direzione",...}}
+```
+
+### Discovery Alexa
+1. App Alexa → Dispositivi → Rimuovi vecchio "Verifica" (mantieni bridge)
+2. "Alexa, scopri dispositivi"
+3. Rileva **Buongiorno** (ID 45) e **Direzione** (ID 46)
+
+### Pattern Voice → Automazione
+- `light.verifica` (template light, nome "Direzione") backed da `input_boolean.verifica_alexa`
+- Automation `alexa_verifica_vocale` trigger su `light.verifica` → ON
+- "Alexa, accendi Direzione" → bridge Hue `.48:80` → input_boolean ON → light ON → automation
+
+### File Modificati
+| File | Modifica |
+|------|----------|
+| `/home/carlo/docker/docker-compose.yml` | NPM ports binding a `192.168.0.3` |
+| `/home/carlo/docker/homeassistant/config/configuration.yaml` | emulated_hue host_ip/advertise_ip `192.168.0.48`, listen_port `80` |
+| NetworkManager | `enp2s0` +ipv4.addresses `192.168.0.48/24` |
+

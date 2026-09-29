@@ -52,7 +52,7 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import suppress
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from .const import LOGGER
 
@@ -80,6 +80,22 @@ _CHARGING_KEYWORDS = {
     "charging", "charge", "plugged", "connected to charger",
     "charging started", "ev connected",
 }
+
+
+def _message_create_time(msg) -> datetime | None:
+    """Best-effort parse of a message's createTime (Unix ms, UTC).
+
+    Returns None if createTime is absent or unparseable — callers should
+    treat that as "unknown", not "old", since we have no evidence either
+    way and silently dropping a message is the more harmful failure mode.
+    """
+    create_time_ms = getattr(msg, "createTime", None)
+    if create_time_ms is None:
+        return None
+    try:
+        return datetime.fromtimestamp(create_time_ms / 1000.0, tz=timezone.utc)
+    except (TypeError, OSError, OverflowError, ValueError):
+        return None
 
 
 class SAICMGAccountPoller:
@@ -128,6 +144,12 @@ class SAICMGAccountPoller:
         self._last_seen_message_id: str | int | None = None
         self._last_seen_message_ts: datetime | None = None
         self._first_poll_done: bool = False
+
+        # Wall-clock time this poller instance came up.  Used on the first
+        # poll to tell genuine backlog (messages that predate us) apart from
+        # a message that simply happens to be the first one we've seen —
+        # see _poll_once for why that distinction matters.
+        self._started_at: datetime = datetime.now(timezone.utc)
 
         self._poll_task: asyncio.Task | None = None
 
@@ -236,6 +258,15 @@ class SAICMGAccountPoller:
         by re-logging in via the shared client and retrying once.  Because all
         coordinators share the same client object, the refreshed token is
         immediately available to them too.
+
+        First poll: rather than discarding everything fetched on the first
+        poll, only messages whose own createTime predates this poller
+        instance's startup (self._started_at) are treated as backlog.
+        Anything timestamped after that — or with no usable createTime — is
+        processed exactly like a normal poll.  This avoids the case where
+        the account's queue is empty at startup and the very next message,
+        arriving minutes or hours later, gets silently swallowed just for
+        being "first".
         """
         new_messages: list = []
         page = 1
@@ -306,35 +337,61 @@ class SAICMGAccountPoller:
             )
             return
 
-        # On the very first successful poll, record the watermark and skip
-        # acting on historical messages — prevents spurious refreshes every
-        # time HA restarts.
-        if not self._first_poll_done:
-            latest = new_messages[0]
-            self._last_seen_message_id = latest.messageId
-            self._last_seen_message_ts = getattr(latest, "message_time", None)
-            self._first_poll_done = True
-            LOGGER.debug(
-                "AccountPoller %s: first poll — watermarked at id=%s, "
-                "skipping %d historical message(s)",
-                self._account_key,
-                latest.messageId,
-                len(new_messages),
-            )
-            return
-
         # Capture the current watermark BEFORE advancing it.
         # The handler uses this to decide which type-323 messages to delete —
         # we keep the one that becomes the new watermark, delete the rest.
-        # If we advance first (as was the case before this fix), the new
-        # watermark ID matches the message being processed, so the deletion
-        # guard incorrectly skips it and nothing ever gets deleted.
+        # If we advance first, the new watermark ID matches the message
+        # being processed, so the deletion guard incorrectly skips it and
+        # nothing ever gets deleted.
         pre_advance_watermark_id = self._last_seen_message_id
 
-        # Advance the watermark to the newest message we fetched
+        # Advance the watermark to the newest message we fetched, and mark
+        # the poller as past its first poll.  Both happen unconditionally,
+        # regardless of how the messages below get classified, so we never
+        # re-fetch the same page on the next cycle.
         latest = new_messages[0]
         self._last_seen_message_id = latest.messageId
         self._last_seen_message_ts = getattr(latest, "message_time", None)
+        first_poll = not self._first_poll_done
+        self._first_poll_done = True
+
+        if first_poll:
+            # Only messages that predate this poller instance's own startup
+            # are genuine backlog. A message timestamped after startup — or
+            # with no parseable createTime — is a live event and must be
+            # handled exactly like on any other poll cycle.
+            historical: list = []
+            fresh: list = []
+            for msg in new_messages:
+                created_at = _message_create_time(msg)
+                if created_at is not None and created_at < self._started_at:
+                    historical.append(msg)
+                else:
+                    fresh.append(msg)
+
+            if historical:
+                LOGGER.debug(
+                    "AccountPoller %s: first poll — discarding %d message(s) "
+                    "that predate startup at %s",
+                    self._account_key,
+                    len(historical),
+                    self._started_at,
+                )
+                # Best-effort cleanup so genuine backlog doesn't sit unread
+                # in the SAIC account forever just because it arrived before
+                # we existed. Failures here are non-fatal — the watermark
+                # already prevents us from ever revisiting these messages.
+                for msg in historical:
+                    msg_id = getattr(msg, "messageId", None)
+                    if msg_id is None:
+                        continue
+                    async with self._api_lock:
+                        with suppress(Exception):
+                            await self._client.delete_message(msg_id)
+
+            if not fresh:
+                return
+            new_messages = fresh
 
         LOGGER.info(
             "AccountPoller %s: %d new message(s) to process",
@@ -458,14 +515,21 @@ class SAICMGAccountPoller:
                 refresh_reason.append("engine start")
 
                 # ── Hint the coordinator immediately ─────────────────────────
-                # Extract start time from createTime (Unix ms) if available —
-                # it is timezone-unambiguous.  Fall back to the message_time
-                # property (naive string, treated as UTC) if createTime is None.
-                started_at: datetime | None = None
+                # The vehicle-start message is processed within one ~60s poll of
+                # the car actually starting, so "now" (UTC) is a reliable,
+                # timezone-safe anchor for the hint. We only prefer a real
+                # createTime (Unix epoch ms — timezone-unambiguous) when it's
+                # plausible. We deliberately no longer trust message_time: it's a
+                # naive server-local string that the SAIC EU backend stamps in
+                # CET/CEST (UTC+1/+2), NOT UTC — treating it as UTC put the
+                # pre-set powered-on time up to 2 hours in the FUTURE.
+                now_utc = datetime.now(timezone.utc)
+                started_at: datetime = now_utc
+                hint_source = "current time"
                 create_time_ms = getattr(msg, "createTime", None)
                 if create_time_ms is not None:
                     try:
-                        started_at = datetime.fromtimestamp(
+                        candidate = datetime.fromtimestamp(
                             create_time_ms / 1000.0, tz=timezone.utc
                         )
                     except (OSError, OverflowError, ValueError) as exc:
@@ -475,34 +539,38 @@ class SAICMGAccountPoller:
                             create_time_ms,
                             exc,
                         )
-
-                if started_at is None:
-                    # Fallback: message_time is naive (SAIC server local time,
-                    # empirically close to UTC for EU region).  Attach UTC to
-                    # avoid comparison errors — this is a best-effort hint.
-                    raw_mt = getattr(msg, "message_time", None)
-                    if raw_mt is not None:
-                        try:
-                            if raw_mt.tzinfo is None:
-                                started_at = raw_mt.replace(tzinfo=timezone.utc)
-                            else:
-                                started_at = raw_mt
-                        except Exception as exc:
+                    else:
+                        # Accept createTime only if it's plausible: recent and
+                        # not in the future. Otherwise fall back to "now".
+                        if (
+                            now_utc - timedelta(hours=6)
+                            <= candidate
+                            <= now_utc + timedelta(minutes=1)
+                        ):
+                            started_at = candidate
+                            hint_source = "createTime"
+                        else:
                             LOGGER.debug(
-                                "AccountPoller %s: could not attach tz to "
-                                "message_time: %s",
+                                "AccountPoller %s: createTime %s implausible "
+                                "(now %s) — using current time for the hint",
                                 self._account_key,
-                                exc,
+                                candidate,
+                                now_utc,
                             )
 
-                if started_at is not None and hasattr(coordinator, "hint_vehicle_started"):
+                # Final safety net: a power-on time must never be in the future.
+                if started_at > now_utc:
+                    started_at = now_utc
+                    hint_source = "current time"
+
+                if hasattr(coordinator, "hint_vehicle_started"):
                     LOGGER.info(
                         "AccountPoller %s: hinting VIN %s started at %s "
                         "(from %s)",
                         self._account_key,
                         vin,
                         started_at,
-                        "createTime" if create_time_ms is not None else "message_time",
+                        hint_source,
                     )
                     coordinator.hint_vehicle_started(started_at)
                 else:

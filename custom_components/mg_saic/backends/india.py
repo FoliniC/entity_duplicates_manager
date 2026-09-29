@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from aiohttp import ClientSession
 from mg_ismart_india_client import MgIndiaApiError, MgIndiaClient, hash_control_pin
 
-from ..const import LOGGER
+from ..const import CHARGING_CURRENT_FACTOR, CHARGING_VOLTAGE_FACTOR, LOGGER
 from . import INDIA_FEATURES
 
 
@@ -58,6 +58,103 @@ def _raw_basic(status, key: str, default=None):
     return default
 
 
+# mg-ismart-india-client reports tyre pressure in psi, while the SAIC
+# EU/global protocol uses units of 4 kPa (0.04 bar) and the shared sensor
+# always multiplies by PRESSURE_TO_BAR. Rescale into that convention here
+_BAR_PER_PSI = 0.0689476
+_EU_TYRE_BAR_PER_UNIT = 0.04
+
+
+def _tyre_pressure(status, attribute: str) -> float | None:
+    psi = getattr(status, attribute, None)
+    if not psi:
+        return None
+    return round(psi * _BAR_PER_PSI / _EU_TYRE_BAR_PER_UNIT, 2)
+
+
+# The global SAIC protocol encodes charging current as an offset from a 1000 A
+# zero point (decoded as 1000 - raw * CHARGING_CURRENT_FACTOR), so real amps are
+# re-encoded against the same zero point below.
+_CHARGING_CURRENT_ZERO_A = 1000
+
+# bmsChrgSts codes the shared charging sensors decode; names match the mapping in
+# sensor.py. India reports charging as two booleans, so only these three are used.
+_BMS_CHRG_STS_UNPLUGGED = 0
+_BMS_CHRG_STS_CHARGING = 3
+_BMS_CHRG_STS_PLUGGED_IN = 7  # connected but not charging: paused or full
+
+# The Charging Duration sensor reads rvsChargeStatus.chargingDuration with
+# DATA_100_DECIMAL_CORRECTION and labels the result minutes, i.e. it expects
+# hundredths of a minute. The India client reports elapsed session time in
+# seconds, so convert instead of passing the seconds straight through.
+_SECONDS_PER_MINUTE = 60
+_CHARGING_DURATION_UNITS_PER_MINUTE = 100
+
+
+def _charging_duration_units(seconds: int | None) -> int | None:
+    """Convert elapsed seconds into the hundredths-of-a-minute the sensor decodes.
+
+    :param seconds: :attr:`~mg_ismart_india_client.models.ChargeStatus.charge_time_elapsed_s`.
+    :returns: the value for ``rvsChargeStatus.chargingDuration``, or ``None``.
+    """
+    if seconds is None:
+        return None
+    return round(
+        seconds / _SECONDS_PER_MINUTE * _CHARGING_DURATION_UNITS_PER_MINUTE
+    )
+
+
+def _micro_degrees(value: float | None) -> int | None:
+    if value is None:
+        return None
+    return int(round(float(value) * 1_000_000))
+
+
+def _gps_position(gps):
+    """Map a decoded India GpsPosition onto the SAIC GpsPosition shape.
+
+    The device tracker, the speed sensor and the ABRP sender all read the
+    position through the EU/global protocol's own layout and units: a nested
+    wayPoint/position, coordinates in micro-degrees, speed in tenths of a
+    km/h. mg-ismart-india-client hands over already-decoded degrees and km/h,
+    so convert back into that convention rather than teaching every consumer
+    a second shape.
+
+    Those consumers skip the block entirely when wayPoint is None. Build it
+    only for a usable fix with both coordinates while retaining the status
+    metadata for diagnostics when there is no fix.
+    """
+    latitude = _micro_degrees(getattr(gps, "latitude", None))
+    longitude = _micro_degrees(getattr(gps, "longitude", None))
+    if (
+        not getattr(gps, "has_fix", False)
+        or latitude is None
+        or longitude is None
+    ):
+        way_point = None
+    else:
+        way_point = _ns(
+            position=_ns(
+                latitude=latitude,
+                longitude=longitude,
+                altitude=getattr(gps, "altitude_m", None),
+            ),
+            heading=getattr(gps, "heading_deg", None),
+            speed=_tenths(getattr(gps, "speed_kmh", None)),
+            hdop=getattr(gps, "hdop", None),
+            satellites=getattr(gps, "satellites", None),
+        )
+    # GpsStatus is an IntEnum whose names and values match the SAIC schema's,
+    # so it can stand in for the decoded status the ABRP sender looks for.
+    status = getattr(gps, "gps_status", None)
+    return _ns(
+        wayPoint=way_point,
+        gpsStatus=getattr(status, "value", None),
+        gps_status_decoded=status,
+        timeStamp=getattr(gps, "position_time", None),
+    )
+
+
 def _vehicle_config(vehicle, code: str, default=None):
     raw = getattr(vehicle, "raw", None)
     if isinstance(raw, dict):
@@ -76,7 +173,7 @@ def _looks_electric(vehicle) -> bool:
         str(value or "")
         for value in (
             getattr(vehicle, "name", None),
-            getattr(vehicle, "model_name", None),
+            getattr(vehicle, "model", None),
             getattr(vehicle, "brand", None),
             _vehicle_config(vehicle, "EV"),
             _vehicle_config(vehicle, "BType"),
@@ -103,6 +200,8 @@ class IndiaBackend:
         self.region_name = "India"
         self._session: ClientSession | None = None
         self._client: MgIndiaClient | None = None
+        self._charge_status_by_vin = {}
+        self._electric_vins = set()
         self._seat_levels = {"front_left": 0, "front_right": 0}
 
     async def _ensure_client(self) -> MgIndiaClient:
@@ -136,17 +235,25 @@ class IndiaBackend:
     async def get_vehicle_info(self):
         client = await self._ensure_client()
         vehicles = await client.vehicles()
+        self._electric_vins = {
+            vehicle.vin for vehicle in vehicles if _looks_electric(vehicle)
+        }
         if self.vin is None and vehicles:
             self._set_vin(vehicles[0].vin)
         return [self._map_vehicle(vehicle) for vehicle in vehicles]
 
     async def get_vehicle_status(self, vin: str | None = None):
         self._set_vin(vin)
-        return self._map_status(await (await self._ensure_client()).status())
+        self._charge_status_by_vin.pop(self.vin, None)
+        status = await (await self._ensure_client()).status(
+            include_charge=self.vin in self._electric_vins
+        )
+        self._charge_status_by_vin[self.vin] = status.charge
+        return self._map_status(status)
 
     def _map_vehicle(self, vehicle):
         model_name = (
-            getattr(vehicle, "model_name", None)
+            getattr(vehicle, "model", None)
             or getattr(vehicle, "name", None)
             or "MG India"
         )
@@ -171,7 +278,8 @@ class IndiaBackend:
             brandName=brand,
             modelName=model_name,
             modelYear=getattr(vehicle, "model_year", None) or "",
-            series=getattr(vehicle, "name", None) or model_name,
+            series=getattr(vehicle, "series", None) or "",
+            colorName=getattr(vehicle, "color_name", None),
             vehicleModelConfiguration=configs,
             raw=getattr(vehicle, "raw", None),
         )
@@ -209,6 +317,7 @@ class IndiaBackend:
             interiorTemperature=getattr(status, "interior_temperature", None),
             exteriorTemperature=getattr(status, "exterior_temperature", None),
             fuelLevelPrc=getattr(status, "fuel_level", None),
+            extendedData1=getattr(status, "fuel_level", None),
             fuelRange=range_tenths,
             fuelRangeElec=range_tenths,
             mileage=_tenths(getattr(status, "odometer_km", None)),
@@ -220,10 +329,11 @@ class IndiaBackend:
             engineStatus=_raw_basic(status, "engineStatus", 0),
             dippedBeamStatus=_raw_basic(status, "dippedBeamStatus", 0),
             mainBeamStatus=_raw_basic(status, "mainBeamStatus", 0),
-            frontLeftTyrePressure=_raw_basic(status, "frontLeftTyrePressure"),
-            frontRightTyrePressure=_raw_basic(status, "frontRightTyrePressure"),
-            rearLeftTyrePressure=_raw_basic(status, "rearLeftTyrePressure"),
-            rearRightTyrePressure=_raw_basic(status, "rearRightTyrePressure"),
+            frontLeftTyrePressure=_tyre_pressure(status, "front_left_tyre_psi"),
+            frontRightTyrePressure=_tyre_pressure(status, "front_right_tyre_psi"),
+            rearLeftTyrePressure=_tyre_pressure(status, "rear_left_tyre_psi"),
+            rearRightTyrePressure=_tyre_pressure(status, "rear_right_tyre_psi"),
+            wheelTyreMonitorStatus=getattr(status, "tyre_monitor_status", None),
             frontLeftSeatHeatLevel=_raw_basic(status, "frontLeftSeatHeatLevel", 0),
             frontRightSeatHeatLevel=_raw_basic(status, "frontRightSeatHeatLevel", 0),
             secondRowLeftSeatHeatLevel=_raw_basic(
@@ -245,7 +355,7 @@ class IndiaBackend:
         return _ns(
             statusTime=timestamp,
             basicVehicleStatus=basic,
-            gpsPosition=_ns(speed=_raw_basic(status, "speed")),
+            gpsPosition=_gps_position(getattr(status, "gps", None)),
             raw=getattr(status, "raw", None),
         )
 
@@ -292,6 +402,58 @@ class IndiaBackend:
     async def stop_ac(self, vin):
         self._set_vin(vin)
         await (await self._ensure_client()).control_climate(False)
+
+    async def get_charging_info(self, vin):
+        """Map the India EV charging status onto the ``chrgMgmtData`` /
+        ``rvsChargeStatus`` shapes the shared charging sensors read.
+
+        Voltage, current, SOC and range come from the declared-unit fields of
+        :class:`~mg_ismart_india_client.models.ChargeStatus` (volts, amps,
+        percent, km) and are re-encoded onto the global SAIC raw scales the
+        shared sensors decode (:data:`~..const.CHARGING_VOLTAGE_FACTOR` /
+        :data:`~..const.CHARGING_CURRENT_FACTOR` / tenths), rather than assuming
+        the India protocol's raw field values happen to share the global
+        protocol's raw scale. ``rvsChargeStatus`` is likewise built field by
+        field, so every value the sensors read has a named source and a stated
+        scale assumption.
+
+        The preceding status refresh requests both frames from the shared TAP
+        stream and stores the charging frame here. This method only maps that
+        result; it must not start a second poll.
+
+        :param vin: VIN to report charging status for.
+        :returns: a namespace carrying ``chrgMgmtData`` and ``rvsChargeStatus``,
+            or ``None`` when the status poll did not receive a charging frame.
+        """
+        self._set_vin(vin)
+        charge = self._charge_status_by_vin.pop(self.vin, None)
+        if charge is None:
+            return None
+        if charge.is_charging:
+            bms_chrg_sts = _BMS_CHRG_STS_CHARGING
+        elif charge.is_plugged_in:
+            bms_chrg_sts = _BMS_CHRG_STS_PLUGGED_IN
+        else:
+            bms_chrg_sts = _BMS_CHRG_STS_UNPLUGGED
+        chrg_mgmt = _ns(
+            bmsPackVol=round(charge.charging_voltage / CHARGING_VOLTAGE_FACTOR),
+            bmsPackCrnt=round(
+                (_CHARGING_CURRENT_ZERO_A - charge.charging_current)
+                / CHARGING_CURRENT_FACTOR
+            ),
+            bmsPackSOCDsp=_tenths(charge.soc),
+            bmsChrgSts=bms_chrg_sts,
+        )
+        rvs = _ns(
+            # Range and odometer come back in real units and re-encode to tenths.
+            fuelRangeElec=_tenths(charge.range_km),
+            mileage=_tenths(charge.odometer_km),
+            chargingGunState=charge.is_plugged_in,
+            chargingDuration=_charging_duration_units(charge.charge_time_elapsed_s),
+            totalBatteryCapacity=_tenths(charge.total_battery_capacity_kwh),
+            mileageSinceLastCharge=_tenths(charge.distance_since_last_charge_km),
+        )
+        return _ns(chrgMgmtData=chrg_mgmt, rvsChargeStatus=rvs)
 
     async def control_heated_seat(self, vin, seat, level):
         self._set_vin(vin)

@@ -1,0 +1,384 @@
+{
+  "title": "Integração MG SAIC",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configuração MG SAIC",
+        "description": "Selecione o tipo de login.",
+        "data": {
+          "login_type": "Tipo de Login",
+          "email": "E-mail",
+          "phone": "Telefone"
+        }
+      },
+      "login_data": {
+        "title": "Informação de Login",
+        "description": "Introduza as suas credenciais MG SAIC.",
+        "data": {
+          "username": "Nome de Utilizador",
+          "password": "Palavra-passe",
+          "region": "Região",
+          "country_code": "Código do País"
+        }
+      },
+      "custom_region": {
+        "title": "Endpoint de API personalizado",
+        "description": "Introduza os dados do endpoint da API SAIC para a sua região. Utilize apenas se o seu país não estiver coberto por uma região predefinida (ex.: Tailândia). Consulte a documentação da integração para endpoints conhecidos.",
+        "data": {
+          "base_uri": "URI base da API",
+          "region_code": "Código de região (ex.: eu, au, th)",
+          "tenant_id": "ID de tenant"
+        }
+      },
+      "select_vehicle": {
+        "title": "Selecionar Veículo",
+        "description": "Selecione o veículo a ser adicionado e revise o tipo de veículo.",
+        "data": {
+          "vin": "Número de Identificação do Veículo (VIN)",
+          "vehicle_type": "Tipo de Veículo"
+        }
+      },
+      "vehicle_capabilities": {
+        "title": "Capacidades do Veículo",
+        "description": "Selecione quaisquer capacidades adicionais que o seu veículo suporta. Pode alterá-las posteriormente no menu Opções, se necessário.",
+        "data": {
+          "has_sunroof": "Tem Teto de Abrir",
+          "has_heated_seats": "Tem Bancos Aquecidos",
+          "has_rear_heated_seats": "Tem bancos traseiros aquecidos",
+          "has_battery_heating": "Tem Aquecimento de Bateria",
+          "has_steering_wheel_heat": "Tem aquecimento no volante",
+          "has_window_control": "Controlo das janelas (abrir/fechar/ventilar)"
+        }
+      },
+      "india_pin": {
+        "title": "PIN da MG Índia",
+        "description": "Introduza o seu PIN iSmart de 4 dígitos (o mesmo PIN usado para autorizar comandos na aplicação iSmart India). Apenas um hash seguro do PIN é armazenado, nunca o próprio PIN.",
+        "data": {
+          "pin": "PIN iSmart de 4 dígitos"
+        }
+      }
+    },
+    "error": {
+      "auth": "Falha na autenticação, por favor, verifique as suas credenciais.",
+      "invalid_pin": "O PIN deve ter exatamente 4 dígitos."
+    },
+    "abort": {
+      "vin": "Veículo com VIN {vin} já configurado.",
+      "already_configured": "All vehicles on this account are already configured in Home Assistant.",
+      "india_backend_not_ready": "O suporte para a MG Índia está em desenvolvimento e ainda não é funcional nesta versão. Acompanhe a issue #169 no GitHub para ver o progresso."
+    }
+  },
+  "services": {
+    "control_charging_port_lock": {
+      "name": "Controlar Tranca da Porta de Carregamento",
+      "description": "Controlar a tranca da porta de carregamento (trancar/destrancar).",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "O número de identificação do veículo para controlar a tranca da porta de carregamento."
+        },
+        "unlock": {
+          "name": "Destrancar",
+          "description": "Verdadeiro para destrancar a porta de carregamento, falso para trancar."
+        }
+      }
+    },
+    "control_heated_seats": {
+      "name": "Controlar Bancos Aquecidos",
+      "description": "Definir os níveis de aquecimento para ambos os bancos dianteiros.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "O número de identificação do veículo."
+        },
+        "left_level": {
+          "name": "Nível do Banco Esquerdo",
+          "description": "Nível de aquecimento para o banco esquerdo (Desligado = 0, Baixo = 1, Médio = 2, Alto = 3)."
+        },
+        "right_level": {
+          "name": "Nível do Banco Direito",
+          "description": "Nível de aquecimento para o banco direito (Desligado = 0, Baixo = 1, Médio = 2, Alto = 3)."
+        }
+      }
+    },
+    "control_rear_window_heat": {
+      "name": "Controlar Aquecimento do Vidro Traseiro",
+      "description": "Controlar o aquecimento do vidro traseiro do veículo.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "O número de identificação do veículo."
+        },
+        "action": {
+          "name": "Ação",
+          "description": "Selecione 'iniciar' para ativar ou 'parar' para desativar."
+        }
+      }
+    },
+    "control_sunroof": {
+      "name": "Controlar Teto de Abrir",
+      "description": "Controlar o teto de abrir (abrir ou fechar).",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "O número de identificação do veículo para controlar o teto de abrir."
+        },
+        "should_open": {
+          "name": "Deve Abrir",
+          "description": "Verdadeiro para abrir o teto de abrir, falso para fechar."
+        }
+      }
+    },
+    "lock_vehicle": {
+      "name": "Trancar Veículo",
+      "description": "Trancar o veículo.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "O número de identificação do veículo a trancar."
+        }
+      }
+    },
+    "open_tailgate": {
+      "name": "Abrir Porta da Bagageira",
+      "description": "Abrir a porta da bagageira do veículo.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "O número de identificação do veículo para abrir a porta da bagageira."
+        }
+      }
+    },
+    "set_battery_heating_schedule": {
+      "name": "Definir agendamento de aquecimento da bateria",
+      "description": "Ativa ou desativa o aquecimento agendado da bateria.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "O número de identificação do veículo."
+        },
+        "enable": {
+          "name": "Ativar",
+          "description": "True para ativar o agendamento, false para desativar."
+        },
+        "start_time": {
+          "name": "Hora de início",
+          "description": "Hora de início diária do aquecimento da bateria (no fuso horário do Home Assistant)."
+        }
+      }
+    },
+    "set_charging_current_limit": {
+      "name": "Definir Limite de Corrente de Carregamento",
+      "description": "Definir o limite de corrente de carregamento para o veículo.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "O número de identificação do veículo."
+        },
+        "current_limit": {
+          "name": "Limite de Corrente de Carregamento",
+          "description": "Selecione o limite de corrente de carregamento desejado."
+        }
+      }
+    },
+    "set_scheduled_charging": {
+      "name": "Definir carregamento agendado",
+      "description": "Define a janela e o modo de carregamento agendado.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "O número de identificação do veículo."
+        },
+        "mode": {
+          "name": "Modo",
+          "description": "Modo de agendamento de carregamento: disabled, until_target_soc ou until_scheduled_time."
+        },
+        "start_time": {
+          "name": "Hora de início",
+          "description": "Hora de início da janela de carregamento (como mostrado na app iSmart)."
+        },
+        "end_time": {
+          "name": "Hora de fim",
+          "description": "Hora de fim da janela de carregamento (como mostrado na app iSmart)."
+        }
+      }
+    },
+    "set_target_soc": {
+      "name": "Definir SOC Alvo",
+      "description": "Definir o estado de carga (SOC) alvo para o veículo.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "O número de identificação do veículo."
+        },
+        "target_soc": {
+          "name": "SOC Alvo",
+          "description": "Percentagem de SOC alvo desejada (10-100)."
+        }
+      }
+    },
+    "start_ac": {
+      "name": "Ligar AC",
+      "description": "Ligar o sistema AC do veículo.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "O número de identificação do veículo para ligar o AC."
+        },
+        "temperature": {
+          "name": "Temperatura",
+          "description": "Temperatura desejada em graus Celsius."
+        }
+      }
+    },
+    "start_climate": {
+      "name": "Iniciar Climatização",
+      "description": "Iniciar o sistema de climatização do veículo com temperatura e velocidade da ventoinha específicas.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "Número de Identificação do Veículo."
+        },
+        "temperature": {
+          "name": "Temperatura",
+          "description": "Temperatura desejada em graus Celsius."
+        },
+        "fan_speed": {
+          "name": "Velocidade da Ventoinha",
+          "description": "Nível de velocidade da ventoinha (ex: 1-7)."
+        },
+        "ac_on": {
+          "name": "AC Ligado",
+          "description": "Verdadeiro para ativar o AC, falso para desativar."
+        }
+      }
+    },
+    "start_battery_heating": {
+      "name": "Iniciar Aquecimento da Bateria",
+      "description": "Iniciar o processo de aquecimento da bateria do veículo.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "O número de identificação do veículo para iniciar o aquecimento da bateria."
+        }
+      }
+    },
+    "start_charging": {
+      "name": "Iniciar Carregamento",
+      "description": "Iniciar o processo de carregamento do veículo.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "O número de identificação do veículo para iniciar o carregamento."
+        }
+      }
+    },
+    "start_front_defrost": {
+      "name": "Ligar Desembaciador Frontal",
+      "description": "Ligar o sistema de desembaciamento frontal do veículo.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "O número de identificação do veículo para ligar o desembaciador frontal."
+        }
+      }
+    },
+    "stop_ac": {
+      "name": "Parar AC",
+      "description": "Parar o sistema AC do veículo.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "O número de identificação do veículo para parar o AC."
+        }
+      }
+    },
+    "stop_battery_heating": {
+      "name": "Parar Aquecimento da Bateria",
+      "description": "Parar o processo de aquecimento da bateria do veículo.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "O número de identificação do veículo para parar o aquecimento da bateria."
+        }
+      }
+    },
+    "stop_charging": {
+      "name": "Parar Carregamento",
+      "description": "Parar o processo de carregamento do veículo.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "O número de identificação do veículo para parar o carregamento."
+        }
+      }
+    },
+    "trigger_alarm": {
+      "name": "Disparar Alarme",
+      "description": "Disparar o alarme do veículo.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "O número de identificação do veículo para disparar o alarme."
+        }
+      }
+    },
+    "unlock_vehicle": {
+      "name": "Destrancar Veículo",
+      "description": "Destrancar o veículo.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "O número de identificação do veículo para destrancar."
+        }
+      }
+    },
+    "update_vehicle_data": {
+      "name": "Atualizar Dados do Veículo",
+      "description": "Acionar manualmente uma atualização de dados do veículo.",
+      "fields": {
+        "vin": {
+          "name": "VIN",
+          "description": "O número de identificação do veículo para atualizar os dados."
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "has_sunroof": "Tem Teto de Abrir",
+          "has_heated_seats": "Tem Bancos Aquecidos",
+          "has_rear_heated_seats": "Tem bancos traseiros aquecidos",
+          "has_battery_heating": "Tem Aquecimento de Bateria",
+          "update_interval": "Intervalo de Atualização (em minutos)",
+          "charging_update_interval": "Intervalo de Atualização de Carregamento AC (em minutos)",
+          "dc_charging_update_interval": "Intervalo de Atualização de Carregamento DC (em minutos)",
+          "powered_update_interval": "Intervalo de Atualização com Veículo Ligado (em minutos)",
+          "after_shutdown_update_interval": "Intervalo de Atualização Após Desligar (em minutos)",
+          "grace_period_update_interval": "Intervalo de Atualização do Período de Graça (em minutos)",
+          "after_action_delay": "Atraso Após Ação (em segundos)",
+          "alarm_long_interval": "Intervalo Longo Alarme (em minutos)",
+          "ac_long_interval": "Intervalo Longo AC (em minutos)",
+          "front_defrost_long_interval": "Intervalo Longo Desembaciador Frontal (em minutos)",
+          "rear_window_heat_long_interval": "Intervalo Longo Aquecimento Vidro Traseiro (em minutos)",
+          "lock_unlock_long_interval": "Intervalo Longo Trancar/Destrancar (em minutos)",
+          "charging_port_lock_long_interval": "Intervalo Longo Trancar Porta de Carregamento (em minutos)",
+          "heated_seats_long_interval": "Intervalo Longo Bancos Aquecidos (em minutos)",
+          "battery_heating_long_interval": "Intervalo Longo Aquecimento Bateria (em minutos)",
+          "charging_long_interval": "Intervalo Longo Carregamento (em minutos)",
+          "sunroof_long_interval": "Intervalo Longo Teto de Abrir (em minutos)",
+          "tailgate_long_interval": "Intervalo Longo Porta da Bagageira (em minutos)",
+          "target_soc_long_interval": "Intervalo Longo SOC Alvo (em minutos)",
+          "charging_current_long_interval": "Intervalo Longo Corrente de Carregamento (em minutos)",
+          "has_steering_wheel_heat": "Tem aquecimento no volante",
+          "has_window_control": "Controlo das janelas (abrir/fechar/ventilar)",
+          "enable_shutdown_refresh_sequence": "Ativar sequência de atualização pós-desligamento"
+        },
+        "description": "Definir configurações adicionais para Integração MG/SAIC",
+        "title": "Opções MG/SAIC"
+      }
+    }
+  }
+}

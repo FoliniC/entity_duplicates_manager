@@ -414,6 +414,7 @@ logger:
       - "Entity not found"
       - "Entity not exposed"
   logs:
+    homeassistant.components.emulated_hue: debug
     custom_components.localtuya: info
     custom_components.entity_duplicates_manager: info
     fancoil_system: error
@@ -456,8 +457,6 @@ lovelace:
   resource_mode: yaml
   resources:
     - url: /local/cronostar_card/cronostar-card.js?v=6.6.6
-      type: module
-    - url: /entity_duplicates_manager_card/card-picker-metadata.js?v=1.0.32
       type: module
     - url: /local/power-wheel-card.js?v=2
       type: module
@@ -541,7 +540,7 @@ lovelace:
     alexa-control:
       mode: yaml
       title: Alexa Control
-      icon: mdi:amazon-alexa
+      icon: mdi:account-voice
       show_in_sidebar: true
       filename: dashboards/alexa_control.yaml
     btc-investment-tracker:
@@ -552,6 +551,12 @@ lovelace:
       filename: dashboards/btc_investment_tracker.yaml
 
 
+    frigate-timeline:
+      mode: yaml
+      title: Frigate Timeline
+      icon: mdi:video-outline
+      show_in_sidebar: true
+      filename: dashboards/frigate_timeline.yaml
 # ============================================================================
 # SCENES
 # ============================================================================
@@ -655,12 +660,22 @@ azure_openai_sdk_conversation:
 api:
 
 emulated_hue:
-  host_ip: 192.168.0.3
-  listen_port: 8300
+  host_ip: 192.168.0.48
+  advertise_ip: 192.168.0.48
+  listen_port: 80
   expose_by_default: false
   entities:
     input_boolean.buongiorno_alexa:
       name: "Buongiorno"
+      hidden: false
+    input_boolean.alexa_accendi_uscita:
+      name: "Uscita"
+      hidden: false
+    input_boolean.alexa_accendi_entrata:
+      name: "Entrata"
+      hidden: false
+    input_boolean.alexa_ritorno_a_casa:
+      name: "Ritorno a Casa"
       hidden: false
 
 # ============================================================================

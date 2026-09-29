@@ -1,0 +1,17 @@
+{
+  "system": "HALog2026",
+  "version": "1.0",
+  "categories": {
+    "btc_tracker": {
+      "label": "BTC Tracker Refresh",
+      "event_name": "btc_tracker_refresh_event",
+      "log_dir": "/config/logs/btc_tracker",
+      "library": "/config/pyscript/lib/halog2026_lib.py",
+      "levels": ["INFO", "WARNING", "ERROR"],
+      "fields": ["timestamp", "action", "message"]
+    },
+    "fancoil_events": {},
+    "ev_events": {},
+    "scale_events": {}
+  }
+}

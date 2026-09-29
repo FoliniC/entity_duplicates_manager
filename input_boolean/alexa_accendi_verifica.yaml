@@ -1,0 +1,4 @@
+buongiorno_alexa:
+  name: "Buongiorno (Alexa)"
+  initial: off
+  icon: mdi:weather-sunny

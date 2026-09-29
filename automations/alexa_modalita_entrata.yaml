@@ -1,0 +1,51 @@
+- alias: "Alexa: Modalità Entrata"
+  id: alexa_modalita_entrata
+  trigger:
+    - platform: state
+      entity_id: light.entrata
+      to: "on"
+  action:
+    # 0. Spegni luce scale e blocca riaccensione all'apertura porta
+    - service: light.turn_off
+      target:
+        entity_id: light.luce_scale
+    - service: input_boolean.turn_on
+      target:
+        entity_id: input_boolean.block_scale_light_on_door_open
+    # 1. Saluto "bentornato Carlo"
+    - service: notify.send_message
+      target:
+        entity_id: notify.cucina_speak
+      data:
+        message: "Bentornato Carlo!"
+    # 2. Se buio (illuminance < 50 lx), accendi luce bancone
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ states('sensor.cucina_illuminance') | float(1000) < 50 }}"
+          sequence:
+            - service: switch.turn_on
+              target:
+                entity_id: switch.tavolo_cucina
+            - action: system_log.write
+              data:
+                level: info
+                message: "Alexa Entrata: buio rilevato ({{ states('sensor.cucina_illuminance') }} lx) → luce bancone accesa"
+    # 3. Accendi radio m2o
+    - service: script.turn_on
+      target:
+        entity_id: script.alexa_radio_m2o_custom
+    # 4. Log conferma
+    - action: system_log.write
+      data:
+        level: info
+        message: "Alexa Entrata: modalità entrata completata - bentornato, luci condizionate, radio m2o"
+    # 5. Auto-reset input_boolean dopo 3 secondi
+    - delay: "00:00:03"
+    - service: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.alexa_accendi_entrata
+    # 6. Disattiva blocco apertura porta
+    - service: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.block_scale_light_on_door_open

@@ -99,12 +99,12 @@ def async_update_device_registry(hass: HomeAssistant, config_entry: SinapsiAlfaC
         name=config_entry.data.get(CONF_NAME),
         serial_number=str(coordinator.api.data.get("sn", "")),
         sw_version=None,
-        via_device=None,
+        via_device_id=None,
     )
 
     # Store device_id in coordinator for device triggers
     serial_number = str(coordinator.api.data.get("sn", ""))
-    device = device_registry.async_get_device(identifiers={(DOMAIN, serial_number)})
+    device = device_registry.async_get_device_by_identifier((DOMAIN, serial_number), config_entry_id=config_entry.entry_id)
     if device:
         coordinator.device_id = device.id
         log_debug(

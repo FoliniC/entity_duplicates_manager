@@ -4,6 +4,10 @@
     - trigger: state
       to: "on"
       entity_id: binary_sensor.garage_door_contact_filtered
+  conditions:
+    - condition: state
+      entity_id: input_boolean.block_scale_light_on_door_open
+      state: "off"
   actions:
     - event: scale_log_event
       event_data:

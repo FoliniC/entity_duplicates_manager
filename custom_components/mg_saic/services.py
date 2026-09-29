@@ -6,6 +6,7 @@ from homeassistant.util import dt as dt_util
 import voluptuous as vol
 
 from .backends import Feature, backend_supports
+from .api import CommandsLimitReachedException
 from .const import (
     DOMAIN,
     LOGGER,
@@ -131,6 +132,34 @@ def _get_vehicle_resources(hass: HomeAssistant, vin: str):
     return client, coordinator
 
 
+def _record_command_error(hass: HomeAssistant, vin: str, source: str, error) -> None:
+    """Record a service-call command failure on the vehicle's coordinator.
+
+    Service handlers assign `coordinator` inside their try block, so it may be
+    unbound in the except block — this re-resolves it safely. Best-effort and
+    never raises, so it can't mask the original error.
+
+    This is what feeds the Vehicle Reachability sensor: without it, commands
+    issued via SERVICE CALLS never flagged a return-code-4 failure, so the
+    sensor stayed "awake" while commands were failing (see #238).
+    """
+    try:
+        _, coordinator = _get_vehicle_resources(hass, vin)
+        # A command-limit rejection (return code 8) is not a generic failure:
+        # route it to the dedicated notification/event so a limit hit via a
+        # SERVICE call behaves the same as one via the lock/climate entities
+        # (persistent notification + command_limit_reached event), rather than
+        # surfacing as a generic command_error. notify_command_limit_reached is
+        # async; we're on the event loop here, so schedule it as a task.
+        if isinstance(error, CommandsLimitReachedException):
+            hass.async_create_task(
+                coordinator.notify_command_limit_reached(vin, source)
+            )
+        else:
+            coordinator.record_command_error(source, error)
+    except Exception:  # noqa: BLE001 - supplementary, must never break the caller
+        pass
+
 
 def _backend_allows(client, vin: str, feature: Feature, service: str) -> bool:
     """Return True if *vin*'s backend supports *feature*, else log and refuse.
@@ -186,6 +215,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             )
         except Exception as e:
             LOGGER.error("Error locking vehicle for VIN %s: %s", vin, e)
+            _record_command_error(hass, vin, "service.locking_vehicle", e)
 
     async def handle_unlock_vehicle(call: ServiceCall) -> None:
         """Handle the unlock_vehicle service call."""
@@ -206,6 +236,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             )
         except Exception as e:
             LOGGER.error("Error unlocking vehicle for VIN %s: %s", vin, e)
+            _record_command_error(hass, vin, "service.unlocking_vehicle", e)
 
     async def handle_start_ac(call: ServiceCall) -> None:
         """Handle the start_ac service call."""
@@ -249,6 +280,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             )
         except Exception as e:
             LOGGER.error("Error starting AC for VIN %s: %s", vin, e)
+            _record_command_error(hass, vin, "service.starting_ac", e)
 
     async def handle_stop_ac(call: ServiceCall) -> None:
         """Handle the stop_ac service call."""
@@ -269,6 +301,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             )
         except Exception as e:
             LOGGER.error("Error stopping AC for VIN %s: %s", vin, e)
+            _record_command_error(hass, vin, "service.stopping_ac", e)
 
     async def handle_start_climate(call: ServiceCall) -> None:
         """Handle the start_climate service call."""
@@ -316,6 +349,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             )
         except Exception as e:
             LOGGER.error("Error starting AC with settings for VIN %s: %s", vin, e)
+            _record_command_error(hass, vin, "service.starting_ac_with_settings", e)
 
     async def handle_open_tailgate(call: ServiceCall) -> None:
         """Handle the open_tailgate service call."""
@@ -336,6 +370,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             )
         except Exception as e:
             LOGGER.error("Error opening tailgate for VIN %s: %s", vin, e)
+            _record_command_error(hass, vin, "service.opening_tailgate", e)
 
     async def handle_trigger_alarm(call: ServiceCall) -> None:
         """Handle the trigger_alarm service call."""
@@ -355,6 +390,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             )
         except Exception as e:
             LOGGER.error("Error triggering alarm for VIN %s: %s", vin, e)
+            _record_command_error(hass, vin, "service.triggering_alarm", e)
 
     async def handle_start_charging(call: ServiceCall) -> None:
         """Handle the start_charging service call."""
@@ -551,6 +587,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             await coordinator.async_request_refresh()
         except Exception as e:
             LOGGER.error("Error setting scheduled charging for VIN %s: %s", vin, e)
+            _record_command_error(hass, vin, "service.setting_scheduled_charging", e)
 
     async def handle_set_charging_current(call: ServiceCall):
         """Handle the service call to set charging current."""
@@ -638,6 +675,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             )
         except Exception as e:
             LOGGER.error("Error setting target SOC for VIN %s: %s", vin, e)
+            _record_command_error(hass, vin, "service.setting_target_soc", e)
 
     async def handle_control_rear_window_heat(call: ServiceCall) -> None:
         """Handle the control_rear_window_heat service call."""
@@ -659,6 +697,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             )
         except Exception as e:
             LOGGER.error("Error controlling rear window heat for VIN %s: %s", vin, e)
+            _record_command_error(hass, vin, "service.controlling_rear_window_heat", e)
 
     async def handle_control_heated_seats(call: ServiceCall) -> None:
         """Handle the control_heated_seats service call."""
@@ -686,6 +725,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             )
         except Exception as e:
             LOGGER.error("Error controlling heated seats for VIN %s: %s", vin, e)
+            _record_command_error(hass, vin, "service.controlling_heated_seats", e)
 
     async def handle_start_front_defrost(call: ServiceCall) -> None:
         """Handle the start_front_defrost service call."""
@@ -706,6 +746,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             )
         except Exception as e:
             LOGGER.error("Error starting front defrost for VIN %s: %s", vin, e)
+            _record_command_error(hass, vin, "service.starting_front_defrost", e)
 
     async def handle_update_vehicle_data(call: ServiceCall) -> None:
         """Handle the update_vehicle_data service call."""
@@ -736,6 +777,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             )
         except Exception as e:
             LOGGER.error("Error controlling sunroof for VIN %s: %s", vin, e)
+            _record_command_error(hass, vin, "service.controlling_sunroof", e)
 
     async def handle_control_charging_port_lock(call: ServiceCall) -> None:
         vin = call.data["vin"]
@@ -756,6 +798,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             )
         except Exception as e:
             LOGGER.error("Error controlling charging port lock for VIN %s: %s", vin, e)
+            _record_command_error(hass, vin, "service.controlling_charging_port_lock", e)
 
     # Register services
     hass.services.async_register(

@@ -1,0 +1,50 @@
+- alias: "Alexa: Ritorno a Casa"
+  id: alexa_ritorno_a_casa
+  trigger:
+    - platform: state
+      entity_id: light.ritorno_a_casa
+      to: "on"
+  action:
+    # 1. Apri porta ingresso
+    - service: cover.open_cover
+      target:
+        entity_id: cover.wifi_garage_door_module_door
+    - action: system_log.write
+      data:
+        level: info
+        message: "Alexa Ritorno a Casa: apertura porta ingresso (cover.wifi_garage_door_module_door)"
+    # 2. Attendi 3 secondi per apertura porta
+    - delay: "00:00:03"
+    # 3. Esegui logica entrata (bentornato, luci se buio, radio m2o)
+    - service: notify.send_message
+      target:
+        entity_id: notify.cucina_speak
+      data:
+        message: "Bentornato Carlo!"
+    # 4. Se buio (illuminance < 50 lx), accendi luce bancone
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ states('sensor.cucina_illuminance') | float(1000) < 50 }}"
+          sequence:
+            - service: switch.turn_on
+              target:
+                entity_id: switch.tavolo_cucina
+            - action: system_log.write
+              data:
+                level: info
+                message: "Alexa Ritorno a Casa: buio rilevato ({{ states('sensor.cucina_illuminance') }} lx) → luce bancone accesa"
+    # 5. Accendi radio m2o
+    - service: script.turn_on
+      target:
+        entity_id: script.alexa_radio_m2o_custom
+    # 6. Log conferma
+    - action: system_log.write
+      data:
+        level: info
+        message: "Alexa Ritorno a Casa: completato - porta aperta, bentornato, luci condizionate, radio m2o"
+    # 7. Auto-reset input_boolean dopo 3 secondi
+    - delay: "00:00:03"
+    - service: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.alexa_ritorno_a_casa

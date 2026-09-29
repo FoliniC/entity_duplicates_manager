@@ -1,0 +1,19 @@
+- alias: "Alexa: Verifica Vocale"
+  id: alexa_verifica_vocale
+  trigger:
+    - platform: state
+      entity_id: light.verifica
+      to: "on"
+  action:
+    # 1. Log che la chiamata vocale ha funzionato
+    - action: system_log.write
+      data:
+        level: info
+        message: "Alexa Verifica: comando vocale 'accendi direzione' ricevuto e processato"
+    # 2. Invia messaggio di conferma al device alexa della cucina
+    - service: notify.send_message
+      target:
+        entity_id: notify.cucina_speak
+      data:
+        message: "Comando accendi direzione ricevuto - verifica completata con successo"
+    # NOTA: niente auto-reset - l'utente spegne con "Alexa, spegni direzione"

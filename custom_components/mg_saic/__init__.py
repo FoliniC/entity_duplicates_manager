@@ -3,8 +3,14 @@
 import asyncio
 from contextlib import suppress
 
-from homeassistant.config_entries import ConfigEntry, ConfigEntryNotReady
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigEntryAuthFailed,
+    ConfigEntryNotReady,
+)
 from homeassistant.core import HomeAssistant
+
+from saic_ismart_client_ng.exceptions import SaicLogoutException
 
 from .backends import Feature, backend_supports, create_backend
 from .coordinator import SAICMGDataUpdateCoordinator
@@ -53,8 +59,145 @@ def _account_key(entry: ConfigEntry) -> tuple[str, str]:
     return (entry.data["username"], entry.data.get("region", ""))
 
 
+def _mask_vin(vin) -> str:
+    """Return a VIN with only the last 4 characters visible (issue #234).
+
+    A VIN is a personal identifier; logs should not carry it in full. Short
+    or missing values degrade to a generic placeholder rather than leaking.
+    """
+    if not vin or not isinstance(vin, str) or len(vin) < 4:
+        return "****"
+    return f"…{vin[-4:]}"
+
+
+def _mask_account(acct_key) -> str:
+    """Return a log-safe form of an (username, region) account key (#234).
+
+    The username (often an email or phone number) is reduced to its first
+    character plus its domain-ish tail where present; the region is kept in
+    the clear because it is not identifying.
+    """
+    username = acct_key[0] if isinstance(acct_key, (tuple, list)) else str(acct_key)
+    region = (
+        acct_key[1] if isinstance(acct_key, (tuple, list)) and len(acct_key) > 1 else ""
+    )
+    if not username:
+        masked = "****"
+    elif "@" in username:
+        local, _, domain = username.partition("@")
+        masked = f"{local[:1]}***@{domain}"
+    else:
+        masked = f"{username[:1]}***{username[-1:]}" if len(username) > 2 else "***"
+    return f"({masked}, {region})" if region else masked
+
+
+# Substrings that identify a genuine credential rejection in a backend
+# exception message.  Kept deliberately specific so that a transient network
+# blip is never misclassified as an auth failure (a false positive would
+# needlessly prompt the user to re-authenticate; the login helper's own
+# "check your credentials" message and a 401/403 are the reliable signals).
+_AUTH_FAILURE_MARKERS = (
+    "check your credentials",
+    "access token",
+    "invalid_grant",
+    "invalid password",
+    "bad credentials",
+    "incorrect password",
+    "authentication failed",
+)
+
+
+# SAIC returns HTTP 403 when the client clock is too far out for its signed
+# requests, with an explicit message about the device time (issue #340). That
+# is a transient host problem, not a credential problem: once NTP corrects the
+# clock the same password works again. Matching the server text is fragile —
+# wording may vary by locale or change without notice — so several phrasings
+# are accepted, and an unmatched variant simply falls back to today's
+# behaviour rather than breaking login.
+_CLOCK_SKEW_MARKERS = (
+    "time setting is incorrect",
+    "device's time",
+    "device time",
+    "adjust your device time",
+    "clock skew",
+)
+
+
+def _is_clock_skew(exc: BaseException) -> bool:
+    """True when a rejection is about the host clock rather than credentials.
+
+    Checked before the 403 rule in _is_auth_failure, which would otherwise
+    classify this as a bad password and send the user into a re-auth flow that
+    cannot fix it — the password is correct, and re-entering it changes
+    nothing. It also stops Home Assistant retrying, when retrying is exactly
+    what recovers this once the clock is corrected.
+    """
+    message = str(getattr(exc, "message", None) or exc).lower()
+    return any(marker in message for marker in _CLOCK_SKEW_MARKERS)
+
+
+def _is_auth_failure(exc: BaseException) -> bool:
+    """Classify a login exception as a credential failure (vs. transient).
+
+    Returns True when the failure means the stored password will never work
+    until the user supplies a new one — in which case async_setup_entry raises
+    ConfigEntryAuthFailed to trigger the re-auth flow (issue #250).  Transient
+    problems (network errors, HTTP 500, SAIC "code 4", rate limits) return
+    False and remain ConfigEntryNotReady so Home Assistant keeps retrying.
+    """
+    # A clock-skew 403 is not a credential failure, and must be tested first:
+    # the 401/403 rules below would otherwise claim it (issue #340).
+    if _is_clock_skew(exc):
+        return False
+
+    # The global SAIC client raises SaicLogoutException specifically on a
+    # 401/403 from the token endpoint.
+    if isinstance(exc, SaicLogoutException):
+        return True
+
+    # Explicit 401/403 carried on the exception (either the SAIC return code or
+    # a transport status code), whatever backend produced it.
+    for attr in ("return_code", "status_code", "status"):
+        code = getattr(exc, attr, None)
+        if code in (401, 403):
+            return True
+
+    # Fall back to the message text for backends that don't set a code.
+    message = str(getattr(exc, "message", None) or exc).lower()
+    return any(marker in message for marker in _AUTH_FAILURE_MARKERS)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up MG SAIC from a config entry."""
+    """Set up MG SAIC from a config entry.
+
+    Thin wrapper adding a per-entry re-entrancy guard around the real setup
+    (_async_setup_entry_impl). Setup has slow awaited steps (vehicle-info
+    fetch; charging-info timeout); if HA invokes setup again for the SAME entry
+    before the first finishes forwarding platforms — a reload landing mid-setup,
+    or a retry after a slow path — the platforms would be forwarded twice and
+    every platform would raise "Config entry ... has already been setup!".
+    Skipping any overlapping invocation prevents that. The guard is always
+    cleared in the finally, so a failed setup (ConfigEntryNotReady) can still be
+    retried normally.
+    """
+    hass.data.setdefault(DOMAIN, {})
+    in_progress = hass.data[DOMAIN].setdefault("setups_in_progress", set())
+    if entry.entry_id in in_progress:
+        LOGGER.debug(
+            "Setup for entry %s already in progress; skipping overlapping "
+            "invocation.",
+            entry.entry_id,
+        )
+        return False
+    in_progress.add(entry.entry_id)
+    try:
+        return await _async_setup_entry_impl(hass, entry)
+    finally:
+        in_progress.discard(entry.entry_id)
+
+
+async def _async_setup_entry_impl(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up MG SAIC from a config entry (real implementation)."""
     hass.data.setdefault(DOMAIN, {})
     domain = hass.data[DOMAIN]
     domain.setdefault("clients_by_vin", {})
@@ -97,19 +240,49 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             try:
                 await client.login()
             except Exception as exc:
+                # Do NOT log the account key, VIN, or raw backend response at
+                # error level (issue #234): the account key contains the
+                # username, and the raw exception can echo back server text.
+                # Identifiers are masked here; the original exception is still
+                # chained onto ConfigEntryNotReady below, so a full traceback
+                # remains available when debug logging is enabled.
                 LOGGER.error(
-                    "Failed to log in to MG SAIC for account %s (VIN %s): %s",
-                    acct_key,
-                    vin,
-                    exc,
+                    "Failed to log in to MG SAIC for account %s (VIN %s). "
+                    "Home Assistant will retry automatically.",
+                    _mask_account(acct_key),
+                    _mask_vin(vin),
                 )
-                # Release any client-held resources (the India backend owns an
-                # aiohttp.ClientSession that would otherwise leak and emit
-                # "Unclosed client session" warnings on every failed setup).
+                LOGGER.debug("MG SAIC login failure detail", exc_info=exc)
+                # Release any client-held resources (issue #233): the India
+                # backend owns an aiohttp.ClientSession, and the global client
+                # owns an httpx.AsyncClient — both would otherwise leak and
+                # emit "Unclosed client session" warnings on every failed
+                # setup.
                 with suppress(Exception):
                     await client.close()
-                domain["clients"].pop(acct_key, None)
-                return False
+                # If this is a genuine credential rejection, ask Home Assistant
+                # to start the re-authentication flow so the user can enter the
+                # new password in place (issue #250) instead of retrying the
+                # stale one forever.  Transient failures stay ConfigEntryNotReady
+                # and are retried automatically as before.
+                if _is_clock_skew(exc):
+                    LOGGER.error(
+                        "MG SAIC rejected the request because this machine's "
+                        "clock is wrong. The stored credentials are fine — "
+                        "check that time synchronisation (NTP) is running and "
+                        "healthy on the Home Assistant host. Home Assistant "
+                        "will keep retrying and should recover on its own once "
+                        "the clock is correct."
+                    )
+                if _is_auth_failure(exc):
+                    raise ConfigEntryAuthFailed(
+                        "MG SAIC rejected the stored credentials; please "
+                        "re-enter your password."
+                    ) from exc
+                raise ConfigEntryNotReady(
+                    "Could not log in to MG SAIC; Home Assistant will retry "
+                    "automatically."
+                ) from exc
             domain["account_clients"][acct_key] = client
             LOGGER.debug("Login successful for account %s", acct_key)
         else:
@@ -134,11 +307,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # iterable" when vehicles is None (reported by Johndowne, issue #203;
         # root cause was a SAIC-side 500, not the integration).
         if not vehicles:
-            LOGGER.error("No vehicle list returned by SAIC API for VIN %s - integration will be marked as available with limited functionality.", vin)
-            LOGGER.warning("SAIC API returned no vehicle list (likely a temporary server-side error) - integration will retry on next scheduled update.")
-            # Complete setup successfully so HA doesn't block on this integration
-            # The coordinator will retry on next scheduled update
-            pass
+            raise ConfigEntryNotReady(
+                "SAIC API returned no vehicle list (likely a temporary "
+                "server-side error) — HA will retry automatically."
+            )
         if not any(v.vin == vin for v in vehicles):
             LOGGER.error("VIN %s not found in account vehicles", vin)
             return False
@@ -149,11 +321,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Any other error verifying the VIN (network blip, transient API
         # failure) is also treated as "not ready" so HA retries rather than
         # permanently failing setup.
-        LOGGER.error("MG SAIC API verification failed for VIN %s: %s - integration will be marked as available with limited functionality.", vin, exc)
-        LOGGER.warning("Could not verify VIN %s yet - integration will retry on next scheduled update.", vin)
-        # Complete setup successfully so HA doesn't block on this integration
-        # The coordinator will retry on next scheduled update
-        pass
+        raise ConfigEntryNotReady(
+            f"Could not verify VIN {vin} yet: {exc}"
+        ) from exc
 
     # Store a reference to the shared client under this entry's key so that
     # platform files (button.py, climate.py, …) can fetch it as normal via
@@ -259,35 +429,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # ── Finalise ─────────────────────────────────────────────────────────────
     entry.async_on_unload(entry.add_update_listener(update_listener))
-    
-    # Forward entry setups to platforms - wrap in try/except to prevent blocking
-    try:
-        await asyncio.wait_for(
-            hass.config_entries.async_forward_entry_setups(entry, PLATFORMS),
-            timeout=30.0,  # Don't let platform setup block HA startup
-        )
-        LOGGER.debug("MG SAIC platform setup completed for VIN %s", vin)
-    except asyncio.TimeoutError:
-        LOGGER.warning(
-            "MG SAIC platform setup timed out for VIN %s - "
-            "platforms will be set up in background, HA startup continues",
-            vin,
-        )
-    except Exception as exc:
-        LOGGER.warning(
-            "MG SAIC platform setup failed for VIN %s: %s - "
-            "platforms will be set up in background, HA startup continues",
-            vin,
-            exc,
-        )
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     if not domain["services_registered"]:
         await async_setup_services(hass)
         domain["services_registered"] = True
 
     LOGGER.info(
-        "✅ MG SAIC integration setup COMPLETED for VIN %s (account %s, %s) - "
-        "HA startup can continue",
+        "MG SAIC integration setup completed for VIN %s (account %s, %s)",
         vin,
         acct_key,
         f"{len(poller._coordinators)} VIN(s) on poller"

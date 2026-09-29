@@ -1,0 +1,182 @@
+title: Frigate Timeline
+views:
+  - title: Timeline
+    path: timeline
+    cards:
+      - type: horizontal-stack
+        cards:
+          - type: custom:button-card
+            name: "◀ Prev"
+            show_icon: false
+            tap_action:
+              action: call-service
+              service: input_datetime.set_datetime
+              data:
+                datetime: |
+                  {% set d = states('sensor.frigate_timeline_date') | default('2026-09-04') %}
+                  {{ (d ~ ' 00:00:00') | as_timestamp - 86400 | timestamp_custom('%Y-%m-%d %H:%M:%S') }}
+                entity_id: input_datetime.frigate_timeline_date
+            styles:
+              card:
+                - background-color: var(--primary-color)
+                - color: white
+                - border-radius: 8px
+                - padding: 12px
+                - font-weight: bold
+                - min-height: 48px
+                - justify-content: center
+
+          - type: markdown
+            content: >
+              ## {{ states('sensor.frigate_timeline_date') | default('2026-09-04') }}
+
+              **Camera:** {{ states('input_select.frigate_timeline_camera') | default('cucina') }}
+
+          - type: custom:button-card
+            name: "Next ▶"
+            show_icon: false
+            tap_action:
+              action: call-service
+              service: input_datetime.set_datetime
+              data:
+                datetime: |
+                  {% set d = states('sensor.frigate_timeline_date') | default('2026-09-04') %}
+                  {{ (d ~ ' 00:00:00') | as_timestamp + 86400 | timestamp_custom('%Y-%m-%d %H:%M:%S') }}
+                entity_id: input_datetime.frigate_timeline_date
+            styles:
+              card:
+                - background-color: var(--primary-color)
+                - color: white
+                - border-radius: 8px
+                - padding: 12px
+                - font-weight: bold
+                - min-height: 48px
+                - justify-content: center
+
+      - type: horizontal-stack
+        cards:
+          - type: custom:button-card
+            name: "📅 Oggi"
+            show_icon: false
+            tap_action:
+              action: call-service
+              service: input_datetime.set_datetime
+              data:
+                datetime: "{{ now().strftime('%Y-%m-%d 00:00:00') }}"
+                entity_id: input_datetime.frigate_timeline_date
+            styles:
+              card:
+                - background-color: var(--accent-color)
+                - color: white
+                - border-radius: 8px
+                - padding: 10px
+                - font-size: 14px
+
+          - type: custom:button-card
+            name: "📂 Registrazioni"
+            show_icon: false
+            tap_action:
+              action: url
+              url_path: "/frigate/recordings"
+            styles:
+              card:
+                - background-color: var(--secondary-background-color)
+                - border-radius: 8px
+                - padding: 10px
+                - font-size: 14px
+
+          - type: custom:button-card
+            name: "🔗 Frigate UI"
+            show_icon: false
+            tap_action:
+              action: url
+              url_path: "http://192.168.0.3:5000"
+            styles:
+              card:
+                - background-color: "#e53935"
+                - color: white
+                - border-radius: 8px
+                - padding: 10px
+                - font-size: 14px
+
+      - type: horizontal-stack
+        cards:
+          - type: custom:button-card
+            name: Cucina
+            show_icon: false
+            tap_action:
+              action: call-service
+              service: input_select.select_option
+              data:
+                option: cucina
+                entity_id: input_select.frigate_timeline_camera
+            styles:
+              card:
+                - background-color: var(--card-background-color)
+                - border-radius: 8px
+                - padding: 10px
+                - font-size: 14px
+            state:
+              - value: cucina
+                styles:
+                  card:
+                    - background-color: var(--primary-color)
+                    - color: white
+
+          - type: custom:button-card
+            name: Locale Tecnico
+            show_icon: false
+            tap_action:
+              action: call-service
+              service: input_select.select_option
+              data:
+                option: locale_tecnico
+                entity_id: input_select.frigate_timeline_camera
+            styles:
+              card:
+                - background-color: var(--card-background-color)
+                - border-radius: 8px
+                - padding: 10px
+                - font-size: 14px
+            state:
+              - value: locale_tecnico
+                styles:
+                  card:
+                    - background-color: var(--primary-color)
+                    - color: white
+
+          - type: custom:button-card
+            name: Honor
+            show_icon: false
+            tap_action:
+              action: call-service
+              service: input_select.select_option
+              data:
+                option: honor
+                entity_id: input_select.frigate_timeline_camera
+            styles:
+              card:
+                - background-color: var(--card-background-color)
+                - border-radius: 8px
+                - padding: 10px
+                - font-size: 14px
+            state:
+              - value: honor
+                styles:
+                  card:
+                    - background-color: var(--primary-color)
+                    - color: white
+
+      - type: picture-glance
+        title: "{{ states('input_select.frigate_timeline_camera') | default('cucina') }} - {{ states('sensor.frigate_timeline_date') | default('2026-09-04') }}"
+        entities: []
+        camera_image: camera.cucina
+        aspect_ratio: 16:9
+
+      - type: markdown
+        content: |
+          **Accesso diretto:** Per visualizzare l'interfaccia Frigate completa con timeline e registrazioni, apri il browser all'indirizzo: `http://192.168.0.3:5000`
+          
+          Questo dashboard fornisce accesso rapido a navigazione, data, camera e collegamento diretto.
+          
+          ⚠️ Se la porta 5000 non è accessibile, verifica che Frigate sia in esecuzione e raggiungibile sulla rete locale.
