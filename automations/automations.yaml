@@ -26,12 +26,8 @@
         - if:
             - condition: state
               entity_id: light.luce_scale
-              state: "on"
+              state: "off"
           then:
-            - action: light.toggle
-              target:
-                entity_id: light.luce_scale
-          else:
             - action: light.turn_on
               target:
                 entity_id: light.luce_scale

@@ -40,12 +40,13 @@
       data:
         level: info
         message: "Alexa Entrata: modalità entrata completata - bentornato, luci condizionate, radio m2o"
-    # 5. Auto-reset input_boolean dopo 3 secondi
+    # 5. Auto-reset input_boolean Alexa dopo 3 secondi
     - delay: "00:00:03"
     - service: input_boolean.turn_off
       target:
         entity_id: input_boolean.alexa_accendi_entrata
-    # 6. Disattiva blocco apertura porta
+    # 6. Disattiva blocco apertura porta dopo 60 secondi
+    - delay: "00:01:00"
     - service: input_boolean.turn_off
       target:
         entity_id: input_boolean.block_scale_light_on_door_open
