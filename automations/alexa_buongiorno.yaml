@@ -20,16 +20,17 @@
     - service: cover.open_cover
       target:
         entity_id: cover.camera_grande_tapparella_knx
-    # 4. Attiva radio m2o tramite Alexa (alexa_devices)
+    # 4. Attiva radio m2o tramite Alexa (alexa_devices) con controllo volume
     - action: system_log.write
       data:
         level: info
         message: "Alexa Buongiorno: avvia riproduzione radio"
-    - service: notify.send_message
+    - service: script.turn_on
       target:
-        entity_id: notify.cucina_speak
+        entity_id: script.alexa_play_music_with_volume_check
       data:
-        message: "Attivo radio m2o"
+        media_player: media_player.cucina
+        radio_script: script.alexa_radio_m2o_custom
     # 5. Attendi 5 secondi
     - delay: "00:00:05"
     # 6. Spegni input_boolean
