@@ -233,6 +233,9 @@ shell_command:
   usb_tether_launch_scrcpy: >
     ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no carlo@192.168.0.3 "DISPLAY=:0 /home/carlo/Desktop/scrcpy-redmi.sh >/dev/null 2>&1 &"
 
+  usb_tether_launch_scrcpy_lg: >
+    ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no carlo@192.168.0.3 "DISPLAY=:0 scrcpy -s 0123456789ABCDEF --max-size 800 --video-bit-rate 2M --video-codec h264 >/dev/null 2>&1 &"
+
   usb_tether_renat: >
     ssh -i /config/.ssh/host_key -o StrictHostKeyChecking=no carlo@192.168.0.3 "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh renat"
 
@@ -456,7 +459,28 @@ script:
           subsystem: usb_tether
           level: INFO
           message: "AVVIO: Connessione ADB 192.168.0.14:5555 ed avvio SCRCPY su Debian (DISPLAY :0)"
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.usb_tether_status_message
+        data:
+          value: "AVVIO SCRCPY Note 11: ssh debian -> scrcpy-redmi.sh"
       - action: shell_command.usb_tether_launch_scrcpy
+
+  usb_tether_launch_scrcpy_lg:
+    alias: "Tethering: Avvia SCRCPY LG-X150 (Debian)"
+    icon: mdi:cellphone-screenshot
+    sequence:
+      - event: halog2026_write_event
+        event_data:
+          subsystem: usb_tether
+          level: INFO
+          message: "AVVIO: SCRCPY su LG-X150 (0123456789ABCDEF) - Android 5.0.2"
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.usb_tether_status_message
+        data:
+          value: "AVVIO SCRCPY LG-X150: scrcpy -s 0123456789ABCDEF --max-size 800 --video-bit-rate 2M --video-codec h264"
+      - action: shell_command.usb_tether_launch_scrcpy_lg
 
 # --- Automazione: aggiorna messaggio dopo cambio stato ----------------------
 automation:

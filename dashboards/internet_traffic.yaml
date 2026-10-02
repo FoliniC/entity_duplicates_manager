@@ -614,6 +614,21 @@ views:
                         }
 
                   - type: button
+                    name: "📱 SCRCPY LG-X150"
+                    icon: mdi:cellphone-screenshot
+                    tap_action:
+                      action: perform-action
+                      perform_action: script.usb_tether_launch_scrcpy_lg
+                    card_mod:
+                      style: |
+                        ha-card {
+                          background: #4a148c !important;
+                          --mdc-theme-primary: white;
+                          font-size: 13px;
+                          margin-top: 4px;
+                        }
+
+                  - type: button
                     name: "📹 StreamPack RTMP"
                     icon: mdi:video-wireless
                     tap_action:
