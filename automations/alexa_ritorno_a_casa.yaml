@@ -6,61 +6,61 @@
       to: "on"
   action:
     # 1. Apri porta ingresso
-        - service: cover.open_cover
-          target:
-            entity_id: cover.wifi_garage_door_module_door
-        - action: system_log.write
-          data:
-            level: info
-            message: "Alexa Ritorno a Casa: apertura porta ingresso (cover.wifi_garage_door_module_door)"
-        # 2. Attiva blocco per evitare che l'apertura porta interferisca con luce scale
-        - service: input_boolean.turn_on
-          target:
-            entity_id: input_boolean.block_scale_light_on_door_open
-        # 3. Attendi 3 secondi per apertura porta
-        - delay: "00:00:03"
-        # 4. Accendi luci scale (per percorso ingresso)
-        - service: light.turn_on
-          target:
-            entity_id: light.luce_scale
-        # 5. Esegui logica entrata (bentornato, luci se buio, radio m2o)
-        - service: notify.send_message
-          target:
-            entity_id: notify.cucina_speak
-          data:
-            message: "Bentornato Carlo!"
-        # 6. Se buio (illuminance < 50 lx), accendi luce bancone
-        - choose:
-            - conditions:
-                - condition: template
-                  value_template: "{{ states('sensor.cucina_illuminance') | float(1000) < 50 }}"
-              sequence:
-                - service: switch.turn_on
-                  target:
-                    entity_id: switch.tavolo_cucina
-                - action: system_log.write
-                  data:
-                    level: info
-                    message: "Alexa Ritorno a Casa: buio rilevato ({{ states('sensor.cucina_illuminance') }} lx) → luce bancone accesa"
-        # 7. Accendi radio m2o con controllo volume
-        - service: script.turn_on
-          target:
-            entity_id: script.alexa_play_music_with_volume_check
-          data:
-            media_player: media_player.cucina
-            radio_script: script.alexa_radio_m2o_custom
-        # 8. Log conferma
-        - action: system_log.write
-          data:
-            level: info
-            message: "Alexa Ritorno a Casa: completato - porta aperta, bentornato, luci scale, luci condizionate, radio m2o"
-        # 9. Auto-reset input_boolean Alexa dopo 3 secondi
-        - delay: "00:00:03"
-        - service: input_boolean.turn_off
-          target:
-            entity_id: input_boolean.alexa_ritorno_a_casa
-        # 10. Disattiva blocco apertura porta dopo 60 secondi
-        - delay: "00:01:00"
-        - service: input_boolean.turn_off
-          target:
-            entity_id: input_boolean.block_scale_light_on_door_open
+    - service: cover.open_cover
+      target:
+        entity_id: cover.wifi_garage_door_module_door
+    - service: system_log.write
+      data:
+        level: info
+        message: "Alexa Ritorno a Casa: apertura porta ingresso (cover.wifi_garage_door_module_door)"
+    # 2. Attiva blocco per evitare che l'apertura porta interferisca con luce scale
+    - service: input_boolean.turn_on
+      target:
+        entity_id: input_boolean.block_scale_light_on_door_open
+    # 3. Attendi 3 secondi per apertura porta
+    - delay: "00:00:03"
+    # 4. Accendi luci scale (per percorso ingresso)
+    - service: light.turn_on
+      target:
+        entity_id: light.luce_scale
+    # 5. Esegui logica entrata (bentornato, luci se buio, radio m2o)
+    - service: notify.send_message
+      target:
+        entity_id: notify.cucina_speak
+      data:
+        message: "Bentornato Carlo!"
+    # 6. Se buio (illuminance < 50 lx), accendi luce bancone
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ states('sensor.cucina_illuminance') | float(1000) < 50 }}"
+          sequence:
+            - service: switch.turn_on
+              target:
+                entity_id: switch.tavolo_cucina
+            - service: system_log.write
+              data:
+                level: info
+                message: "Alexa Ritorno a Casa: buio rilevato ({{ states('sensor.cucina_illuminance') }} lx) → luce bancone accesa"
+    # 7. Accendi radio m2o con controllo volume
+    - service: script.turn_on
+      data:
+        entity_id: script.alexa_play_music_with_volume_check
+        variables:
+          media_player: media_player.cucina
+          radio_script: script.alexa_radio_m2o_custom
+    # 8. Log conferma
+    - service: system_log.write
+      data:
+        level: info
+        message: "Alexa Ritorno a Casa: completato - porta aperta, bentornato, luci scale, luci condizionate, radio m2o"
+    # 9. Auto-reset input_boolean Alexa dopo 3 secondi
+    - delay: "00:00:03"
+    - service: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.alexa_ritorno_a_casa
+    # 10. Disattiva blocco apertura porta dopo 60 secondi
+    - delay: "00:01:00"
+    - service: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.block_scale_light_on_door_open

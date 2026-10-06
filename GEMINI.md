@@ -52,6 +52,7 @@ action:
 - Diagnostica Redmi: `/config/DIAGNOSTICA_REDMI_NOTE_9S_PRE_OTTIMIZZAZIONE.md`.
 - Telecamere / Frigate: `/config/TELECAMERE.md`.
 - Tuya / Handshake: `/config/tuya_handshake.md`.
+- Tuya Balcone Cloud Interception: `/config/TUYA_BALCONE_CLOUD_INTERCEPTION.md`.
 - Recupero / Backup: `/config/RECOVERY.md`.
 - Monitoraggio Rete: `/config/README_MONITOR.md`.
 - Ottimizzazione Telefono (post): `/config/OTTIMIZZAZIONE_HONOR_COL-L29_POST_IP_CAMERA.md`.

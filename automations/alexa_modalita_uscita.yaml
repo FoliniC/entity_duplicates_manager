@@ -15,7 +15,7 @@
             - condition: template
               value_template: "{{ states('input_select.usb_tether_mode') != 'Normale' }}"
           sequence:
-            - action: system_log.write
+            - service: system_log.write
               data:
                 level: warning
                 message: "Alexa Uscita: modalità tethering NON è Normale (attuale: {{ states('input_select.usb_tether_mode') }})"

@@ -1,12 +1,13 @@
 # Anti-Accensione Balcone
 # ─────────────────────────────────────────────────────────────────────────────
 # Spegne la luce del balcone quando si accende per un comando ESTERNO non voluto
-# (pulsante fisico, telecomando RF, o comando cloud Tuya).
+# (pulsante fisico, telecomando RF).
 #
 # Come distingue le accensioni legittime da quelle non volute:
-#   - UI / App        -> context.user_id valorizzato      -> NON intercetta
-#   - Automazione HA  -> context.parent_id valorizzato    -> NON intercetta
-#   - Fisico/RF/Cloud -> user_id=None AND parent_id=None  -> INTERCETTA e spegne
+#   - UI / App           -> context.user_id valorizzato       -> NON intercetta
+#   - Automazione HA     -> context.parent_id valorizzato     -> NON intercetta
+#   - Alexa/SmartLife    -> traffico cloud Tuya recente (<10s) -> NON intercetta (via sensor.tuya_balcone_recent_cloud_traffic)
+#   - Fisico/RF/Cloud    -> user_id=None AND parent_id=None   -> INTERCETTA e spegne
 #
 # Le automazioni del tramonto (accendi_balcone / spegni_balcone) e gli interventi
 # manuali da dashboard NON vengono toccati.
@@ -16,38 +17,23 @@
 
 - id: anti_accensione_balcone
   alias: "Balcone: Anti-Accensione (comando esterno)"
-  description: "Spegne la luce balcone se accesa da una sorgente esterna non voluta (fisico/RF/cloud)"
+  description: "Spegne la luce balcone se accesa da una sorgente esterna non voluta (fisico/RF). Chiama script.anti_accensione_balcone_check che verifica traffico cloud Tuya real-time sul router (<15s). Se c'è traffico -> Alexa/SmartLife legittimo -> NON interviene."
   mode: single
+  initial_state: true
   trigger:
     - platform: state
       entity_id: switch.luce_balcone_switch_1
       to: "on"
   condition:
     # Solo accensioni con origine ESTERNA: nessun utente e nessuna automazione.
+    # Esclude: UI/App (user_id), Automazioni (parent_id), Alexa/emulated_hue (source)
     - condition: template
       value_template: >
         {{ trigger.to_state.context.user_id is none
-           and trigger.to_state.context.parent_id is none }}
+           and trigger.to_state.context.parent_id is none
+           and (trigger.to_state.context.source | default('')) not in ['alexa', 'emulated_hue', 'hue'] }}
   action:
-    # 1) Log WARNING nel balcone_events.log (traccia dell'intervento)
-    - event: balcone_log_event
-      event_data:
-        level: WARNING
-        action: "SPENTO (anti-accensione)"
-        message: "Accensione esterna NON voluta rilevata (user_id=None, parent_id=None) → luce spenta automaticamente"
-        wait: 0
-    # 2) Spegni immediatamente
-    - action: switch.turn_off
+    # Chiama script che verifica traffico cloud Tuya real-time e decide se spegnere
+    - action: script.turn_on
       target:
-        entity_id: switch.luce_balcone_switch_1
-    # 3) Notifica push ad alta priorita'
-    - action: notify.send_message
-      target:
-        entity_id: notify.redmi_note_13_pro_5g
-      data:
-        title: "🚫 Luce balcone spenta (anti-accensione)"
-        message: "Rilevata accensione esterna non voluta → spenta automaticamente"
-        data:
-          tag: balcone_anti_accensione
-          importance: high
-          notification_icon: "mdi:shield-alert"
+        entity_id: script.anti_accensione_balcone_check

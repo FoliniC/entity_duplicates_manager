@@ -1,5 +1,5 @@
-- alias: "Alexa: Imposta volume media a 20% (Cucina + Camera)"
-  id: alexa_set_volume_20_percent
+- alias: "Alexa: Imposta volume media a 20% (Cucina + Camera) v2"
+  id: alexa_set_volume_20_percent_v2
   trigger:
     - platform: event
       event_type: alexa_set_volume_20
@@ -11,7 +11,7 @@
           - media_player.camera
       data:
         volume_level: 0.2
-    - action: system_log.write
+    - service: system_log.write
       data:
         level: info
         message: "Alexa Volume: impostato volume media a 20% su Cucina e Camera"

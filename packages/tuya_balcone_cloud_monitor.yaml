@@ -1,0 +1,22 @@
+command_line:
+  - sensor:
+      name: Tuya Balcone Cloud Traffic Check
+      unique_id: tuya_balcone_cloud_traffic_check
+      command: "python3 /config/helpers/check_tuya_balcone_cloud.py"
+      value_template: "{{ value_json.cloud_traffic_recent | lower }}"
+      json_attributes:
+        - cloud_traffic_recent
+        - last_event_seconds_ago
+        - event_count
+        - error
+      scan_interval: 2
+
+template:
+  - sensor:
+      - name: "Tuya Balcone Recent Cloud Traffic"
+        unique_id: tuya_balcone_recent_cloud_traffic
+        icon: "mdi:cloud-check"
+        state: "{{ state_attr('sensor.tuya_balcone_cloud_traffic_check', 'cloud_traffic_recent') | lower }}"
+        attributes:
+          last_event_seconds_ago: "{{ state_attr('sensor.tuya_balcone_cloud_traffic_check', 'last_event_seconds_ago') }}"
+          event_count: "{{ state_attr('sensor.tuya_balcone_cloud_traffic_check', 'event_count') }}"

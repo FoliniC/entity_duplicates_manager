@@ -6,7 +6,7 @@
       to: "on"
   action:
     # 1. Log che la chiamata vocale ha funzionato
-    - action: system_log.write
+    - service: system_log.write
       data:
         level: info
         message: "Alexa Verifica: comando vocale 'accendi direzione' ricevuto e processato"
