@@ -449,11 +449,41 @@ Per superare la restrizione di routing di MIUI senza richiedere i permessi di ro
 #### 3. Automazione e Persistenza
 - **Script Hotplug OpenWrt (`/usr/bin/streampack-rndis-configure.sh`)**:
   - Invocato automaticamente da `/etc/hotplug.d/iface/97-streampack-rndis` ad ogni `ifup` dell'interfaccia USB `wan` (`usb0`).
-  - Abilita il Proxy ARP per `10.203.33.10` su `usb0`, imposta la rotta verso `192.168.0.3`, genera `/sdcard/Download/streampack.json` con l'URL `rtmp://10.203.33.10:1935/live/telefono` e riavvia StreamPack via ADB.
+  - **Funzioni principali**:
+    1. Rileva dinamicamente il gateway USB (`usb0`) e calcola l'alias IP (`.10`) e la subnet (`.0/24`) della rete RNDIS corrente.
+    2. Configura **Proxy ARP** + neighbor proxy + rotta statica per l'alias IP su `usb0` → `192.168.0.3` (Debian).
+    3. **Pulisce le vecchie regole nftables** (identificate dal commento `StreamPack-RNDIS-*`) per qualsiasi subnet RNDIS precedente.
+    4. **Crea nuove regole nftables** per la subnet corrente:
+       - `srcnat_lan`: MASQUERADE per traffico `SUBNET/24` → `192.168.0.3:1935` (out via `br-lan`)
+       - `dstnat_wan`: DNAT per `ALIAS_IP:1935` → `192.168.0.3` (ingresso su `usb0`)
+    5. Genera il JSON di configurazione StreamPack e lo scrive **nell'internal storage dell'app** (`/data/user/0/io.github.thibaultbee.streampack.app/files/streampack.json`) via `run-as` (bypassa scoped storage Android 11+), NON in `/sdcard/Download/` (inaccessibile).
+    6. Riavvia StreamPack via ADB con la nuova configurazione.
+  - **Fix quoting heredoc**: Il JSON viene scritto su `/data/local/tmp/streampack.json.tmp` (world-writable) e poi copiato via `run-as sh -c 'cat > files/streampack.json'` per evitare problemi di espansione variabili nel heredoc.
 - **Script Host Debian (`/home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh`)**:
-  - Integrata la funzione `enable_nat_router` e il comando `setup_alias` per assicurare che l'alias `10.203.33.10/32` sia sempre attivo su `enp2s0` quando le automazioni del tethering vengono richiamate da Home Assistant.
+  - Integrata la funzione `enable_nat_router` e il comando `setup_alias` per assicurare che l'alias IP (`.10/32` della subnet RNDIS corrente) sia sempre attivo su `enp2s0` quando le automazioni del tethering vengono richiamate da Home Assistant.
 
-#### 4. Troubleshooting & Warning (Saturazione Overlay JFFS2 su OpenWrt)
+#### 4. Fix nftables per cambio subnet RNDIS (Settembre 2026)
+**Problema**: Quando il telefono USB viene ricollegato, la subnet RNDIS cambia (es. `10.116.145.x` → `10.109.73.x`). Lo script hotplug precedente:
+- Non creava le regole `srcnat_lan` (MASQUERADE) e `dstnat_wan` (DNAT) per la nuova subnet
+- Scriveva la configurazione in `/sdcard/Download/streampack.json` (bloccato da scoped storage Android 11+)
+- Aveva bug di quoting nel heredoc `run-as` che impediva l'espansione corretta delle variabili
+
+**Soluzione applicata** (script `/usr/bin/streampack-rndis-configure.sh` riscritto):
+1. **Rilevamento dinamico**: `GATEWAY=$(ip -4 addr show dev usb0 | awk '/inet / {print $2}' | cut -d/ -f1)` → deriva `TARGET_ALIAS` (`.10`) e `SUBNET` (`.0/24`)
+2. **Cleanup nftables**: Rimuove regole vecchie per commento `StreamPack-RNDIS-SNAT` e `StreamPack-RNDIS-DNAT` prima di aggiungere le nuove
+3. **Regole nftables complete**:
+   ```bash
+   # SNAT: subnet RNDIS → MediaMTX su Debian (out br-lan)
+   nft add rule inet fw4 srcnat_lan ip saddr $SUBNET oifname br-lan ip daddr $DEBIAN_IP tcp dport 1935 masquerade comment "StreamPack-RNDIS-SNAT"
+   # DNAT: alias IP (.10) su usb0 → Debian
+   nft add rule inet fw4 dstnat_wan ip daddr $TARGET_ALIAS tcp dport 1935 dnat to $DEBIAN_IP comment "StreamPack-RNDIS-DNAT"
+   ```
+4. **Proxy ARP + route**: `sysctl -w net.ipv4.conf.usb0.proxy_arp=1; ip neigh replace proxy $TARGET_ALIAS dev usb0; ip route replace $TARGET_ALIAS via $DEBIAN_IP dev br-lan`
+5. **Scrittura config affidabile**: JSON → `/data/local/tmp/streampack.json.tmp` → `run-as <pkg> sh -c 'cat > files/streampack.json'`
+
+**Verificato**: Cambio subnet `10.116.145.x` → `10.109.73.x` → script aggiorna config, nft rules, proxy ARP; StreamPack streamma a `rtmp://10.109.73.10:1935/live/telefono`; MediaMTX riceve 2 track (H264+AAC); Frigate `camera_fps: 5.0`; Live view 200 OK.
+
+#### 5. Troubleshooting & Warning (Saturazione Overlay JFFS2 su OpenWrt)
 - **Problematiche di scrittura su OpenWrt**: Se la memoria flash `/overlay` del router si satura (scendendo sotto i ~500KB liberi su file-system JFFS2), i tentativi di sovrascrittura di file in `/usr/bin/` o `/etc/` falliscono silenziosamente o restituiscono `Read-only file system`.
 - **Comportamento in caso di errore**: In caso di saturazione, lo script `/usr/bin/streampack-rndis-configure.sh` potrebbe non aggiornarsi su flash ed eseguire la vecchia versione (con `$GATEWAY` dinamico o path errato `telefono` invece di `live/telefono`), causando la rigenerazione di `/sdcard/Download/streampack.json` sul telefono con parametri errati e il conseguente blocco `No route to host`.
 - **Verifica e ripristino spazio `/overlay`**:
@@ -2147,6 +2177,45 @@ curl http://192.168.0.48/api/nouser/lights
 | File | Modifica |
 |------|----------|
 | `/home/carlo/docker/docker-compose.yml` | NPM ports binding a `192.168.0.3` |
+
+---
+
+## USB Tether Monitor - Note 11 su Router (Ottobre 2026)
+
+### Problema
+Il Note 11 (collegato al router OpenWrt 192.168.0.11) disattiva autonomamente il tethering USB RNDIS durante la notte (power management MIUI, USB reset, o reboot silenzioso). Questo lasciava la LAN senza internet in modalità "Normale" perché il router perdeva la WAN su `usb0`.
+
+### Soluzione: Monitor automatico ogni 5 minuti
+Script: `/usr/bin/usb_tether_monitor.sh` sul router
+Cron: `*/5 * * * * /usr/bin/usb_tether_monitor.sh` (in `/etc/crontabs/root`)
+
+**Logica:**
+1. Verifica ADB device `69a47f6d3a61` autorizzato (`device` state)
+2. Legge `sys.usb.config` → deve contenere `rndis`
+3. Se `rndis` presente: verifica `usb0` UP con lease IPv4 valido
+4. Se `rndis` assente: riattiva via `setprop sys.usb.config rndis,adb` (funziona su MIUI, `svc usb` crasha)
+5. Alza `usb0`, richiede DHCP, verifica ping via `usb0` a 8.8.8.8
+6. Se `wan.auto=1` (modalità Normale): fa `ifup wan` per ripristinare route default
+
+**Log:** `/tmp/usb_tether_monitor.log`
+
+### Fix chiave per MIUI
+`svc usb setFunctions rndis,adb` crasha con errore `theme_compatibility.xml ENOENT` (bug MIUI).
+**Workaround:** `setprop sys.usb.config rndis,adb` funziona correttamente.
+
+### Verifica manuale
+```bash
+# Stato attuale
+ssh root@192.168.0.11 /usr/bin/usb_tether_monitor.sh
+cat /tmp/usb_tether_monitor.log
+
+# Log cron
+logread | grep usb_tether_monitor
+```
+
+---
+
+*Ultimo aggiornamento: 7 Ottobre 2026*
 | `/home/carlo/docker/homeassistant/config/configuration.yaml` | emulated_hue host_ip/advertise_ip `192.168.0.48`, listen_port `80` |
 | NetworkManager | `enp2s0` +ipv4.addresses `192.168.0.48/24` |
 
