@@ -599,6 +599,24 @@ automation:
           subsystem: usb_tether
           level: INFO
           message: "Host tethering cambiato: {{ states('input_select.usb_tether_host') }}"
+  # --- Automazione: verifica periodica modalità Normale via traceroute ------
+  # Esegue traceroute ogni 60s; se il primo hop è 192.168.0.11 (router WAN),
+  # forza usb_tether_mode = Normale (corregge eventuali valori stale)
+  - alias: "USB Tether - verifica periodica modalità Normale"
+    id: usb_tether_verifica_periodica_normale
+    description: "Controlla ogni 60s se la rotta primaria è via router (192.168.0.11) e corregge usb_tether_mode"
+    trigger:
+      - platform: time_pattern
+        minutes: "/1"
+    action:
+      - service: script.turn_on
+        target:
+          entity_id: script.verify_tether_normale
+      - event: halog2026_write_event
+        event_data:
+          subsystem: usb_tether
+          level: DEBUG
+          message: "Verifica periodica modalità Normale completata"
   - alias: "USB Tether - ripristino stato all'avvio"
     id: usb_tether_ripristino_avvio
     description: "All'avvio di HA, legge lo stato reale dai sensori e aggiorna input_select.mode/host"

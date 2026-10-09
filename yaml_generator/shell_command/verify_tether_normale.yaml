@@ -1,0 +1,2 @@
+verify_tether_normale: >
+  traceroute -n -m 3 -w 3 8.8.8.8 2>/dev/null | awk 'NR==2 {print $2}'

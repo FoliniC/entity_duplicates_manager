@@ -148,6 +148,38 @@ alexa_play_music_with_volume_check:
   mode: queued
   max: 5
 
+verify_tether_normale:
+  alias: "Verifica Tethering Normale via Traceroute"
+  description: "Esegue traceroute verso 8.8.8.8; se il primo hop è 192.168.0.11 (router), imposta usb_tether_mode a 'Normale'"
+  sequence:
+    - action: shell_command.verify_tether_normale
+      response_variable: traceroute_result
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ traceroute_result.stdout.strip() == '192.168.0.11' }}"
+          sequence:
+            - action: input_select.select_option
+              target:
+                entity_id: input_select.usb_tether_mode
+              data:
+                option: "Normale"
+            - action: system_log.write
+              data:
+                level: info
+                logger: tether_verify
+                message: "Tether verify: primo hop 192.168.0.11 confermato → usb_tether_mode impostato a Normale"
+        - conditions:
+            - condition: template
+              value_template: "{{ traceroute_result.stdout.strip() != '192.168.0.11' }}"
+          sequence:
+            - action: system_log.write
+              data:
+                level: info
+                logger: tether_verify
+                message: "Tether verify: primo hop '{{ traceroute_result.stdout.strip() }}' (non 192.168.0.11) → usb_tether_mode NON modificato"
+  mode: single
+
 anti_accensione_balcone_check:
   alias: "Anti-Accensione Balcone: Verifica Cloud Tuya"
   description: "Verifica traffico cloud Tuya real-time sul router (<15s). Se c'è traffico -> Alexa/SmartLife legittimo -> NON spegne. Se NON c'è traffico -> Pulsante fisico/RF spurio -> SPEGNE."

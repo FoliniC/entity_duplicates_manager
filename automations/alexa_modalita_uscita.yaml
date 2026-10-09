@@ -9,7 +9,11 @@
     - service: input_boolean.turn_on
       target:
         entity_id: input_boolean.block_scale_light_on_door_open
-    # 1. Verifica modalità tethering = Normale
+    # 1. Verifica e corregge modalità tethering via traceroute (primo hop 192.168.0.11 = Normale)
+    - service: script.turn_on
+      target:
+        entity_id: script.verify_tether_normale
+    # 2. Verifica modalità tethering = Normale (dopo auto-correzione)
     - choose:
         - conditions:
             - condition: template
