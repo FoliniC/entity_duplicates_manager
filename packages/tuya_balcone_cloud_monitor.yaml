@@ -9,7 +9,7 @@ command_line:
         - last_event_seconds_ago
         - event_count
         - error
-      scan_interval: 2
+      scan_interval: 15
 
 template:
   - sensor:

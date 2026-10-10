@@ -114,6 +114,28 @@ class ControlableHVACDevice(ABC):
     def HVACActionReason(self, hvac_action_reason: HVACActionReason):
         self._hvac_action_reason = hvac_action_reason
 
+    async def async_turn_off_unless_used(self, in_use: set[str]) -> None:
+        """Turn off, unless an entity we own is in use by the active device.
+
+        Wrappers can share an actuator - a heater wrapper and a cooler wrapper
+        may hold the same fan - so stopping a wrapper wholesale would switch
+        off an entity the running mode still needs (#637).
+        """
+        if set(self.get_device_ids()) & in_use:
+            return
+        await self.async_turn_off()
+
+    def reset_hvac_action_reason(self) -> None:
+        """Forget why the device last acted.
+
+        The reason is sticky - it is only rewritten when a controller
+        actually acts - so after something external stops the device (an
+        emergency stop, say) the stored reason no longer describes reality
+        and would be republished by the next control run that decides to do
+        nothing. Implementations must clear every copy they hold.
+        """
+        self._hvac_action_reason = HVACActionReason.NONE
+
     def on_entity_state_changed(self, entity_id: str, new_state: State) -> None:
         """Handle entity state changes. Currently only for specific cases when the devices needs"""
         pass

@@ -151,6 +151,7 @@ alexa_play_music_with_volume_check:
 verify_tether_normale:
   alias: "Verifica Tethering Normale via Traceroute"
   description: "Esegue traceroute verso 8.8.8.8; se il primo hop è 192.168.0.11 (router), imposta usb_tether_mode a 'Normale'"
+  mode: single
   sequence:
     - action: shell_command.verify_tether_normale
       response_variable: traceroute_result

@@ -2,7 +2,7 @@
 """Check router kernel ring buffer (dmesg) for recent TUYA-BALCONE cloud traffic.
 
 Returns JSON: {"cloud_traffic_recent": bool, "last_event_seconds_ago": int|null}
-Exit codes: 0 = cloud traffic recent, 1 = no recent cloud traffic, 2 = error
+Exit code: 0 always (state is in JSON output).
 """
 import json
 import subprocess
@@ -93,7 +93,6 @@ def check_recent_tuya_traffic() -> dict:
 if __name__ == "__main__":
     result = check_recent_tuya_traffic()
     print(json.dumps(result))
-    if result.get("cloud_traffic_recent"):
-        sys.exit(0)
-    else:
-        sys.exit(1)
+    # Sempre exit 0: command_line logga error su exit non-zero.
+    # Lo stato è nel JSON (cloud_traffic_recent: true/false).
+    sys.exit(0)

@@ -799,11 +799,9 @@ class EnvironmentManager(StateManager):
             self._set_floor_temp_limits_from_config()
         else:
             self._set_temps_when_have_preset_mode(
-                preset_mode,
                 preset_env,
                 hvac_mode,
                 is_range_mode,
-                old_preset_mode,
             )
             self._set_floor_temp_limits_from_preset(preset_env)
 
@@ -831,13 +829,22 @@ class EnvironmentManager(StateManager):
                 hvac_mode, supports_temp_range, old_preset_mode
             )
 
+    @staticmethod
+    def _bound_for_mode(
+        hvac_mode: HVACMode, low: float | None, high: float | None
+    ) -> float | None:
+        """Which of a low/high pair a single-setpoint thermostat targets in this mode."""
+        if hvac_mode == HVACMode.HEAT:
+            return low
+        if hvac_mode in (HVACMode.COOL, HVACMode.FAN_ONLY):
+            return high
+        return None
+
     def _set_temps_when_have_preset_mode(
         self,
-        preset_mode: str,
         preset_env: PresetEnv | None,
         hvac_mode: HVACMode,
         is_range_mode: bool,
-        old_preset_mode: str | None = None,
     ) -> None:
         _LOGGER.debug(
             "Setting temperatures from hvac mode and presets when have preset mode. is_range_mode: %s",
@@ -907,27 +914,19 @@ class EnvironmentManager(StateManager):
                     preset_env,
                 )
 
-                if hvac_mode == HVACMode.HEAT:
-                    if preset_temp_low is not None:
-                        _LOGGER.debug(
-                            "Setting temperatures from preset range mode if HVACMode.HEAT. Preset: %s",
-                            preset_temp_low,
-                        )
-                        self._target_temp = preset_temp_low
-                elif hvac_mode in [HVACMode.COOL, HVACMode.FAN_ONLY] and (
-                    preset_temp_high is not None
-                ):
+                # The preset's own bound for this mode, never _saved_target_temp:
+                # that value is not mode-scoped, so preferring it made a
+                # re-applied preset cool toward the heat setpoint (#641).
+                bound = self._bound_for_mode(
+                    hvac_mode, preset_temp_low, preset_temp_high
+                )
+                if bound is not None:
                     _LOGGER.debug(
-                        "Setting temperatures from preset range mode if HVACMode.COOL, HVACMode.FAN_ONLY. Preset: %s, sved_target_temp: %s",
-                        preset_temp_high,
-                        self._saved_target_temp,
+                        "Setting target temp from preset range for %s: %s",
+                        hvac_mode,
+                        bound,
                     )
-                    preset_match_old = old_preset_mode == preset_mode
-                    self._target_temp = (
-                        self._saved_target_temp
-                        if preset_match_old and self._saved_target_temp
-                        else preset_temp_high
-                    )
+                    self._target_temp = bound
                 else:
                     _LOGGER.debug("Setting target temp from preset, unhandled case")
 
@@ -968,65 +967,73 @@ class EnvironmentManager(StateManager):
         supports_temp_range: bool,
         old_preset_mode: str | None,
     ) -> None:
-        if (
-            old_preset_mode is not PRESET_NONE
-            and old_preset_mode is not None
-            and self.saved_target_temp is not None
-        ):
+        leaving_preset = (
+            old_preset_mode is not PRESET_NONE and old_preset_mode is not None
+        )
+        mode_bound = (
+            self._bound_for_mode(hvac_mode, self.target_temp_low, self.target_temp_high)
+            if supports_temp_range
+            else None
+        )
+
+        # This mode's own bound outranks saved_target_temp, which is not
+        # mode-scoped: after heat -> cool it still holds the heat setpoint, so
+        # leaving a preset used to resume cooling toward it (#641).
+        if leaving_preset and mode_bound is not None:
             _LOGGER.debug(
-                "Setting temperatures from no preset target mode. Old preset: %s, saved target temp: %s",
+                "Leaving preset %s, using %s bound: %s",
+                old_preset_mode,
+                hvac_mode,
+                mode_bound,
+            )
+            self.target_temp = mode_bound
+        elif leaving_preset and self.saved_target_temp is not None:
+            _LOGGER.debug(
+                "Leaving preset %s, no mode bound, using saved target temp: %s",
                 old_preset_mode,
                 self.saved_target_temp,
             )
             self.target_temp = self.saved_target_temp
         # switching from preset NONE to NONE
         elif supports_temp_range:
-            if (
-                hvac_mode in [HVACMode.COOL, HVACMode.FAN_ONLY]
-                and self.target_temp_high is not None
-            ):
+            if mode_bound is not None:
                 _LOGGER.debug(
-                    "Setting temperatures from no preset target mode. HVACMode.COOL, target temp: %s",
-                    self.target_temp,
+                    "Setting temperatures from no preset target mode for %s: %s",
+                    hvac_mode,
+                    mode_bound,
                 )
-                self.target_temp = self.target_temp_high
-
-            elif hvac_mode == HVACMode.HEAT and self.target_temp_low is not None:
-                _LOGGER.debug(
-                    "Setting temperatures from no preset target mode. HVACMode.HEAT, target temp: %s",
-                    self.target_temp,
-                )
-                self.target_temp = self.target_temp_low
+                self.target_temp = mode_bound
         else:
             _LOGGER.debug(
                 "Setting temperatures from no preset target mode. Fallback to target_temp"
             )
             self.saved_target_temp = self.target_temp
 
+    def _config_floor_temp_limits(self) -> tuple[float | None, float | None]:
+        """Return (min, max) floor limits from config.
+
+        Unset max falls back to DEFAULT_MAX_FLOOR_TEMP; unset min stays None
+        (cold check disabled), consistent with __init__. 0 is a valid value.
+        """
+        config_max = self._config.get(CONF_MAX_FLOOR_TEMP)
+        if config_max is None:
+            config_max = DEFAULT_MAX_FLOOR_TEMP
+        return self._config.get(CONF_MIN_FLOOR_TEMP), config_max
+
     def _set_floor_temp_limits_from_preset(self, preset_env: PresetEnv) -> None:
         _LOGGER.debug("Setting floor temp limits from preset: %s", preset_env.to_dict)
 
-        if preset_env.has_floor_temp_limits():
-            preset_max_floor_temp = (
-                preset_env.to_dict["max_floor_temp"]
-                or self._config.get(CONF_MAX_FLOOR_TEMP)
-                or DEFAULT_MAX_FLOOR_TEMP
-            )
-            preset_min_floor_temp = preset_env.to_dict[
-                "min_floor_temp"
-            ] or self._config.get(CONF_MIN_FLOOR_TEMP)
-
-            self.max_floor_temp = preset_max_floor_temp
-            self.min_floor_temp = preset_min_floor_temp
+        # Always reset: a preset without limits must not inherit the previous
+        # preset's limits. Unspecified sides fall back to config.
+        config_min, config_max = self._config_floor_temp_limits()
+        preset_min = preset_env.min_floor_temp
+        preset_max = preset_env.max_floor_temp
+        self.max_floor_temp = preset_max if preset_max is not None else config_max
+        self.min_floor_temp = preset_min if preset_min is not None else config_min
 
     def _set_floor_temp_limits_from_config(self) -> None:
         _LOGGER.debug("Setting floor temp limits from config")
-        self._max_floor_temp = (
-            self._config.get(CONF_MAX_FLOOR_TEMP) or DEFAULT_MAX_FLOOR_TEMP
-        )
-        self._min_floor_temp = (
-            self._config.get(CONF_MIN_FLOOR_TEMP) or DEFAULT_MAX_FLOOR_TEMP
-        )
+        self._min_floor_temp, self._max_floor_temp = self._config_floor_temp_limits()
 
     def apply_old_state(self, old_state: State) -> None:
         _LOGGER.debug("Applying old state: %s", old_state)
@@ -1071,7 +1078,11 @@ class EnvironmentManager(StateManager):
 
         # do we actually need this?
         self._max_floor_temp = (
-            (old_state.attributes.get("max_floor_temp") or DEFAULT_MAX_FLOOR_TEMP)
+            (
+                old_state.attributes.get("max_floor_temp")
+                if old_state.attributes.get("max_floor_temp") is not None
+                else DEFAULT_MAX_FLOOR_TEMP
+            )
             if self._max_floor_temp is None
             else self._max_floor_temp
         )

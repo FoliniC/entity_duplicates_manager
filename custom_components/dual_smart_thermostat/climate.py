@@ -9,6 +9,7 @@ from typing import Any
 from homeassistant.components.climate import (
     PLATFORM_SCHEMA,
     ClimateEntity,
+    ClimateEntityFeature,
     HVACAction,
     HVACMode,
 )
@@ -91,6 +92,7 @@ from .const import (
     CONF_FAN_HOT_TOLERANCE_TOGGLE,
     CONF_FAN_MODE,
     CONF_FAN_ON_WITH_AC,
+    CONF_FAN_ON_WITH_HEATER,
     CONF_FLOOR_SENSOR,
     CONF_HEAT_COOL_MODE,
     CONF_HEAT_PUMP_COOLING,
@@ -179,6 +181,7 @@ FAN_MODE_SCHEMA = {
     vol.Optional(CONF_FAN): cv.entity_id,
     vol.Optional(CONF_FAN_MODE): cv.boolean,
     vol.Optional(CONF_FAN_ON_WITH_AC): cv.boolean,
+    vol.Optional(CONF_FAN_ON_WITH_HEATER): cv.boolean,
     vol.Optional(CONF_FAN_HOT_TOLERANCE): vol.All(
         vol.Coerce(float), vol.Range(min=0, min_included=False)
     ),
@@ -961,6 +964,24 @@ class DualSmartThermostat(ClimateEntity, RestoreEntity):
             _LOGGER.debug("restoring hvac_mode: %s", hvac_mode)
             await self.async_set_hvac_mode(hvac_mode, is_restore=True)
 
+            # Presets were restored above while the support flags still
+            # reflected range mode (self._hvac_mode is unset at this point),
+            # so a range-only preset filled low/high but never a target. The
+            # is_restore mode switch skips resolving it, leaving temperature
+            # null in heat/cool (#646). Resolve it from the preset now.
+            if (
+                self.features.is_target_mode
+                and self.environment.target_temp is None
+                and self.presets.preset_mode != PRESET_NONE
+            ):
+                self.environment.set_temepratures_from_hvac_mode_and_presets(
+                    self._hvac_mode,
+                    self.features.hvac_modes_support_range_temp(self._attr_hvac_modes),
+                    self.presets.preset_mode,
+                    self.presets.preset_env,
+                    self.features.is_range_mode,
+                )
+
             _LOGGER.debug(
                 "startup hvac_action_reason: %s",
                 old_state.attributes.get(ATTR_HVAC_ACTION_REASON),
@@ -1444,6 +1465,12 @@ class DualSmartThermostat(ClimateEntity, RestoreEntity):
                     self.sensor_entity_id,
                     new_state,
                 )
+                # The reason still held everywhere is the pre-stall one: the
+                # emergency stop turned the device off without a controller
+                # deciding anything. Clear it down the whole device tree so the
+                # control run below starts from a clean slate - if the fresh
+                # reading calls for no action, no stale reason resurfaces.
+                self.hvac_device.reset_hvac_action_reason()
                 self._hvac_action_reason = self.hvac_device.HVACActionReason
                 self._publish_hvac_action_reason(self._hvac_action_reason)
                 self.async_write_ha_state()
@@ -1789,6 +1816,18 @@ class DualSmartThermostat(ClimateEntity, RestoreEntity):
         """Handle heater switch state changes."""
 
         data = event.data
+
+        # The fan entity may only now have turned up (issue #636). Only the
+        # FAN_MODE bit can have changed, so set it directly - a full
+        # _set_support_flags() would also reset target temps from presets.
+        fan_device = self.features.fan_device
+        if (
+            fan_device is not None
+            and data["new_state"] is not None
+            and fan_device.redetect_capabilities(data["entity_id"], data["new_state"])
+        ):
+            self._attr_supported_features |= ClimateEntityFeature.FAN_MODE
+
         self._async_switch_changed(data["old_state"], data["new_state"])
 
     @callback
@@ -1803,7 +1842,10 @@ class DualSmartThermostat(ClimateEntity, RestoreEntity):
         if new_state is None:
             return
         if old_state is None:
-            self.hass.create_task(self._check_device_initial_state())
+            # async_create_task (eager) not create_task: we are already on the
+            # event loop, and create_task's call_soon_threadsafe defers the run
+            # by a loop iteration, racing whatever the caller does next.
+            self.hass.async_create_task(self._check_device_initial_state())
 
         self.async_write_ha_state()
 
@@ -1816,7 +1858,7 @@ class DualSmartThermostat(ClimateEntity, RestoreEntity):
             _LOGGER.debug(
                 "Resuming from state. Old state is None, New State: %s", new_state
             )
-            self.hass.create_task(self._async_control_climate())
+            self.hass.async_create_task(self._async_control_climate())
 
         if old_state is not None and new_state is not None:
             _LOGGER.debug(
@@ -1831,7 +1873,7 @@ class DualSmartThermostat(ClimateEntity, RestoreEntity):
                 STATE_UNAVAILABLE,
                 STATE_UNKNOWN,
             ):
-                self.hass.create_task(self._async_control_climate())
+                self.hass.async_create_task(self._async_control_climate())
 
     @property
     def _is_device_active(self) -> bool:

@@ -27,6 +27,8 @@ CHAIN = "forward"
 SELECTIVE_MARKER = "tuya-selective"
 POWERED_CLOUD_ALLOW_IPS = [
     "192.168.0.25",  # luci-cucina (bf054a2177fd16678d9yds): powered Tuya device that needs cloud handshake
+    "192.168.0.18",  # fancoil cucina (bf99ea5e30505ca127autx): powered Tuya climate
+    "192.168.0.36",  # stox fancoil cucina (bfbce6d494de7a397dtvjz): powered Tuya climate
 ]
 
 TUYA_DOMAINS = [

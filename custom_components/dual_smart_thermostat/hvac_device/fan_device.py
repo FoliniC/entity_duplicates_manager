@@ -2,7 +2,7 @@ from datetime import timedelta
 import logging
 
 from homeassistant.components.climate import HVACAction, HVACMode
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, State, callback
 
 from ..const import FAN_MODE_TO_PERCENTAGE
 from ..hvac_device.cooler_device import CoolerDevice
@@ -49,11 +49,12 @@ class FanDevice(CoolerDevice):
         self._fan_modes = []
         self._uses_preset_modes = False
         self._current_fan_mode = None
+        self._pending_fan_mode = None
         self._detect_fan_capabilities()
 
-    def _detect_fan_capabilities(self) -> None:
+    def _detect_fan_capabilities(self, fan_state: State | None = None) -> None:
         """Detect if fan entity supports speed control."""
-        fan_state = self.hass.states.get(self.entity_id)
+        fan_state = fan_state or self.hass.states.get(self.entity_id)
 
         if not fan_state:
             _LOGGER.debug("Fan entity %s not found, no speed control", self.entity_id)
@@ -99,6 +100,23 @@ class FanDevice(CoolerDevice):
 
         _LOGGER.debug("Fan entity %s does not support speed control", self.entity_id)
 
+    @callback
+    def redetect_capabilities(self, entity_id: str, new_state: State) -> bool:
+        """Retry detection once our entity shows up, True if it gained speed control."""
+        if entity_id != self.entity_id or self._supports_fan_mode:
+            return False
+
+        self._detect_fan_capabilities(new_state)
+
+        if not self._supports_fan_mode:
+            return False
+
+        if self._pending_fan_mode is not None:
+            self.restore_fan_mode(self._pending_fan_mode)
+            self._pending_fan_mode = None
+
+        return True
+
     @property
     def supports_fan_mode(self) -> bool:
         """Return if fan supports speed control."""
@@ -128,6 +146,11 @@ class FanDevice(CoolerDevice):
         This method validates that the fan mode is valid for the current
         fan device before restoring it. Invalid modes are logged and ignored.
         """
+        if not self._supports_fan_mode:
+            # Entity isn't up yet; hold it for redetect_capabilities (issue #636).
+            self._pending_fan_mode = fan_mode
+            return
+
         if fan_mode in self._fan_modes:
             self._current_fan_mode = fan_mode
             _LOGGER.info("Restored fan mode %s for entity %s", fan_mode, self.entity_id)
