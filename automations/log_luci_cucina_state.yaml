@@ -82,10 +82,8 @@
         - condition: template
           value_template: "{{ to_state in ['on', 'off'] }}"
       then:
-        # Usare notify.send_message con l'entity come target (servizio standard)
-        - action: notify.send_message
-          target:
-            entity_id: notify.redmi_note_13_pro_5g
+        # Chiamata diretta al servizio notify mobile app (supporta tag, importance, icon)
+        - action: notify.mobile_app_redmi_note_13_pro_5g
           data:
             title: "💡 Cucina {{ friendly_name }} {{ action_word }}{% if anomalous %} ⚠️{% endif %}"
             message: "Motivo: {{ reason }}"

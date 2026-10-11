@@ -1,0 +1,72 @@
+- id: "1739986157014"
+  alias: "Spegni luci scale dopo tempo"
+  description: "Spegne le luci delle scale dopo 4 minuti dall'ultima accensione o riavvio"
+  triggers:
+    - trigger: state
+      entity_id: light.luce_scale
+      to: "on"
+      for:
+        seconds: 15
+    - trigger: homeassistant
+      event: start
+  conditions:
+    - condition: state
+      entity_id: light.luce_scale
+      state: "on"
+  actions:
+    - variables:
+        we_turned_it_off: false
+    - delay:
+        minutes: 4
+    - action: persistent_notification.create
+      data:
+        title: "Luce Scale"
+        message: "Spegnimento automatico luci scale. Consumo: {{ states('sensor.luce_scale_switch_infos') }}W"
+        notification_id: "spegni_luci_123"
+    - if:
+        - condition: template
+          value_template: "{{ states('sensor.luce_scale_switch_infos') | float(0) > 7 }}"
+      then:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.scale_light_source
+          data:
+            value: "{{ this.attributes.friendly_name }}"
+        - action: light.turn_off
+          target:
+            entity_id: light.luce_scale
+        - variables:
+            we_turned_it_off: true
+    - delay:
+        seconds: 2
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: light.luce_scale
+              state: "off"
+            - condition: template
+              value_template: "{{ we_turned_it_off }}"
+          sequence:
+            - action: notify.mobile_app_redmi_note_13_pro_5g
+              data:
+                title: "Luce Scale"
+                message: "Luce scale spenta automaticamente dopo 4 minuti. Consumo: {{ states('sensor.luce_scale_switch_infos') }}W"
+                data:
+                  tts_text: "Spenta la luce scale"
+        - conditions:
+            - condition: state
+              entity_id: light.luce_scale
+              state: "off"
+          sequence:
+            - action: notify.mobile_app_redmi_note_13_pro_5g
+              data:
+                title: "Luce Scale"
+                message: "Luce scale era già spenta (spenta da altra automazione). Consumo: {{ states('sensor.luce_scale_switch_infos') }}W"
+                data:
+                  tts_text: "La luce scale era già spenta"
+      default:
+        - action: notify.mobile_app_redmi_note_13_pro_5g
+          data:
+            title: "⚠️ Errore Luce Scale"
+            message: "La luce non si è spenta correttamente dopo il timeout"
+  mode: restart
