@@ -800,9 +800,7 @@
             - condition: template
               value_template: "{{ we_turned_it_off }}"
           sequence:
-            - action: notify.send_message
-              target:
-                entity_id: notify.redmi_note_13_pro_5g
+            - action: notify.mobile_app_redmi_note_13_pro_5g
               data:
                 title: "Luce Scale"
                 message: "Luce scale spenta automaticamente dopo 4 minuti. Consumo: {{ states('sensor.luce_scale_switch_infos') }}W"
@@ -813,18 +811,14 @@
               entity_id: light.luce_scale
               state: "off"
           sequence:
-            - action: notify.send_message
-              target:
-                entity_id: notify.redmi_note_13_pro_5g
+            - action: notify.mobile_app_redmi_note_13_pro_5g
               data:
                 title: "Luce Scale"
                 message: "Luce scale era già spenta (spenta da altra automazione). Consumo: {{ states('sensor.luce_scale_switch_infos') }}W"
                 data:
                   tts_text: "La luce scale era già spenta"
       default:
-        - action: notify.send_message
-          target:
-            entity_id: notify.redmi_note_13_pro_5g
+        - action: notify.mobile_app_redmi_note_13_pro_5g
           data:
             title: "⚠️ Errore Luce Scale"
             message: "La luce non si è spenta correttamente dopo il timeout"

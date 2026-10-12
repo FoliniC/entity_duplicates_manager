@@ -131,6 +131,27 @@ run_status() {
     err_msg=$(head -1 "$ERROR_MARKER" 2>/dev/null)
     err_time=$(sed -n '2p' "$ERROR_MARKER" 2>/dev/null)
     if [[ -n "$err_msg" ]]; then
+      # Before returning stale error, check if current status is actually working
+      # If tethering is idle/active, clear the stale error marker and return real status
+      if [[ "$HOST" == *"Windows"* ]]; then
+        out=$(ssh_windows "powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/Scripts/usb_tether.ps1 -Action status" 2>&1)
+        rc=$?
+        out=$(extract_windows_json "$out")
+      else
+        out="$(ssh_debian "/home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh status" 2>&1)"
+        rc=$?
+      fi
+      if (( rc == 0 )); then
+        line="$(printf '%s\n' "$out" | tr -d '\r' | awk '/^\{.*\}$/ { last=$0 } END { print last }')"
+        if [[ -n "$line" ]] && [[ "$line" == *'"state":"idle"'* || "$line" == *'"state":"active"'* ]]; then
+          # Current status is healthy - clear stale error marker
+          rm -f "$ERROR_MARKER" 2>/dev/null || true
+          log_line INFO "Cleared stale error marker: current tethering state is healthy"
+          printf '%s\n' "$line"
+          return 0
+        fi
+      fi
+      # Current status not healthy - return the error marker
       if [[ -n "$err_time" ]]; then
         printf '{"state":"error","mode":"%s","message":"%s (alle %s)"}\n' "$MODE" "$err_msg" "$err_time"
       else
