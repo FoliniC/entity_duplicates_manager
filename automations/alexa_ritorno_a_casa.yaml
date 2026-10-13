@@ -47,7 +47,7 @@
       data:
         entity_id: script.alexa_play_music_with_volume_check
         variables:
-          media_player: media_player.cucina
+          media_player: media_player.alexa_echo_dots
           radio_script: script.alexa_radio_m2o_custom
     # 8. Log conferma
     - service: system_log.write

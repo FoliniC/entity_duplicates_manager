@@ -73,11 +73,14 @@ service.call("notify", "send_message",
 ### Note tecniche
 - **NON usare** `media_player.play_media` con `media_content_type: "tts"` → restituisce **Internal Server Error (500)**.
 - Il volume TTS è controllato dal **volume "Annunci"** del dispositivo Alexa (app Alexa → Dispositivi → Suoni → Volume annunci), **non** dal `volume_level` del media_player HA.
-- Per regolare il volume media: `media_player.volume_set` su `media_player.cucina` (influisce su musica/streaming, non su TTS).
+- Per regolare il volume media: `media_player.volume_set` su `media_player.alexa_echo_dots` (influisce su musica/streaming, non su TTS).
 - Le entità `notify.*_announce` usano il tipo "announce" (interrompono la riproduzione).
 - Tutto l'integrazione è gestita via config entry UI (non YAML).
 - Sensori disponibili: temperatura, illuminanza, allarmi, timer, reminder, connettività, motion, do not disturb, drop-in, annunci, comunicazioni.
 - Liste: `todo.carlo_folini_gmail_com_shopping_list`, `todo.carlo_folini_gmail_com_to_do_list`.
+
+### Gruppo `media_player.alexa_echo_dots`
+Definito in `groups.yaml` — raggruppa i due Echo Dot (Cucina + Camera) per comandi di riproduzione condivisi (play/stop/volume). Tutti gli script e automazioni usano questo gruppo come target, così entrambi i device rispondono contemporaneamente.
 
 ---
 

@@ -8,7 +8,7 @@
   conditions:
     - condition: template
       value_template: >-
-        {% set last = states.automation.frigate_cucina_person.attributes.last_triggered %}
+        {% set last = state_attr('automation.frigate_cucina_person', 'last_triggered') %}
         {% if last is none %} true {% else %}
         {{ (now() - last).total_seconds() > 300 }}
         {% endif %}

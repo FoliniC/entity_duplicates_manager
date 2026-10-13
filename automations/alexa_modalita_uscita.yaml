@@ -51,6 +51,14 @@
             - service: media_player.media_stop
               target:
                 entity_id: media_player.sistema_audio
+        - conditions:
+            - condition: state
+              entity_id: media_player.alexa_echo_dots
+              state: "playing"
+          sequence:
+            - service: media_player.media_stop
+              target:
+                entity_id: media_player.alexa_echo_dots
     # 4. Accendi luci scale (per percorso uscita)
     - service: light.turn_on
       target:

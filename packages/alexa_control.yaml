@@ -48,7 +48,7 @@ script:
       # che è il metodo garantito e documentato da Home Assistant.
       - action: media_player.play_media
         target:
-          entity_id: media_player.cucina
+          entity_id: media_player.alexa_echo_dots
         data:
           media_content_id: "radio m2o"
           media_content_type: "TUNEIN"
@@ -74,4 +74,4 @@ script:
           message: "Alexa Stop: interrompi riproduzione"
       - action: media_player.media_stop
         target:
-          entity_id: media_player.cucina
+          entity_id: media_player.alexa_echo_dots

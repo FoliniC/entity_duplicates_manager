@@ -227,8 +227,8 @@ router_wan_up() {
         echo "WAN router riattivata (route $ROUTER_WAN_IF via $gw ripristinata)."
     fi
 
-    # VERIFICA CONNETTIVITA' INTERNET REALE DEL ROUTER
-    if router_ssh "ping -c 2 -W 3 1.1.1.1 >/dev/null 2>&1 || ping -c 2 -W 3 8.8.8.8 >/dev/null 2>&1"; then
+    # VERIFICA CONNETTIVITA' INTERNET REALE DEL ROUTER (via usb0, come preflight)
+    if router_ssh "ping -c 2 -W 3 -I $ROUTER_WAN_IF 1.1.1.1 >/dev/null 2>&1 || ping -c 2 -W 3 -I $ROUTER_WAN_IF 8.8.8.8 >/dev/null 2>&1"; then
         echo "OK: router WAN connettivita' internet verificata."
         return 0
     fi

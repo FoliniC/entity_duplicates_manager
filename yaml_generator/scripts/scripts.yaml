@@ -151,7 +151,8 @@ alexa_play_music_with_volume_check:
 verify_tether_normale:
   alias: "Verifica Tethering Normale via Traceroute"
   description: "Esegue traceroute verso 8.8.8.8; se il primo hop è 192.168.0.11 (router), imposta usb_tether_mode a 'Normale'"
-  mode: single
+  mode: queued
+  max: 2
   sequence:
     - action: shell_command.verify_tether_normale
       response_variable: traceroute_result
@@ -179,7 +180,6 @@ verify_tether_normale:
                 level: info
                 logger: tether_verify
                 message: "Tether verify: primo hop '{{ traceroute_result.stdout.strip() }}' (non 192.168.0.11) → usb_tether_mode NON modificato"
-  mode: single
 
 anti_accensione_balcone_check:
   alias: "Anti-Accensione Balcone: Verifica Cloud Tuya"

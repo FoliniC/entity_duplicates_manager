@@ -36,6 +36,13 @@ homeassistant:
   #  - /config/www/cronostar_profiles
   packages: !include_dir_named packages
 
+
+# ============================================================================
+# GROUPS
+# ============================================================================
+
+group: !include groups.yaml
+
 # ============================================================================
 # TEMPLATE ENTITIES (CONSOLIDATO)
 # ============================================================================
@@ -418,7 +425,7 @@ logger:
     custom_components.localtuya: info
     custom_components.entity_duplicates_manager: info
     fancoil_system: error
-    homeassistant.components.shell_command: debug
+    homeassistant.components.shell_command: error
     homeassistant.components.script: warning
     system_log.external: error
     homeassistant.components.mqtt: error

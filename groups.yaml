@@ -1,0 +1,8 @@
+# Gruppo device Alexa Echo Dot
+# Usato per comandi di riproduzione (play/stop/volume) che devono essere eseguiti
+# contemporaneamente su entrambi i device.
+alexa_echo_dots:
+  name: Alexa Echo Dots (Cucina + Camera)
+  entities:
+    - media_player.cucina
+    - media_player.camera

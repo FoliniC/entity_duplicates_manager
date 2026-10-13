@@ -6,9 +6,7 @@
   action:
     - service: media_player.volume_set
       target:
-        entity_id:
-          - media_player.cucina
-          - media_player.camera
+        entity_id: media_player.alexa_echo_dots
       data:
         volume_level: 0.2
     - service: system_log.write
