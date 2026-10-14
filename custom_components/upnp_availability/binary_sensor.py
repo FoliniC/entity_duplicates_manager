@@ -41,8 +41,14 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         sensor = devices[dev.udn]
         await sensor._update_status()
 
-    addresses = [str(addr) for addr in await async_get_enabled_source_ips(hass)]
-    _LOGGER.info("Initializing on addresses: %s", addresses)
+    # Filter to only use the main LAN interface (192.168.0.3)
+    # Docker bridges and VPN interfaces cause "Network unreachable" errors for SSDP
+    all_addresses = [str(addr) for addr in await async_get_enabled_source_ips(hass)]
+    addresses = [addr for addr in all_addresses if addr.startswith("192.168.0.")]
+    if not addresses:
+        _LOGGER.warning("No 192.168.0.x interface found, falling back to all addresses: %s", all_addresses)
+        addresses = all_addresses
+    _LOGGER.info("Initializing UPnP on addresses: %s (filtered from: %s)", addresses, all_addresses)
     tracker = upnp_data["tracker"] = UPnPStatusTracker(
         source_addresses=addresses,
         new_device_cb=add_new_device,
