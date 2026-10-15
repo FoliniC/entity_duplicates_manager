@@ -1,0 +1,12 @@
+sensor:
+  - unique_id: luce_scale_switch_infos
+    name: Luce scale switch infos
+    unit_of_measurement: W
+    device_class: power
+    state_class: measurement
+    state: "{{ ((states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0))) | round(2) }}"
+    attributes:
+      power: "{{ ((states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0))) }}"
+      current: "{{ ((states('sensor.sonoff_10024024c4_current_1') | float(0)) + (states('sensor.sonoff_10024024c4_current_2') | float(0))) }}"
+      switch_1_attributes: "{{ states.sensor.sonoff_10024024c4_power_1.attributes | default({}) }}"
+      switch_2_attributes: "{{ states.sensor.sonoff_10024024c4_power_2.attributes | default({}) }}"

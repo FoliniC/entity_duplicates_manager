@@ -1,0 +1,49 @@
+light:
+  - name: "Uscita"
+    unique_id: light_uscita
+    icon: mdi:exit-run
+    state: "{{ states('input_boolean.alexa_accendi_uscita') }}"
+    turn_on:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.alexa_accendi_uscita
+    turn_off:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.alexa_accendi_uscita
+  - name: "Entrata"
+    unique_id: light_entrata
+    icon: mdi:home-import
+    state: "{{ states('input_boolean.alexa_accendi_entrata') }}"
+    turn_on:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.alexa_accendi_entrata
+    turn_off:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.alexa_accendi_entrata
+  - name: "Ritorno a Casa"
+    unique_id: light_ritorno_a_casa
+    icon: mdi:home-map-marker
+    state: "{{ states('input_boolean.alexa_ritorno_a_casa') }}"
+    turn_on:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.alexa_ritorno_a_casa
+    turn_off:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.alexa_ritorno_a_casa
+  - name: "Verifica"
+    unique_id: light_verifica
+    icon: mdi:check-circle
+    state: "{{ states('input_boolean.verifica_alexa') }}"
+    turn_on:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.verifica_alexa
+    turn_off:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.verifica_alexa

@@ -1,7 +1,6 @@
-# Template Light - Uscita (per controllo vocale Alexa)
 light:
-  - unique_id: light_uscita
-    name: "Uscita"
+  - name: "Uscita"
+    unique_id: light_uscita
     icon: mdi:exit-run
     state: "{{ states('input_boolean.alexa_accendi_uscita') }}"
     turn_on:

@@ -1,0 +1,14 @@
+- platform: template
+  lights:
+    verifica:
+      friendly_name: "Verifica"
+      icon: mdi:check-circle
+      value_template: "{{ states('input_boolean.verifica_alexa') }}"
+      turn_on:
+        service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.verifica_alexa
+      turn_off:
+        service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.verifica_alexa

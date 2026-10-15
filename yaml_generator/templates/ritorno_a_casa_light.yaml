@@ -1,8 +1,7 @@
-# Template Light - Ritorno a Casa (per controllo vocale Alexa)
 light:
-  - unique_id: light_ritorno_a_casa
-    name: "Ritorno a Casa"
-    icon: mdi:home-account
+  - name: "Ritorno a Casa"
+    unique_id: light_ritorno_a_casa
+    icon: mdi:home-map-marker
     state: "{{ states('input_boolean.alexa_ritorno_a_casa') }}"
     turn_on:
       - service: input_boolean.turn_on

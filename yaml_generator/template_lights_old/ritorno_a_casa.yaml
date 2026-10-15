@@ -1,0 +1,14 @@
+- platform: template
+  lights:
+    ritorno_a_casa:
+      friendly_name: "Ritorno a Casa"
+      icon: mdi:home-map-marker
+      value_template: "{{ states('input_boolean.alexa_ritorno_a_casa') }}"
+      turn_on:
+        service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.alexa_ritorno_a_casa
+      turn_off:
+        service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.alexa_ritorno_a_casa

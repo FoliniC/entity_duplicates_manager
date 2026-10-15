@@ -105,9 +105,9 @@ class TuyaNetworkWatcher:
             "-o", "StrictHostKeyChecking=no",
             "-o", "UserKnownHostsFile=/dev/null",
             "-o", "BatchMode=yes",
-            "-o", "ConnectTimeout=5",
-            "-o", "ServerAliveInterval=2",
-            "-o", "ServerAliveCountMax=1",
+            "-o", "ConnectTimeout=10",
+            "-o", "ServerAliveInterval=5",
+            "-o", "ServerAliveCountMax=3",
             f"root@{ROUTER_IP}",
         ]
 
@@ -188,7 +188,7 @@ class TuyaNetworkWatcher:
         Only applies settings if they differ from the desired state, to avoid unnecessary
         firewall restarts which cause brief internet interruptions.
         """
-        # First, check current settings
+        # First, check current settings with retry
         check_commands = [
             "uci get firewall.@defaults[0].flow_offloading",
             "uci get firewall.@defaults[0].flow_offloading_hw",
@@ -196,20 +196,32 @@ class TuyaNetworkWatcher:
         
         needs_change = False
         check_failed = False
+        max_retries = 3
+        base_delay = 2  # seconds
+        
         for cmd in check_commands:
-            code, stdout, stderr = await self._router_run(cmd)
-            if code == 0:
-                current_value = stdout.strip()
-                if current_value != "0":
-                    needs_change = True
-                    _LOGGER.debug("Flow offloading setting needs change: %s = %s (want 0)", cmd, current_value)
-            else:
-                check_failed = True
-                _LOGGER.warning(
-                    "Could not read current flow offloading setting with command %s: %s",
-                    cmd,
-                    stderr.strip() if stderr else "unknown error",
-                )
+            for attempt in range(max_retries):
+                code, stdout, stderr = await self._router_run(cmd)
+                if code == 0:
+                    current_value = stdout.strip()
+                    if current_value != "0":
+                        needs_change = True
+                        _LOGGER.debug("Flow offloading setting needs change: %s = %s (want 0)", cmd, current_value)
+                    break  # Success, exit retry loop
+                else:
+                    if attempt < max_retries - 1:
+                        delay = base_delay * (2 ** attempt)  # exponential backoff: 2s, 4s
+                        _LOGGER.debug("SSH check failed (attempt %d/%d), retrying in %ds: %s", 
+                                     attempt + 1, max_retries, delay, stderr.strip() if stderr else "unknown error")
+                        await asyncio.sleep(delay)
+                    else:
+                        check_failed = True
+                        _LOGGER.warning(
+                            "Could not read current flow offloading setting after %d attempts with command %s: %s",
+                            max_retries,
+                            cmd,
+                            stderr.strip() if stderr else "unknown error",
+                        )
 
         if check_failed:
             _LOGGER.warning(
@@ -229,11 +241,19 @@ class TuyaNetworkWatcher:
             "/etc/init.d/firewall restart",
         ]
         for cmd in commands:
-            code, stdout, stderr = await self._router_run(cmd)
-            if code != 0:
-                _LOGGER.warning("Router command failed: %s — %s", cmd, stderr.strip())
-            else:
-                _LOGGER.debug("Router command OK: %s", cmd)
+            # Also add retry for the actual change commands
+            for attempt in range(max_retries):
+                code, stdout, stderr = await self._router_run(cmd)
+                if code == 0:
+                    _LOGGER.debug("Router command OK: %s", cmd)
+                    break
+                elif attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)
+                    _LOGGER.debug("Router command failed (attempt %d/%d), retrying in %ds: %s — %s", 
+                                 attempt + 1, max_retries, delay, cmd, stderr.strip())
+                    await asyncio.sleep(delay)
+                else:
+                    _LOGGER.warning("Router command failed after %d attempts: %s — %s", max_retries, cmd, stderr.strip())
         _LOGGER.info("Flow offloading disabled on OpenWrt router")
 
     async def _read_tcpdump_output(self) -> None:

@@ -1,0 +1,213 @@
+title: Tuya Batterie
+icon: mdi:battery-outline
+views:
+  # ============================================================
+  # VISTA: Tuya Batterie - Dispositivi Tuya alimentati a batteria
+  # ============================================================
+  - title: Tuya Batterie
+    path: tuya-batterie
+    icon: mdi:battery-outline
+    badges: []
+    cards:
+      # --- TH1A (Cucina/Bagno) ---
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: |
+              ## 📟 TH1A — Sensore Temperatura/Umidità
+              **IP:** 192.168.0.139 | **Canale:** Locale
+          - type: entities
+            title: Stato Batteria TH1A
+            entities:
+              - entity: sensor.th1a_battery
+                name: "Batteria (percentuale)"
+                icon: mdi:battery
+                unit_of_measurement: "%"
+              - entity: sensor.th1a_temperature_humidity_battery
+                name: "Batteria (entità LocalTuya)"
+                icon: mdi:battery-outline
+              - entity: binary_sensor.th1a_battery_low
+                name: "Allarme batteria bassa"
+                icon: mdi:battery-alert
+          - type: entities
+            title: Letture TH1A
+            entities:
+              - entity: sensor.th1a_temperature
+                name: "Temperatura"
+                icon: mdi:thermometer
+              - entity: sensor.th1a_humidity
+                name: "Umidità"
+                icon: mdi:water-percent
+              - entity: sensor.th1a_temperature_humidity_local_ip
+                name: "IP Locale"
+                icon: mdi:ip-network
+
+      # --- TH2B ---
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: |
+              ## 📟 TH2B — Sensore Temperatura/Umidità
+              **IP:** 192.168.0.40 | **Canale:** Locale
+          - type: entities
+            title: Stato Batteria TH2B
+            entities:
+              - entity: sensor.th2b_battery
+                name: "Batteria (percentuale)"
+                icon: mdi:battery
+                unit_of_measurement: "%"
+              - entity: sensor.th2b_temperature_humidity_battery
+                name: "Batteria (entità LocalTuya)"
+                icon: mdi:battery-outline
+              - entity: binary_sensor.th2b_battery_low
+                name: "Allarme batteria bassa"
+                icon: mdi:battery-alert
+          - type: entities
+            title: Letture TH2B
+            entities:
+              - entity: sensor.th2b_temperature
+                name: "Temperatura"
+                icon: mdi:thermometer
+              - entity: sensor.th2b_humidity
+                name: "Umidità"
+                icon: mdi:water-percent
+              - entity: sensor.th2b_temperature_humidity_local_ip
+                name: "IP Locale"
+                icon: mdi:ip-network
+
+      # --- TH3C ---
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: |
+              ## 📟 TH3C — Sensore Temperatura/Umidità
+              **IP:** 192.168.0.41 | **Canale:** Locale
+          - type: entities
+            title: Stato Batteria TH3C
+            entities:
+              - entity: sensor.th3c_battery
+                name: "Batteria (percentuale)"
+                icon: mdi:battery
+                unit_of_measurement: "%"
+              - entity: sensor.th3c_temperature_humidity_battery_level
+                name: "Livello batteria (testuale)"
+                icon: mdi:battery-outline
+              - entity: binary_sensor.th3c_battery_low
+                name: "Allarme batteria bassa"
+                icon: mdi:battery-alert
+          - type: entities
+            title: Letture TH3C
+            entities:
+              - entity: sensor.th3c_temperature
+                name: "Temperatura"
+                icon: mdi:thermometer
+              - entity: sensor.th3c_humidity
+                name: "Umidità"
+                icon: mdi:water-percent
+              - entity: sensor.th3c_temperature_humidity_local_ip
+                name: "IP Locale"
+                icon: mdi:ip-network
+
+      # --- TH4D (Esterno) ---
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: |
+              ## 📟 TH4D — Sensore Temperatura/Umidità (Esterno)
+              **IP:** 192.168.0.42 | **Canale:** Locale
+          - type: entities
+            title: Stato Batteria TH4D
+            entities:
+              - entity: sensor.th4d_battery
+                name: "Batteria (percentuale)"
+                icon: mdi:battery
+                unit_of_measurement: "%"
+              - entity: sensor.th4d_temperature_humidity_battery_level
+                name: "Livello batteria (testuale)"
+                icon: mdi:battery-outline
+              - entity: binary_sensor.th4d_battery_low
+                name: "Allarme batteria bassa"
+                icon: mdi:battery-alert
+          - type: entities
+            title: Letture TH4D
+            entities:
+              - entity: sensor.th4d_temperature
+                name: "Temperatura"
+                icon: mdi:thermometer
+              - entity: sensor.th4d_humidity
+                name: "Umidità"
+                icon: mdi:water-percent
+              - entity: sensor.th4d_temperature_humidity_local_ip
+                name: "IP Locale"
+                icon: mdi:ip-network
+
+      # --- Temperature/Humidity Sensor 3116 ---
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: |
+              ## 📟 Temperature/Humidity Sensor 3116
+              **Stato:** Non disponibile / Offline
+          - type: entities
+            title: Stato Batteria Sensor 3116
+            entities:
+              - entity: sensor.temperature_humidity_sensor_3116_battery
+                name: "Batteria"
+                icon: mdi:battery-unknown
+              - entity: sensor.temperature_humidity_sensor_3116_voltage
+                name: "Tensione"
+                icon: mdi:flash
+                unit_of_measurement: "V"
+          - type: entities
+            title: Letture Sensor 3116
+            entities:
+              - entity: sensor.temperature_humidity_sensor_3116_temperature
+                name: "Temperatura"
+                icon: mdi:thermometer
+              - entity: sensor.temperature_humidity_sensor_3116_humidity
+                name: "Umidità"
+                icon: mdi:water-percent
+
+      # --- Contact Sensor Cucina (Porta) ---
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: |
+              ## 🚪 Contact Sensor Cucina — Sensore Porta
+              **Modello:** Tuya Generic (bf2e5e78cb1bb32ac5ikh5)
+              **Firmware:** 3.4 | **MAC:** BC:35:1E:FF:4A:B9
+              **IP Locale:** 192.168.0.160 | **IP Cloud:** 62.19.213.4
+              **Batteria (Cloud Polling):** {{ states("sensor.contact_cucina_battery") }}% (raw: {{ states("sensor.contact_cucina_battery_raw") }})
+          - type: entities
+            title: Stato Porta Cucina
+            entities:
+              - entity: binary_sensor.contact_cucina_contact_cucina
+                name: "Stato Porta"
+                icon: mdi:door
+              - entity: sensor.contact_cucina_battery
+                name: "Batteria (%)"
+                icon: mdi:battery
+                unit_of_measurement: "%"
+              - entity: sensor.contact_cucina_battery_raw
+                name: "Batteria (raw cloud)"
+                icon: mdi:battery-outline
+              - entity: sensor.contact_sensor_local_ip
+                name: "IP Locale"
+                icon: mdi:ip-network
+              - entity: sensor.contact_sensor_cloud_ip
+                name: "IP Cloud"
+                icon: mdi:cloud
+
+      # --- Riepilogo rapido ---
+      - type: markdown
+        content: |
+          ---
+          ## 📋 Riepilogo Livelli Batteria
+          | Dispositivo | % Batteria | Livello Testuale | Allarme Bassa | Stato |
+          |-------------|------------|------------------|---------------|-------|
+          | TH1A | {{ states("sensor.th1a_battery") }}% | {{ states("sensor.th1a_temperature_humidity_battery") }} | {{ "🔴" if is_state("binary_sensor.th1a_battery_low", "on") else "🟢" }} | {{ "⚠️ CRITICO" if states("sensor.th1a_battery")|float(100) < 20 else "OK" }} |
+          | TH2B | {{ states("sensor.th2b_battery") }}% | {{ states("sensor.th2b_temperature_humidity_battery") }}% | {{ "🔴" if is_state("binary_sensor.th2b_battery_low", "on") else "🟢" }} | OK |
+          | TH3C | {{ states("sensor.th3c_battery") }}% | {{ states("sensor.th3c_temperature_humidity_battery_level") }} | {{ "🔴" if is_state("binary_sensor.th3c_battery_low", "on") else "🟢" }} | OK |
+          | TH4D | {{ states("sensor.th4d_battery") }}% | {{ states("sensor.th4d_temperature_humidity_battery_level") }} | {{ "🔴" if is_state("binary_sensor.th4d_battery_low", "on") else "🟢" }} | OK |
+          | Sensor 3116 | N/D | N/D | N/D | ❌ Offline |
+          | Contact Cucina | {{ states("sensor.contact_cucina_battery") }}% | {{ states("sensor.contact_cucina_battery_raw") }} | N/D | {{ "🟢 Chiusa" if is_state("binary_sensor.contact_cucina_contact_cucina", "off") else "🔴 Aperta" }} |

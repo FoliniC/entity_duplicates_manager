@@ -6,6 +6,10 @@
       to: "on"
   action:
     # 0. Attiva blocco per evitare che l'apertura porta riaccenda la luce scale
+    - service: system_log.write
+      data:
+        level: info
+        message: "Automation alexa_modalita_uscita TRIGGERED"
     - service: input_boolean.turn_on
       target:
         entity_id: input_boolean.block_scale_light_on_door_open

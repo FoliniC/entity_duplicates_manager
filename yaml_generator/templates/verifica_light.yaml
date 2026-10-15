@@ -1,7 +1,6 @@
-# Template Light - Verifica (per controllo vocale Alexa)
 light:
-  - unique_id: light_verifica
-    name: "Direzione"
+  - name: "Verifica"
+    unique_id: light_verifica
     icon: mdi:check-circle
     state: "{{ states('input_boolean.verifica_alexa') }}"
     turn_on:

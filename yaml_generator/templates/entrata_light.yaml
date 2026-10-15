@@ -1,7 +1,6 @@
-# Template Light - Entrata (per controllo vocale Alexa)
 light:
-  - unique_id: light_entrata
-    name: "Entrata"
+  - name: "Entrata"
+    unique_id: light_entrata
     icon: mdi:home-import
     state: "{{ states('input_boolean.alexa_accendi_entrata') }}"
     turn_on:

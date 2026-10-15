@@ -420,8 +420,13 @@ logger:
     homeassistant.components.emulated_hue.hue_api:
       - "Entity not found"
       - "Entity not exposed"
+    aioamazondevices:
+      - debug
   logs:
-    homeassistant.components.emulated_hue: warning
+    homeassistant.components.emulated_hue: debug
+    homeassistant.components.emulated_hue.hue_api: debug
+    homeassistant.components.template: debug
+    homeassistant.components.light: debug
     custom_components.localtuya: info
     custom_components.entity_duplicates_manager: info
     fancoil_system: error
@@ -556,7 +561,12 @@ lovelace:
       icon: mdi:bitcoin
       show_in_sidebar: true
       filename: dashboards/btc_investment_tracker.yaml
-
+    tuya-batterie:
+      mode: yaml
+      title: Tuya Batterie
+      icon: mdi:battery-outline
+      show_in_sidebar: true
+      filename: dashboards/tuya_batterie.yaml
 
     frigate-timeline:
       mode: yaml
@@ -672,17 +682,20 @@ emulated_hue:
   listen_port: 80
   expose_by_default: false
   entities:
-    input_boolean.buongiorno_alexa:
+    light.buongiorno:
       name: "Buongiorno"
       hidden: false
-    input_boolean.alexa_accendi_uscita:
+    light.uscita:
       name: "Uscita"
       hidden: false
-    input_boolean.alexa_accendi_entrata:
+    light.entrata:
       name: "Entrata"
       hidden: false
-    input_boolean.alexa_ritorno_a_casa:
+    light.ritorno_a_casa:
       name: "Ritorno a Casa"
+      hidden: false
+    light.verifica:
+      name: "Verifica"
       hidden: false
 
 # ============================================================================
