@@ -2,7 +2,7 @@
   id: alexa_modalita_entrata
   trigger:
     - platform: state
-      entity_id: light.entrata
+      entity_id: input_boolean.alexa_accendi_entrata
       to: "on"
   action:
     # 0. Spegni luce scale e blocca riaccensione all'apertura porta

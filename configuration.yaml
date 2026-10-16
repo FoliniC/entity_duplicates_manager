@@ -427,6 +427,7 @@ logger:
     homeassistant.components.emulated_hue.hue_api: debug
     homeassistant.components.template: debug
     homeassistant.components.light: debug
+    homeassistant.components.homeassistant: debug
     custom_components.localtuya: info
     custom_components.entity_duplicates_manager: info
     fancoil_system: error
@@ -682,19 +683,19 @@ emulated_hue:
   listen_port: 80
   expose_by_default: false
   entities:
-    light.buongiorno:
+    input_boolean.buongiorno_alexa:
       name: "Buongiorno"
       hidden: false
-    light.uscita:
+    input_boolean.alexa_accendi_uscita:
       name: "Uscita"
       hidden: false
-    light.entrata:
+    input_boolean.alexa_accendi_entrata:
       name: "Entrata"
       hidden: false
-    light.ritorno_a_casa:
+    input_boolean.alexa_ritorno_a_casa:
       name: "Ritorno a Casa"
       hidden: false
-    light.verifica:
+    input_boolean.verifica_alexa:
       name: "Verifica"
       hidden: false
 

@@ -2,7 +2,7 @@
   id: alexa_ritorno_a_casa
   trigger:
     - platform: state
-      entity_id: light.ritorno_a_casa
+      entity_id: input_boolean.alexa_ritorno_a_casa
       to: "on"
   action:
     # 1. Apri porta ingresso

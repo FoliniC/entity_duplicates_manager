@@ -114,16 +114,6 @@
   availability: >-
     {{ states('sensor.alfa_new_potenza_prodotta') not in ['unavailable', 'unknown', 'none']
         or states('sensor.envoy_122134037538_current_power_production') not in ['unavailable', 'unknown', 'none'] }}
-  attributes:
-    fonte_dati: >-
-      {% if states('sensor.envoy_122134037538_current_power_production') not in ['unavailable', 'unknown', 'none'] %}
-        envoy
-      {% elif states('sensor.alfa_new_potenza_prodotta') not in ['unavailable', 'unknown', 'none'] %}
-        alfa_new
-      {% else %}
-        nessuna
-      {% endif %}
-    ultimo_aggiornamento: "{{ now() }}"
 - name: Minutes Remaining
   unique_id: minutes_remaining_sensor
   state: >

@@ -5,7 +5,7 @@ from homeassistant.components.climate import HVACMode
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
-from .api import CommandsLimitReachedException
+from .api import CommandsLimitReachedException, VehicleNotLockedException
 from .backends import Feature
 from .const import (
     DOMAIN,
@@ -255,6 +255,8 @@ class SAICMGBatteryHeatingSwitch(CoordinatorEntity, SwitchEntity):
             )
         except CommandsLimitReachedException:
             await self.coordinator.notify_command_limit_reached(self._vin)
+        except VehicleNotLockedException:
+            await self.coordinator.notify_vehicle_not_locked(self._vin)
         except Exception as e:
             LOGGER.error("Error starting battery heating for VIN %s: %s", self._vin, e)
             self.coordinator.record_command_error("Error starting battery heating", e)
@@ -267,6 +269,8 @@ class SAICMGBatteryHeatingSwitch(CoordinatorEntity, SwitchEntity):
             await self.coordinator.async_request_refresh()
         except CommandsLimitReachedException:
             await self.coordinator.notify_command_limit_reached(self._vin)
+        except VehicleNotLockedException:
+            await self.coordinator.notify_vehicle_not_locked(self._vin)
         except Exception as e:
             LOGGER.error("Error stopping battery heating for VIN %s: %s", self._vin, e)
             self.coordinator.record_command_error("Error stopping battery heating", e)
@@ -341,6 +345,8 @@ class SAICMGBatteryHeatingScheduleSwitch(CoordinatorEntity, SwitchEntity):
             await self.coordinator.async_request_refresh()
         except CommandsLimitReachedException:
             await self.coordinator.notify_command_limit_reached(self._vin)
+        except VehicleNotLockedException:
+            await self.coordinator.notify_vehicle_not_locked(self._vin)
         except Exception as e:
             LOGGER.error(
                 "Error enabling battery heating schedule for VIN %s: %s", self._vin, e
@@ -359,6 +365,8 @@ class SAICMGBatteryHeatingScheduleSwitch(CoordinatorEntity, SwitchEntity):
             await self.coordinator.async_request_refresh()
         except CommandsLimitReachedException:
             await self.coordinator.notify_command_limit_reached(self._vin)
+        except VehicleNotLockedException:
+            await self.coordinator.notify_vehicle_not_locked(self._vin)
         except Exception as e:
             LOGGER.error(
                 "Error disabling battery heating schedule for VIN %s: %s", self._vin, e
@@ -415,6 +423,8 @@ class SAICMGChargingPortLockSwitch(CoordinatorEntity, SwitchEntity):
             )
         except CommandsLimitReachedException:
             await self.coordinator.notify_command_limit_reached(self._vin)
+        except VehicleNotLockedException:
+            await self.coordinator.notify_vehicle_not_locked(self._vin)
         except Exception as e:
             LOGGER.error("Error locking charging port for VIN %s: %s", self._vin, e)
             self.coordinator.record_command_error("Error locking charging port", e)
@@ -427,6 +437,8 @@ class SAICMGChargingPortLockSwitch(CoordinatorEntity, SwitchEntity):
             await self.coordinator.async_request_refresh()
         except CommandsLimitReachedException:
             await self.coordinator.notify_command_limit_reached(self._vin)
+        except VehicleNotLockedException:
+            await self.coordinator.notify_vehicle_not_locked(self._vin)
         except Exception as e:
             LOGGER.error("Error unlocking charging port for VIN %s: %s", self._vin, e)
             self.coordinator.record_command_error("Error unlocking charging port", e)
@@ -485,6 +497,8 @@ class SAICMGChargingSwitch(CoordinatorEntity, SwitchEntity):
             )
         except CommandsLimitReachedException:
             await self.coordinator.notify_command_limit_reached(self._vin)
+        except VehicleNotLockedException:
+            await self.coordinator.notify_vehicle_not_locked(self._vin)
         except Exception as e:
             LOGGER.error("Error starting charging for VIN %s: %s", self._vin, e)
             self.coordinator.record_command_error("Error starting charging", e)
@@ -497,6 +511,8 @@ class SAICMGChargingSwitch(CoordinatorEntity, SwitchEntity):
             await self.coordinator.async_request_refresh()
         except CommandsLimitReachedException:
             await self.coordinator.notify_command_limit_reached(self._vin)
+        except VehicleNotLockedException:
+            await self.coordinator.notify_vehicle_not_locked(self._vin)
         except Exception as e:
             LOGGER.error("Error stopping charging for VIN %s: %s", self._vin, e)
             self.coordinator.record_command_error("Error stopping charging", e)
@@ -566,6 +582,8 @@ class SAICMGFrontDefrostSwitch(CoordinatorEntity, SwitchEntity):
             )
         except CommandsLimitReachedException:
             await self.coordinator.notify_command_limit_reached(self._vin)
+        except VehicleNotLockedException:
+            await self.coordinator.notify_vehicle_not_locked(self._vin)
         except Exception as e:
             LOGGER.error("Error starting front defrost for VIN %s: %s", self._vin, e)
             self.coordinator.record_command_error("Error starting front defrost", e)
@@ -578,6 +596,8 @@ class SAICMGFrontDefrostSwitch(CoordinatorEntity, SwitchEntity):
             await self.coordinator.async_request_refresh()
         except CommandsLimitReachedException:
             await self.coordinator.notify_command_limit_reached(self._vin)
+        except VehicleNotLockedException:
+            await self.coordinator.notify_vehicle_not_locked(self._vin)
         except Exception as e:
             LOGGER.error("Error stopping front defrost for VIN %s: %s", self._vin, e)
             self.coordinator.record_command_error("Error stopping front defrost", e)
@@ -663,6 +683,8 @@ class SAICMGHeatedSeatSwitch(SAICMGVehicleSwitch):
             )
         except CommandsLimitReachedException:
             await self.coordinator.notify_command_limit_reached(self._vin)
+        except VehicleNotLockedException:
+            await self.coordinator.notify_vehicle_not_locked(self._vin)
         except Exception as e:
             LOGGER.error(
                 "Error setting heated seat %s for VIN %s: %s",
@@ -685,9 +707,10 @@ class SAICMGHeatedSeatSwitch(SAICMGVehicleSwitch):
 class SAICMGSteeringWheelHeatSwitch(SAICMGVehicleSwitch):
     """On/off switch for the heated steering wheel.
 
-    Uses a command captured from decrypted iSmart app traffic (rvcReqType=8,
-    paramId 24) that the saic client library does not expose. Gated behind the
-    has_steering_wheel_heat config option.
+    Sent by mg-saic-client's control_heated_steering_wheel (0.9.5+), which
+    reproduces the command captured from decrypted iSmart app traffic
+    (rvcReqType=8, paramId 24). Gated behind the has_steering_wheel_heat
+    config option.
     """
 
     def __init__(self, coordinator, client, entry, vin_info, vin):
@@ -743,6 +766,8 @@ class SAICMGSteeringWheelHeatSwitch(SAICMGVehicleSwitch):
             )
         except CommandsLimitReachedException:
             await self.coordinator.notify_command_limit_reached(self._vin)
+        except VehicleNotLockedException:
+            await self.coordinator.notify_vehicle_not_locked(self._vin)
         except Exception as e:
             LOGGER.error(
                 "Error turning on steering wheel heat for VIN %s: %s", self._vin, e
@@ -756,6 +781,8 @@ class SAICMGSteeringWheelHeatSwitch(SAICMGVehicleSwitch):
             self.async_write_ha_state()
         except CommandsLimitReachedException:
             await self.coordinator.notify_command_limit_reached(self._vin)
+        except VehicleNotLockedException:
+            await self.coordinator.notify_vehicle_not_locked(self._vin)
         except Exception as e:
             LOGGER.error(
                 "Error turning off steering wheel heat for VIN %s: %s", self._vin, e
@@ -810,6 +837,8 @@ class SAICMGRearWindowDefrostSwitch(CoordinatorEntity, SwitchEntity):
             )
         except CommandsLimitReachedException:
             await self.coordinator.notify_command_limit_reached(self._vin)
+        except VehicleNotLockedException:
+            await self.coordinator.notify_vehicle_not_locked(self._vin)
         except Exception as e:
             LOGGER.error(
                 "Error turning on rear window defrost for VIN %s: %s", self._vin, e
@@ -826,6 +855,8 @@ class SAICMGRearWindowDefrostSwitch(CoordinatorEntity, SwitchEntity):
             await self.coordinator.async_request_refresh()
         except CommandsLimitReachedException:
             await self.coordinator.notify_command_limit_reached(self._vin)
+        except VehicleNotLockedException:
+            await self.coordinator.notify_vehicle_not_locked(self._vin)
         except Exception as e:
             LOGGER.error(
                 "Error turning off rear window defrost for VIN %s: %s", self._vin, e
@@ -878,6 +909,8 @@ class SAICMGSunroofSwitch(CoordinatorEntity, SwitchEntity):
             )
         except CommandsLimitReachedException:
             await self.coordinator.notify_command_limit_reached(self._vin)
+        except VehicleNotLockedException:
+            await self.coordinator.notify_vehicle_not_locked(self._vin)
         except Exception as e:
             LOGGER.error("Error opening sunroof for VIN %s: %s", self._vin, e)
             self.coordinator.record_command_error("Error opening sunroof", e)
@@ -890,6 +923,8 @@ class SAICMGSunroofSwitch(CoordinatorEntity, SwitchEntity):
             await self.coordinator.async_request_refresh()
         except CommandsLimitReachedException:
             await self.coordinator.notify_command_limit_reached(self._vin)
+        except VehicleNotLockedException:
+            await self.coordinator.notify_vehicle_not_locked(self._vin)
         except Exception as e:
             LOGGER.error("Error closing sunroof for VIN %s: %s", self._vin, e)
             self.coordinator.record_command_error("Error closing sunroof", e)

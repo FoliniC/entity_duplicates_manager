@@ -1,0 +1,19 @@
+{
+  "domain": "mg_saic",
+  "name": "MG SAIC",
+  "codeowners": [
+    "@townsmcp"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/townsmcp/mg-saic-ha",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/townsmcp/mg-saic-ha/issues",
+  "requirements": [
+    "requests",
+    "pycryptodome",
+    "mg-saic-client==0.9.4",
+    "mg-ismart-india-client==0.1.8"
+  ],
+  "version": "1.2.8"
+}

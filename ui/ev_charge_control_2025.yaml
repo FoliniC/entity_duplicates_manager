@@ -204,8 +204,8 @@ views:
         square: false
         cards:
           - type: gauge
-            entity: sensor.ev_charge_2025_current_soc
-            name: Batteria Auto
+            entity: sensor.piazzale_mg_mg4_electric_state_of_charge
+            name: Batteria Auto (MG SAIC)
             unit: "%"
             severity:
               green: 60
@@ -237,8 +237,8 @@ views:
               yellow: 3000
               red: 6000
           - type: gauge
-            entity: sensor.produzione_solare
-            name: Produzione Solare
+            entity: sensor.envoy_122134037538_current_power_production
+            name: Produzione Solare (Envoy)
             unit: "W"
             min: 0
             max: 6000

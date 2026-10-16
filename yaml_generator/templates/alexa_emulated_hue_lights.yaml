@@ -1,0 +1,64 @@
+# Template lights for emulated_hue - con azioni turn_on/turn_off che chiamano gli input_boolean
+# Questi sono nel dominio 'light' (in SUPPORTED_DOMAINS) e mantengono lo stato
+
+template:
+  - light:
+      - name: "Buongiorno"
+        unique_id: "alexa_buongiorno_light"
+        state: "{{ is_state('input_boolean.buongiorno_alexa', 'on') }}"
+        turn_on:
+          service: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.buongiorno_alexa
+        turn_off:
+          service: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.buongiorno_alexa
+
+      - name: "Uscita"
+        unique_id: "alexa_uscita_light"
+        state: "{{ is_state('input_boolean.alexa_accendi_uscita', 'on') }}"
+        turn_on:
+          service: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.alexa_accendi_uscita
+        turn_off:
+          service: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.alexa_accendi_uscita
+
+      - name: "Entrata"
+        unique_id: "alexa_entrata_light"
+        state: "{{ is_state('input_boolean.alexa_accendi_entrata', 'on') }}"
+        turn_on:
+          service: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.alexa_accendi_entrata
+        turn_off:
+          service: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.alexa_accendi_entrata
+
+      - name: "Ritorno a Casa"
+        unique_id: "alexa_ritorno_a_casa_light"
+        state: "{{ is_state('input_boolean.alexa_ritorno_a_casa', 'on') }}"
+        turn_on:
+          service: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.alexa_ritorno_a_casa
+        turn_off:
+          service: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.alexa_ritorno_a_casa
+
+      - name: "Verifica"
+        unique_id: "alexa_verifica_light"
+        state: "{{ is_state('input_boolean.verifica_alexa', 'on') }}"
+        turn_on:
+          service: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.verifica_alexa
+        turn_off:
+          service: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.verifica_alexa

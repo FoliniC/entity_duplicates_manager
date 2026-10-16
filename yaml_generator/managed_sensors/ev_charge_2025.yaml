@@ -60,13 +60,13 @@
   unique_id: ev_charge_2025_current_soc
   unit_of_measurement: "%"
   state: >
-    {% set veh_soc = states('sensor.selected_vehicle_soc') %}
     {% set mg_soc = states('sensor.piazzale_mg_mg4_electric_state_of_charge') %}
+    {% set veh_soc = states('sensor.selected_vehicle_soc') %}
 
-    {% if is_number(veh_soc) and veh_soc | float > 0 %}
-      {{ veh_soc | float | round(1) }}
-    {% elif is_number(mg_soc) and mg_soc | float > 0 %}
+    {% if is_number(mg_soc) and mg_soc | float > 0 %}
       {{ mg_soc | float | round(1) }}
+    {% elif is_number(veh_soc) and veh_soc | float > 0 %}
+      {{ veh_soc | float | round(1) }}
     {% else %}
       unavailable
     {% endif %}

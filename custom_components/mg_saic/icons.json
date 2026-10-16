@@ -1,0 +1,30 @@
+{
+  "entity": {
+    "climate": {
+      "climate": {
+        "default": "mdi:thermostat",
+        "state_attributes": {
+          "preset_mode": {
+            "default": "mdi:cancel",
+            "state": {
+              "low": "mdi:snowflake",
+              "high": "mdi:fire",
+              "front_windscreen": "mdi:car-defrost-front",
+              "rear_windscreen": "mdi:car-defrost-rear"
+            }
+          }
+        }
+      }
+    },
+    "sensor": {
+      "charging_data_freshness": {
+        "default": "mdi:database-clock-outline",
+        "state": {
+          "live": "mdi:database-check-outline",
+          "stale": "mdi:database-clock-outline",
+          "no_data": "mdi:database-off-outline"
+        }
+      }
+    }
+  }
+}

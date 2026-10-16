@@ -2,7 +2,7 @@
   id: alexa_modalita_uscita
   trigger:
     - platform: state
-      entity_id: light.uscita
+      entity_id: input_boolean.alexa_accendi_uscita
       to: "on"
   action:
     # 0. Attiva blocco per evitare che l'apertura porta riaccenda la luce scale

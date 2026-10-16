@@ -2,7 +2,7 @@
   id: alexa_risposta_buongiorno_v2
   trigger:
     - platform: state
-      entity_id: light.buongiorno
+      entity_id: input_boolean.buongiorno_alexa
       to: "on"
   action:
     # 1. Log inizio script

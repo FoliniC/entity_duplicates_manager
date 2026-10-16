@@ -2,7 +2,7 @@
   id: alexa_verifica_vocale
   trigger:
     - platform: state
-      entity_id: light.verifica
+      entity_id: input_boolean.verifica_alexa
       to: "on"
   action:
     # 1. Log che la chiamata vocale ha funzionato

@@ -1050,9 +1050,9 @@ async def setup_alexa(hass, config_entry, login_obj: AlexaLogin):
             if tasks:
                 # Note: asyncio.TimeoutError and aiohttp.ClientError are already
                 # handled by the data update coordinator.
-                # Increase timeout from 30s to 45s to permit
-                # get_network_details() retries which could up to 30s.
-                async with async_timeout.timeout(45):
+                # Increase timeout from 30s to 90s to permit
+                # get_network_details() retries which could take up to 60s.
+                async with async_timeout.timeout(90):
                     start_fetch = time.monotonic()
                     if _used_cached_devices:
                         (
@@ -1140,16 +1140,16 @@ async def setup_alexa(hass, config_entry, login_obj: AlexaLogin):
                             hide_email(email),
                             len(list(_entities_to_monitor)),
                         )
-                        # Use shorter timeout for entity data to avoid blocking
+                        # Use longer timeout for entity data to avoid timeout issues
                         _t_ed = time.monotonic()
                         try:
                             entity_state = await asyncio.wait_for(
                                 get_entity_data(login_obj, list(_entities_to_monitor)),
-                                timeout=10.0,
+                                timeout=30.0,
                             )
                         except asyncio.TimeoutError:
                             _LOGGER.warning(
-                                "%s: get_entity_data timed out after 10s, "
+                                "%s: get_entity_data timed out after 30s, "
                                 "entity states will be fetched on next cycle",
                                 hide_email(email),
                             )
