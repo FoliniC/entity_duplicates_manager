@@ -34,6 +34,14 @@ log "avvio verifica tethering Android + WAN router"
 PHONE_USB=$(ssh_router "/usr/bin/adb_router -s $ANDROID_SERIAL shell 'getprop sys.usb.config'" 2>&1)
 PHONE_RC=$?
 if [ "$PHONE_RC" -ne 0 ] || ! echo "$PHONE_USB" | grep -q 'rndis'; then
+    log "Android RNDIS non attivo ($PHONE_USB): tentativo riattivazione programmatica..."
+    ssh_router "/usr/bin/enable_usb_tether.sh" >/dev/null 2>&1 || true
+    sleep 3
+    PHONE_USB=$(ssh_router "/usr/bin/adb_router -s $ANDROID_SERIAL shell 'getprop sys.usb.config'" 2>&1)
+    PHONE_RC=$?
+fi
+
+if [ "$PHONE_RC" -ne 0 ] || ! echo "$PHONE_USB" | grep -q 'rndis'; then
     SUMMARY=$(echo "$PHONE_USB" | head -2 | tr '\n' ' ')
     log "FAIL Android RNDIS non attivo o ADB assente: $SUMMARY"
     echo "Tethering Android non rilevato: ADB/RNDIS non attivo ($SUMMARY)"
@@ -49,39 +57,38 @@ ssh_router "uci set network.wan.auto='1'; uci commit network; /usr/bin/adb_route
 
 IP_INFO=""
 IP_RC=1
+IP_ADDR=""
+GW=""
+
 for attempt in $(seq 1 30); do
-    IP_INFO=$(ssh_router "ip -brief addr show usb0 2>/dev/null" 2>&1)
+    ROUTER_STATE=$(ssh_router "ip -brief addr show usb0 2>/dev/null; echo '---ROUTES---'; ip route show dev usb0 2>/dev/null" 2>&1)
     IP_RC=$?
-    IP_ADDR=$(echo "$IP_INFO" | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]+' | cut -d/ -f1 | grep -v '^169\.254\.' | head -1)
-    [ -n "$IP_ADDR" ] && break
+    IP_ADDR=$(echo "$ROUTER_STATE" | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]+' | cut -d/ -f1 | grep -v '^169\.254\.' | head -1)
+    GW=$(echo "$ROUTER_STATE" | awk '/^default via/ {print $3; exit}')
+    if [ -n "$IP_ADDR" ] && [ -n "$GW" ]; then
+        break
+    fi
     sleep 1
 done
 
 # Verifica generica: usb0 deve avere un IPv4 NON link-local (non 169.254.x.x, non fe80::)
-# e un gateway raggiungibile via quell'interfaccia. Così si adatta a qualsiasi pool DHCP.
 if [ "$IP_RC" -ne 0 ]; then
-    IP_SUMMARY=$(echo "$IP_INFO" | head -3 | tr '\n' ' ')
+    IP_SUMMARY=$(echo "$ROUTER_STATE" | head -3 | tr '\n' ' ')
     log "FAIL usb0 assente o errore: $IP_SUMMARY"
     echo "usb0 non trovato: $IP_SUMMARY"
     exit 1
 fi
 
-# Estrae il primo IPv4 non-link-local da usb0 (gia' raccolto nel ciclo DHCP sopra)
-# Ripete l'estrazione per chiarezza e robustezza se il comando del ciclo cambia.
-IP_ADDR=$(echo "$IP_INFO" | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]+' | cut -d/ -f1 | grep -v '^169\.254\.' | head -1)
 if [ -z "$IP_ADDR" ]; then
-    IP_SUMMARY=$(echo "$IP_INFO" | head -3 | tr '\n' ' ')
+    IP_SUMMARY=$(echo "$ROUTER_STATE" | head -3 | tr '\n' ' ')
     log "FAIL usb0 senza IPv4 valido (solo link-local?): $IP_SUMMARY"
     echo "usb0 senza lease IPv4 valido: $IP_SUMMARY"
     exit 1
 fi
 
-# Verifica che il gateway via usb0 risponda E che internet sia raggiungibile via usb0
-# (il gateway potrebbe rispondere ma il NAT Android non instradare verso internet)
-GW=$(ssh_router "ip route show dev usb0 2>/dev/null | awk '/^default/ {print \$3; exit}'" 2>&1)
 if [ -z "$GW" ]; then
-    log "FAIL gateway usb0 non trovato"
-    echo "Gateway usb0 non trovato: lease presente ma nessuna route default"
+    log "FAIL gateway usb0 non trovato dopo 30s"
+    echo "Gateway usb0 non trovato: lease presente ma nessuna route default dopo 30s"
     exit 1
 fi
 

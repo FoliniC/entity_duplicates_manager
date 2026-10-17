@@ -700,7 +700,7 @@ case "$ACTION" in
     else
       pkill -f failsafe_watchdog.sh >/dev/null 2>&1 || true
       log_line INFO "[USER_ACTION] PREMUTO BOTTONE: Attivazione modalita $MODE (host: $HOST, max_durata: ${DURATION}m)"
-      nohup /config/helpers/failsafe_watchdog.sh "normale" "$HOST" 35 >/dev/null 2>&1 &
+      nohup /config/helpers/failsafe_watchdog.sh "normale" "$HOST" 60 >/dev/null 2>&1 &
     fi
     # Salva la modalita' corrente per il sensore router_check (deve sapere se
     # siamo in intranet per segnalare correttamente usb0 come bug o come OK).

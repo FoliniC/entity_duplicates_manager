@@ -3,7 +3,7 @@
 
 PREV_MODE="${1:-intranet}"
 PREV_HOST="${2:-Debian (192.168.0.3)}"
-TIMEOUT="${3:-35}"
+TIMEOUT="${3:-60}"
 LOG_FILE="/config/logs/usb_tether/usb_tether.log"
 ERROR_MARKER="/config/logs/usb_tether/last_error.marker"
 
@@ -15,9 +15,29 @@ log_msg() {
 
 log_msg INFO "Watchdog avviato: in attesa di ${TIMEOUT}s per verificare la connettivita' (rollback di riserva: $PREV_MODE su $PREV_HOST)..."
 
-sleep "$TIMEOUT"
+# Attesa minima iniziale per consentire agli script di routing di completarsi
+sleep 10
+elapsed=10
 
-# Test internet connectivity AFTER timeout
+PING1_OUT=""
+PING2_OUT=""
+
+while [ "$elapsed" -lt "$TIMEOUT" ]; do
+    if ping -c 1 -W 2 1.1.1.1 >/dev/null 2>&1; then
+        log_msg INFO "Watchdog disarmato: connettivita' internet VERIFICATA OK (1.1.1.1 raggiungibile dopo ${elapsed}s) dopo il cambio stato."
+        rm -f "$ERROR_MARKER" 2>/dev/null || true
+        exit 0
+    fi
+    if ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1; then
+        log_msg INFO "Watchdog disarmato: connettivita' internet VERIFICATA OK (8.8.8.8 raggiungibile dopo ${elapsed}s) dopo il cambio stato."
+        rm -f "$ERROR_MARKER" 2>/dev/null || true
+        exit 0
+    fi
+    sleep 5
+    elapsed=$((elapsed + 5))
+done
+
+# Ultimo test approfondito prima di dichiarare il fallimento
 PING1_OUT=$(ping -c 2 -W 3 1.1.1.1 2>&1)
 PING1_RC=$?
 

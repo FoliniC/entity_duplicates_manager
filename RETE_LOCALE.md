@@ -1938,7 +1938,7 @@ Ogni azione manuale (click sui pulsanti "Normale" o "Intranet" nella dashboard) 
 - **Risultato**: Il Telefono 1 può mantenere il **Wi-Fi attivo 24/7** per accedere ai servizi locali (HA, scrcpy, ADB locale), mentre il tethering USB utilizza **sempre ed esclusivamente la rete 4G/5G** (`rmnet_data`), garantendo la massima stabilità senza alcun rischio di loop.
 
 #### 4. Watchdog Failsafe ed Azzeramento Disconnessioni LAN
-- Lo script di protezione `/config/helpers/failsafe_watchdog.sh` viene avviato in background per 35-45 secondi ad ogni cambio stato.
+- Lo script di protezione `/config/helpers/failsafe_watchdog.sh` viene avviato in background con timeout fino a 60 secondi e verifica progressiva ad ogni cambio stato.
 - Se la riattivazione della WAN del router o della rete Intranet Debian fallisce per qualsiasi motivo (es. SIM senza campo o cavo disconnesso), il sistema interrompe il passaggio mantenendo attiva la rotta precedente (fallback via Debian), garantendo l'assenza assoluta di disconnessioni per la LAN domestica.
 
 #### Verifiche Rapide via CLI
