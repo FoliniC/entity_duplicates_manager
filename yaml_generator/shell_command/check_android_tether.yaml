@@ -1,0 +1,2 @@
+check_android_tether: >
+  timeout 45 ssh -i /config/.ssh/router_key -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@192.168.0.11 "/usr/bin/check_and_restore_android_tether.sh"

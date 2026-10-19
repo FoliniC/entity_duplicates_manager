@@ -31,9 +31,10 @@ stream:
 # ============================================================================
 homeassistant:
   customize: !include customize.yaml
-  #allowlist_external_dirs:
-  #  - /config/cronostar
-  #  - /config/www/cronostar_profiles
+  allowlist_external_dirs:
+    - /config
+    - /config/cronostar
+    - /config/www/cronostar_profiles
   packages: !include_dir_named packages
 
 

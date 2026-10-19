@@ -232,3 +232,217 @@ anti_accensione_balcone_check:
           importance: high
           notification_icon: "mdi:shield-alert"
   mode: single
+
+# USB Tethering Scripts (spostati da package usb_tether.yaml per evitare conflitto script:)
+usb_tether_riavvia_streampack:
+  alias: "StreamPack: Riavvia & Configura RTMP"
+  icon: mdi:video-wireless
+  sequence:
+    - action: shell_command.usb_tether_configure_streampack
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.usb_tether_status_message
+      data:
+        value: "StreamPack configurato su rtmp://10.203.33.10:1935/live/telefono"
+
+usb_tether_normale:
+  alias: "Tethering: routing normale"
+  icon: mdi:router-wireless
+  sequence:
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.usb_tether_status_message
+      data:
+        value: "ripristino routing normale in corso..."
+    - event: halog2026_write_event
+      event_data:
+        subsystem: usb_tether
+        level: INFO
+        message: "AVVIO: Ripristino routing normale (host: {{ states('input_select.usb_tether_host') }})"
+    - action: shell_command.usb_tether_restore
+    - delay: "00:00:03"
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.usb_tether_status
+
+usb_tether_reset:
+  alias: "Tethering: Reset di emergenza"
+  icon: mdi:alert-octagon
+  sequence:
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.usb_tether_status_message
+      data:
+        value: "🔴 Reset di emergenza in corso..."
+    - event: halog2026_write_event
+      event_data:
+        subsystem: usb_tether
+        level: WARN
+        message: "AVVIO: 🔴 Reset di emergenza premuto. Interruzione watchdog e ripristino forzato rete normale."
+    - action: shell_command.usb_tether_reset
+    - delay: "00:00:03"
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.usb_tether_status
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.usb_tether_status_message
+      data:
+        value: ""
+
+usb_tether_server:
+  alias: "Tethering: modalita server"
+  icon: mdi:server
+  sequence:
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.usb_tether_mode
+      data:
+        option: "Server"
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.usb_tether_status_message
+      data:
+        value: "attivazione modalita' server in corso..."
+    - event: halog2026_write_event
+      event_data:
+        subsystem: usb_tether
+        level: INFO
+        message: "AVVIO: Attivazione modalità Server (host: {{ states('input_select.usb_tether_host') }})"
+    - action: shell_command.usb_tether_activate
+    - delay: "00:00:03"
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.usb_tether_status
+    - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') }}"
+      timeout: "00:01:30"
+    - if:
+        - condition: not
+          conditions:
+            - condition: state
+              entity_id: sensor.usb_tether_status
+              state: "active"
+      then:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.usb_tether_status_message
+          data:
+            value: "ERRORE: tethering server non attivato - controlla log"
+        - event: halog2026_write_event
+          event_data:
+            subsystem: usb_tether
+            level: ERROR
+            message: "ERRORE: Attivazione Server fallita"
+      else:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.usb_tether_status_message
+          data:
+            value: ""
+
+usb_tether_intranet:
+  alias: "Tethering: modalita intranet"
+  icon: mdi:wan
+  sequence:
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.usb_tether_mode
+      data:
+        option: "Intranet"
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.usb_tether_status_message
+      data:
+        value: "attivazione modalita' intranet in corso..."
+    - event: halog2026_write_event
+      event_data:
+        subsystem: usb_tether
+        level: INFO
+        message: "AVVIO: Attivazione modalità Intranet (host: {{ states('input_select.usb_tether_host') }})"
+    - action: shell_command.usb_tether_activate_intranet
+    - delay: "00:00:08"
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.usb_tether_status
+    - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') }}"
+      timeout: "00:01:30"
+    - if:
+        - condition: not
+          conditions:
+            - condition: state
+              entity_id: sensor.usb_tether_status
+              state: "active"
+      then:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.usb_tether_status_message
+          data:
+            value: "ERRORE: intranet non attivata - controlla log"
+        - event: halog2026_write_event
+          event_data:
+            subsystem: usb_tether
+            level: ERROR
+            message: "ERRORE: Attivazione Intranet fallita"
+      else:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.usb_tether_status_message
+          data:
+            value: ""
+
+usb_tether_riattiva_router:
+  alias: "Tethering: Riattiva Router (ADB)"
+  icon: mdi:cellphone-link
+  sequence:
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.usb_tether_status_message
+      data:
+        value: "riattivazione tethering router via ADB in corso..."
+    - event: halog2026_write_event
+      event_data:
+        subsystem: usb_tether
+        level: INFO
+        message: "AVVIO: Riattivazione USB Tethering sul Router via ADB"
+    - action: shell_command.usb_tether_reactivate_router
+    - delay: "00:00:03"
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.usb_tether_status
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.usb_tether_status_message
+      data:
+        value: "Tethering router riattivato via ADB"
+
+usb_tether_launch_scrcpy:
+  alias: "Tethering: Avvia SCRCPY (Debian)"
+  icon: mdi:cellphone-screenshot
+  sequence:
+    - event: halog2026_write_event
+      event_data:
+        subsystem: usb_tether
+        level: INFO
+        message: "AVVIO: Connessione ADB 192.168.0.14:5555 ed avvio SCRCPY su Debian (DISPLAY :0)"
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.usb_tether_status_message
+      data:
+        value: "AVVIO SCRCPY Note 11: ssh debian -> scrcpy-redmi.sh"
+    - action: shell_command.usb_tether_launch_scrcpy
+
+usb_tether_launch_scrcpy_lg:
+  alias: "Tethering: Avvia SCRCPY LG-X150 (Debian)"
+  icon: mdi:cellphone-screenshot
+  sequence:
+    - event: halog2026_write_event
+      event_data:
+        subsystem: usb_tether
+        level: INFO
+        message: "AVVIO: SCRCPY su LG-X150 (0123456789ABCDEF) - Android 5.0.2"
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.usb_tether_status_message
+      data:
+        value: "AVVIO SCRCPY LG-X150: scrcpy -s 0123456789ABCDEF --max-size 800 --video-bit-rate 2M --video-codec h264"
+    - action: shell_command.usb_tether_launch_scrcpy_lg

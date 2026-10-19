@@ -25,6 +25,18 @@ input_text:
     max: 255
     initial: ""
 
+  usb_tether_note11_status:
+    name: "Note 11 Router Status"
+    icon: mdi:cellphone-link
+    max: 255
+    initial: "IN_ATTESA"
+
+  usb_tether_android_status:
+    name: "Android Debian Status"
+    icon: mdi:server-network
+    max: 255
+    initial: "IN_ATTESA"
+
 input_select:
   usb_tether_host:
     name: "Server tethering"
@@ -171,6 +183,30 @@ template:
           ping_ms: >-
             {{ state_attr('sensor.router_internet_check', 'router_ping_ms') | default('N/D') }}
 
+# --- Sensore template: Internet Note 11 (Router) ----------------------------
+# Controlla: ADB attivo, RNDIS attivo, usb0 ha IP, gateway reachable via ping
+  - sensor:
+      - name: "Internet Note 11 Router"
+        unique_id: internet_note11_router
+        icon: mdi:cellphone-link
+        state: "{{ states('input_text.usb_tether_note11_status') }}"
+        attributes:
+          descrizione: "Stato connettività Note 11 su router (usb0)"
+          dettaglio: "{{ states('input_text.usb_tether_note11_status') }}"
+          ultimo_check: "{{ state_attr('input_text.usb_tether_note11_status', 'last_updated') | default('N/D') }}"
+
+# --- Sensore template: Internet Android Debian ------------------------------
+# Ping sul gateway dell'interfaccia USB tethering locale (enx* su Debian)
+  - sensor:
+      - name: "Internet Android Debian"
+        unique_id: internet_android_debian
+        icon: mdi:server-network
+        state: "{{ states('input_text.usb_tether_android_status') }}"
+        attributes:
+          descrizione: "Stato connettività Android su Debian (enx*)"
+          dettaglio: "{{ states('input_text.usb_tether_android_status') }}"
+          ultimo_check: "{{ state_attr('input_text.usb_tether_android_status', 'last_updated') | default('N/D') }}"
+
 # --- Sensore template: messaggio dashboard ---------------------------------
   - sensor:
       - name: "USB Tether Dashboard"
@@ -260,227 +296,6 @@ shell_command:
 
   usb_tether_configure_streampack: >-
     ssh -i /config/.ssh/router_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@192.168.0.11 "/usr/bin/streampack-rndis-configure.sh"
-
-# --- Script: azioni con messaggio e gestione errori ----------\n
-script:
-  usb_tether_riavvia_streampack:
-    alias: "StreamPack: Riavvia & Configura RTMP"
-    icon: mdi:video-wireless
-    sequence:
-      - action: shell_command.usb_tether_configure_streampack
-      - action: input_text.set_value
-        target:
-          entity_id: input_text.usb_tether_status_message
-        data:
-          value: "StreamPack configurato su rtmp://10.203.33.10:1935/live/telefono"
-
-  usb_tether_normale:
-    alias: "Tethering: routing normale"
-    icon: mdi:router-wireless
-    sequence:
-      - action: input_text.set_value
-        target:
-          entity_id: input_text.usb_tether_status_message
-        data:
-          value: "ripristino routing normale in corso..."
-      - event: halog2026_write_event
-        event_data:
-          subsystem: usb_tether
-          level: INFO
-          message: "AVVIO: Ripristino routing normale (host: {{ states('input_select.usb_tether_host') }})"
-      # Il comando restore e' asincrono (ritorna subito "restoring"), il lavoro
-      # prosegue in background su Debian. Non aspettiamo il sensore qui: il
-      # wait_template bloccante causava il timeout di HA (script appeso >4min
-      # quando il restore impiegava molto). Il sensore si aggiorna da solo.
-      - action: shell_command.usb_tether_restore
-      - delay: "00:00:03"
-      - action: homeassistant.update_entity
-        target:
-          entity_id: sensor.usb_tether_status
-      # Nessun wait_template: se il restore fallisce, il sensore resta in stato
-      # di errore e la dashboard lo mostra. Non blocchiamo HA per questo.
-
-  usb_tether_reset:
-    alias: "Tethering: Reset di emergenza"
-    icon: mdi:alert-octagon
-    sequence:
-      - action: input_text.set_value
-        target:
-          entity_id: input_text.usb_tether_status_message
-        data:
-          value: "🔴 Reset di emergenza in corso..."
-      - event: halog2026_write_event
-        event_data:
-          subsystem: usb_tether
-          level: WARN
-          message: "AVVIO: 🔴 Reset di emergenza premuto. Interruzione watchdog e ripristino forzato rete normale."
-      - action: shell_command.usb_tether_reset
-      - delay: "00:00:03"
-      - action: homeassistant.update_entity
-        target:
-          entity_id: sensor.usb_tether_status
-      - action: input_text.set_value
-        target:
-          entity_id: input_text.usb_tether_status_message
-        data:
-          value: ""
-
-  usb_tether_server:
-    alias: "Tethering: modalita server"
-    icon: mdi:server
-    sequence:
-      - action: input_select.select_option
-        target:
-          entity_id: input_select.usb_tether_mode
-        data:
-          option: "Server"
-      - action: input_text.set_value
-        target:
-          entity_id: input_text.usb_tether_status_message
-        data:
-          value: "attivazione modalita' server in corso..."
-      - event: halog2026_write_event
-        event_data:
-          subsystem: usb_tether
-          level: INFO
-          message: "AVVIO: Attivazione modalità Server (host: {{ states('input_select.usb_tether_host') }})"
-      - action: shell_command.usb_tether_activate
-      - delay: "00:00:03"
-      - action: homeassistant.update_entity
-        target:
-          entity_id: sensor.usb_tether_status
-      - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') }}"
-        timeout: "00:01:30"
-      - if:
-          - condition: not
-            conditions:
-              - condition: state
-                entity_id: sensor.usb_tether_status
-                state: "active"
-        then:
-          - action: input_text.set_value
-            target:
-              entity_id: input_text.usb_tether_status_message
-            data:
-              value: "ERRORE: tethering server non attivato - controlla log"
-          - event: halog2026_write_event
-            event_data:
-              subsystem: usb_tether
-              level: ERROR
-              message: "ERRORE: Attivazione Server fallita"
-        else:
-          - action: input_text.set_value
-            target:
-              entity_id: input_text.usb_tether_status_message
-            data:
-              value: ""
-
-  usb_tether_intranet:
-    alias: "Tethering: modalita intranet"
-    icon: mdi:wan
-    sequence:
-      - action: input_select.select_option
-        target:
-          entity_id: input_select.usb_tether_mode
-        data:
-          option: "Intranet"
-      - action: input_text.set_value
-        target:
-          entity_id: input_text.usb_tether_status_message
-        data:
-          value: "attivazione modalita' intranet in corso..."
-      - event: halog2026_write_event
-        event_data:
-          subsystem: usb_tether
-          level: INFO
-          message: "AVVIO: Attivazione modalità Intranet (host: {{ states('input_select.usb_tether_host') }})"
-      - action: shell_command.usb_tether_activate_intranet
-      - delay: "00:00:08"
-      - action: homeassistant.update_entity
-        target:
-          entity_id: sensor.usb_tether_status
-      - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') }}"
-        timeout: "00:01:30"
-      - if:
-          - condition: not
-            conditions:
-              - condition: state
-                entity_id: sensor.usb_tether_status
-                state: "active"
-        then:
-          - action: input_text.set_value
-            target:
-              entity_id: input_text.usb_tether_status_message
-            data:
-              value: "ERRORE: intranet non attivata - controlla log"
-          - event: halog2026_write_event
-            event_data:
-              subsystem: usb_tether
-              level: ERROR
-              message: "ERRORE: Attivazione Intranet fallita"
-        else:
-          - action: input_text.set_value
-            target:
-              entity_id: input_text.usb_tether_status_message
-            data:
-              value: ""
-
-  usb_tether_riattiva_router:
-    alias: "Tethering: Riattiva Router (ADB)"
-    icon: mdi:cellphone-link
-    sequence:
-      - action: input_text.set_value
-        target:
-          entity_id: input_text.usb_tether_status_message
-        data:
-          value: "riattivazione tethering router via ADB in corso..."
-      - event: halog2026_write_event
-        event_data:
-          subsystem: usb_tether
-          level: INFO
-          message: "AVVIO: Riattivazione USB Tethering sul Router via ADB"
-      - action: shell_command.usb_tether_reactivate_router
-      - delay: "00:00:03"
-      - action: homeassistant.update_entity
-        target:
-          entity_id: sensor.usb_tether_status
-      - action: input_text.set_value
-        target:
-          entity_id: input_text.usb_tether_status_message
-        data:
-          value: "Tethering router riattivato via ADB"
-
-  usb_tether_launch_scrcpy:
-    alias: "Tethering: Avvia SCRCPY (Debian)"
-    icon: mdi:cellphone-screenshot
-    sequence:
-      - event: halog2026_write_event
-        event_data:
-          subsystem: usb_tether
-          level: INFO
-          message: "AVVIO: Connessione ADB 192.168.0.14:5555 ed avvio SCRCPY su Debian (DISPLAY :0)"
-      - action: input_text.set_value
-        target:
-          entity_id: input_text.usb_tether_status_message
-        data:
-          value: "AVVIO SCRCPY Note 11: ssh debian -> scrcpy-redmi.sh"
-      - action: shell_command.usb_tether_launch_scrcpy
-
-  usb_tether_launch_scrcpy_lg:
-    alias: "Tethering: Avvia SCRCPY LG-X150 (Debian)"
-    icon: mdi:cellphone-screenshot
-    sequence:
-      - event: halog2026_write_event
-        event_data:
-          subsystem: usb_tether
-          level: INFO
-          message: "AVVIO: SCRCPY su LG-X150 (0123456789ABCDEF) - Android 5.0.2"
-      - action: input_text.set_value
-        target:
-          entity_id: input_text.usb_tether_status_message
-        data:
-          value: "AVVIO SCRCPY LG-X150: scrcpy -s 0123456789ABCDEF --max-size 800 --video-bit-rate 2M --video-codec h264"
-      - action: shell_command.usb_tether_launch_scrcpy_lg
 
 # --- Automazione: aggiorna messaggio dopo cambio stato ----------------------
 automation:
@@ -700,3 +515,31 @@ automation:
                       entity_id: input_select.usb_tether_mode
                     data:
                       option: "Normale"
+
+  - alias: "USB Tether - controllo internet immediato all'avvio"
+    id: usb_tether_check_internet_startup_v4
+    description: "All'avvio di HA, forza l'aggiornamento dei sensori command_line per avere stato immediato"
+    trigger:
+      - platform: event
+        event_type: homeassistant_started
+    action:
+      - delay: "00:00:10"
+      - action: shell_command.check_android_tether
+        response_variable: android_tether_result
+      - action: input_text.set_value
+        target:
+          entity_id:
+            - input_text.usb_tether_note11_status
+            - input_text.usb_tether_android_status
+        data:
+          value: >-
+            {% if android_tether_result.returncode == 0 %}
+              OK - RNDIS attivo, gateway reachable
+            {% else %}
+              PROBLEMA - {{ android_tether_result.stdout | default('timeout/errore') }}
+            {% endif %}
+      - event: halog2026_write_event
+        event_data:
+          subsystem: usb_tether
+          level: INFO
+          message: "STARTUP: Forzato primo controllo connettività internet (Note 11 router + Android Debian)"

@@ -470,6 +470,57 @@ views:
         columns: 2
         square: false
         cards:
+          # --- INDICATORI CONNETTIVITÀ INTERNET (in testa) ---
+          - type: conditional
+            conditions:
+              - entity: sensor.internet_note_11_router
+                state_not: unavailable
+            card:
+              type: markdown
+              content: >-
+                {% set s = states('sensor.internet_note_11_router') %}
+                {% set det = state_attr('sensor.internet_note_11_router', 'dettaglio') | default('') %}
+                {% if s == 'OK' %}
+                  {% set bg = '#2e7d32' %} {% set icon = '✅' %}
+                {% elif s == 'PROBLEMA' %}
+                  {% set bg = '#b71c1c' %} {% set icon = '❌' %}
+                {% elif s == 'IN_ATTESA' %}
+                  {% set bg = '#e65100' %} {% set icon = '⏳' %}
+                {% else %}
+                  {% set bg = '#e65100' %} {% set icon = '⚠️' %}
+                {% endif %}
+                <div style="background-color: {{ bg }}; color: white; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold;">
+                  {{ icon }} Note 11 (Router): {{ s }}
+                </div>
+                <div style="margin-top: 4px; font-size: 11px; color: #ccc; text-align: center;">{{ det }}</div>
+              card_mod:
+                style: "ha-card { border: none; background: none; box-shadow: none; }"
+
+          - type: conditional
+            conditions:
+              - entity: sensor.internet_android_debian
+                state_not: unavailable
+            card:
+              type: markdown
+              content: >-
+                {% set s = states('sensor.internet_android_debian') %}
+                {% set det = state_attr('sensor.internet_android_debian', 'dettaglio') | default('') %}
+                {% if s == 'OK' %}
+                  {% set bg = '#2e7d32' %} {% set icon = '✅' %}
+                {% elif s == 'PROBLEMA' %}
+                  {% set bg = '#b71c1c' %} {% set icon = '❌' %}
+                {% elif s == 'IN_ATTESA' %}
+                  {% set bg = '#e65100' %} {% set icon = '⏳' %}
+                {% else %}
+                  {% set bg = '#e65100' %} {% set icon = '⚠️' %}
+                {% endif %}
+                <div style="background-color: {{ bg }}; color: white; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold;">
+                  {{ icon }} Android (Debian): {{ s }}
+                </div>
+                <div style="margin-top: 4px; font-size: 11px; color: #ccc; text-align: center;">{{ det }}</div>
+              card_mod:
+                style: "ha-card { border: none; background: none; box-shadow: none; }"
+
           # --- COLONNA SINISTRA ---
           - type: vertical-stack
             cards:
