@@ -3,5 +3,5 @@ ev_charge_2025_mode:
   options:
     - "Manuale"
     - "Automatico"
-  initial: "Automatico"
   icon: mdi:ev-station
+

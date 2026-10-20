@@ -183,6 +183,13 @@ router_wan_down() {
     router_ssh "ifdown wan >/dev/null 2>&1; true" \
         && echo "WAN router disattivata (ifdown wan)." \
         || echo "WARN: ifdown wan fallito." >&2
+    # RIMUOZIONE ESPLICITA: ifdown wan non sempre pulisce la route kernel se
+    # l'interfaccia ha ancora carrier (telefono collegato). Rimuoviamo esplicitamente
+    # la default route via usb0 e abbassiamo l'interfaccia per evitare route stale
+    # che fanno credere a cmd_status che siamo in Normale.
+    router_ssh "ip route del default dev $ROUTER_WAN_IF 2>/dev/null; ip link set $ROUTER_WAN_IF down 2>/dev/null; true" \
+        && echo "Route usb0 rimossa e interfaccia abbassata." \
+        || echo "WARN: pulizia route usb0 fallita." >&2
     # BLOCCO PRESERVATIVO: l'hotplug USB del telefono router o un evento di
     # carrier sul router OpenWrt (netifd) ri-aggiungono la rotta usb0 metric 10
     # ENTRO SECONDI, anche se l'interfaccia e' "down". Questo riporterebbe la LAN

@@ -1,6 +1,7 @@
 - sensor: !include_dir_merge_list managed_sensors/
 - binary_sensor: !include_dir_merge_list managed_binary_sensors/
 - !include ev_charge_2025_triggers.yaml
+
 - light:
     - name: "Uscita"
       unique_id: light_uscita

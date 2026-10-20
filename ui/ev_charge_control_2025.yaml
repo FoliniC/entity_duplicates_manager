@@ -143,7 +143,7 @@ views:
           {% set interval_ok = seconds_since_current_change >= inertia_interval_s %}
           {% set should_send_current = target_amp != last_current_amp and (force_current_sync or (delta_ok and interval_ok)) %}
 
-          {% if ((byd_soc | float(0) < states('input_number.ev_charge_2025_byd_protection_soc') | float(0)) and not is_state('input_boolean.ev_charge_2025_no_grid', 'on') and not is_state('input_boolean.ev_charge_2025_no_grid_2025', 'on')) %}
+          {% if ((byd_soc | float(0) < states('input_number.ev_charge_2025_byd_protection_soc') | float(0)) and not is_state('input_boolean.ev_charge_2025_no_grid', 'on') and not is_state('input_boolean.ev_charge_2025_no_grid_2025', 'on') and not (is_state('input_select.ev_charge_2025_mode', 'Manuale') and not is_state('input_boolean.ev_charge_2025_no_grid', 'on'))) %}
           **Motivo blocco:** Batteria BYD ({{ byd_soc | round(1) }}%) sotto la soglia di protezione ({{ states('input_number.ev_charge_2025_byd_protection_soc') | round(1) }}%).
           {% elif not active %}
           **Motivo blocco:** ricarica disattivata dal comando principale.
@@ -375,11 +375,8 @@ views:
             row:
               entity: input_boolean.ev_charge_2025_no_grid
               name: "Escludi Rete (Solo Manuale)"
-          - type: conditional
-            conditions: [{ entity: input_select.ev_charge_2025_mode, state: "Manuale" }]
-            row:
-              entity: input_boolean.ev_charge_2025_no_grid_2025
-              name: "Forza Ricarica BYD (Bypass Protezione)"
+          - entity: input_boolean.ev_charge_2025_no_grid_2025
+            name: "Forza Ricarica BYD (Bypass Protezione)"
           - entity: input_number.ev_charge_2025_battery_capacity
             name: "Capacità Batteria (kWh)"
           - entity: input_number.ev_charge_2025_duration

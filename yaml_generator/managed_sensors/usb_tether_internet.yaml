@@ -1,0 +1,65 @@
+# USB Tethering connectivity sensors
+# Generated for template integration via managed_sensors/
+
+# ---------------------------------------------------------------------------
+# Sensor: Internet Note 11 Router
+# Stato connettività Note 11 su router (usb0) - RNDIS + gateway reachable
+# ---------------------------------------------------------------------------
+- name: "Internet Note 11 Router"
+  unique_id: internet_note11_router
+  icon: mdi:cellphone-link
+  state: >-
+    {% set src = states('sensor.tether_router_status') %}
+    {% if src not in ['unknown', 'unavailable', ''] %}
+      {{ src.split(' ')[0] }}
+    {% else %}
+      {{ states('input_text.usb_tether_note11_status').split(' ')[0] }}
+    {% endif %}
+  attributes:
+    descrizione: "Stato connettività Note 11 su router (usb0)"
+    dettaglio: >-
+      {% if states('sensor.tether_router_status') not in ['unknown', 'unavailable', ''] %}
+        {{ states('sensor.tether_router_status') }}
+      {% else %}
+        {{ states('input_text.usb_tether_note11_status') }}
+      {% endif %}
+    ultimo_check: >-
+      {% if states('sensor.tether_router_status') not in ['unknown', 'unavailable', ''] %}
+        {{ state_attr('sensor.tether_router_status', 'last_updated') | default('N/D') }}
+      {% else %}
+        {{ state_attr('input_text.usb_tether_note11_status', 'last_updated') | default('N/D') }}
+      {% endif %}
+
+# ---------------------------------------------------------------------------
+# Sensor: Internet Android Debian
+# Stato connettività Android su Debian (enx*) - tethering USB locale
+# ---------------------------------------------------------------------------
+- name: "Internet Android Debian"
+  unique_id: internet_android_debian
+  icon: mdi:server-network
+  state: >-
+    {% set src = states('sensor.tether_debian_status') %}
+    {% if src not in ['unknown', 'unavailable', ''] %}
+      {{ src.split(' ')[0] }}
+    {% else %}
+      {% set fallback = states('input_text.usb_tether_android_status') %}
+      {% if 'Non verificato' in fallback %}
+        Non verificato
+      {% else %}
+        {{ fallback.split(' ')[0] }}
+      {% endif %}
+    {% endif %}
+  attributes:
+    descrizione: "Stato connettività Android su Debian (enx*)"
+    dettaglio: >-
+      {% if states('sensor.tether_debian_status') not in ['unknown', 'unavailable', ''] %}
+        {{ states('sensor.tether_debian_status') }}
+      {% else %}
+        {{ states('input_text.usb_tether_android_status') }}
+      {% endif %}
+    ultimo_check: >-
+      {% if states('sensor.tether_debian_status') not in ['unknown', 'unavailable', ''] %}
+        {{ state_attr('sensor.tether_debian_status', 'last_updated') | default('N/D') }}
+      {% else %}
+        {{ state_attr('input_text.usb_tether_android_status', 'last_updated') | default('N/D') }}
+      {% endif %}

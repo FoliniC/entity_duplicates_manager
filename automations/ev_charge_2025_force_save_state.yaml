@@ -1,0 +1,19 @@
+- id: ev_charge_2025_force_save_state
+  alias: "EV Charge 2025: Forza Salvataggio Stato Immediato"
+  description: "Salva subito su core.restore_state quando cambiano i controlli principali"
+  mode: single
+  trigger:
+    - platform: state
+      entity_id:
+        - input_select.ev_charge_2025_mode
+        - input_boolean.ev_charge_2025_charging_active
+        - input_boolean.ev_charge_2025_no_grid
+        - input_boolean.ev_charge_2025_no_grid_2025
+        - input_number.ev_charge_2025_manual_power_kw
+        - input_number.ev_charge_2025_target_soc
+        - input_number.ev_charge_2025_vehicle_limit_soc
+        - input_number.ev_charge_2025_byd_min_soc_stop
+        - input_number.ev_charge_2025_byd_max_discharge_power
+        - input_number.ev_charge_2025_grid_max_power
+  action:
+    - service: homeassistant.save_persistent_states

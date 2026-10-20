@@ -106,6 +106,21 @@ command_line:
         - wan_down_expected
         - problem
         - connection_reality
+
+  # --- Tether status from file (updated by systemd timer) --------------------
+  - sensor:
+      name: "Tether Router Status"
+      unique_id: tether_router_status
+      command: "cat /config/tether_status.json | jq -r '.router.message'"
+      value_template: "{{ value }}"
+      command_timeout: 5
+      scan_interval: 60
+  - sensor:
+      name: "Tether Debian Status"
+      unique_id: tether_debian_status
+      command: "cat /config/tether_status.json | jq -r '.debian.message'"
+      value_template: "{{ value }}"
+      command_timeout: 5
       scan_interval: 60
 
 # --- Sensore template: messaggio diagnosi router ----------------------------
@@ -183,30 +198,6 @@ template:
           ping_ms: >-
             {{ state_attr('sensor.router_internet_check', 'router_ping_ms') | default('N/D') }}
 
-# --- Sensore template: Internet Note 11 (Router) ----------------------------
-# Controlla: ADB attivo, RNDIS attivo, usb0 ha IP, gateway reachable via ping
-  - sensor:
-      - name: "Internet Note 11 Router"
-        unique_id: internet_note11_router
-        icon: mdi:cellphone-link
-        state: "{{ states('input_text.usb_tether_note11_status') }}"
-        attributes:
-          descrizione: "Stato connettività Note 11 su router (usb0)"
-          dettaglio: "{{ states('input_text.usb_tether_note11_status') }}"
-          ultimo_check: "{{ state_attr('input_text.usb_tether_note11_status', 'last_updated') | default('N/D') }}"
-
-# --- Sensore template: Internet Android Debian ------------------------------
-# Ping sul gateway dell'interfaccia USB tethering locale (enx* su Debian)
-  - sensor:
-      - name: "Internet Android Debian"
-        unique_id: internet_android_debian
-        icon: mdi:server-network
-        state: "{{ states('input_text.usb_tether_android_status') }}"
-        attributes:
-          descrizione: "Stato connettività Android su Debian (enx*)"
-          dettaglio: "{{ states('input_text.usb_tether_android_status') }}"
-          ultimo_check: "{{ state_attr('input_text.usb_tether_android_status', 'last_updated') | default('N/D') }}"
-
 # --- Sensore template: messaggio dashboard ---------------------------------
   - sensor:
       - name: "USB Tether Dashboard"
@@ -214,7 +205,7 @@ template:
         icon: mdi:usb
         state: >-
           {% set s = states('sensor.usb_tether_status') %}
-          {% set m = state_attr('sensor.usb_tether_status', 'mode') | default(states('input_select.usb_tether_mode') | lower) %}
+          {% set m = states('input_select.usb_tether_mode') | lower %}
           {% set msg = states('input_text.usb_tether_status_message') %}
           {% set host = states('input_select.usb_tether_host') | default('') %}
           {% set ts = state_attr('sensor.usb_tether_status', 'active_since') | default('') %}
@@ -243,7 +234,7 @@ template:
           {% endif %}
           {{ line }} @ {{ display_ts }}
         attributes:
-          mode: "{{ state_attr('sensor.usb_tether_status', 'mode') | default(states('input_select.usb_tether_mode') | lower) }}"
+          mode: "{{ states('input_select.usb_tether_mode') | lower }}"
           phone_if: "{{ state_attr('sensor.usb_tether_status', 'phone_if') }}"
           phone_gw: "{{ state_attr('sensor.usb_tether_status', 'phone_gw') }}"
           remaining_min: "{{ state_attr('sensor.usb_tether_status', 'remaining_min') | int(0) }}"
@@ -417,12 +408,17 @@ automation:
   # --- Automazione: verifica periodica modalità Normale via traceroute ------
   # Esegue traceroute ogni 60s; se il primo hop è 192.168.0.11 (router WAN),
   # forza usb_tether_mode = Normale (corregge eventuali valori stale)
+  # DISABILITATO: in modalità Intranet il primo hop È il router (corretto,
+  # Debian usa la sua Ethernet), questo controllo forzerebbe erroneamente "Normale".
   - alias: "USB Tether - verifica periodica modalità Normale"
     id: usb_tether_verifica_periodica_normale
-    description: "Controlla ogni 60s se la rotta primaria è via router (192.168.0.11) e corregge usb_tether_mode"
+    description: "DISABILITATO: Controlla ogni 60s se la rotta primaria è via router (192.168.0.11) e corregge usb_tether_mode"
     trigger:
       - platform: time_pattern
         minutes: "/1"
+    condition:
+      - condition: template
+        value_template: "{{ states('input_select.usb_tether_mode') == 'Normale' }}"
     action:
       - service: script.turn_on
         target:
@@ -518,28 +514,28 @@ automation:
 
   - alias: "USB Tether - controllo internet immediato all'avvio"
     id: usb_tether_check_internet_startup_v4
-    description: "All'avvio di HA, forza l'aggiornamento dei sensori command_line per avere stato immediato"
+    description: "All'avvio di HA, legge lo stato dal file JSON e aggiorna input_text"
     trigger:
       - platform: event
         event_type: homeassistant_started
     action:
       - delay: "00:00:10"
-      - action: shell_command.check_android_tether
-        response_variable: android_tether_result
+      - action: shell_command.read_tether_status_router
+        response_variable: router_status
+      - action: shell_command.read_tether_status_debian
+        response_variable: debian_status
       - action: input_text.set_value
         target:
-          entity_id:
-            - input_text.usb_tether_note11_status
-            - input_text.usb_tether_android_status
+          entity_id: input_text.usb_tether_note11_status
         data:
-          value: >-
-            {% if android_tether_result.returncode == 0 %}
-              OK - RNDIS attivo, gateway reachable
-            {% else %}
-              PROBLEMA - {{ android_tether_result.stdout | default('timeout/errore') }}
-            {% endif %}
+          value: "{{ router_status.stdout | default('IN_ATTESA') }}"
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.usb_tether_android_status
+        data:
+          value: "{{ debian_status.stdout | default('IN_ATTESA') }}"
       - event: halog2026_write_event
         event_data:
           subsystem: usb_tether
           level: INFO
-          message: "STARTUP: Forzato primo controllo connettività internet (Note 11 router + Android Debian)"
+          message: "STARTUP: Stato letto da file JSON (Note 11: {{ router_status.stdout | default('N/A') }}, Android: {{ debian_status.stdout | default('N/A') }})"

@@ -193,7 +193,7 @@
                 {{ not is_active 
                    or cur_soc >= limit_soc 
                    or (is_active and duration < 240 and remaining <= 0 and trigger.platform == "time_pattern")
-                   or (is_active and byd_soc_float >= 0 and byd_soc_float <= p_prot and not no_grid_2025) }}
+                   or (is_active and byd_soc_float >= 0 and byd_soc_float <= p_prot and not no_grid_2025 and not (mode == "Manuale" and not no_grid)) }}
           sequence:
             - action: mqtt.publish
               data: { topic: "home/prism/1/command/set_mode", payload: "3" }

@@ -492,7 +492,9 @@ views:
                 <div style="background-color: {{ bg }}; color: white; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold;">
                   {{ icon }} Note 11 (Router): {{ s }}
                 </div>
+                {% if det != s and det != '' %}
                 <div style="margin-top: 4px; font-size: 11px; color: #ccc; text-align: center;">{{ det }}</div>
+                {% endif %}
               card_mod:
                 style: "ha-card { border: none; background: none; box-shadow: none; }"
 
@@ -517,7 +519,9 @@ views:
                 <div style="background-color: {{ bg }}; color: white; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold;">
                   {{ icon }} Android (Debian): {{ s }}
                 </div>
+                {% if det != s and det != '' %}
                 <div style="margin-top: 4px; font-size: 11px; color: #ccc; text-align: center;">{{ det }}</div>
+                {% endif %}
               card_mod:
                 style: "ha-card { border: none; background: none; box-shadow: none; }"
 

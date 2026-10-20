@@ -315,7 +315,7 @@ usb_tether_server:
       target:
         entity_id: sensor.usb_tether_status
     - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') }}"
-      timeout: "00:01:30"
+      timeout: "00:02:00"
     - if:
         - condition: not
           conditions:
@@ -365,7 +365,7 @@ usb_tether_intranet:
       target:
         entity_id: sensor.usb_tether_status
     - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') }}"
-      timeout: "00:01:30"
+      timeout: "00:02:00"
     - if:
         - condition: not
           conditions:

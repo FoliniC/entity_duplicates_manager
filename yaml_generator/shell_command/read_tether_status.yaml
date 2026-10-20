@@ -1,0 +1,4 @@
+read_tether_status_router: >-
+  cat /config/tether_status.json | jq -r '.router.message'
+read_tether_status_debian: >-
+  cat /config/tether_status.json | jq -r '.debian.message'

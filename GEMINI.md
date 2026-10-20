@@ -45,7 +45,8 @@ action:
 - Ottimizzazione Telefono: `/config/OTTIMIZZAZIONE_TELEFONO.md`.
 - Interventi Router JFFS2: `/config/INTERVENTI_JFFS2_ROUTER.md`.
 - Interventi Disco SDB: `/config/INTERVENTI_DISCO_SDB.md`.
-- Analisi Tethering USB: `/config/ANDROID_NOTE11_ROUTER_USB_TETHERING_ANALYSIS.md`.
+- **USB Tethering Completo: `/config/USB_TETHERING_COMPREHENSIVE.md`.**
+- Analisi Tethering USB (legacy): `/config/ANDROID_NOTE11_ROUTER_USB_TETHERING_ANALYSIS.md`.
 - ADB TCP 5555 Success: `/config/ADB_TCPIP_5555_SUCCESS.md`.
 - ADB Wireless Attempt (fallito): `/config/ADB_WIRELESS_ATTEMPT.md`.
 - Diagnostica Honor: `/config/DIAGNOSTICA_HONOR_COL-L29_PRE_OTTIMIZZAZIONE.md`.
