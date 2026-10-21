@@ -554,6 +554,21 @@ La camera vendor chiude poi il client e il processo riceve **SIGKILL** (`Applica
 **9. Telefono in sovraccarico di memoria**: 5.5 GB di RAM con solo ~69 MB liberi e 775 MB di swap → `lowmemorykiller` uccide a raffica l'app e altri processi (`Kill 'com.booking' ... to free 232740kB`). Inoltre il **server scrcpy** era rimasto attivo (`app_process / com.genymobile.scrcpy.Server`, 82 MB, `stay_awake=true`): occupa l'encoder AVC e blocca l'encoding.
    - *Fix*: chiuso scrcpy (`killall app_process`); disabilitate 71 app non necessarie per l'uso "solo USB tethering + telecamera" (Google, MIUI, marketplace, social, streaming) mantenendo StreamPack, IP Webcam, Android IP Camera e Tuya; `deviceidle whitelist +io.github.thibaultbee.streampack.app` e `cmd appops set ... RUN_IN_BACKGROUND allow`. Memoria libera passata da 69 MB a ~272 MB.
 
+**10. Il telefono disabilita da solo il Tethering USB (e il monitor non lo ripristinava)**: il 2026-10-21 il tethering e' caduto da solo (`sys.usb.config=adb`, `usb0` sparito, `rndis_host unregister`) e `usb_tether_monitor.sh` ha loggato `ERROR: Failed to restore USB tethering` ogni 5 minuti. Cause:
+   - `enable_usb_tether.sh` usava coordinate **fisse** per il toggle `Tethering USB`, ma cambiano tra un dump e l'altro (`1546` -> `1523`).
+   - lo schermo era **spento/keyguard attivo**: il tap non arrivava alla schermata.
+   - `am start -n com.android.settings/.TetherSettings` senza `force-stop` consegnava l'intent all'istanza gia' aperta e lo schermo **non prendeva il focus**: `uiautomator dump` restituiva il launcher e il parsing falliva.
+   - `tr '>' '>\n'` **non funziona su busybox**: va usato `sed 's/></>\n</g'`.
+   - il router ha **busybox awk**: niente `match()` con array, usare `index()`/`substr()`/`split()`.
+   - lo switch puo' risultare `checked=true` mentre `sys.usb.config` non e' `rndis` (stato desincronizzato): in quel caso va cyclato off->on.
+   - *Fix*: `enable_usb_tether.sh` ora sveglia il telefono, fa `dismiss-keyguard`, `force-stop` delle impostazioni, **aspetta che `mCurrentFocus` sia TetherSettings**, legge posizione e stato dello switch dal dump UI, e cicla lo switch se necessario.
+
+**11. `mem-pressure-event` e morte SIGKILL di StreamPack**: con 7 giorni di uptime `system_server` era a 620 MB e il sistema entrava in `mem-pressure-event` continuo (`Rescheduling restart of crashed service ... for mem-pressure-event` per decine di servizi), uccidendo l'app con `ApplicationExitInfo: reason=2 (SIGNALED) status=9` e `has died: fg TPSL`. Contromisure:
+   - **reboot periodico del telefono** (il leak di `system_server` non si recupera altrimenti);
+   - disabilitare le app non necessarie (71 pacchetti) mantenendo StreamPack, IP Webcam, Android IP Camera e Tuya;
+   - chiudere il **server scrcpy** (82 MB, `stay_awake=true`): occupa l'encoder AVC e blocca l'encoding;
+   - `screen_off_timeout` al massimo e `dismiss-keyguard` prima di avviare l'app: con il keyguard attivo Android **rifiuta** l'apertura della camera (`cannot open camera "0" from background`).
+
 > **Nota**: `cucina` (IP Webcam a `192.168.0.35`) è indipendente: per Frigate va letta da `go2rtc` (`:8554/cucina`), non da MediaMTX.
 
 ## Sorgenti Script Tethering USB
