@@ -580,6 +580,11 @@ KeyError: -1
    - *Fix*: `model_type: yolo-generic` + `path: /config/model_cache/yolov9-s-320.onnx` (YOLOv9-s reale, 28 MB, 80 classi COCO nei metadata ONNX). Il post-processing `post_process_yolo` usa `argmax` e produce sempre `class_id >= 0`. Verificato con inferenza reale su immagine di prova: 2 persone con score 0.935 e 0.803.
    - `media.frigate.video` (dove Frigate 0.17 scarica i modelli ufficiali) **non risolve via DNS** e il container frigate non ha DNS: per questo si usa il modello YOLO locale.
 
+**13. Exposure compensation di StreamPack: era un no-op, e applicarla al momento sbagliato congelava il video**:
+   - `MainViewModel.setExposure()` loggava il valore ma **non applicava nulla** (nessuna chiamata alla camera). Ora converte gli EV in step interi (`availableCompensationStep`, sul Redmi Note 11 = 1/6 EV, range -24..24 = +/-4 EV) e chiama `Exposure.setCompensationIfActive()`.
+   - *Bug nel core*: `CameraSettings.set()` + `applyRepeatingSession()` applicano la repeating request anche quando il **capture request builder e' vuoto o ha solo alcuni target**. `CameraSessionController.applyRepeatingSession()` chiama in quel caso `stopRepeatingSession()`: la camera smette di produrre frame e **il video resta congelato sull'ultimo frame** (stessi hash, `camera_fps` 0). Lo stesso vale se manca la surface dell'encoder (durante l'avvio). Risolto con `CameraController.setSettingIfActive()`: applica solo se il builder non e' vuoto, la sessione e' attiva e **tutti gli output registrati** sono gia' target della request.
+   - *Verifica*: `Exposure read-back: 9 (atteso 9)` conferma che il valore finisce nella repeating request. Però **il vendor HAL (CamX) di questo telefono ignora `CONTROL_AE_EXPOSURE_COMPENSATION`**: l'immagine non cambia nemmeno al massimo (+4 EV), misurato con A/B ripetuti (luminosita' media 27.3-27.8 in tutti i casi). L'app imposta `SENSOR_FRAME_DURATION` in modo manuale, e con frame duration fissato l'AEC del vendor non applica la compensazione. L'unica leva reale per schiarire la scena e' la luce.
+
 > **Nota**: `cucina` (IP Webcam a `192.168.0.35`) è indipendente: per Frigate va letta da `go2rtc` (`:8554/cucina`), non da MediaMTX.
 
 ## Sorgenti Script Tethering USB
