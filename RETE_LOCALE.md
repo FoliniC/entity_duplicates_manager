@@ -542,6 +542,18 @@ Per superare la restrizione di routing di MIUI senza richiedere i permessi di ro
 
 > **Nota**: l'alias `<x.y.z>.10` NON è l'IP mobile del telefono né il gateway: è un alias `/32` su Debian (`enp2s0`) che MediaMTX serve, raggiunto dal telefono via proxy ARP sul router. Il telefono è *client* del RNDIS e ha già un IP nella stessa subnet (`rndis0 = 10.143.150.252` quando l'alias è `10.143.150.10`).
 
+**8. Camera rifiutata in background (`cannot open camera "0" from background`)**: con `am start -n <pkg>/.MainActivity` (senza flag) l'Activity resta in **background** e MIUI/vendor camera (CamX) **rifiuta** l'apertura del device 0:
+```
+REJECT device 0 client for package io.github.thibaultbee.streampack.app,
+  reason: 'validateClientPermissionsLocked: Caller ... cannot open camera "0" from background'
+```
+La camera vendor chiude poi il client e il processo riceve **SIGKILL** (`ApplicationExitInfo: reason=2 (SIGNALED) status=9`) — l'app muore dopo 8-25s e lo stream RTMP chiude con `EOF`, lasciando Frigate con l'ultimo frame congelato.
+   - *Fix*: avviare sempre l'app con `FLAG_ACTIVITY_NEW_TASK` → `am start -n <pkg>/.MainActivity -f 0x10000000`, che porta l'Activity in **foreground** (la camera si apre e lo streaming regge, anche a schermo spento in Dozing).
+   - Applicato in: `/usr/bin/streampack-rndis-configure.sh` sul router (hotplug) e nel nuovo **watchdog** `/usr/bin/streampack_watchdog.sh` (cron ogni 2 minuti sul router) che rilancia l'app se il processo non e' piu' vivo.
+
+**9. Telefono in sovraccarico di memoria**: 5.5 GB di RAM con solo ~69 MB liberi e 775 MB di swap → `lowmemorykiller` uccide a raffica l'app e altri processi (`Kill 'com.booking' ... to free 232740kB`). Inoltre il **server scrcpy** era rimasto attivo (`app_process / com.genymobile.scrcpy.Server`, 82 MB, `stay_awake=true`): occupa l'encoder AVC e blocca l'encoding.
+   - *Fix*: chiuso scrcpy (`killall app_process`); disabilitate 71 app non necessarie per l'uso "solo USB tethering + telecamera" (Google, MIUI, marketplace, social, streaming) mantenendo StreamPack, IP Webcam, Android IP Camera e Tuya; `deviceidle whitelist +io.github.thibaultbee.streampack.app` e `cmd appops set ... RUN_IN_BACKGROUND allow`. Memoria libera passata da 69 MB a ~272 MB.
+
 > **Nota**: `cucina` (IP Webcam a `192.168.0.35`) è indipendente: per Frigate va letta da `go2rtc` (`:8554/cucina`), non da MediaMTX.
 
 ## Sorgenti Script Tethering USB
