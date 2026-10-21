@@ -503,6 +503,47 @@ Per superare la restrizione di routing di MIUI senza richiedere i permessi di ro
 - `win_key` è stata generata appositamente per Windows (formato ED25519, più compatibile con OpenSSH for Windows 9.5).
 - Il router accetta solo connessioni SSH chiave, password disabilitata.
 
+#### 5. Fix StreamPack: stream RTMP senza traccia video (21 Ottobre 2026)
+
+**Sintomo**: `locale_tecnico` su Frigate restava a `camera_fps=0` con `Error opening input file rtsp://192.168.0.3:8890/live/telefono` → 404. MediaMTX loggava `no stream is available on path 'live/telefono'` e, quando il publish partiva, `1 track (MPEG-4 Audio)` — **solo audio, zero video**.
+
+**Cause trovate (4, in ordine di comparsa)**:
+
+1. **Alias IP obsoleto**: la subnet RNDIS del telefono cambia a ogni riconnessione (osservate: `10.203.33.x`, `10.28.59.x`, `10.45.243.x`, `10.116.145.x`, `10.143.150.x`, `172.18.13.x`). L'alias `<gateway-usb0>.10` va **ricalcolato**; su Debian restavano alias morti (`10.203.33.10`, `10.28.59.10`, `10.45.243.10`).
+   - *Fix*: `cmd_setup_alias` in `usb_tether.sh` ricalcola l'alias e rimuove gli alias obsoleti (pattern esteso a `10|172|192`); `cmd_reset` ora chiama `cmd_setup_alias`; il `case` passa l'argomento (`setup_alias) shift; cmd_setup_alias "$@"`). Lato app, `computeUsbAlias()` legge l'IP locale di `rndis0` via `NetworkInterface` (niente adb, niente root) e `retargetToCurrentSubnet()` riscrive l'host se il config punta a una subnet USB morta.
+
+2. **Encoder AVC che scarta tutti i frame**: `c2.qti.avc.encoder` (Qualcomm) rifiuta i buffer `RGBA8888_UBWC` prodotti dall'EGL surface → `calcYSize: unsupported or RGB color format, RGBA8888_UBWC` e `Qinput: 216, Drop: 216` (zero frame codificati).
+   - *Fix*: build **composite** con la copia locale della libreria (`/home/carlo/streampack-core-src`) che contiene la patch in `MediaCodecUtils.kt` → forza `c2.android.avc.encoder`. In `settings.gradle.kts` l'`includeBuild` era **commentato**: la patch esisteva ma non veniva usata. Ora `includeBuild` è attivo con sostituzione di `streampack-core`, `streampack-ui`, `streampack-rtmp`, `streampack-srt`.
+
+3. **Risoluzione 640x480 non valida**: con 640x480 l'SPS generato conteneva dimensioni corrotte (`width=0 height=0`, `is_avc=false`) → ffmpeg: `Could not find codec parameters for stream 0 (Video: h264, none): unspecified size`. Con **1280x720** l'SPS è valido (`profile=Constrained Baseline`, `width=1280 height=720`) e Frigate decodifica.
+   - *Fix*: risoluzione **1280x720 @ 25fps, 2 Mbps** in `StreamConfig.kt` (default + fallback JSON) e in `/usr/bin/streampack-rndis-configure.sh` sul router (che riscrive il JSON a ogni hotplug).
+
+4. **Camera chiusa dopo l'avvio**: `applyConfig(initializeCamera=true)` chiamava `setCameraId()` una seconda volta (la camera era già stata impostata da `setAVSource()`) → `Camera2ClientBase: Closed Camera 0` 4s dopo l'avvio, con l'encoder già in streaming → tracci video persa.
+   - *Fix*: `applyConfig` confronta `streamer.videoInput.sourceFlow.value`'s `ICameraSource.cameraId` con `config.cameraId` e **salta** `setCameraId()` se coincidono.
+
+**5. Rotazione forzata ROTATION_90 (mismatch dimensioni camera/encoder)**: `applyConfig()` imponeva `setTargetRotation(Surface.ROTATION_90)` *oltre* al `rotationRepository.rotationFlow` (sensore). La rotazione forzata faceva `rotateFromNaturalOrientation()` → `portraitize` (scambio width/height: 1280x720 → 720x1280) mentre la camera produceva i frame alla size **non ruotata**: l'encoder riceveva buffer con dimensioni diverse e li scartava **tutti** (`Qinput: 216, DQinput: 0` / `Render: 0, Drop: 216`) → nessun frame video, solo audio.
+   - *Fix*: rimosso il forcing `ROTATION_90`; la rotazione resta al provider del sensore.
+
+**6. App uccisa dal process killer di MIUI**: `Process io.github.thibaultbee.streampack.app has died: fg TPSL` dopo 45-60s. Non era un crash ma il killer MIUI: l'app non era in `deviceidle whitelist` e il keyguard era attivo.
+   - *Fix*: `dumpsys deviceidle whitelist +io.github.thibaultbee.streampack.app` + `cmd appops set ... RUN_IN_BACKGROUND allow`. Verificato su 3 riavvii consecutivi: l'app resta viva e `locale_tecnico` a 5.0-5.1 fps.
+
+**7. Textbox dei log invisibile**: `logTextView` era `layout_height="0dp"` + `weight="1"` **dentro uno ScrollView** — il peso non viene applicato dentro una ScrollView, quindi la TextView aveva altezza 0. Ora `wrap_content` + `minHeight="160dp"`. Il log è in fondo al dialog: va fatto scorrere.
+
+**Timeout MediaMTX**: con l'encoder software il primo frame arriva dopo ~10-15s, oltre il `readTimeout` default (10s) → `closed: read tcp ...: i/o timeout` e la connessione RTMP moriva prima del primo byte. Impostato `readTimeout: 60s` / `writeTimeout: 60s` in `/home/carlo/frigate/config/mediamtx.yml`.
+
+**Config canonica StreamPack** (su `files/streampack.json`, internal storage):
+```json
+{"url":"rtmp://<gateway-usb0>.10:1935/live/telefono","autostart":true,"autostart_delay_ms":1000,
+ "auto_reconnect":true,"reconnect_interval_sec":5,"camera_id":"0","video_width":1280,
+ "video_height":720,"video_fps":25,"video_bitrate":2000000,"audio_enabled":true,
+ "audio_bitrate":128000,"zoom_factor":3.5831816,"exposure_compensation":0,
+ "white_balance_index":0,"auto_focus_enabled":true}
+```
+
+> **Nota**: l'alias `<x.y.z>.10` NON è l'IP mobile del telefono né il gateway: è un alias `/32` su Debian (`enp2s0`) che MediaMTX serve, raggiunto dal telefono via proxy ARP sul router. Il telefono è *client* del RNDIS e ha già un IP nella stessa subnet (`rndis0 = 10.143.150.252` quando l'alias è `10.143.150.10`).
+
+> **Nota**: `cucina` (IP Webcam a `192.168.0.35`) è indipendente: per Frigate va letta da `go2rtc` (`:8554/cucina`), non da MediaMTX.
+
 ## Sorgenti Script Tethering USB
 
 ### `usb_tether.sh` (Debian 13 — `/home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh`)
@@ -1713,9 +1754,6 @@ docker exec -e IMPACKET_PW_FILE=/config/.secrets/win_pw homeassistant \
 #### Limitazione nota
 Il **watchdog** (Scheduled Task `USBTetherWatchdog` per auto-restore) fallisce con errore SID quando registrato come SYSTEM. L'auto-restore post-scadenza va gestito manualmente o fixato separatamente.
 
----
-
-*Ultimo aggiornamento: 19 Agosto 2026*
 
 ---
 *Ultimo aggiornamento: 16 Agosto 2026*

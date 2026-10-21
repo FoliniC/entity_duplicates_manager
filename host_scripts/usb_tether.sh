@@ -1241,6 +1241,10 @@ cmd_reset() {
         log_line ERROR "nmcli non disponibile - reset interrotto"
         return 1
     fi
+    # Ricalcola subito l'alias StreamPack sulla subnet USB corrente: e' il
+    # parametro che cambia a ogni riconnessione del telefono e, se stale,
+    # impedisce a StreamPack di raggiungere MediaMTX (endpoint rtmp://<alias>.10).
+    cmd_setup_alias || log_line WARN "Reset: ricalcolo alias StreamPack non riuscito." >&2
     # Prova a ripristinare connessione su Debian USB
     local iface
     iface=$(ip -br link show 2>/dev/null | grep -E '^enx' | awk '{print $1}' | head -1)
@@ -1293,10 +1297,13 @@ cmd_setup_alias() {
 
     # Remove only stale StreamPack aliases from former USB /24 subnets. Keep
     # the normal LAN address and all unrelated aliases intact.
+    # The USB subnet is not always 10.x.y.z (observed: 10.203.33.x, 10.28.59.x,
+    # 10.45.243.x, 10.143.150.x, 172.18.13.x), so match any private /24 alias
+    # whose last octet is 10 instead of assuming a 10.x prefix.
     while read -r old_alias; do
         [[ -z "$old_alias" || "$old_alias" == "$alias" ]] && continue
         ip addr del "$old_alias/32" dev "$LAN_IF" 2>/dev/null || true
-    done < <(ip -4 -o addr show dev "$LAN_IF" | awk '$4 ~ /^10\.[0-9]+\.[0-9]+\.10\/32$/ {sub(/\/32$/, "", $4); print $4}')
+    done < <(ip -4 -o addr show dev "$LAN_IF" | awk '$4 ~ /^(10|172|192)\.[0-9]+\.[0-9]+\.10\/32$/ {sub(/\/32$/, "", $4); print $4}')
 
     ip addr replace "$alias/32" dev "$LAN_IF"
     echo "Dynamic alias ${alias}/32 configurato su $LAN_IF (gateway=${gateway:-passed-from-router})."
@@ -1307,7 +1314,7 @@ case "${1:-status}" in
     detect)      cmd_detect ;;
     activate)    shift; cmd_activate "$@" ;;
     rndis_activate) shift; cmd_rndis_activate "$@" ;;
-    setup_alias) cmd_setup_alias ;;
+    setup_alias) shift; cmd_setup_alias "$@" ;;
     restore)     cmd_restore ;;
     status)      cmd_status ;;
     renat)       cmd_renat ;;
