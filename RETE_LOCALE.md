@@ -569,6 +569,17 @@ La camera vendor chiude poi il client e il processo riceve **SIGKILL** (`Applica
    - chiudere il **server scrcpy** (82 MB, `stay_awake=true`): occupa l'encoder AVC e blocca l'encoding;
    - `screen_off_timeout` al massimo e `dismiss-keyguard` prima di avviare l'app: con il keyguard attivo Android **rifiuta** l'apertura della camera (`cannot open camera "0" from background`).
 
+**12. Frigate: `cucina` non rilevava nulla (`KeyError: -1` nel detect)**: il video arrivava (`camera_fps=5.1`) ma `process_fps=0` e `detection_fps=0`, con `WARNING : Too many unprocessed recording segments in cache for cucina. This likely indicates an issue with the detect stream`. Il processo detect andava in crash in loop:
+```
+File "/opt/frigate/frigate/object_detection/base.py", line 429, in detect
+    (self.labels[int(d[0])], float(d[1]), (d[2], d[3], d[4], d[5]))
+KeyError: -1
+```
+   - *Causa*: `/config/model_cache/ssd_mobilenet_v2_320.onnx` era uno **STUB fasullo** (7 KB, 7 nodi, pesi casuali) al posto del mobilenet vero (~28 MB). Restituiva `class_id = -1` per i box vuoti; il path SSD di `openvino.py` **non ha il guard** `if class_id < 0: break` (che invece c'è in `yolonas`), quindi `self.labels[-1]` faceva crashare tutto. Frigate riavviava il detect in loop ogni 10 s.
+   - *Nota*: `locale_tecnico` "funzionava" solo per caso — con lo stub a volte l'indice usato era valido; la detection era comunque spazzatura.
+   - *Fix*: `model_type: yolo-generic` + `path: /config/model_cache/yolov9-s-320.onnx` (YOLOv9-s reale, 28 MB, 80 classi COCO nei metadata ONNX). Il post-processing `post_process_yolo` usa `argmax` e produce sempre `class_id >= 0`. Verificato con inferenza reale su immagine di prova: 2 persone con score 0.935 e 0.803.
+   - `media.frigate.video` (dove Frigate 0.17 scarica i modelli ufficiali) **non risolve via DNS** e il container frigate non ha DNS: per questo si usa il modello YOLO locale.
+
 > **Nota**: `cucina` (IP Webcam a `192.168.0.35`) è indipendente: per Frigate va letta da `go2rtc` (`:8554/cucina`), non da MediaMTX.
 
 ## Sorgenti Script Tethering USB

@@ -1,0 +1,204 @@
+mqtt:
+  enabled: true
+  host: 192.168.0.3
+  port: 1883
+  user: homeassistant
+  password: jo1ahleiP1Voh2Gie5aeP5oub4aeko8Kaeka1hudeigohbahshoo0aepoot9pif5
+  topic_prefix: frigate
+
+detectors:
+  ov:
+    type: openvino
+    device: GPU
+    model_path: /config/model_cache/yolov9-s-320.onnx
+
+# NOTA 2026-10-21: il precedente ssd_mobilenet_v2_320.onnx era uno STUB fasullo
+# (7 KB, 7 nodi, pesi casuali) e non produceva classi valide: restituiva
+# class_id = -1, e il path SSD di openvino.py (che, a differenza di yolonas,
+# non ha il guard "if class_id < 0: break") faceva crashare il processo detect
+# con KeyError: -1. Frigate riavviava il detect in loop -> "Too many unprocessed
+# recording segments ... issue with the detect stream".
+# Fix: yolov9-s-320.onnx (modello YOLOv9-s reale, 80 classi COCO nei metadata)
+# con model_type yolo-generic, il cui post-processing usa argmax e produce
+# sempre class_id >= 0.
+model:
+  model_type: yolo-generic
+  width: 320
+  height: 320
+  input_tensor: nchw
+  input_dtype: float
+  path: /config/model_cache/yolov9-s-320.onnx
+  labelmap_path: /config/labelmap/coco-80.txt
+
+# preset-vaapi include decode + scale_vaapi + hwdownload: non usare argomenti VAAPI manuali.
+ffmpeg:
+  hwaccel_args: preset-vaapi
+  gpu: 0  # unico render node esposto nel container: /dev/dri/renderD129 (Intel HD 530)
+
+detect:
+  enabled: true
+
+go2rtc:
+  streams:
+    cucina:
+      - rtsp://192.168.0.35:8080/h264_aac.sdp#rtsp_transport=tcp&timeout=30000000
+
+    locale_tecnico:
+      - rtsp://192.168.0.3:8890/live/telefono   # push StreamPack -> MediaMTX (host network)
+
+cameras:
+  cucina:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/cucina
+          roles:
+            - detect
+            - record
+      input_args: -analyzeduration 100000000 -probesize 50000000 -rtsp_transport
+        tcp -timeout 15000000 -fflags +genpts
+
+    detect:
+      enabled: true
+      width: 320
+      height: 240
+      fps: 5
+
+    objects:
+      track:
+        - person
+        - car
+      filters:
+        person:
+          min_score: 0.7
+          threshold: 0.8
+        car:
+          min_score: 0.6
+          threshold: 0.7
+
+    motion:
+      threshold: 7
+      contour_area: 25
+      improve_contrast: false
+    record:
+      enabled: true
+      continuous:
+        days: 0
+      motion:
+        days: 7
+    snapshots:
+      enabled: true
+      retain:
+        default: 14
+    live:
+      height: 480
+      quality: 5
+    zones:
+      balcone_ok:
+        coordinates: 
+          0.861,0.646,0.906,1,0.266,1,0.303,0.804,0.331,0.401,0.521,0,0.641,0.079,0.8,0.172
+        loitering_time: 0
+        friendly_name: Balcone ok
+        inertia: 3
+        objects:
+          - person
+          - car
+    review:
+      alerts:
+        required_zones: balcone_ok
+      detections:
+        required_zones: balcone_ok
+    notifications:
+      enabled: true
+
+  locale_tecnico:
+    enabled: true
+    friendly_name: locale tecnico
+    ffmpeg:
+      input_args: -analyzeduration 100000000 -probesize 50000000 -rtsp_transport
+        tcp -timeout 15000000
+      inputs:
+        - path: rtsp://192.168.0.3:8890/live/telefono
+          roles:
+            - detect
+            - record
+
+    detect:
+      enabled: true
+      width: 320
+      height: 240
+      fps: 5
+
+    objects:
+      track:
+        - person
+        - car
+      filters:
+        person:
+          min_score: 0.6
+          threshold: 0.7
+        car:
+          min_score: 0.5
+          threshold: 0.6
+
+    motion:
+      threshold: 7
+      contour_area: 25
+      improve_contrast: false
+    record:
+      enabled: true
+      continuous:
+        days: 0
+      motion:
+        days: 7
+    snapshots:
+      enabled: true
+      retain:
+        default: 14
+    live:
+      height: 480
+      quality: 5
+    zones:
+      locale_tecnico_ok:
+        coordinates: 0.1,1,0.1,0.1,0.9,0.1,0.9,1
+        loitering_time: 0
+        friendly_name: Locale tecnico ok
+        inertia: 3
+        objects:
+          - person
+          - car
+    review:
+      alerts:
+        required_zones: locale_tecnico_ok
+      detections:
+        required_zones: locale_tecnico_ok
+
+version: 0.17-0
+
+camera_groups:
+  cucina:
+    order: 1
+    icon: LuAArrowUp
+    cameras: cucina
+  locale_tecnico:
+    order: 2
+    icon: LuAirVent
+    cameras: locale_tecnico
+
+notifications:
+  enabled: false
+  email: carlo.folini@gmail.com
+
+semantic_search:
+  enabled: true
+  model_size: small
+
+face_recognition:
+  enabled: false
+  model_size: small
+
+lpr:
+  enabled: false
+
+classification:
+  bird:
+    enabled: false
