@@ -80,7 +80,7 @@
       then:
         - action: notify.send_message
           target:
-            entity_id: notify.redmi_note_13_pro_5g
+            entity_id: notify.ultra17
           data:
             title: "💡 Luce balcone {{ action_word }}{% if anomalous %} ⚠️{% endif %}"
             message: "Motivo: {{ reason }}"

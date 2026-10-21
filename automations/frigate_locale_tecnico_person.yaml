@@ -13,7 +13,7 @@
         {{ (now() - last).total_seconds() > 300 }}
         {% endif %}
   action:
-    - action: notify.mobile_app_redmi_note_13_pro_5g
+    - action: notify.mobile_app_ultra17
       data:
         title: "🚨 Persona rilevata - Locale Tecnico"
         message: "Persona rilevata dalla camera **Locale Tecnico** (ingresso) alle {{ now().strftime('%H:%M:%S') }} del {{ now().strftime('%d/%m/%Y') }}"

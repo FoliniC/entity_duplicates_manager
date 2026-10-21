@@ -59,20 +59,23 @@
 - name: "EV Charge 2025 Current SOC"
   unique_id: ev_charge_2025_current_soc
   unit_of_measurement: "%"
+  device_class: battery
   state: >
     {% set mg_soc = states('sensor.piazzale_mg_mg4_electric_state_of_charge') %}
     {% set veh_soc = states('sensor.selected_vehicle_soc') %}
-
     {% if is_number(mg_soc) and mg_soc | float > 0 %}
       {{ mg_soc | float | round(1) }}
-    {% elif is_number(veh_soc) and veh_soc | float > 0 %}
+    {% elif is_number(veh_soc) and veh_soc | float >= 0 %}
       {{ veh_soc | float | round(1) }}
+    {% elif is_number(mg_soc) and mg_soc | float >= 0 %}
+      {{ mg_soc | float | round(1) }}
     {% else %}
-      unavailable
+      {{ None }}
     {% endif %}
   availability: >
-    {{ states('sensor.selected_vehicle_soc') not in ['unavailable', 'unknown', 'none'] or 
-       states('sensor.piazzale_mg_mg4_electric_state_of_charge') not in ['unavailable', 'unknown', 'none'] }}
+    {% set mg_soc = states('sensor.piazzale_mg_mg4_electric_state_of_charge') %}
+    {% set veh_soc = states('sensor.selected_vehicle_soc') %}
+    {{ (is_number(mg_soc) and mg_soc | float >= 0) or (is_number(veh_soc) and veh_soc | float >= 0) }}
 
 
 - name: "EV Charge 2025 Remaining Time"

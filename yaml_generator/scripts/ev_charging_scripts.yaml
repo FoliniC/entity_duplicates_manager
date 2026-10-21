@@ -192,7 +192,7 @@ notify_charging_status:
   sequence:
     - action: notify.send_message
       target:
-        entity_id: notify.redmi_note_13_pro_5g
+        entity_id: notify.ultra17
       data:
         title: "🔌 Stato Ricarica EV ab123"
         message: |
@@ -246,7 +246,7 @@ emergency_stop_charging:
     # Notifica urgente
     - action: notify.send_message
       target:
-        entity_id: notify.redmi_note_13_pro_5g
+        entity_id: notify.ultra17
       data:
         title: "🚨 STOP EMERGENZA"
         message: |
@@ -283,7 +283,7 @@ restore_after_emergency:
     # Notifica
     - action: notify.send_message
       target:
-        entity_id: notify.redmi_note_13_pro_5g
+        entity_id: notify.ultra17
       data:
         title: "✅ Sistema Ripristinato"
         message: |

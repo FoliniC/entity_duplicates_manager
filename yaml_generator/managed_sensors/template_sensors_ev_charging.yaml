@@ -1,27 +1,27 @@
 - name: "Selected Vehicle SOC"
   unique_id: selected_vehicle_soc
-  state: >
-    {% set veh = states('input_select.selected_vehicle') %}
-    {% if veh == 'MG4' or veh in ['unknown', 'unavailable', 'none', ''] %}
-      {% set soc = states('sensor.piazzale_mg_mg4_electric_state_of_charge') %}
-      {% if is_number(soc) %}{{ soc | float | round(1) }}{% else %}unavailable{% endif %}
-    {% elif veh == 'BYD' %}
-      {% set soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') %}
-      {% if is_number(soc) %}{{ soc | float | round(1) }}{% else %}unavailable{% endif %}
-    {% else %}
-      unavailable
-    {% endif %}
   unit_of_measurement: "%"
   device_class: battery
+  state: >
+    {% set veh = states('input_select.selected_vehicle') %}
+    {% if veh == 'BYD' %}
+      {% set soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') %}
+    {% else %}
+      {% set soc = states('sensor.piazzale_mg_mg4_electric_state_of_charge') %}
+    {% endif %}
+    {% if is_number(soc) and soc | float >= 0 %}
+      {{ soc | float | round(1) }}
+    {% else %}
+      {{ None }}
+    {% endif %}
   availability: >
     {% set veh = states('input_select.selected_vehicle') %}
-    {% if veh == 'MG4' or veh in ['unknown', 'unavailable', 'none', ''] %}
-      {{ states('sensor.piazzale_mg_mg4_electric_state_of_charge') not in ['unavailable', 'unknown', 'none'] }}
-    {% elif veh == 'BYD' %}
-      {{ states('sensor.byd_battery_box_premium_hv_state_of_charge') not in ['unavailable', 'unknown', 'none'] }}
+    {% if veh == 'BYD' %}
+      {% set soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') %}
     {% else %}
-      false
+      {% set soc = states('sensor.piazzale_mg_mg4_electric_state_of_charge') %}
     {% endif %}
+    {{ is_number(soc) and soc | float >= 0 }}
 
 - name: "Current Target SOC"
   unique_id: current_target_soc

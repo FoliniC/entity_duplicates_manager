@@ -424,11 +424,11 @@ logger:
     aioamazondevices:
       - debug
   logs:
-    homeassistant.components.emulated_hue: debug
-    homeassistant.components.emulated_hue.hue_api: debug
-    homeassistant.components.template: debug
-    homeassistant.components.light: debug
-    homeassistant.components.homeassistant: debug
+    homeassistant.components.emulated_hue: warning
+    homeassistant.components.emulated_hue.hue_api: warning
+    homeassistant.components.template: warning
+    homeassistant.components.light: warning
+    homeassistant.components.homeassistant: warning
     custom_components.localtuya: info
     custom_components.entity_duplicates_manager: info
     fancoil_system: error
@@ -442,6 +442,11 @@ logger:
     custom_components.mg_saic: warning
     esphome: error
     homeassistant.helpers.script: warning
+    # DEBUG xiaomi_ble troubleshooting
+    homeassistant.components.xiaomi_ble: debug
+    homeassistant.components.bluetooth: debug
+    homeassistant.components.bluetooth.manager: debug
+    homeassistant.components.bluetooth.scanner: debug
     custom_components.pyscript: warning
 # ============================================================================
 # LOGBOOK & RECORDER

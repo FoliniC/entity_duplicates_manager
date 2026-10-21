@@ -15,7 +15,7 @@
       then:
         - action: notify.send_message
           target:
-            entity_id: notify.redmi_note_13_pro_5g
+            entity_id: notify.ultra17
           data:
             message: >
               🌧️ Finestra chiusa — {% if is_state('binary_sensor.sta_piovendo_a_castionetto','on') %} pioggia in corso ({{ states('sensor.castionetto_precipitazione') }} mm/h) {% else %} pioggia prevista entro 1h ({{ states('sensor.castionetto_prob_pioggia_1h') }}%) {% endif %}

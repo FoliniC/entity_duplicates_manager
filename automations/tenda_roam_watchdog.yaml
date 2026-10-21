@@ -88,7 +88,7 @@
             action: "tenda_roam_alert"
         - service: notify.send_message
           target:
-            entity_id: notify.redmi_note_13_pro_5g
+            entity_id: notify.ultra17
           data:
             title: "🔴 Tenda Roam Alert: luci-cucina"
             message: >

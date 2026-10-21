@@ -27,7 +27,7 @@
     - action: notify.send_message
       target:
         entity_id:
-          - notify.mobile_app_redmi_note_13_pro_5g
+          - notify.mobile_app_ultra17
       data:
         title: "🎉 BTC Tracker: Obiettivo raggiunto!"
         message: >
@@ -69,7 +69,7 @@
     - action: notify.send_message
       target:
         entity_id:
-          - notify.mobile_app_redmi_note_13_pro_5g
+          - notify.mobile_app_ultra17
       data:
         title: "📈 BTC Tracker: 50% raggiunto!"
         message: >
@@ -99,7 +99,7 @@
     - action: notify.send_message
       target:
         entity_id:
-          - notify.mobile_app_redmi_note_13_pro_5g
+          - notify.mobile_app_ultra17
       data:
         title: "🚀 BTC Tracker: 75% - Quasi là!"
         message: >
@@ -130,7 +130,7 @@
     - action: notify.send_message
       target:
         entity_id:
-          - notify.mobile_app_redmi_note_13_pro_5g
+          - notify.mobile_app_ultra17
       data:
         title: "🎯 BTC Tracker: 90% - Ultimi metri!"
         message: >
@@ -160,7 +160,7 @@
     - action: notify.send_message
       target:
         entity_id:
-          - notify.mobile_app_redmi_note_13_pro_5g
+          - notify.mobile_app_ultra17
       data:
         title: "⚠️ BTC Tracker: Perdita significativa"
         message: >
@@ -184,7 +184,7 @@
     - action: notify.send_message
       target:
         entity_id:
-          - notify.mobile_app_redmi_note_13_pro_5g
+          - notify.mobile_app_ultra17
       data:
         title: "📊 BTC Tracker: Report giornaliero"
         message: >

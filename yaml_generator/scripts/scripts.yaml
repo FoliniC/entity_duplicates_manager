@@ -223,7 +223,7 @@ anti_accensione_balcone_check:
         entity_id: switch.luce_balcone_switch_1
     - action: notify.send_message
       target:
-        entity_id: notify.redmi_note_13_pro_5g
+        entity_id: notify.ultra17
       data:
         title: "🚫 Luce balcone spenta (anti-accensione)"
         message: "Rilevata accensione esterna non voluta (nessun traffico cloud) -> spenta automaticamente"

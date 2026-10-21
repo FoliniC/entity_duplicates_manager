@@ -98,7 +98,7 @@
       value_template: '{{ value_json.type == "new" and value_json.label == "person" and value_json.camera == "locale_tecnico" }}'
   conditions: []
   actions:
-    - service: notify.redmi_note_13_pro_5g
+    - service: notify.ultra17
       data:
         title: "🚨 Persona rilevata - Locale Tecnico"
         message: "Persona rilevata dalla camera **Locale Tecnico** alle {{ now().strftime('%H:%M:%S') }} del {{ now().strftime('%d/%m/%Y') }}"
