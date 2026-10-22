@@ -101,16 +101,33 @@ def safe_notify(message, title=None, target=None, data=None):
     bloccato non può più fermare HA.
     """
     try:
-        svc_data = {"message": message}
-        if title:
-            svc_data["title"] = title
-        if target:
-            svc_data["target"] = target if isinstance(target, list) else [target]
-        if data:
-            svc_data["data"] = data
-        hass.async_create_task(
-            hass.services.async_call("notify", "send_message", svc_data, blocking=False)
-        )
+        targets = target if isinstance(target, list) else ([target] if target else [])
+        for t in targets:
+            svc_data = {"message": message}
+            if title:
+                svc_data["title"] = title
+            name = t.split(".")[-1] if "." in t else t
+            if data:
+                # Le opzioni extra (tag/importance/notification_icon) sono accettate
+                # SOLO dai servizi legacy per-device (notify.mobile_app_<nome>):
+                # notify.send_message ammette unicamente message + title.
+                svc_data["data"] = data
+                svc = name if name.startswith("mobile_app_") else "mobile_app_" + name
+                hass.async_create_task(
+                    hass.services.async_call("notify", svc, svc_data, blocking=False)
+                )
+            else:
+                # notify.send_message accetta solo message/title: il target va
+                # indicato come entity_id. I target passati sono nomi di servizio
+                # legacy (notify.mobile_app_<nome>): la corrispondente entity e'
+                # notify.<nome>.
+                entity = t
+                if name.startswith("mobile_app_"):
+                    entity = "notify." + name[len("mobile_app_"):]
+                svc_data["entity_id"] = [entity]
+                hass.async_create_task(
+                    hass.services.async_call("notify", "send_message", svc_data, blocking=False)
+                )
     except Exception as e:
         log.warning(f"BTC Tracker: safe_notify fallita: {e}")
 

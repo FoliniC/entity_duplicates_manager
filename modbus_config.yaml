@@ -196,7 +196,8 @@
       data_type: uint32
       address: 780
 
-    - name: Alfa new Tempo residuo distacco
-      unique_id: alfa_tempo_residuo_distacco
-      data_type: uint16
-      address: 782
+    # NOTA: il "Tempo residuo distacco" (addr 782) NON e' piu' definito qui.
+    # L'integrazione `modbus` e' disabilitata in configuration.yaml (blocca l'avvio);
+    # il dato reale arriva da `sinapsi_alfa` con l'entita' VIVA:
+    #   sensor.alfa_new_disconnect_timer   (unique_id sinapsi_alfa_192168088_502_tempo_residuo_distacco)
+    # Usare questo, non sensor.alfa_tempo_residuo_distacco (entita' orfana, sempre unavailable).

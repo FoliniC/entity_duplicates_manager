@@ -505,12 +505,10 @@
     - trigger: event
       event_type: google_cloud_speech_to_text.result
   actions:
-    - action: notify.send_message
-      target:
-        entity_id: notify.ultra17
+    - action: notify.mobile_app_ultra17
       data:
-        message: TTS
-        data: Google calling
+        title: TTS
+        message: Google calling
 - id: debug_deviatore_states
   alias: DEBUG - Stati Deviatore Scale
   triggers:

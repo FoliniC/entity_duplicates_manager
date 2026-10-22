@@ -221,9 +221,7 @@ anti_accensione_balcone_check:
     - action: switch.turn_off
       target:
         entity_id: switch.luce_balcone_switch_1
-    - action: notify.send_message
-      target:
-        entity_id: notify.ultra17
+    - action: notify.mobile_app_ultra17
       data:
         title: "🚫 Luce balcone spenta (anti-accensione)"
         message: "Rilevata accensione esterna non voluta (nessun traffico cloud) -> spenta automaticamente"

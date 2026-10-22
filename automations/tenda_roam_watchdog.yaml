@@ -86,9 +86,7 @@
               | NetDiag: {{ net_diag }} | Loss: {{ packet_loss }}% | Jitter: {{ jitter }}ms
               | AZIONE RICHIESTA: Disabilitare Fast Roaming / Band Steering su app Tenda
             action: "tenda_roam_alert"
-        - service: notify.send_message
-          target:
-            entity_id: notify.ultra17
+        - action: notify.mobile_app_ultra17
           data:
             title: "🔴 Tenda Roam Alert: luci-cucina"
             message: >

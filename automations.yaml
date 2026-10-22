@@ -84,7 +84,7 @@
     data:
       title: "Tuya Device Activity"
       message: "Tuya device BC:35:1E:FF:4A:B9 detected network activity at {{ now().strftime('%H:%M:%S') }}"
-  - service: notify.mobile_app_iphone_car
+  - action: notify.mobile_app_ultra17
     data:
       title: "Tuya Device Activity"
       message: "Tuya device BC:35:1E:FF:4A:B9 detected network activity"
@@ -98,10 +98,8 @@
       value_template: '{{ value_json.type == "new" and value_json.label == "person" and value_json.camera == "locale_tecnico" }}'
   conditions: []
   actions:
-    - service: notify.ultra17
+    - action: notify.mobile_app_ultra17
       data:
         title: "🚨 Persona rilevata - Locale Tecnico"
         message: "Persona rilevata dalla camera **Locale Tecnico** alle {{ now().strftime('%H:%M:%S') }} del {{ now().strftime('%d/%m/%Y') }}"
-        notification_id: frigate_locale_tecnico_person
-      target: []
   mode: single

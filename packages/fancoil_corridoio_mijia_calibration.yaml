@@ -1,6 +1,13 @@
 # Mijia Calibration Statistics for Corridoio Fancoil Sensors
 # Computes rolling average offsets between Mijia reference and Fancoil internal sensors
 # Place in /config/packages/ to be auto-loaded via !include_dir_named packages
+#
+# ---------------------------------------------------------------------------
+# CALIBRATION START: 2026-10-20 23:45 (after Mijia re-pairing via local Bluetooth)
+# Mijia sensor: sensor.temperature_humidity_sensor_3116 (LYWSD03MMC, MAC A4:C1:38:26:31:16)
+# Fancoil sensors: sensor.fancoil_corridoio_temperature / sensor.fancoil_corridoio_humidity
+# Proxy: M5 Atom Echo BT Proxy (ESPHome) - local pairing, no cloud
+# ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
 # Template Sensors: Instantaneous Offsets (Mijia - Fancoil)

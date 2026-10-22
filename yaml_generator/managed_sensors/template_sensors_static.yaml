@@ -21,10 +21,10 @@
       {{ (val_w if val_w > 0 else 0) | round(2) }}
     {% else %}
       {# Fallback: Alfa New #}
-      {% set alfa = states('sensor.alfa_new_potenza_importata') %}
+      {% set alfa = states('sensor.alfa_new_power_imported') %}
       {% if alfa not in ['unavailable', 'unknown', 'none'] %}
         {% set val = alfa | float(0) %}
-        {% set unit = state_attr('sensor.alfa_new_potenza_importata', 'unit_of_measurement') %}
+        {% set unit = state_attr('sensor.alfa_new_power_imported', 'unit_of_measurement') %}
         {{ (val * 1000 if unit == 'kW' else val) | round(2) }}
       {% else %}
         0
@@ -46,10 +46,10 @@
       {{ (val_w | abs if val_w < 0 else 0) | round(2) }}
     {% else %}
       {# Fallback: Alfa New #}
-      {% set alfa = states('sensor.alfa_new_potenza_esportata') %}
+      {% set alfa = states('sensor.alfa_new_power_exported') %}
       {% if alfa not in ['unavailable', 'unknown', 'none'] %}
         {% set val = alfa | float(0) %}
-        {% set unit = state_attr('sensor.alfa_new_potenza_esportata', 'unit_of_measurement') %}
+        {% set unit = state_attr('sensor.alfa_new_power_exported', 'unit_of_measurement') %}
         {{ (val * 1000 if unit == 'kW' else val) | round(2) }}
       {% else %}
         0
@@ -61,7 +61,7 @@
   state_class: measurement
   state: >
     {# Uso del sensore nativo Alfa_new (Carico totale misurato dal contatore) #}
-    {% set p = states('sensor.alfa_new_potenza_consumata') %}
+    {% set p = states('sensor.alfa_new_power_consumed') %}
     {{ (p | float(0) * 1000) | round(2) if p not in ['unavailable', 'unknown', 'none'] else 0 }}
   unit_of_measurement: W
   device_class: power
@@ -98,9 +98,9 @@
         {{ value }}
       {% endif %}
     {# Priorità 2: Alfa New #}
-    {% elif states('sensor.alfa_new_potenza_prodotta') not in ['unavailable', 'unknown', 'none'] %}
-      {% set value = states('sensor.alfa_new_potenza_prodotta') | float(0) %}
-      {% if 'kW' in state_attr('sensor.alfa_new_potenza_prodotta', 'unit_of_measurement') | string %}
+    {% elif states('sensor.alfa_new_power_produced') not in ['unavailable', 'unknown', 'none'] %}
+      {% set value = states('sensor.alfa_new_power_produced') | float(0) %}
+      {% if 'kW' in state_attr('sensor.alfa_new_power_produced', 'unit_of_measurement') | string %}
         {{ (value * 1000) | round(1) }}
       {% else %}
         {{ value }}
@@ -112,7 +112,7 @@
   device_class: power
   state_class: measurement
   availability: >-
-    {{ states('sensor.alfa_new_potenza_prodotta') not in ['unavailable', 'unknown', 'none']
+    {{ states('sensor.alfa_new_power_produced') not in ['unavailable', 'unknown', 'none']
         or states('sensor.envoy_122134037538_current_power_production') not in ['unavailable', 'unknown', 'none'] }}
 - name: Minutes Remaining
   unique_id: minutes_remaining_sensor
@@ -147,7 +147,7 @@
   unit_of_measurement: "kW"
   state: >
     {# Uso del sensore nativo Alfa_new (Carico totale misurato dal contatore) converted in kW #}
-    {% set p = states('sensor.alfa_new_potenza_consumata') %}
+    {% set p = states('sensor.alfa_new_power_consumed') %}
     {{ (p | float(0)) | round(3) if p not in ['unavailable', 'unknown', 'none'] else 0 }}
 - name: "Consumo stox scale (template)"
   unique_id: consumo_stox_scale
@@ -163,6 +163,119 @@
 #   device_class: power
 #   state_class: measurement
 #   unit_of_measurement: "W"
-#   state: >
-#     {% set switch_scale_corrente_scale = state_attr('switch.switch_scale_corrente_scale', 'current_consumption') | float(0) %}
-#     {{ switch_scale_corrente_scale }}
+#   state: >-
+#     {% set switch_scale_corretta_scale = state_attr('switch.switch_scale_corretta_scale', 'current_consumption') | float(0) %}
+#     {{ switch_scale_corretta_scale }}
+
+# --- Bilancio energetico rapido (dashboard Panoramica) -------------------------
+# Modello chiuso: fonti = produzione FV + prelievo rete + scarica batteria
+#                  usi   = carichi misurati + carica batteria + esportazione rete
+# Priorita' TS100A (Smart Meter, rapido) con fallback Alfa/Sinapsi: gia' gestito
+# nei template potenza_prelevata_attuale / potenza_esportata_attuale.
+# "Carichi non misurati" = quota non coperta dai sotto-misuratori: e' il nodo che
+# chiude il bilancio (non una seconda FV). Residuo interno del ramo B = quota
+# fissa di B non dettagliata dai suoi figli.
+# Batteria: canali derivati (charge/discharge) con ripiego sul canale con segno
+# (negativo = carica); uno stato non numerico non viene mai trattato come 0.
+#
+# NOTA coercizione: in Jinja gli stati HA sono STRINGHE, quindi il test
+# "is number" e' sempre falso. Si controlla esplicitamente la validita' dello
+# stato e si usa | float(0): unavailable/unknown valgono 0 (e non entrano nei
+# calcoli), mai un valore inventato.
+- name: "Potenza scarica batteria"
+  unique_id: potenza_scarica_batteria
+  device_class: power
+  state_class: measurement
+  unit_of_measurement: "W"
+  state: >-
+    {% set dis = states('sensor.solarnet_power_battery_discharge') %}
+    {% set batt = states('sensor.solarnet_power_battery') %}
+    {% if dis not in ['unavailable', 'unknown', 'none', ''] %}
+      {{ ([dis | float(0), 0] | max) | round(2) }}
+    {% elif batt not in ['unavailable', 'unknown', 'none', ''] %}
+      {{ ([batt | float(0), 0] | max) | round(2) }}
+    {% else %}
+      0
+    {% endif %}
+
+- name: "Potenza carica batteria"
+  unique_id: potenza_carica_batteria
+  device_class: power
+  state_class: measurement
+  unit_of_measurement: "W"
+  state: >-
+    {% set car = states('sensor.solarnet_power_battery_charge') %}
+    {% set batt = states('sensor.solarnet_power_battery') %}
+    {% if car not in ['unavailable', 'unknown', 'none', ''] %}
+      {{ ([car | float(0), 0] | max) | round(2) }}
+    {% elif batt not in ['unavailable', 'unknown', 'none', ''] %}
+      {{ ([-(batt | float(0)), 0] | max) | round(2) }}
+    {% else %}
+      0
+    {% endif %}
+
+- name: "Potenza totale entrante"
+  unique_id: potenza_totale_entrante
+  device_class: power
+  state_class: measurement
+  unit_of_measurement: "W"
+  state: >-
+    {% set prod = states('sensor.produzione_solare') %}
+    {% set imp = states('sensor.potenza_prelevata_attuale') %}
+    {% set dis = states('sensor.potenza_scarica_batteria') %}
+    {% set p_prod = (prod | float(0)) if prod not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {% set p_imp = (imp | float(0)) if imp not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {% set p_dis = (dis | float(0)) if dis not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {{ ([p_prod, 0] | max + p_imp + [p_dis, 0] | max) | round(2) }}
+
+- name: "Potenza carichi non misurati"
+  unique_id: potenza_carichi_non_misurati
+  device_class: power
+  state_class: measurement
+  unit_of_measurement: "W"
+  state: >-
+    {% set tot = states('sensor.potenza_totale_entrante') %}
+    {% set casa = states('sensor.consumo_casa_rapido') %}
+    {% set esporta = states('sensor.potenza_esportata_attuale') %}
+    {% set carica = states('sensor.potenza_carica_batteria') %}
+    {% set p_tot = (tot | float(0)) if tot not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {% set p_casa = (casa | float(0)) if casa not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {% set p_exp = (esporta | float(0)) if esporta not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {% set p_car = (carica | float(0)) if carica not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {{ ([p_tot - p_casa - p_car - p_exp, 0] | max) | round(2) }}
+
+- name: "Consumo casa rapido"
+  unique_id: consumo_casa_rapido
+  device_class: power
+  state_class: measurement
+  unit_of_measurement: "W"
+  state: >-
+    {% set vecchio = states('sensor.consumo_appartamento_template') %}
+    {% set nuovo = states('sensor.consumo_impianto_nuovo_template') %}
+    {% set colonnina = states('sensor.prism_potenza') %}
+    {% set p_vecchio = (vecchio | float(0)) if vecchio not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {% set p_nuovo = (nuovo | float(0)) if nuovo not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {% set p_colonnina = (colonnina | float(0)) if colonnina not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {{ (p_vecchio + p_nuovo + p_colonnina) | round(2) }}
+
+# Residuo interno del canale B (dual meter "impianto nuovo"): B e' un TOTALE,
+# i suoi figli (PDC-A, KNX-B, Lavastoviglie, Induzione) sono il dettaglio.
+# B - (PDC-A + KNX-B + Lavastoviglie + Induzione) = +20.1 W (MAD 1.5 su 26h):
+# residuo stabile che chiude il ramo senza doppio conteggio.
+- name: "Potenza residua impianto nuovo"
+  unique_id: potenza_residua_impianto_nuovo
+  device_class: power
+  state_class: measurement
+  unit_of_measurement: "W"
+  state: >-
+    {% set nuovo = states('sensor.consumo_impianto_nuovo_template') %}
+    {% set pdc = states('sensor.smart_meter_2026_a_pdc_power_a') %}
+    {% set knx = states('sensor.smart_meter_2026_a_pdc_power_b') %}
+    {% set lava = states('sensor.lavastoviglie_wifi_digital_meter_lavastoviglie_potenza') %}
+    {% set indu = states('sensor.potenza_misuratore') %}
+    {% set p_nuovo = (nuovo | float(0)) if nuovo not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {% set p_pdc = (pdc | float(0)) if pdc not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {% set p_knx = (knx | float(0)) if knx not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {% set p_lava = (lava | float(0)) if lava not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {% set p_indu = (indu | float(0)) if indu not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {{ ([p_nuovo - p_pdc - p_knx - p_lava - p_indu, 0] | max) | round(2) }}

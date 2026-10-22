@@ -22,14 +22,16 @@
               entity_id: input_boolean.capture_balcone_messages
               state: "on"
           sequence:
-            - service: python_script.capture_balcone_start
+            - service: python_script.capture_balcone
+              data:
+                service: capture_balcone_start
             - event: balcone_log_event
               event_data:
                 level: INFO
                 action: "CAPTURE STARTED"
                 message: "Avviata cattura messaggi LocalTuya per debug accensioni inspiegabili"
                 wait: 0
-            - service: notify.ultra17
+            - action: notify.mobile_app_ultra17
               data:
                 title: "📡 Cattura Messaggi Balcone: AVVIATA"
                 message: "Registrazione messaggi LocalTuya per device bfbf8ab6b500e77408pupf attiva. File: /config/logs/balcone_capture.jsonl"
@@ -42,14 +44,16 @@
               entity_id: input_boolean.capture_balcone_messages
               state: "off"
           sequence:
-            - service: python_script.capture_balcone_stop
+            - service: python_script.capture_balcone
+              data:
+                service: capture_balcone_stop
             - event: balcone_log_event
               event_data:
                 level: INFO
                 action: "CAPTURE STOPPED"
                 message: "Fermata cattura messaggi LocalTuya"
                 wait: 0
-            - service: notify.ultra17
+            - action: notify.mobile_app_ultra17
               data:
                 title: "📡 Cattura Messaggi Balcone: FERMATA"
                 message: "Registrazione messaggi LocalTuya disattivata"

@@ -76,8 +76,8 @@ bluetooth_proxy:
 ### Metodo 1: ESPHome Web Flasher (consigliato)
 1. Apri browser sul **tuo PC**: https://web.esphome.io/
 2. Collega M5 Atom Echo via USB al **tuo PC**
-3. Clicca **"Connect"** → seleziona porta (es. `ttyUSB0` / `COM3`)
-4. Clicca **"Install"** → **"Install from file"**
+3. Clicca **Connect** → seleziona porta (es. `ttyUSB0` / `COM3`)
+4. Clicca **Install** → **Install from file**
 5. Seleziona: `m5_atom_echo_bt_proxy_firmware.bin`
 6. Attendi completamento (30-60 sec)
 
@@ -124,7 +124,6 @@ Il proxy ora:
 | **Altri BLE (SwitchBot, Govee, Inkbird, Qingping)** | ✅ SÌ |
 
 ## Troubleshooting
-
 | Problema | Soluzione |
 |----------|-----------|
 | Non appare in HA | Verifica mDNS (router), firewall, stessa VLAN |
@@ -145,4 +144,37 @@ screen /dev/ttyUSB0 115200
 - Build dir: `/home/carlo/docker/homeassistant/config/.esphome/build/m5-atom-echo-bt-proxy/`
 
 ---
+
+## Re-pairing Sensore Xiaomi Mijia (LYWSD03MMC) - 2026-10-20
+
+### Problema
+Sensore `sensor.temperature_humidity_sensor_3116` non decifrato: bindkey obsoleto (sensore resettato/ripaiato). Log: `xiaomi_ble.parser Decryption failed`.
+
+### Soluzione: Re-pairing LOCALE (senza cloud)
+
+**Prerequisiti:**
+- Proxy M5 Atom Echo BT Proxy **online** (verificato in HA → Bluetooth → Adapter attivo)
+- Sensore Mijia fisicamente in range (RSSI > -85 dBm)
+
+**Procedura (30 secondi):**
+1. **Reset sensore**: tieni premuto **tasto laterale 5-10s** finché display **lampeggia** (entra in pairing mode)
+2. **Aspetta 30-60s** → proxy M5 Atom rileva advertisement via Bluetooth
+3. **HA → Impostazioni → Dispositivi e Servizi → xiaomi_ble** 
+   - Appare: **"Discovered: Temperature/Humidity Sensor 3116 (LYWSD03MMC)"**
+   - Clicca **Configura** → conferma
+4. **Fine** — HA genera/salva **nuova bindkey automaticamente** in `.storage/core.config_entries`
+
+**Verifica:**
+- Entità `sensor.temperature_humidity_sensor_3116_temperature` / `_humidity` → valori validi (non `unavailable`)
+- Log: niente più `Decryption failed`, parser decifra correttamente
+- Taratura corridoio (`fancoil_corridoio_mijia_calibration.yaml`) riparte a raccogliere campioni
+
+### Note
+- **NON serve** Xiaomi Cloud / token_extractor.py / credenziali mi.com per sensori BLE con proxy ESPHome attivo
+- Il pairing è **locale via Bluetooth** — funziona anche senza internet
+- Bindkey generato automaticamente da HA durante config flow xiaomi_ble
+- Se serve backup bindkey: leggere da `.storage/core.config_entries` entry `xiaomi_ble` → `data.bindkey`
+
+---
+
 *Generato automaticamente durante setup del 2026-08-01*

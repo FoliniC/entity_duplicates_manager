@@ -9,11 +9,11 @@ views:
           {% if is_state('binary_sensor.distacco_rete_allarme_attivo', 'on') %}
           ## Allarme distacco attivo
 
-          Tempo residuo: **{{ states('sensor.alfa_new_tempo_residuo_distacco') }}**
+          Tempo residuo: **{{ states('sensor.alfa_new_disconnect_timer') }}**
           {% else %}
           ## Nessun allarme distacco
 
-          Tempo residuo: **{{ states('sensor.alfa_new_tempo_residuo_distacco') }}**
+          Tempo residuo: **{{ states('sensor.alfa_new_disconnect_timer') }}**
           {% endif %}
 
           Ultimo intervento: {{ states('input_text.distacco_rete_ultimo_intervento') }}
@@ -22,7 +22,7 @@ views:
         title: Sensore e stato protezione
         show_header_toggle: false
         entities:
-          - entity: sensor.alfa_new_tempo_residuo_distacco
+          - entity: sensor.alfa_new_disconnect_timer
             name: Tempo residuo distacco Alfa
           - entity: binary_sensor.distacco_rete_allarme_attivo
             name: Allarme distacco attivo

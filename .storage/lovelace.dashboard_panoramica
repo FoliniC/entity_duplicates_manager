@@ -300,7 +300,7 @@
                       "entity": "sensor.prism_potenza_kw"
                     }
                   ],
-                  "title": "Entit\u00e0 coinvolte"
+                  "title": "Entità coinvolte"
                 }
               ],
               "column_span": 4
@@ -447,7 +447,7 @@
                     },
                     {
                       "entity": "input_boolean.fancoil_corridoio_hvac_mode_follow_master",
-                      "name": "Segue modalit\u00e0 Master",
+                      "name": "Segue modalità Master",
                       "icon": "mdi:link-variant"
                     }
                   ]
@@ -483,7 +483,7 @@
                     },
                     {
                       "entity": "input_boolean.fancoil_bagno_hvac_mode_follow_master",
-                      "name": "Segue modalit\u00e0 Master",
+                      "name": "Segue modalità Master",
                       "icon": "mdi:link-variant"
                     }
                   ]
@@ -519,7 +519,7 @@
                     },
                     {
                       "entity": "input_boolean.fancoil_sala_hvac_mode_follow_master",
-                      "name": "Segue modalit\u00e0 Master",
+                      "name": "Segue modalità Master",
                       "icon": "mdi:link-variant"
                     }
                   ]
@@ -555,7 +555,7 @@
                     },
                     {
                       "entity": "input_boolean.fancoil_cucina_hvac_mode_follow_master",
-                      "name": "Segue modalit\u00e0 Master",
+                      "name": "Segue modalità Master",
                       "icon": "mdi:link-variant"
                     }
                   ]
@@ -591,7 +591,7 @@
                     },
                     {
                       "entity": "input_boolean.fancoil_camera_hvac_mode_follow_master",
-                      "name": "Segue modalit\u00e0 Master",
+                      "name": "Segue modalità Master",
                       "icon": "mdi:link-variant"
                     }
                   ]
@@ -627,7 +627,7 @@
                     },
                     {
                       "entity": "input_boolean.fancoil_camera_grande_hvac_mode_follow_master",
-                      "name": "Segue modalit\u00e0 Master",
+                      "name": "Segue modalità Master",
                       "icon": "mdi:link-variant"
                     }
                   ]
@@ -1500,7 +1500,7 @@
                   "entities": [
                     {
                       "entity": "input_boolean.prism_solar_mode",
-                      "name": "Modalit\u00e0 Solare"
+                      "name": "Modalità Solare"
                     },
                     {
                       "entity": "input_boolean.prism_pause_mode",
@@ -1508,7 +1508,7 @@
                     },
                     {
                       "entity": "input_boolean.prism_normal_mode",
-                      "name": "Modalit\u00e0 Normale"
+                      "name": "Modalità Normale"
                     }
                   ]
                 },
@@ -1563,7 +1563,7 @@
                 },
                 {
                   "entity": "sensor.prism_mode",
-                  "name": "modalit\u00e0"
+                  "name": "modalità"
                 },
                 {
                   "entity": "sensor.prism_tensione_attuale",
@@ -2023,7 +2023,7 @@
                       "entities": [
                         {
                           "entity": "input_boolean.prism_solar_mode",
-                          "name": "Modalit\u00e0 Solare"
+                          "name": "Modalità Solare"
                         },
                         {
                           "entity": "input_boolean.prism_pause_mode",
@@ -2031,7 +2031,7 @@
                         },
                         {
                           "entity": "input_boolean.prism_normal_mode",
-                          "name": "Modalit\u00e0 Normale"
+                          "name": "Modalità Normale"
                         }
                       ]
                     },
@@ -2086,7 +2086,7 @@
                     },
                     {
                       "entity": "sensor.prism_mode",
-                      "name": "modalit\u00e0"
+                      "name": "modalità"
                     },
                     {
                       "entity": "sensor.prism_tensione_attuale",
@@ -2926,7 +2926,7 @@
                   "allow_max_value": false,
                   "title": "cronostar thermostat ",
                   "y_axis_label": "Temperature",
-                  "unit_of_measurement": "\u00b0C",
+                  "unit_of_measurement": "°C",
                   "min_value": 15,
                   "max_value": 30,
                   "step_value": 0.5,
@@ -3006,7 +3006,7 @@
               "cards": [
                 {
                   "type": "button",
-                  "name": "\ud83d\udcbb Accendi radio m2o",
+                  "name": "💻 Accendi radio m2o",
                   "icon": "mdi:radio",
                   "tap_action": {
                     "action": "call-service",
@@ -3018,7 +3018,7 @@
                 },
                 {
                   "type": "button",
-                  "name": "\u23f1\ufe0f Timer 9 minuti",
+                  "name": "⏱️ Timer 9 minuti",
                   "icon": "mdi:timer",
                   "tap_action": {
                     "action": "call-service",
@@ -3032,7 +3032,7 @@
             },
             {
               "type": "markdown",
-              "content": "**Device:** media_player.cucina\n\nI comandi personalizzati vengono interpretati dal motore NLU di Alexa.\nScrivi frasi che Alexa capirebbe a voce (es: \"accendi luci\", \"metti musica jazz\").\n\nPer comandi pi\u00f9 stabili, crea routine nell'app Alexa e usa\nmedia_content_type: routine invece di custom."
+              "content": "**Device:** media_player.cucina\n\nI comandi personalizzati vengono interpretati dal motore NLU di Alexa.\nScrivi frasi che Alexa capirebbe a voce (es: \"accendi luci\", \"metti musica jazz\").\n\nPer comandi più stabili, crea routine nell'app Alexa e usa\nmedia_content_type: routine invece di custom."
             }
           ]
         }

@@ -26,17 +26,17 @@ template:
        - name: "Distacco rete allarme attivo"
          unique_id: distacco_rete_allarme_attivo
          icon: >
-           {% set raw = states('sensor.alfa_new_tempo_residuo_distacco') %}
+           {% set raw = states('sensor.alfa_new_disconnect_timer') %}
            {% if raw not in ['unknown', 'unavailable', 'none', ''] and raw | float(0) > 0 %}
              mdi:transmission-tower-off
            {% else %}
              mdi:transmission-tower
            {% endif %}
          state: >
-           {% set raw = states('sensor.alfa_new_tempo_residuo_distacco') %}
+           {% set raw = states('sensor.alfa_new_disconnect_timer') %}
            {{ raw not in ['unknown', 'unavailable', 'none', ''] and raw | float(0) > 0 }}
          attributes:
-           tempo_residuo_distacco: "{{ states('sensor.alfa_new_tempo_residuo_distacco') }}"
+           tempo_residuo_distacco: "{{ states('sensor.alfa_new_disconnect_timer') }}"
            automatico_abilitato: "{{ states('input_boolean.distacco_rete_automatico_abilitato') }}"
            spegni_ev_abilitato: "{{ states('input_boolean.distacco_rete_spegni_ev') }}"
            spegni_pdc_abilitato: "{{ states('input_boolean.distacco_rete_spegni_pdc') }}"
@@ -49,7 +49,7 @@ script:
     mode: single
     sequence:
       - variables:
-          tempo_residuo: "{{ states('sensor.alfa_new_tempo_residuo_distacco') }}"
+          tempo_residuo: "{{ states('sensor.alfa_new_disconnect_timer') }}"
           ev_abilitato: "{{ 'on' if is_state('input_boolean.distacco_rete_spegni_ev', 'on') else 'off' }}"
           pdc_abilitata: "{{ 'on' if is_state('input_boolean.distacco_rete_spegni_pdc', 'on') else 'off' }}"
           ev_attiva_prima: "{{ is_state('input_boolean.ev_charge_2025_charging_active', 'on') }}"
@@ -108,7 +108,7 @@ script:
             PDC={{ 'off' if pdc_abilitata == 'on' else 'ignorata' }} (attiva={{ pdc_attiva_prima }})
       - service: persistent_notification.create
         data:
-          title: "Protezione distacco reteXXX"
+          title: "Protezione distacco rete"
           message: >-
             Intervento carichi eseguito alle {{ now().strftime('%H:%M:%S') }}.
             Tempo residuo distacco: {{ tempo_residuo }}.

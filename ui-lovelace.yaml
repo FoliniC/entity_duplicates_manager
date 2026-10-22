@@ -379,17 +379,17 @@ views:
     title: Copertura
   - type: entities
     entities:
-    - entity: sensor.alfa_new_data_evento
+    - entity: sensor.alfa_new_event_date
     - entity: sensor.alfa_new_energia_immessa
     - entity: sensor.alfa_new_energia_prelevata
-    - entity: sensor.alfa_new_energia_prodotta
-    - entity: sensor.alfa_new_fascia_oraria_attuale
+    - entity: sensor.alfa_new_energy_produced
+    - entity: sensor.alfa_new_current_time_band
     - entity: sensor.alfa_new_potenza_immessa_media_15m
     - entity: sensor.alfa_new_potenza_prelevata_media_15m
     - entity: sensor.alfa_new_potenza_immessa
     - entity: sensor.alfa_new_potenza_prelevata
-    - entity: sensor.alfa_new_potenza_prodotta
-    - entity: sensor.alfa_new_tempo_residuo_distacco
+    - entity: sensor.alfa_new_power_produced
+    - entity: sensor.alfa_new_disconnect_timer
     - entity: sensor.alfa_new_energia_immessa_giornaliera_f1
     - entity: sensor.alfa_new_energia_immessa_giornaliera_f2
     - entity: sensor.alfa_new_energia_immessa_giornaliera_f3
