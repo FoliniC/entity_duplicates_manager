@@ -183,7 +183,7 @@
               {% set sp_raw = state_attr('climate.controllo_temperatura_camera_grande', 'temperature') | float(21) %}
               {% set t_raw = states('sensor.fancoil_camera_grande_last_temperature') | float(0) %}
               {% set diff_raw = states('sensor.fancoil_camera_grande_temperature_difference') | float(0) %}
-              {% set trig = trigger.entity_id if trigger is defined and trigger.entity_id is defined else 'periodic/time' %}
+              {% set trig = trigger.get('entity_id', 'periodic/time') %}
               {% set f_st = trigger.from_state.state if trigger is defined and trigger.from_state is defined else '?' %}
               {% set t_st = trigger.to_state.state if trigger is defined and trigger.to_state is defined else '?' %}
               {% set knx_val = states('sensor.temperatura_camera_grande') if 'sensor.temperatura_camera_grande' != '' and 'sensor.temperatura_camera_grande' != '%%' ~ 'knx_temp_sensor' ~ '%%' else 'N/A' %}

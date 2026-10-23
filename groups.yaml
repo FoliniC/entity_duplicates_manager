@@ -6,3 +6,12 @@ alexa_echo_dots:
   entities:
     - media_player.cucina
     - media_player.camera
+
+# Gruppo notifiche dispositivi mobile
+# Usato per inviare notifiche a tutti i dispositivi mobile dell'utente
+# indipendentemente dal device specifico (device-agnostic).
+notify_mobile_devices:
+  name: Dispositivi Mobile (Notifiche)
+  entities:
+    - notify.redmi_note_13_pro_5g
+    - notify.mobile_app_ultra17

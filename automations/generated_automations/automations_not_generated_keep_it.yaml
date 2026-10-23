@@ -735,8 +735,8 @@
               Stato non gestito: S1={{ s1 }}, S2={{ s2 }}
   mode: restart
 - id: "1739986157014"
-  alias: Spegni luci scale dopo tempo
-  description: Spegne le luci delle scale dopo 4 minuti dall'ultima accensione o riavvio
+  alias: "Spegni luci scale dopo tempo - Avvia timer"
+  description: Avvia timer 4min quando luce scale si accende
   triggers:
     - trigger: state
       entity_id: light.luce_scale
@@ -750,10 +750,29 @@
       entity_id: light.luce_scale
       state: "on"
   actions:
+    - service: timer.start
+      target:
+        entity_id: timer.luce_scale_auto_off
+    - service: system_log.write
+      data:
+        level: info
+        message: "Timer luci scale avviato (4 min)"
+  mode: restart
+- id: "1739986157015"
+  alias: "Spegni luci scale dopo tempo - Timer scaduto"
+  description: Spegne luci scale quando timer scade
+  triggers:
+    - trigger: event
+      event_type: timer.finished
+      event_data:
+        entity_id: timer.luce_scale_auto_off
+  conditions:
+    - condition: state
+      entity_id: light.luce_scale
+      state: "on"
+  actions:
     - variables:
         we_turned_it_off: false
-    - delay:
-        minutes: 4
     - action: persistent_notification.create
       data:
         title: "Luce Scale"
@@ -763,14 +782,13 @@
         notification_id: spegni_luci_123
     - if:
         - condition: template
-          value_template: >
-            {{ states('sensor.luce_scale_switch_infos') | float(0) > 7 }}
+          value_template: "{{ states('sensor.luce_scale_switch_infos') | float(0) > 7 }}"
       then:
         - action: input_text.set_value
           target:
             entity_id: input_text.scale_light_source
           data:
-            value: "{{ this.attributes.friendly_name }}"
+            value: "{{ trigger.entity_id }}"
         - action: light.turn_off
           target:
             entity_id: light.luce_scale
@@ -778,8 +796,6 @@
             we_turned_it_off: true
     - delay:
         seconds: 2
-
-    # Verifica che si sia effettivamente spenta
     - choose:
         - conditions:
             - condition: state
@@ -810,7 +826,23 @@
           data:
             title: "⚠️ Errore Luce Scale"
             message: "La luce non si è spenta correttamente dopo il timeout"
-  mode: restart
+  mode: single
+- id: "1739986157016"
+  alias: "Spegni luci scale dopo tempo - Annulla timer se spenta manualmente"
+  description: Annulla timer se luce scale spenta manualmente
+  triggers:
+    - trigger: state
+      entity_id: light.luce_scale
+      to: "off"
+  actions:
+    - service: timer.cancel
+      target:
+        entity_id: timer.luce_scale_auto_off
+    - service: system_log.write
+      data:
+        level: info
+        message: "Timer luci scale annullato (spenta manualmente)"
+  mode: single
 
 - id: "1740142914490"
   alias: Memorizza stato di luci_scale_switch_2 e luci_scale_switch_3

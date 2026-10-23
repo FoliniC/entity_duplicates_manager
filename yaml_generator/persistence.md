@@ -108,33 +108,45 @@ yaml_generator/
 │   └── generated_input_selects.yaml
 └── input_datetime/
     └── generated_input_datetime.yaml
-Maintenance
-Adding New Persistent Values
+````
+
+## KNX Write-Only Switch State Recovery
+
+The KNX switches `switch.attiva_pdc` and `switch.attiva_pompa_circolazione` are **write-only** (no `state_address`). They default to OFF after HA restart, which would trigger `GLOBAL DISABLED` and close all valves.
+
+**Recovery mechanism**: Uses `binary_sensor.pdc_heating` (has `state_address` + `sync_state`) as the authoritative source — it reads real KNX state and persists via HA `restore_state`.
+
+See: `automations/restore_pdc_switches_on_startup.yaml` and `SISTEMA_CLIMATIZZAZIONE.md` → "Ripristino stato all'avvio"
+
+## Maintenance
+
+### Adding New Persistent Values
 
 For user settings: Add to appropriate input_* template (e.g., fancoil_room_input_numbers.j2)
 For calculated values: Add to fancoil_persistence.j2 as trigger-based sensor
 
-Regenerating Files
-bashpython3 yaml_generator/generate_fancoil_climates.py
+### Regenerating Files
+
+```bash
+python3 yaml_generator/generate_fancoil_climates.py
+```
+
 Then reload:
+- Template entities
+- Input helpers
+- Automations
 
-Template entities
-Input helpers
-Automations
+### Troubleshooting
 
-Troubleshooting
-Q: Values reset after restart?
+**Q: Values reset after restart?**
+- Check that input helpers are properly defined
+- Verify trigger-based sensors have homeassistant startup trigger
 
-Check that input helpers are properly defined
-Verify trigger-based sensors have homeassistant startup trigger
+**Q: Sensors show 'unknown' after restart?**
+- Normal for first few seconds
+- Should resolve when source entities become available
+- Check trigger conditions in persistence template
 
-Q: Sensors show 'unknown' after restart?
-
-Normal for first few seconds
-Should resolve when source entities become available
-Check trigger conditions in persistence template
-
-Q: Need to reset all values?
-
-Delete .storage/core.restore_state (HA will recreate)
-Or set values manually via UI
+**Q: Need to reset all values?**
+- Delete `.storage/core.restore_state` (HA will recreate)
+- Or set values manually via UI

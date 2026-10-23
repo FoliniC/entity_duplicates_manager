@@ -1060,23 +1060,7 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             # The coordinator will retry on next scheduled update
             pass
 
-        # If we timed out or failed, self.data may be empty. Don't raise ConfigEntryNotReady
-        # here - let HA start and the coordinator will retry on the next scheduled update.
-        if "info" not in self.data or not self.data["info"]:
-            LOGGER.warning(
-                "No vehicle info available at startup for VIN %s (timeout or API error). "
-                "Integration will retry on next scheduled update.",
-                vin,
-            )
-            self.is_initial_setup = False
-            # Schedule a retry after a short delay so the coordinator starts polling
-            # even if the initial refresh failed. The parent class's
-            # async_config_entry_first_refresh normally schedules the next update,
-            # but since we caught the exception, we need to trigger it manually.
-            self.hass.loop.call_later(30, lambda: self.hass.async_create_task(self.async_request_refresh()))
-            return True
-
-        if "info" in self.data and self.data["info"]:
+        if self.data and "info" in self.data and self.data["info"]:
             # Find the vehicle info matching the current VIN
             vin_info = next(
                 (v for v in self.data.get("info", []) if v.vin == vin), None
@@ -1136,6 +1120,13 @@ class SAICMGDataUpdateCoordinator(DataUpdateCoordinator):
             # (issue #203). has_rear_doors/has_rear_windows are now set from
             # the VEHICLE_PROFILES entry above instead (see EC32 for the
             # Cyberster override).
+
+        else:
+            LOGGER.error(f"No 'info' data found for VIN: {vin}")
+            raise ConfigEntryNotReady(
+                f"No vehicle info returned by SAIC API for VIN {vin}. "
+                f"HA will retry automatically."
+            )
 
         # Update capabilities from options
         self.has_sunroof = self.config_entry.options.get(

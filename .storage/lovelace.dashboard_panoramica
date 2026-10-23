@@ -21,7 +21,7 @@
                 },
                 {
                   "layout": "auto",
-                  "height": 200,
+                  "height": 260,
                   "unit_prefix": "",
                   "round": 1,
                   "convert_units_to": "",
@@ -33,116 +33,152 @@
                   "show_units": true,
                   "sections": [
                     {
+                      "sort_group_by_parent": false,
                       "entities": [
                         {
                           "type": "entity",
+                          "entity_id": "sensor.produzione_solare",
+                          "name": "Solare",
                           "children": [
-                            "sensor.potenza_consumata_attuale"
-                          ],
-                          "entity_id": "sensor.envoy_122134037538_current_power_production",
-                          "name": "Solare"
+                            "sensor.potenza_totale_bilancio"
+                          ]
                         },
                         {
                           "type": "entity",
-                          "children": [
-                            "sensor.potenza_consumata_attuale"
-                          ],
                           "entity_id": "sensor.potenza_prelevata_attuale",
-                          "name": "Rete"
+                          "name": "Rete import",
+                          "children": [
+                            "sensor.potenza_totale_bilancio"
+                          ]
                         },
                         {
                           "type": "entity",
+                          "entity_id": "sensor.potenza_scarica_batteria",
+                          "name": "Batteria scarica",
                           "children": [
-                            "sensor.potenza_consumata_attuale"
-                          ],
-                          "entity_id": "sensor.solarnet_power_battery_discharge",
-                          "name": "Batteria"
+                            "sensor.potenza_totale_bilancio"
+                          ]
+                        },
+                        {
+                          "type": "entity",
+                          "entity_id": "sensor.potenza_differenza_contatori",
+                          "name": "Differenza contatori",
+                          "children": [
+                            "sensor.potenza_totale_bilancio"
+                          ]
                         }
-                      ],
-                      "sort_group_by_parent": true
+                      ]
                     },
                     {
+                      "sort_group_by_parent": false,
                       "entities": [
                         {
                           "type": "entity",
+                          "entity_id": "sensor.potenza_totale_bilancio",
+                          "name": "Totale",
                           "children": [
-                            "sensor.prism_potenza",
+                            "sensor.consumo_casa_rapido",
+                            "sensor.potenza_carica_batteria",
+                            "sensor.potenza_esportata_attuale",
+                            "sensor.potenza_carichi_non_misurati"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "sort_group_by_parent": false,
+                      "entities": [
+                        {
+                          "type": "entity",
+                          "entity_id": "sensor.consumo_casa_rapido",
+                          "name": "Consumo casa",
+                          "children": [
                             "sensor.consumo_appartamento_template",
                             "sensor.consumo_impianto_nuovo_template",
-                            "sensor.solarnet_power_battery_charge",
-                            "sensor.potenza_esportata_attuale"
-                          ],
-                          "entity_id": "sensor.potenza_consumata_attuale",
-                          "name": "Consumo"
+                            "sensor.prism_potenza"
+                          ]
+                        },
+                        {
+                          "type": "entity",
+                          "entity_id": "sensor.potenza_carica_batteria",
+                          "name": "Batteria carica",
+                          "children": []
+                        },
+                        {
+                          "type": "entity",
+                          "entity_id": "sensor.potenza_esportata_attuale",
+                          "name": "Rete export",
+                          "children": []
+                        },
+                        {
+                          "type": "entity",
+                          "entity_id": "sensor.potenza_carichi_non_misurati",
+                          "name": "Carichi non misurati",
+                          "children": []
                         }
-                      ],
-                      "sort_group_by_parent": false
+                      ]
                     },
                     {
+                      "sort_group_by_parent": false,
                       "entities": [
                         {
                           "type": "entity",
-                          "children": [],
-                          "entity_id": "sensor.prism_potenza",
-                          "name": "Colonnina"
-                        },
-                        {
-                          "type": "entity",
-                          "children": [],
                           "entity_id": "sensor.consumo_appartamento_template",
-                          "name": "Impianto vecchio"
+                          "name": "Impianto vecchio",
+                          "children": []
                         },
                         {
                           "type": "entity",
+                          "entity_id": "sensor.consumo_impianto_nuovo_template",
+                          "name": "Impianto nuovo",
                           "children": [
+                            "sensor.smart_meter_2026_a_pdc_power_a",
+                            "sensor.smart_meter_2026_a_pdc_power_b",
                             "sensor.lavastoviglie_wifi_digital_meter_lavastoviglie_potenza",
                             "sensor.potenza_misuratore",
-                            "sensor.smart_meter_2026_a_pdc_power_a",
-                            "sensor.smart_meter_2026_a_pdc_power_b"
-                          ],
-                          "entity_id": "sensor.consumo_impianto_nuovo_template",
-                          "name": "Impianto nuovo"
+                            "sensor.potenza_residua_impianto_nuovo"
+                          ]
                         },
                         {
                           "type": "entity",
-                          "children": [],
-                          "entity_id": "sensor.solarnet_power_battery_charge",
-                          "name": "Batteria"
-                        },
-                        {
-                          "type": "entity",
-                          "children": [],
-                          "entity_id": "sensor.potenza_esportata_attuale",
-                          "name": "Potenza esportata"
+                          "entity_id": "sensor.prism_potenza",
+                          "name": "Colonnina",
+                          "children": []
                         }
-                      ],
-                      "sort_group_by_parent": false
+                      ]
                     },
                     {
+                      "sort_group_by_parent": false,
                       "entities": [
                         {
                           "type": "entity",
-                          "children": [],
-                          "entity_id": "sensor.potenza_misuratore",
-                          "name": "Induzione"
-                        },
-                        {
-                          "type": "entity",
-                          "children": [],
-                          "entity_id": "sensor.smart_meter_2026_a_pdc_power_b",
-                          "name": "Knx"
-                        },
-                        {
-                          "type": "entity",
-                          "children": [],
-                          "entity_id": "sensor.lavastoviglie_wifi_digital_meter_lavastoviglie_potenza",
-                          "name": "Lavastoviglie"
-                        },
-                        {
-                          "type": "entity",
-                          "children": [],
                           "entity_id": "sensor.smart_meter_2026_a_pdc_power_a",
-                          "name": "PDC"
+                          "name": "PDC",
+                          "children": []
+                        },
+                        {
+                          "type": "entity",
+                          "entity_id": "sensor.smart_meter_2026_a_pdc_power_b",
+                          "name": "KNX",
+                          "children": []
+                        },
+                        {
+                          "type": "entity",
+                          "entity_id": "sensor.lavastoviglie_wifi_digital_meter_lavastoviglie_potenza",
+                          "name": "Lavastoviglie",
+                          "children": []
+                        },
+                        {
+                          "type": "entity",
+                          "entity_id": "sensor.potenza_misuratore",
+                          "name": "Induzione",
+                          "children": []
+                        },
+                        {
+                          "type": "entity",
+                          "entity_id": "sensor.potenza_residua_impianto_nuovo",
+                          "name": "Residuo",
+                          "children": []
                         }
                       ]
                     }
@@ -162,13 +198,18 @@
                   "type": "custom:power-flow-card-plus",
                   "entities": {
                     "battery": {
-                      "entity": "sensor.solarnet_power_battery",
-                      "state_of_charge": "sensor.byd_battery_box_premium_hv_state_of_charge"
+                      "entity": {
+                        "consumption": "sensor.potenza_scarica_batteria",
+                        "production": "sensor.potenza_carica_batteria"
+                      },
+                      "state_of_charge": "sensor.byd_battery_box_premium_hv_state_of_charge",
+                      "name": "Batteria"
                     },
                     "grid": {
-                      "entity": "sensor.potenza_prelevata_attuale",
-                      "consumption": "sensor.potenza_prelevata_attuale",
-                      "production": "sensor.potenza_esportata_attuale",
+                      "entity": {
+                        "consumption": "sensor.potenza_prelevata_attuale",
+                        "production": "sensor.potenza_esportata_attuale"
+                      },
                       "use_metadata": true,
                       "name": "Rete",
                       "secondary_info": {
@@ -177,18 +218,17 @@
                     },
                     "solar": {
                       "entity": "sensor.produzione_solare",
-                      "display_zero_state": true
+                      "display_zero_state": true,
+                      "name": "Solare"
                     },
                     "home": {
+                      "entity": "sensor.potenza_consumo_casa_reale",
+                      "override_state": true,
+                      "subtract_individual": false,
+                      "name": "Casa",
                       "secondary_info": {
-                        "entity": "sensor.smart_meter_2026_a_pdc_power_a"
-                      },
-                      "entity": "sensor.consumo_appartamento_template",
-                      "name": "appartamento"
-                    },
-                    "fossil_fuel_percentage": {
-                      "state_type": "power",
-                      "name": "prism fossile"
+                        "entity": "sensor.potenza_carichi_non_misurati"
+                      }
                     },
                     "individual": [
                       {
@@ -196,18 +236,18 @@
                         "name": "Colonnina"
                       },
                       {
-                        "entity": "sensor.smart_meter_2026_a_pdc_power_a",
-                        "name": "PDC"
+                        "entity": "sensor.consumo_impianto_nuovo_template",
+                        "name": "Impianto nuovo"
                       },
                       {
                         "entity": "sensor.consumo_appartamento_template",
-                        "name": "appartamento"
-                      },
-                      {
-                        "entity": "sensor.lavastoviglie_wifi_digital_meter_lavastoviglie_potenza",
-                        "name": "forno + lavastoviglie "
+                        "name": "Impianto vecchio"
                       }
-                    ]
+                    ],
+                    "fossil_fuel_percentage": {
+                      "state_type": "power",
+                      "name": "Fossile"
+                    }
                   },
                   "clickable_entities": true,
                   "display_zero_lines": {
@@ -235,6 +275,9 @@
                   "entities": [
                     {
                       "entity": "sensor.potenza_esportata_attuale"
+                    },
+                    {
+                      "entity": "sensor.alfa_new_power_consumed"
                     },
                     {
                       "entity": "sensor.smart_meter_ts_100a_1_potenza_reale"

@@ -86,7 +86,9 @@
               | NetDiag: {{ net_diag }} | Loss: {{ packet_loss }}% | Jitter: {{ jitter }}ms
               | AZIONE RICHIESTA: Disabilitare Fast Roaming / Band Steering su app Tenda
             action: "tenda_roam_alert"
-        - action: notify.mobile_app_ultra17
+        - action: notify.send_message
+          target:
+            entity_id: notify.notify_mobile_devices
           data:
             title: "🔴 Tenda Roam Alert: luci-cucina"
             message: >
@@ -94,10 +96,9 @@
               Rete: {{ net_diag }} | Loss: {{ packet_loss }}% | Jitter: {{ jitter }}ms
               Il device Tuya sta facendo roaming tra Base e Satellite Tenda.
               Fix: App Tenda → Impostazioni Mesh → Disabilita Fast Roaming & Band Steering
-            data:
-              tag: tenda_roam_alert
-              importance: high
-              notification_icon: "mdi:wifi-alert"
+            tag: tenda_roam_alert
+            importance: high
+            notification_icon: "mdi:wifi-alert"
         # Reset counter dopo alert per evitare spam
         - service: counter.reset
           target:

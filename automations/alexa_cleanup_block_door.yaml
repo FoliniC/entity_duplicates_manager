@@ -1,0 +1,22 @@
+- alias: "Alexa: Cleanup blocco porta post-uscita"
+  id: alexa_cleanup_block_door_post_exit
+  description: "Disattiva blocco apertura porta 60s dopo uscita (evita delay lungo in automazione principale)"
+  trigger:
+    - platform: state
+      entity_id: input_boolean.alexa_accendi_uscita
+      to: "off"
+      from: "on"
+  condition:
+    - condition: state
+      entity_id: input_boolean.block_scale_light_on_door_open
+      state: "on"
+  action:
+    - delay: "00:01:00"
+    - service: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.block_scale_light_on_door_open
+    - service: system_log.write
+      data:
+        level: info
+        message: "Alexa Cleanup: blocco apertura porta disattivato (post-uscita)"
+  mode: single

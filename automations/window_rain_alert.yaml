@@ -13,9 +13,10 @@
         - condition: template
           value_template: "{{ to_state in ['on', 'off'] }}"
       then:
+        # Usare notify group per notifiche device-agnostic
         - action: notify.send_message
           target:
-            entity_id: notify.ultra17
+            entity_id: notify.notify_mobile_devices
           data:
             message: >
               🌧️ Finestra chiusa — {% if is_state('binary_sensor.sta_piovendo_a_castionetto','on') %} pioggia in corso ({{ states('sensor.castionetto_precipitazione') }} mm/h) {% else %} pioggia prevista entro 1h ({{ states('sensor.castionetto_prob_pioggia_1h') }}%) {% endif %}

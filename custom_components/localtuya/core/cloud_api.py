@@ -99,6 +99,10 @@ class TuyaCloudApi:
         self._user_id = user_id
         self._access_token = ""
         self._token_expire_time: int = 0
+        # Serialize token refreshes: concurrent cloud polls must wait for the
+        # in-flight refresh instead of signing their request with an empty
+        # token (Tuya answers "Error 1010: token invalid").
+        self._token_lock = asyncio.Lock()
 
         if region_code == "ea":
             self._base_url = "https://openapi-ueaz.tuyaus.com"
@@ -114,9 +118,11 @@ class TuyaCloudApi:
 
         self._last_devices_update = int(time.time())
 
-    def generate_payload(self, method, timestamp, url, headers, body=None):
+    def generate_payload(self, method, timestamp, url, headers, body=None, signing_token=None):
         """Generate signed payload for requests."""
-        payload = self._client_id + self._access_token + timestamp
+        if signing_token is None:
+            signing_token = self._access_token
+        payload = self._client_id + signing_token + timestamp
 
         payload += method + "\n"
         # Content-SHA256
@@ -140,18 +146,36 @@ class TuyaCloudApi:
         # self._logger.debug("PAYLOAD: %s", payload)
         return payload
 
-    async def async_make_request(self, method, url, body=None, headers={}):
-        """Perform requests."""
-        # obtain new token if expired.
-        if not self.token_validate and self._token_expire_time != -1:
-            if (res := await self.async_get_access_token()) and res != "ok":
-                return self._logger.debug(f"Refresh Token failed due to: {res}")
+    async def async_make_request(self, method, url, body=None, headers={}, sign_token=None):
+        """Perform requests.
+
+        sign_token: sign the request with this token instead of the currently
+        held one. Used with an empty string for the token endpoint itself,
+        which Tuya requires to be signed without an access token.
+        """
+        if sign_token is None:
+            # Obtain a valid token before signing. Concurrent callers block on
+            # the refresh lock instead of signing with an empty token, which
+            # Tuya rejects with "Error 1010: token invalid".
+            if not self.token_validate:
+                if (res := await self.async_get_access_token()) != "ok":
+                    self._logger.warning("Refresh Token failed due to: %s", res)
+                    return {
+                        "success": False,
+                        "code": "TOKEN_REFRESH_FAILED",
+                        "msg": str(res),
+                        "url": url,
+                        "method": method,
+                    }
+            sign_token = self._access_token
 
         timestamp = str(int(time.time() * 1000))
-        payload = self.generate_payload(method, timestamp, url, headers, body)
+        payload = self.generate_payload(
+            method, timestamp, url, headers, body, signing_token=sign_token
+        )
         default_par = {
             "client_id": self._client_id,
-            "access_token": self._access_token,
+            "access_token": sign_token,
             "sign": calc_sign(payload, self._secret),
             "t": timestamp,
             "sign_method": "HMAC-SHA256",
@@ -221,27 +245,41 @@ class TuyaCloudApi:
                 return False
 
     async def async_get_access_token(self) -> str | None:
-        """Obtain a valid access token."""
-        # Reset access token
-        self._token_expire_time = -1
-        self._access_token = ""
+        """Obtain a valid access token.
 
-        if not (
-            resp := await self.async_make_request("GET", "/v1.0/token?grant_type=1")
-        ):
-            self._token_expire_time = 0
-            return self._logger.debug(f"Failed to retrieve a valid token")
+        The refresh is serialized with a lock: concurrent callers wait for the
+        in-flight refresh instead of signing their request with an empty
+        token. The held token is never cleared while the request is in
+        flight, so a cancelled refresh leaves the instance recoverable.
+        """
+        async with self._token_lock:
+            # Another coroutine may have refreshed the token while we waited
+            # for the lock.
+            if self.token_validate:
+                return "ok"
 
-        if not resp["success"]:
-            self._token_expire_time = 0
-            return f"Error {resp['code']}: {resp['msg']}"
+            # The token endpoint must be signed without an access token.
+            resp = await self.async_make_request(
+                "GET", "/v1.0/token?grant_type=1", sign_token=""
+            )
 
-        req_results = resp["result"]
+            if not resp:
+                # Reset to 0 (expired) rather than -1, so a later request can
+                # retry the refresh instead of being blocked forever.
+                self._token_expire_time = 0
+                self._logger.debug("Failed to retrieve a valid token")
+                return "Failed to retrieve a valid token"
 
-        expire_time = int(req_results.get("expire_time", 3600))
-        self._token_expire_time = int(time.time()) + expire_time
-        self._access_token = resp["result"]["access_token"]
-        return "ok"
+            if not resp["success"]:
+                self._token_expire_time = 0
+                return f"Error {resp['code']}: {resp['msg']}"
+
+            req_results = resp["result"]
+
+            expire_time = int(req_results.get("expire_time", 3600))
+            self._access_token = req_results["access_token"]
+            self._token_expire_time = int(time.time()) + expire_time
+            return "ok"
 
     async def async_get_devices_list(self, force_update=False) -> str | None:
         """Obtain the list of devices associated to a user. - force_update will ignore last update check."""
@@ -284,7 +322,7 @@ class TuyaCloudApi:
         )
         return "ok"
 
-    async def async_get_device_specifications(self, device_id) -> dict[str, dict]:
+    async def async_get_device_specifications(self, device_id) -> tuple[dict, str]:
         """Obtain the DP ID mappings for a device."""
 
         if not (
@@ -292,14 +330,15 @@ class TuyaCloudApi:
                 "GET", url=f"/v1.1/devices/{device_id}/specifications"
             )
         ):
-            return self._logger.debug(f"Failed to retrieve a device specifications")
+            self._logger.debug("Failed to retrieve a device specifications")
+            return {}, "Failed to retrieve a device specifications"
 
         if not resp["success"]:
             return {}, f"Error {resp['code']}: {resp['msg']}"
 
         return resp["result"], "ok"
 
-    async def async_get_device_query_properties(self, device_id) -> dict[dict, str]:
+    async def async_get_device_query_properties(self, device_id) -> tuple[dict, str]:
         """Obtain the DP ID mappings for a device correctly! Note: This won't works if the subscription expired."""
 
         if not (
@@ -307,7 +346,8 @@ class TuyaCloudApi:
                 "GET", url=f"/v2.0/cloud/thing/{device_id}/shadow/properties"
             )
         ):
-            return self._logger.debug(f"Failed to retrieve a device properties")
+            self._logger.debug("Failed to retrieve a device properties")
+            return {}, "Failed to retrieve a device properties"
 
         if not resp["success"]:
             return {}, f"Error {resp['code']}: {resp['msg']}"
@@ -316,7 +356,7 @@ class TuyaCloudApi:
 
     async def async_get_device_query_things_data_model(
         self, device_id
-    ) -> dict[str, dict]:
+    ) -> tuple[dict, str]:
         """Obtain the DP ID mappings for a device."""
 
         if not (
@@ -324,7 +364,8 @@ class TuyaCloudApi:
                 "GET", url=f"/v2.0/cloud/thing/{device_id}/model"
             )
         ):
-            return self._logger.debug(f"Failed to retrieve a device data model")
+            self._logger.debug("Failed to retrieve a device data model")
+            return {}, "Failed to retrieve a device data model"
 
         if not resp["success"]:
             return {}, f"Error {resp['code']}: {resp['msg']}"
@@ -351,7 +392,9 @@ class TuyaCloudApi:
             return
 
         if query_props[1] == "ok":
-            device_data = {str(p["dp_id"]): p for p in query_props[0].get("properties")}
+            device_data = {
+                str(p["dp_id"]): p for p in query_props[0].get("properties") or []
+            }
         if specs[1] == "ok":
             for func in specs[0].get("functions", {}):
                 if str(func.get("dp_id")) in device_data:

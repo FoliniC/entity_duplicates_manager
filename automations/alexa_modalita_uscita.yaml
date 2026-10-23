@@ -49,6 +49,14 @@
     - choose:
         - conditions:
             - condition: state
+              entity_id: media_player.cucina
+              state: "playing"
+          sequence:
+            - service: media_player.media_stop
+              target:
+                entity_id: media_player.cucina
+        - conditions:
+            - condition: state
               entity_id: media_player.sistema_audio
               state: "playing"
           sequence:
@@ -57,12 +65,20 @@
                 entity_id: media_player.sistema_audio
         - conditions:
             - condition: state
-              entity_id: media_player.alexa_echo_dots
+              entity_id: media_player.2o_echo_dot_di_carlo
               state: "playing"
           sequence:
             - service: media_player.media_stop
               target:
-                entity_id: media_player.alexa_echo_dots
+                entity_id: media_player.2o_echo_dot_di_carlo
+        - conditions:
+            - condition: state
+              entity_id: media_player.echo_dot_di_carlo
+              state: "playing"
+          sequence:
+            - service: media_player.media_stop
+              target:
+                entity_id: media_player.echo_dot_di_carlo
     # 4. Accendi luci scale (per percorso uscita)
     - service: light.turn_on
       target:
@@ -78,8 +94,3 @@
     - service: input_boolean.turn_off
       target:
         entity_id: input_boolean.alexa_accendi_uscita
-    # 7. Disattiva blocco apertura porta dopo 60 secondi (tempo per uscire)
-    - delay: "00:01:00"
-    - service: input_boolean.turn_off
-      target:
-        entity_id: input_boolean.block_scale_light_on_door_open

@@ -32,9 +32,9 @@ sensor:
     - name: "Fancoil %%friendly_name%% Saved Temp Source"
       unique_id: fancoil_%%id%%_saved_temp_source
       state: >-
-        {% if trigger.entity_id is defined and trigger.entity_id == 'input_select.fancoil_%%id%%_temp_source' %}
+        {% if trigger.get('entity_id') == 'input_select.fancoil_%%id%%_temp_source' %}
           {{ states('input_select.fancoil_%%id%%_temp_source') }}
-        {% elif trigger.entity_id is defined and trigger.entity_id == 'input_text.fancoil_%%id%%_add_temp_entity' and states('input_text.fancoil_%%id%%_add_temp_entity') != "" %}
+        {% elif trigger.get('entity_id') == 'input_text.fancoil_%%id%%_add_temp_entity' and states('input_text.fancoil_%%id%%_add_temp_entity') != "" %}
           {{ states('input_text.fancoil_%%id%%_add_temp_entity') }}
         {% else %}
           {{ this.state | default('sensor.fancoil_%%id%%_temperature') }}
@@ -70,7 +70,7 @@ sensor:
         {% set current_list = deduped if deduped | length > 0 else defaults %}
 
         {% set new_entity = states('input_text.fancoil_%%id%%_add_temp_entity') %}
-        {% if trigger.entity_id is defined and trigger.entity_id == 'input_text.fancoil_%%id%%_add_temp_entity' and new_entity != "" and new_entity not in current_list %}
+        {% if trigger.get('entity_id') == 'input_text.fancoil_%%id%%_add_temp_entity' and new_entity != "" and new_entity not in current_list %}
           {{ (current_list + [new_entity]) | join(',') }}
         {% else %}
           {{ current_list | join(',') }}
@@ -147,7 +147,7 @@ sensor:
       unit_of_measurement: "°C"
       state: >-
         {% set current_offset = states('input_number.fancoil_%%id%%_sp_offset') %}
-        {% if trigger.entity_id is defined and trigger.entity_id == 'input_number.fancoil_%%id%%_sp_offset' %}
+        {% if trigger.get('entity_id') == 'input_number.fancoil_%%id%%_sp_offset' %}
           {% if current_offset not in ['unavailable', 'unknown', None, ''] %}
             {{ current_offset | float }}
           {% else %}

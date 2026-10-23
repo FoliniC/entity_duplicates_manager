@@ -1,0 +1,27 @@
+- alias: "Alexa: Watchdog auto-reset luci virtuali"
+  id: alexa_watchdog_virtual_lights
+  description: "Sicurezza: spegne gli input_boolean Alexa se rimangono accesi >30s (fallback se automazioni falliscono)"
+  trigger:
+    - platform: state
+      entity_id:
+        - input_boolean.buongiorno_alexa
+        - input_boolean.alexa_accendi_uscita
+        - input_boolean.alexa_accendi_entrata
+        - input_boolean.alexa_ritorno_a_casa
+        - input_boolean.alexa_accendi_verifica
+      to: "on"
+      for: "00:00:30"
+  action:
+    - service: system_log.write
+      data:
+        level: warning
+        message: "Alexa Watchdog: auto-reset {{ trigger.entity_id | default('sconosciuto') }} dopo 30s (automazione non completata?)"
+    - service: input_boolean.turn_off
+      target:
+        entity_id: "{{ trigger.entity_id | default('') }}"
+    - service: system_log.write
+      data:
+        level: info
+        message: "Alexa Watchdog: reset completato per {{ trigger.entity_id | default('sconosciuto') }}"
+  mode: parallel
+  max: 10

@@ -310,6 +310,8 @@ timer:
     duration: "00:01:00"
   delay_esecuzione_lungo:
     duration: "00:10:00"
+  luce_scale_auto_off:
+    duration: "00:04:00"
 
 # counter:
 #   reboot_router:

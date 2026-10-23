@@ -504,7 +504,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # Initialize event processor for cloud-only device cloud polling
     from .event_processor import async_setup_event_processor
     event_processor = await async_setup_event_processor(hass, hass.data[DOMAIN][entry.entry_id], entry)
-    entry.async_on_unload(lambda: None)  # Keep reference
+    # Release the event bus listener on unload, otherwise every reload leaves
+    # a live listener behind and each network event gets polled N times.
+    entry.async_on_unload(event_processor.async_stop)
 
     entry.async_on_unload(entry.add_update_listener(update_listener))
 

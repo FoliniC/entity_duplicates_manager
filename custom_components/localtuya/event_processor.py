@@ -16,9 +16,16 @@ from .const import (
     CONF_CLOUD_POLLING_ENABLED,
     CONF_CLOUD_POLL_DELAY,
     CONF_CLOUD_POLL_COOLDOWN,
+    DOMAIN,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+# Number of attempts (and delay between them) when querying the Tuya cloud for
+# a sleepy device's state. These sensors report once per wake-up, so a single
+# transient network error would lose the reading until the next wake-up.
+CLOUD_POLL_RETRIES = 3
+CLOUD_POLL_RETRY_DELAY = 3
 
 
 class TuyaEventProcessor:
@@ -80,6 +87,27 @@ class TuyaEventProcessor:
         device_config = self.entry.data.get("devices", {}).get(device_id, {})
         return device_config.get("cloud_poll_delay", 3)
 
+    @property
+    def _current_hass_data(self):
+        """Return the live hass data for this entry.
+
+        The entry is reloaded on every config change, which replaces the
+        cloud API instance. Always resolve it from hass.data so a stale
+        processor never polls with an outdated (and possibly token-less)
+        cloud API instance.
+        """
+        return self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id) or self.hass_data
+
+    async def async_stop(self) -> None:
+        """Stop the event processor and release its event bus listener."""
+        if self._unsub_dispatcher:
+            self._unsub_dispatcher()
+            self._unsub_dispatcher = None
+        for task in self._pending_polls.values():
+            task.cancel()
+        self._pending_polls.clear()
+        _LOGGER.debug("Event processor stopped")
+
     def _get_cooldown(self, device_id: str) -> int:
         """Get cooldown period for device."""
         device_config = self.entry.data.get("devices", {}).get(device_id, {})
@@ -101,11 +129,35 @@ class TuyaEventProcessor:
     async def _poll_and_update(self, device_id: str) -> None:
         """Poll cloud state and update local device state."""
         try:
-            _LOGGER.info("Querying Tuya Cloud API for device %s state...", device_id)
-            cloud_api = self.hass_data.cloud_data
-            
-            # Query device properties from cloud shadow
-            result, status = await cloud_api.async_get_device_query_properties(device_id)
+            hass_data = self._current_hass_data
+            cloud_api = hass_data.cloud_data
+
+            # Query device properties from cloud shadow. Retry a couple of
+            # times: these sensors report once per wake-up, so a single
+            # transient network error would otherwise lose the reading until
+            # the next wake-up (up to an hour later).
+            result, status = {}, "not attempted"
+            for attempt in range(1, CLOUD_POLL_RETRIES + 1):
+                _LOGGER.info(
+                    "Querying Tuya Cloud API for device %s state... (attempt %s/%s)",
+                    device_id,
+                    attempt,
+                    CLOUD_POLL_RETRIES,
+                )
+                result, status = await cloud_api.async_get_device_query_properties(
+                    device_id
+                )
+                if status == "ok":
+                    break
+                if attempt < CLOUD_POLL_RETRIES:
+                    _LOGGER.warning(
+                        "Failed to query cloud state for %s: %s — retrying in %ss",
+                        device_id,
+                        status,
+                        CLOUD_POLL_RETRY_DELAY,
+                    )
+                    await asyncio.sleep(CLOUD_POLL_RETRY_DELAY)
+
             if status != "ok":
                 _LOGGER.warning("Failed to query cloud state for %s: %s", device_id, status)
                 return
@@ -127,7 +179,7 @@ class TuyaEventProcessor:
             
             # Update local TuyaDevice status if present
             from homeassistant.helpers.dispatcher import async_dispatcher_send
-            device = self.hass_data.devices.get(device_id)
+            device = hass_data.devices.get(device_id)
             if device and dps_state:
                 device.status_updated(dps_state)
                 _LOGGER.info("Successfully updated device %s status from cloud!", device_id)

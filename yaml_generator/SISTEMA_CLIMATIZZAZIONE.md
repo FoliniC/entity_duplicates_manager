@@ -302,3 +302,24 @@ File: `/config/packages/fancoil_cucina_mijia_calibration.yaml`
 `switch.attiva_pdc` e `switch.attiva_pompa_circolazione` sono switch KNX. Se la dashboard mostra uno stato non coerente subito dopo il riavvio, fare refresh della pagina prima di assumere un errore di automazione.
 
 Se lo stato Home Assistant non corrisponde allo stato fisico KNX, verificare la configurazione `state_address` degli switch KNX in `knx_config.yaml`.
+
+## Ripristino stato all'avvio (da `binary_sensor.pdc_heating`)
+
+**Problema**: gli switch KNX `attiva_pdc` e `attiva_pompa_circolazione` sono **write-only** (solo `address`, senza `state_address`) → al riavvio HA defaultano a **OFF**. Questo attiva il `GLOBAL DISABLED` e chiude tutte le valvole, facendo mostrare ai termostati `idle` anche con delta temperatura positivo.
+
+**Soluzione**: `binary_sensor.pdc_heating` ha `state_address: "2/1/5"` + `sync_state: every 60` → legge lo stato reale dal bus KNX e lo **persiste** attraversi i riavvii. È l'unico indicatore affidabile dell'attività termica PDC.
+
+Automazione: `automations/restore_pdc_switches_on_startup.yaml`
+
+| Automazione | Trigger | Condizione | Azione |
+|-------------|---------|------------|--------|
+| `restore_pdc_switches_on_startup` | `homeassistant.start` | `pdc_heating == on` | Accende `attiva_pdc` + `attiva_pompa_circolazione` |
+| `restore_pdc_switches_on_pdc_heating_on` | `pdc_heating: off→on` | Switch spenti | Riaccende entrambi (runtime) |
+| `turn_off_pdc_switches_on_pdc_heating_off` | `pdc_heating: on→off` | Switch accesi | Spegne entrambi (coerenza) |
+
+**Perché `pdc_heating` è l'ancoraggio corretto**:
+- Riflette lo **stato termico reale** (PDC sta scaldando), non uno stato assunto
+- Persiste automaticamente (HA `restore_state` + KNX `sync_state`)
+- Decoupled dagli switch write-only che non possono essere letti
+
+`attiva_fancoil` **non** viene toccato: è il consenso utente (master), non legato allo stato PDC.

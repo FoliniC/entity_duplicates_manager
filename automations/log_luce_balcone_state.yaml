@@ -78,14 +78,15 @@
         - condition: template
           value_template: "{{ to_state in ['on', 'off'] }}"
       then:
-        - action: notify.mobile_app_ultra17
+        # Usare notify group per notifiche device-agnostic
+        - action: notify.send_message
+          target:
+            entity_id: notify.notify_mobile_devices
           data:
             title: "💡 Luce balcone {{ action_word }}{% if anomalous %} ⚠️{% endif %}"
             message: "Motivo: {{ reason }}"
-            data:
-              tag: luce_balcone_change
-              # Se si accende (caso problematico) o c'è anomalia: alta priorità
-              importance: "{{ 'high' if (to_state == 'on' or anomalous) else 'normal' }}"
-              notification_icon: "mdi:lightbulb"
+            tag: luce_balcone_change
+            importance: "{{ 'high' if (to_state == 'on' or anomalous) else 'normal' }}"
+            notification_icon: "mdi:lightbulb"
       # fall-through controllato: in caso di errore notify non blocca il flow
       else: []

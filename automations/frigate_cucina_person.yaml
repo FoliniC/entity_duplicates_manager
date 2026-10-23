@@ -13,12 +13,14 @@
         {{ (now() - last).total_seconds() > 300 }}
         {% endif %}
   action:
-    - action: notify.mobile_app_ultra17
+    # Usare notify group per notifiche device-agnostic
+    - action: notify.send_message
+      target:
+        entity_id: notify.notify_mobile_devices
       data:
         title: "🚨 Persona rilevata - Cucina/Balcone"
         message: "Persona rilevata dalla camera **Cucina** (zona balcone) alle {{ now().strftime('%H:%M:%S') }} del {{ now().strftime('%d/%m/%Y') }}"
-        data:
-          tag: frigate_cucina_person
-          importance: high
-          notification_icon: "mdi:shield-alert"
+        tag: frigate_cucina_person
+        importance: high
+        notification_icon: "mdi:shield-alert"
   mode: single

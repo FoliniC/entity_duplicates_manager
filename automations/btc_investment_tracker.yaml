@@ -24,7 +24,10 @@
         {{ (now() - last).total_seconds() > 86400 }}
         {% endif %}
   action:
-    - action: notify.mobile_app_ultra17
+    # Usare notify group per notifiche device-agnostic
+    - action: notify.send_message
+      target:
+        entity_id: notify.notify_mobile_devices
       data:
         title: "🎉 BTC Tracker: Obiettivo raggiunto!"
         message: >
@@ -64,7 +67,10 @@
         {{ (now() - last).total_seconds() > 86400 }}
         {% endif %}
   action:
-    - action: notify.mobile_app_ultra17
+    # Usare notify group per notifiche device-agnostic
+    - action: notify.send_message
+      target:
+        entity_id: notify.notify_mobile_devices
       data:
         title: "📈 BTC Tracker: 50% raggiunto!"
         message: >
@@ -92,7 +98,10 @@
         {{ (now() - last).total_seconds() > 86400 }}
         {% endif %}
   action:
-    - action: notify.mobile_app_ultra17
+    # Usare notify group per notifiche device-agnostic
+    - action: notify.send_message
+      target:
+        entity_id: notify.notify_mobile_devices
       data:
         title: "🚀 BTC Tracker: 75% - Quasi là!"
         message: >
@@ -121,7 +130,10 @@
         {{ (now() - last).total_seconds() > 86400 }}
         {% endif %}
   action:
-    - action: notify.mobile_app_ultra17
+    # Usare notify group per notifiche device-agnostic
+    - action: notify.send_message
+      target:
+        entity_id: notify.notify_mobile_devices
       data:
         title: "🎯 BTC Tracker: 90% - Ultimi metri!"
         message: >
@@ -149,7 +161,10 @@
         {{ (now() - last).total_seconds() > 43200 }}
         {% endif %}
   action:
-    - action: notify.mobile_app_ultra17
+    # Usare notify group per notifiche device-agnostic
+    - action: notify.send_message
+      target:
+        entity_id: notify.notify_mobile_devices
       data:
         title: "⚠️ BTC Tracker: Perdita significativa"
         message: >
@@ -171,7 +186,10 @@
     - platform: time
       at: "09:00:00"
   action:
-    - action: notify.mobile_app_ultra17
+    # Usare notify group per notifiche device-agnostic
+    - action: notify.send_message
+      target:
+        entity_id: notify.notify_mobile_devices
       data:
         title: "📊 BTC Tracker: Report giornaliero"
         message: >

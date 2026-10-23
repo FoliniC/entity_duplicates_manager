@@ -252,11 +252,19 @@
 # initial_value: 0                                     # Valore iniziale
 
 #   - platform: sql
-#     db_url: sqlite://config/home-assistant_v2.db
+#     db_url: mysql://homeassistant:@192.168.0.3:3306/homeassistant
+#     # NB: il recorder usa MariaDB, non il file SQLite
+#     # /config/home-assistant_v2.db (rinominato in
+#     # home-assistant_v2.db.UNUSED_stale_sqlite_mariadb_e_attivo).
+#     # Lo schema richiede il join con states_meta:
+#     #   SELECT s.state FROM states s
+#     #     JOIN states_meta sm ON s.metadata_id = sm.metadata_id
+#     #    WHERE sm.entity_id = 'sensor.1A_temperature_humidity_sensor_temperature'
+#     #    ORDER BY s.last_updated_ts DESC LIMIT 1;
 #     scan_interval: 10 # in seconds
 #     queries:
 #       - name: "Last Value Sensor 1A"
-#         query: "SELECT state FROM states WHERE entity_id = 'sensor.1A_temperature_humidity_sensor_temperature' ORDER BY last_updated DESC LIMIT 1;"
+#         query: "SELECT s.state FROM states s JOIN states_meta sm ON s.metadata_id = sm.metadata_id WHERE sm.entity_id = 'sensor.1A_temperature_humidity_sensor_temperature' ORDER BY s.last_updated_ts DESC LIMIT 1;"
 #         column: "state"
 #       - name: "prova12345"
 #         unique_id: prova12345

@@ -86,7 +86,7 @@
         - event: fancoil_log_event
           event_data:
             level: info
-            message: "[Global] (Created: {{ now().strftime('%H:%M:%S') }}) Cambio stato globale: {{ hvac_mode_attuale }} -> {{ target_mode }} (Sched: {{ 'ON' if sched_on else 'OFF' }}, Switch: {{ 'ON' if switch_on else 'OFF' }}, Trigger: {{ trigger.entity_id if trigger.entity_id is defined else trigger.platform }})"
+            message: "[Global] (Created: {{ now().strftime('%H:%M:%S') }}) Cambio stato globale: {{ hvac_mode_attuale }} -> {{ target_mode }} (Sched: {{ 'ON' if sched_on else 'OFF' }}, Switch: {{ 'ON' if switch_on else 'OFF' }}, Trigger: {{ trigger.get('entity_id', trigger.platform) }})"
 
     # 2. Logging Blocchi (solo se il sistema è acceso)
     - if:

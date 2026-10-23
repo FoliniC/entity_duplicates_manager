@@ -1,0 +1,78 @@
+# Ripristina switch KNX write-only all'avvio basandosi sullo stato termico reale (pdc_heating)
+# I switch attiva_pdc e attiva_pompa_circolazione non hanno state_address -> default OFF al restart
+# binary_sensor.pdc_heating HA state_address + sync_state -> legge stato reale KNX e persiste
+
+- alias: "Ripristino switch PDC/pompa all'avvio (da pdc_heating)"
+  id: "restore_pdc_switches_on_startup"
+  initial_state: true
+  mode: single
+  trigger:
+    - platform: homeassistant
+      event: start
+  condition:
+    - condition: template
+      value_template: "{{ is_state('binary_sensor.pdc_heating', 'on') }}"
+  action:
+    - service: switch.turn_on
+      target:
+        entity_id: switch.attiva_pdc
+    - service: switch.turn_on
+      target:
+        entity_id: switch.attiva_pompa_circolazione
+    - delay: "00:00:02"
+    - event: fancoil_log_event
+      event_data:
+        level: info
+        message: "[Startup] Ripristinati attiva_pdc e attiva_pompa_circolazione (pdc_heating=on)"
+
+# Opzionale: se pdc_heating torna ON mentre HA è già avviato (es. PDC si accende da solo)
+- alias: "Ripristino switch PDC/pompa se pdc_heating si attiva"
+  id: "restore_pdc_switches_on_pdc_heating_on"
+  initial_state: true
+  mode: single
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.pdc_heating
+      to: "on"
+      from: "off"
+  condition:
+    - condition: template
+      value_template: "{{ not is_state('switch.attiva_pdc', 'on') or not is_state('switch.attiva_pompa_circolazione', 'on') }}"
+  action:
+    - service: switch.turn_on
+      target:
+        entity_id: switch.attiva_pdc
+    - service: switch.turn_on
+      target:
+        entity_id: switch.attiva_pompa_circolazione
+    - delay: "00:00:02"
+    - event: fancoil_log_event
+      event_data:
+        level: info
+        message: "[Runtime] Ripristinati attiva_pdc e attiva_pompa_circolazione (pdc_heating tornato ON)"
+
+# Spegni gli switch se pdc_heating va OFF (coerenza)
+- alias: "Spegni switch PDC/pompa se pdc_heating si spegne"
+  id: "turn_off_pdc_switches_on_pdc_heating_off"
+  initial_state: true
+  mode: single
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.pdc_heating
+      to: "off"
+      from: "on"
+  condition:
+    - condition: template
+      value_template: "{{ is_state('switch.attiva_pdc', 'on') or is_state('switch.attiva_pompa_circolazione', 'on') }}"
+  action:
+    - service: switch.turn_off
+      target:
+        entity_id: switch.attiva_pdc
+    - service: switch.turn_off
+      target:
+        entity_id: switch.attiva_pompa_circolazione
+    - delay: "00:00:02"
+    - event: fancoil_log_event
+      event_data:
+        level: info
+        message: "[Runtime] Spenti attiva_pdc e attiva_pompa_circolazione (pdc_heating tornato OFF)"

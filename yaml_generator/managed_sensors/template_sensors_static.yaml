@@ -279,3 +279,72 @@
     {% set p_lava = (lava | float(0)) if lava not in ['unavailable', 'unknown', 'none', ''] else 0 %}
     {% set p_indu = (indu | float(0)) if indu not in ['unavailable', 'unknown', 'none', ''] else 0 %}
     {{ ([p_nuovo - p_pdc - p_knx - p_lava - p_indu, 0] | max) | round(2) }}
+
+# --- Chiusura del bilancio per la card Sankey ---------------------------------
+# Il nodo centrale "Totale" deve valere uguale sia alla somma delle fonti
+# (Solare + Rete import + Batteria scarica) sia alla somma degli usi
+# (Consumo casa + Batteria carica + Rete export). I due lati NON coincidono
+# mai perfettamente a causa dello skew temporale fra contatori (TS100A 60-120 s)
+# e sotto-misuratori (10 s): la differenza viene resa esplicita.
+#
+#   F = fonti = sensor.potenza_totale_entrante
+#   U = usi   = consumo_casa_rapido + potenza_carica_batteria + potenza_esportata_attuale
+#   TOTALE   = max(F, U)          -> nodo centrale, uguale a entrambe le somme
+#   Differenza contatori = max(0, U - F)   (flusso in ingresso, lato fonti)
+#   Carichi non misurati  = max(0, F - U)   (flusso in uscita, lato usi)
+#
+# Nota coercizione: in Jinja gli stati HA sono STRINGHE, quindi "is number" e'
+# sempre falso. Si controlla esplicitamente la validita' dello stato e si usa
+# | float(0): unavailable/unknown valgono 0 (e non entrano nei calcoli).
+- name: "Potenza totale bilancio"
+  unique_id: potenza_totale_bilancio
+  device_class: power
+  state_class: measurement
+  unit_of_measurement: "W"
+  state: >-
+    {% set f = states('sensor.potenza_totale_entrante') %}
+    {% set casa = states('sensor.consumo_casa_rapido') %}
+    {% set car = states('sensor.potenza_carica_batteria') %}
+    {% set esp = states('sensor.potenza_esportata_attuale') %}
+    {% set p_f = (f | float(0)) if f not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {% set p_casa = (casa | float(0)) if casa not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {% set p_car = (car | float(0)) if car not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {% set p_esp = (esp | float(0)) if esp not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {% set u = p_casa + p_car + p_esp %}
+    {{ ([p_f, u] | max) | round(2) }}
+
+- name: "Potenza differenza contatori"
+  unique_id: potenza_differenza_contatori
+  device_class: power
+  state_class: measurement
+  unit_of_measurement: "W"
+  state: >-
+    {% set f = states('sensor.potenza_totale_entrante') %}
+    {% set casa = states('sensor.consumo_casa_rapido') %}
+    {% set car = states('sensor.potenza_carica_batteria') %}
+    {% set esp = states('sensor.potenza_esportata_attuale') %}
+    {% set p_f = (f | float(0)) if f not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {% set p_casa = (casa | float(0)) if casa not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {% set p_car = (car | float(0)) if car not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {% set p_esp = (esp | float(0)) if esp not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {{ ([p_casa + p_car + p_esp - p_f, 0] | max) | round(2) }}
+
+# "Consumo casa reale" = tutto quello che la casa assorbe davvero:
+# fonti (produzione + prelievo + scarica batteria) - usi che non sono casa
+# (esportazione + carica batteria). E' il valore che la Power Flow Card
+# mostra al centro del cerchio Home, cosi' coincide con l'anello di flussi
+# calcolato dalla card (fonti - export - carica) e con il nodo "Consumo casa"
+# del Sankey piu' il nodo "Carichi non misurati".
+- name: "Potenza consumo casa reale"
+  unique_id: potenza_consumo_casa_reale
+  device_class: power
+  state_class: measurement
+  unit_of_measurement: "W"
+  state: >-
+    {% set f = states('sensor.potenza_totale_entrante') %}
+    {% set car = states('sensor.potenza_carica_batteria') %}
+    {% set esp = states('sensor.potenza_esportata_attuale') %}
+    {% set p_f = (f | float(0)) if f not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {% set p_car = (car | float(0)) if car not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {% set p_esp = (esp | float(0)) if esp not in ['unavailable', 'unknown', 'none', ''] else 0 %}
+    {{ ([p_f - p_car - p_esp, 0] | max) | round(2) }}
