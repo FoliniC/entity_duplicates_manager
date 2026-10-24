@@ -83,13 +83,12 @@
           value_template: "{{ to_state in ['on', 'off'] }}"
       then:
         # Usare notify group per notifiche device-agnostic
-        - action: notify.send_message
-          target:
-            entity_id: notify.notify_mobile_devices
+        - action: notify.all_devices
           data:
             title: "💡 Cucina {{ friendly_name }} {{ action_word }}{% if anomalous %} ⚠️{% endif %}"
             message: "Motivo: {{ reason }}"
-            tag: "cucina_{{ debug_entity.split('.')[-1] }}"
-            importance: "{{ 'high' if (to_state == 'on' or anomalous) else 'normal' }}"
-            notification_icon: "mdi:lightbulb"
+            data:
+              tag: "cucina_{{ debug_entity.split('.')[-1] }}"
+              importance: "{{ 'high' if (to_state == 'on' or anomalous) else 'normal' }}"
+              notification_icon: "mdi:lightbulb"
       # else: (non fare nulla se non on/off)

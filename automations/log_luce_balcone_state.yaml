@@ -79,9 +79,7 @@
           value_template: "{{ to_state in ['on', 'off'] }}"
       then:
         # Usare notify group per notifiche device-agnostic
-        - action: notify.send_message
-          target:
-            entity_id: notify.notify_mobile_devices
+        - action: notify.all_devices
           data:
             title: "💡 Luce balcone {{ action_word }}{% if anomalous %} ⚠️{% endif %}"
             message: "Motivo: {{ reason }}"

@@ -9,13 +9,15 @@ trigger:
       - sensor.th2b_temperature_humidity_battery
       - sensor.th3c_temperature_humidity_temperature
       - sensor.th3c_temperature_humidity_humidity
-      - sensor.th3c_temperature_humidity_battery
+      - sensor.th3c_temperature_humidity_battery_level
       - sensor.th4d_temperature_humidity_temperature
       - sensor.th4d_temperature_humidity_humidity
-      - sensor.th4d_temperature_humidity_battery
+      - sensor.th4d_temperature_humidity_battery_level
     to: ~
   - platform: homeassistant
     event: start
+  - platform: time_pattern
+    minutes: "/1"
 
 sensor:
   - name: "th1a Temperature"
@@ -169,10 +171,16 @@ sensor:
       managed_by: generate_sensors.py
       area: camera
     state: >
-      {% set sensor_id = 'sensor.th3c_temperature_humidity_battery' %}
+      {% set sensor_id = 'sensor.th3c_temperature_humidity_battery_level' %}
       {% set val = states(sensor_id) %}
       {% if val | is_number %}
         {{ val | float }}
+      {% elif val == 'high' %}
+        100
+      {% elif val == 'middle' %}
+        50
+      {% elif val == 'low' %}
+        20
       {% else %}
         {{ this.state | float(default=100.0) }}
       {% endif %}
@@ -222,11 +230,16 @@ sensor:
       managed_by: generate_sensors.py
       area: balcone
     state: >
-      {% set sensor_id = 'sensor.th4d_temperature_humidity_battery' %}
+      {% set sensor_id = 'sensor.th4d_temperature_humidity_battery_level' %}
       {% set val = states(sensor_id) %}
       {% if val | is_number %}
         {{ val | float }}
+      {% elif val == 'high' %}
+        100
+      {% elif val == 'middle' %}
+        50
+      {% elif val == 'low' %}
+        20
       {% else %}
         {{ this.state | float(default=100.0) }}
       {% endif %}
-

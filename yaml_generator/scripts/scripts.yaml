@@ -20,14 +20,6 @@ attiva_uscita:
       target:
         entity_id: input_boolean.alexa_accendi_uscita
   description: "Attiva modalità uscita (alternativa a emulated_hue)"
-# update_router_ssid:
-#   alias: "Aggiorna SSID Router"
-#   description: "Forza l'aggiornamento dell'SSID del router"
-#   sequence:
-#     - action: homeassistant.update_entity
-#       target:
-#         entity_id: sensor.router_ssid
-#   mode: single
 
 fancoil_log_v2:
   alias: "Fancoil: Logger con Buffer v2"
@@ -77,7 +69,7 @@ fancoil_log_v2:
                   {% set lvl = level | upper if level is defined else 'INFO' %}
                   {% set new_entry = ts ~ ' [' ~ lvl ~ '] ' ~ (message | trim) ~ '[[BR]]' %}
                   {{ (current ~ new_entry)[-16000:] }}
-      
+
       # CASO 2: Normale operatività (Pyscript pronto e buffering OFF)
       default:
         - action: script.fancoil_log_direct
@@ -110,6 +102,7 @@ fancoil_flush_logs:
     - action: input_boolean.turn_off
       target:
         entity_id: input_boolean.fancoil_boot_buffering
+
 alexa_play_music_with_volume_check:
   alias: "Alexa: Avvia musica con controllo volume"
   description: "Controlla il volume prima di avviare la musica; se > 20% lo abbassa"
@@ -221,14 +214,13 @@ anti_accensione_balcone_check:
     - action: switch.turn_off
       target:
         entity_id: switch.luce_balcone_switch_1
-    - action: notify.mobile_app_ultra17
+    - action: notify.all_devices
       data:
         title: "🚫 Luce balcone spenta (anti-accensione)"
         message: "Rilevata accensione esterna non voluta (nessun traffico cloud) -> spenta automaticamente"
-        data:
-          tag: balcone_anti_accensione
-          importance: high
-          notification_icon: "mdi:shield-alert"
+        tag: balcone_anti_accensione
+        importance: high
+        notification_icon: "mdi:shield-alert"
   mode: single
 
 # USB Tethering Scripts (spostati da package usb_tether.yaml per evitare conflitto script:)
@@ -322,8 +314,7 @@ usb_tether_server:
               state: "active"
       then:
         - action: input_text.set_value
-          target:
-            entity_id: input_text.usb_tether_status_message
+          entity_id: input_text.usb_tether_status_message
           data:
             value: "ERRORE: tethering server non attivato - controlla log"
         - event: halog2026_write_event
@@ -333,8 +324,7 @@ usb_tether_server:
             message: "ERRORE: Attivazione Server fallita"
       else:
         - action: input_text.set_value
-          target:
-            entity_id: input_text.usb_tether_status_message
+          entity_id: input_text.usb_tether_status_message
           data:
             value: ""
 
@@ -372,8 +362,7 @@ usb_tether_intranet:
               state: "active"
       then:
         - action: input_text.set_value
-          target:
-            entity_id: input_text.usb_tether_status_message
+          entity_id: input_text.usb_tether_status_message
           data:
             value: "ERRORE: intranet non attivata - controlla log"
         - event: halog2026_write_event
@@ -383,8 +372,7 @@ usb_tether_intranet:
             message: "ERRORE: Attivazione Intranet fallita"
       else:
         - action: input_text.set_value
-          target:
-            entity_id: input_text.usb_tether_status_message
+          entity_id: input_text.usb_tether_status_message
           data:
             value: ""
 

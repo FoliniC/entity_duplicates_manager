@@ -31,10 +31,7 @@
                 action: "CAPTURE STARTED"
                 message: "Avviata cattura messaggi LocalTuya per debug accensioni inspiegabili"
                 wait: 0
-            # Usare notify group per notifiche device-agnostic
-            - action: notify.send_message
-              target:
-                entity_id: notify.notify_mobile_devices
+            - action: notify.all_devices
               data:
                 title: "📡 Cattura Messaggi Balcone: AVVIATA"
                 message: "Registrazione messaggi LocalTuya per device bfbf8ab6b500e77408pupf attiva. File: /config/logs/balcone_capture.jsonl"
@@ -55,10 +52,7 @@
                 action: "CAPTURE STOPPED"
                 message: "Fermata cattura messaggi LocalTuya"
                 wait: 0
-            # Usare notify group per notifiche device-agnostic
-            - action: notify.send_message
-              target:
-                entity_id: notify.notify_mobile_devices
+            - action: notify.all_devices
               data:
                 title: "📡 Cattura Messaggi Balcone: FERMATA"
                 message: "Registrazione messaggi LocalTuya disattivata"

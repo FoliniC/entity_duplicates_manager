@@ -15,7 +15,7 @@ sensor:
   - name: "EV Charge 2025 Saved BYD Min SOC"
     unique_id: ev_charge_2025_saved_byd_min_soc
     state: >-
-      {% if trigger.entity_id == 'input_number.ev_charge_2025_byd_min_soc_stop' %}
+      {% if trigger.get('entity_id') == 'input_number.ev_charge_2025_byd_min_soc_stop' %}
         {{ states('input_number.ev_charge_2025_byd_min_soc_stop') }}
       {% else %}
         {{ this.state | default(states('input_number.ev_charge_2025_byd_min_soc_stop')) }}
@@ -24,7 +24,7 @@ sensor:
   - name: "EV Charge 2025 Saved Target SOC"
     unique_id: ev_charge_2025_saved_target_soc
     state: >-
-      {% if trigger.entity_id == 'input_number.ev_charge_2025_target_soc' %}
+      {% if trigger.get('entity_id') == 'input_number.ev_charge_2025_target_soc' %}
         {{ states('input_number.ev_charge_2025_target_soc') }}
       {% else %}
         {{ this.state | default(states('input_number.ev_charge_2025_target_soc')) }}
@@ -33,7 +33,7 @@ sensor:
   - name: "EV Charge 2025 Saved Manual Power"
     unique_id: ev_charge_2025_saved_manual_power
     state: >-
-      {% if trigger.entity_id == 'input_number.ev_charge_2025_manual_power_kw' %}
+      {% if trigger.get('entity_id') == 'input_number.ev_charge_2025_manual_power_kw' %}
         {{ states('input_number.ev_charge_2025_manual_power_kw') }}
       {% else %}
         {{ this.state | default(states('input_number.ev_charge_2025_manual_power_kw')) }}
@@ -42,7 +42,7 @@ sensor:
   - name: "EV Charge 2025 Saved BYD Max Discharge Power"
     unique_id: ev_charge_2025_saved_byd_max_discharge_power
     state: >-
-      {% if trigger.entity_id == 'input_number.ev_charge_2025_byd_max_discharge_power' %}
+      {% if trigger.get('entity_id') == 'input_number.ev_charge_2025_byd_max_discharge_power' %}
         {{ states('input_number.ev_charge_2025_byd_max_discharge_power') }}
       {% else %}
         {{ this.state | default(states('input_number.ev_charge_2025_byd_max_discharge_power')) }}
@@ -51,7 +51,7 @@ sensor:
   - name: "EV Charge 2025 Saved Grid Max Power"
     unique_id: ev_charge_2025_saved_grid_max_power
     state: >-
-      {% if trigger.entity_id == 'input_number.ev_charge_2025_grid_max_power' %}
+      {% if trigger.get('entity_id') == 'input_number.ev_charge_2025_grid_max_power' %}
         {{ states('input_number.ev_charge_2025_grid_max_power') }}
       {% else %}
         {{ this.state | default(states('input_number.ev_charge_2025_grid_max_power')) }}

@@ -83,8 +83,8 @@ notify:
   - name: all_devices
     platform: group
     services:
-      # TODO: modificare l'elenco dei servizi con i propri servizi di invio notifica alle app Home Assistant Companion collegate
-      - service: ultra17
+      - action: mobile_app_ultra17
+      - action: mobile_app_redmi_note_13_pro_5g
 
 # ------------------------------------ NON MODIFICARE OLTRE QUESTA RIGA ------------------------------------
 

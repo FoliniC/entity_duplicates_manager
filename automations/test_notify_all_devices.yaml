@@ -1,0 +1,16 @@
+- id: 'test_notify_all_devices'
+  alias: 'Test Notify All Devices'
+  description: 'Test notification to all devices'
+  triggers:
+    - platform: webhook
+      webhook_id: test_notify_all_devices
+  action:
+    - action: notify.all_devices
+      data:
+        title: "Test Notifica Gruppo"
+        message: "Test notifica da notify.all_devices"
+        data:
+          tag: test_notify
+          importance: high
+          notification_icon: "mdi:bell"
+  mode: single

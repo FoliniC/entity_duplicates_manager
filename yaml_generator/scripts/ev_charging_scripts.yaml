@@ -190,7 +190,7 @@ notify_charging_status:
   description: "Invia notifica dettagliata dello stato ricarica"
   mode: single
   sequence:
-    - action: notify.mobile_app_ultra17
+    - action: notify.all_devices
       data:
         title: "🔌 Stato Ricarica EV ab123"
         message: |
@@ -206,14 +206,13 @@ notify_charging_status:
           **Corrente:** {{ states('sensor.prism_corrente_pilotata_dall_auto') }} A
 
           **Motivo:** {{ states('sensor.ev_charging_reason') }}
-        data:
-          notification_icon: mdi:ev-station
-          color: |
-            {% if 'ATTIVA' in states('sensor.ev_charging_status') %}
-              green
-            {% else %}
-              grey
-            {% endif %}
+        notification_icon: mdi:ev-station
+        color: |
+          {% if 'ATTIVA' in states('sensor.ev_charging_status') %}
+            green
+          {% else %}
+            grey
+          {% endif %}
 
 # Script per gestione emergenza
 emergency_stop_charging:
@@ -242,19 +241,18 @@ emergency_stop_charging:
           - input_boolean.ev_charging_manual_mode
 
     # Notifica urgente
-    - action: notify.mobile_app_ultra17
+    - action: notify.all_devices
       data:
         title: "🚨 STOP EMERGENZA"
         message: |
           La ricarica è stata fermata immediatamente.
           Le automazioni sono state disabilitate.
           Controllare il sistema prima di riavviare.
-        data:
-          notification_icon: mdi:alert-octagon
-          color: red
-          tag: emergency_stop
-          priority: high
-          ttl: 0
+        notification_icon: mdi:alert-octagon
+        color: red
+        tag: emergency_stop
+        priority: high
+        ttl: 0
 
     # Log
     - action: script.fancoil_log_v2
@@ -277,15 +275,14 @@ restore_after_emergency:
           - automation.ev_charging_mode_sync
 
     # Notifica
-    - action: notify.mobile_app_ultra17
+    - action: notify.all_devices
       data:
         title: "✅ Sistema Ripristinato"
         message: |
           Le automazioni di ricarica sono state riabilitate.
           Il sistema è pronto per essere utilizzato.
-        data:
-          notification_icon: mdi:check-circle
-          color: green
+        notification_icon: mdi:check-circle
+        color: green
 
     # Log
     - action: script.fancoil_log_v2

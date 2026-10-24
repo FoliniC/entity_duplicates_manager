@@ -1,0 +1,14 @@
+- id: "log_ev_charging_reason_changes"
+  alias: "Log EV Charging Reason Changes"
+  description: "Logs the EV charging reason as INFO whenever it changes, reducing noise and avoiding system errors."
+  trigger:
+    - platform: state
+      entity_id: sensor.ev_charging_reason
+  condition:
+    - condition: template
+      value_template: "{{ trigger.from_state is not none and trigger.to_state.state != trigger.from_state.state }}"
+  action:
+    - action: system_log.write
+      data:
+        level: info
+        message: "Motivo Ricarica EV: {{ states('sensor.ev_charging_reason') }}"

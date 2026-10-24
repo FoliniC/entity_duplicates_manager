@@ -13,10 +13,7 @@
         {{ (now() - last).total_seconds() > 300 }}
         {% endif %}
   action:
-    # Usare notify group per notifiche device-agnostic
-    - action: notify.send_message
-      target:
-        entity_id: notify.notify_mobile_devices
+    - action: notify.all_devices
       data:
         title: "🚨 Persona rilevata - Cucina/Balcone"
         message: "Persona rilevata dalla camera **Cucina** (zona balcone) alle {{ now().strftime('%H:%M:%S') }} del {{ now().strftime('%d/%m/%Y') }}"

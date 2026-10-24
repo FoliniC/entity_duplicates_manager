@@ -1,0 +1,287 @@
+- id: "ev_charge_2025_control"
+  alias: "EV Charge 2025 Control"
+  description: "Master Control Rev. 54 - Current Inertia"
+  initial_state: true
+  mode: queued
+  max: 10
+  triggers:
+    - trigger: time_pattern
+      minutes: "/1"
+    - trigger: homeassistant
+      event: start
+    - trigger: state
+      entity_id: 
+        - input_boolean.ev_charge_2025_charging_active
+        - input_boolean.ev_charge_2025_no_grid
+        - input_boolean.ev_charge_2025_no_grid_2025
+        - input_select.ev_charge_2025_mode
+        - input_number.ev_charge_2025_manual_power_kw
+        - input_number.ev_charge_2025_cronostar_power_target
+        - input_number.ev_charge_2025_byd_max_discharge_power
+        - input_number.ev_charge_2025_grid_max_power
+  action:
+    # Attendi che i sensori si stabilizzino al boot
+    - if:
+        - condition: template
+          value_template: "{{ trigger.platform == 'homeassistant' }}"
+      then:
+        - delay: "00:00:10"
+    
+    - variables:
+        # 1. INPUT FISICI
+        smart_meter: "{{ states('sensor.smart_meter_ts_100a_1_potenza_reale') | float(0) }}"
+        unit_sm: "{{ state_attr('sensor.smart_meter_ts_100a_1_potenza_reale', 'unit_of_measurement') }}"
+        grid_p_w: "{{ (smart_meter * 1000) if unit_sm == 'kW' else smart_meter }}"
+        prism_p: "{{ states('sensor.prism_potenza_assorbita') | float(0) }}"
+        b_discharge: "{{ states('sensor.solarnet_power_battery_discharge') | float(0) }}"
+        b_charge: "{{ states('sensor.solarnet_power_battery_charge') | float(0) }}"
+        byd_soc: "{{ states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) }}"
+        voltage: "{{ states('sensor.folini_carlo_voltage_ac') | float(230) }}"
+        
+        # 2. INPUT UTENTE
+        is_active: "{{ is_state('input_boolean.ev_charge_2025_charging_active', 'on') }}"
+        no_grid: "{{ is_state('input_boolean.ev_charge_2025_no_grid', 'on') }}"
+        no_grid_2025: "{{ is_state('input_boolean.ev_charge_2025_no_grid_2025', 'on') }}"
+        mode: "{{ states('input_select.ev_charge_2025_mode') }}"
+        crono: "{{ states('input_number.ev_charge_2025_cronostar_power_target') | float(0) }}"
+        manual_kw: "{{ states('input_number.ev_charge_2025_manual_power_kw') | float(2.0) }}"
+        cur_soc: "{{ states('sensor.ev_charge_2025_current_soc') | float(0) }}"
+        limit_soc: "{{ states('input_number.ev_charge_2025_vehicle_limit_soc') | float(100) }}"
+        tgt_soc: "{{ states('input_number.ev_charge_2025_target_soc') | float(0) }}"
+        duration: "{{ states('input_number.ev_charge_2025_duration') | int(240) }}"
+        remaining: "{{ states('sensor.ev_charge_2025_remaining_time') | int(0) }}"
+
+        # 3. PARAMETRI BYD
+        p_prot: "{{ states('input_number.ev_charge_2025_byd_protection_soc') | float(10) }}"
+        p_inv: "{{ states('input_number.ev_charge_2025_byd_inversion_soc') | float(30) }}"
+        p_max_d: "{{ states('input_number.ev_charge_2025_byd_max_discharge_soc') | float(90) }}"
+        p_min_stop: "{{ states('input_number.ev_charge_2025_byd_min_soc_stop') | float(20) }}"
+        byd_soc_float: "{{ states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(-1) }}"
+        w_max_c: "{{ states('input_number.ev_charge_2025_byd_max_charge_power') | float(5) * 1000 }}"
+        w_max_d: "{{ states('input_number.ev_charge_2025_byd_max_discharge_power') | float(5) * 1000 }}"
+        w_max_grid: "{{ states('input_number.ev_charge_2025_grid_max_power') | float(6) * 1000 }}"
+        inertia_delta_a: "{{ states('input_number.ev_charge_2025_current_min_delta_a') | int(2) }}"
+        inertia_interval_s: "{{ states('input_number.ev_charge_2025_current_min_interval_min') | int(3) * 60 }}"
+
+        # 4. CALCOLO
+        w_surplus_puro: "{{ (prism_p - grid_p_w) - b_discharge + b_charge }}"
+        
+        w_disponibile: >
+          {% if mode == "Manuale" %}
+            {# In Manuale, prelievo massimo: no buffer di 200W sul surplus solare e tutta la batteria #}
+            {{ w_surplus_puro | float(0) + w_max_d }}
+          {% else %}
+            {% set surplus = [0, w_surplus_puro | float(0) - 200] | max %}
+            {% if byd_soc < p_prot and not no_grid_2025 %}
+              {% set w_to_battery = [surplus, w_max_c] | min %}
+              {{ surplus - w_to_battery }}
+            {% elif byd_soc < p_inv %}
+              {% set ratio = (byd_soc - p_prot) / (p_inv - p_prot) %}
+              {% set w_auto_raw = surplus * ratio %}
+              {% set w_to_battery = [surplus - w_auto_raw, w_max_c] | min %}
+              {{ surplus - w_to_battery }}
+            {% else %}
+              {% set span = [1, p_max_d - p_inv] | max %}
+              {% set bonus_ratio = [(byd_soc - p_inv) / span, 1.0] | min %}
+              {{ surplus + (bonus_ratio * w_max_d) }}
+            {% endif %}
+          {% endif %}
+
+        target_amp: >
+          {% if mode == "Manuale" %}
+            {# Se l'utente imposta >= 7.2kW, assumiamo voglia il massimo della colonnina (32A) #}
+            {% set manual_amp = 32 if manual_kw >= 7.2 else (manual_kw * 1000 / voltage) | round(0) %}
+            {% if no_grid %}
+              {# In Manuale + No Grid: usiamo Sole + Batteria. Aggiungiamo un boost se la batteria non è a 5kW #}
+              {% set boost = 1 if (b_discharge < 4800 and grid_p_w < 100) else 0 %}
+              {% set avail_amp = (w_disponibile | float(0) / voltage) | round(0, 'ceil') + boost %}
+              {{ [avail_amp, manual_amp] | min | clamp(6, 32) if avail_amp >= 6 else 0 }}
+            {% else %}
+              {# In Manuale + Rete: usiamo Sole + Batteria + Rete Prelevabile. Boost se batteria pigra #}
+              {% set boost = 1 if (b_discharge < 4800 and grid_p_w < 100) else 0 %}
+              {% set total_power = w_disponibile + w_max_grid %}
+              {% set total_amp = (total_power / voltage) | round(0, 'ceil') + boost %}
+              {{ [total_amp, manual_amp] | min | clamp(6, 32) if total_amp >= 6 else 0 }}
+            {% endif %}
+          {% else %}
+            {% if crono >= 7.9 %}
+              {# Modalità SOLARE: usa surplus solare + eventuale rete prelevabile se forzato #}
+              {% set calculated_amp = (w_disponibile | float(0) / voltage) | int %}
+              {% set can_charge = (calculated_amp >= 6 or (cur_soc < tgt_soc and byd_soc >= p_inv and byd_soc > p_min_stop)) %}
+              {{ [6, calculated_amp] | max if can_charge else 0 }}
+            {% elif crono > 0.1 %}
+              {# Modalità PROGRAMMATA: usa valore CronoStar, limitando a batteria/sole + rete se BYD è scarica o in generale per sicurezza #}
+              {% set base_amp = (crono * 1000 / voltage) | int %}
+              {% if byd_soc <= p_min_stop %}
+                {# Limita al surplus solare reale + rete prelevabile per non scaricare ulteriormente la BYD #}
+                {% set solar_p_no_batt = [0, (prism_p - grid_p_w) - 200] | max %}
+                {% set total_power = solar_p_no_batt + w_max_grid %}
+                {% set total_amp = (total_power / voltage) | int %}
+                {{ [total_amp, base_amp] | min | clamp(6, 32) if total_amp >= 6 else 0 }}
+              {% else %}
+                {% set total_power = w_disponibile + w_max_grid %}
+                {% set total_amp = (total_power / voltage) | int %}
+                {{ [total_amp, base_amp] | min | clamp(6, 32) if total_amp >= 6 else 0 }}
+              {% endif %}
+            {% else %}
+              0
+            {% endif %}
+          {% endif %}
+
+
+        target_mode: >
+          {% if not is_active or cur_soc >= limit_soc %}
+            3
+          {% elif target_amp | int < 6 %}
+            3
+          {% else %}
+            2
+          {% endif %}
+        
+        # Stato attuale salvato in HA
+        last_amp: "{{ states('input_text.ev_charge_2025_last_mqtt_payload') | int(0) }}"
+        last_mode: "{{ states('input_text.ev_charge_2025_last_mqtt_mode') }}"
+        last_current_change_ts: >
+          {% set raw = states('input_text.ev_charge_2025_last_current_change_time') %}
+          {% set parsed = strptime(raw, '%Y-%m-%d %H:%M:%S', none) %}
+          {{ as_timestamp(parsed) if parsed else 0 }}
+        
+        # Stato reale letto dalla Prism via MQTT
+        real_prism_mode_num: >
+          {% set m = states('sensor.prism_mode') %}
+          {% if m == 'solar' %} 1
+          {% elif m == 'normal' %} 2
+          {% elif m == 'pause' %} 3
+          {% elif m == 'autolimit' %} 7
+          {% else %} 0
+          {% endif %}
+        real_prism_amp: "{{ states('sensor.prism_corrente_impostata_dell_utente') | int(0) }}"
+        
+        # Rileviamo se l'utente ha appena cambiato il selettore Manuale/Automatico o se siamo al boot
+        mode_helper_changed: "{{ trigger.platform == 'state' and trigger.entity_id == 'input_select.ev_charge_2025_mode' }}"
+        manual_power_changed: "{{ trigger.platform == 'state' and trigger.entity_id == 'input_number.ev_charge_2025_manual_power_kw' }}"
+        no_grid_changed: "{{ trigger.platform == 'state' and trigger.entity_id == 'input_boolean.ev_charge_2025_no_grid' }}"
+        no_grid_2025_changed: "{{ trigger.platform == 'state' and trigger.entity_id == 'input_boolean.ev_charge_2025_no_grid_2025' }}"
+        is_boot: "{{ trigger.platform == 'homeassistant' }}"
+
+    # Nuova logica: Set End Time quando si attiva la ricarica o al boot
+    - if:
+        - condition: template
+          value_template: >
+            {{ (trigger.platform == 'state' and trigger.entity_id == 'input_boolean.ev_charge_2025_charging_active' and trigger.to_state.state == 'on')
+                 or (is_active and states('input_datetime.ev_charge_2025_end_time') == '00:00:00') }}
+      then:
+        - if:
+            - condition: template
+              value_template: "{{ duration < 240 }}"
+          then:
+            - action: input_datetime.set_datetime
+              target: { entity_id: input_datetime.ev_charge_2025_end_time }
+              data:
+                time: "{{ (now() + timedelta(minutes=duration)).strftime('%H:%M:%S') }}"
+
+    - event: ev_log_event
+      event_data:
+        level: info
+        message: "Step1_Check: mode={{mode}}, target={{target_amp}}A, target_mode={{target_mode}}, real_m={{real_prism_mode_num}}, crono={{crono}}, inertia={{inertia_delta_a}}A/{{inertia_interval_s}}s, w_surplus={{w_surplus_puro|round(0)}}W, w_disp={{w_disponibile|round(0)}}W, volt={{voltage}}V, manual={{manual_kw}}kW"
+
+    - choose:
+        # STOP
+        - conditions:
+            - condition: template
+              value_template: >
+                {{ not is_active 
+                   or cur_soc >= limit_soc 
+                   or (is_active and duration < 240 and remaining <= 0 and trigger.platform == "time_pattern")
+                   or (is_active and byd_soc_float >= 0 and byd_soc_float <= p_prot and not no_grid_2025 and not (mode == "Manuale" and not no_grid)) }}
+          sequence:
+            - action: mqtt.publish
+              data: { topic: "home/prism/1/command/set_mode", payload: "3" }
+            - action: mqtt.publish
+              data: { topic: "home/prism/1/command/set_current_user", payload: "0" }
+            - action: input_text.set_value
+              target: { entity_id: input_text.ev_charge_2025_last_mqtt_mode }
+              data: { value: "3" }
+            - action: input_text.set_value
+              target: { entity_id: input_text.ev_charge_2025_last_mqtt_payload }
+              data: { value: "0" }
+            - if:
+                - condition: template
+                  value_template: "{{ is_active }}"
+              then:
+                - action: input_boolean.turn_off
+                  target: { entity_id: input_boolean.ev_charge_2025_charging_active }
+
+        # RUN
+        - conditions:
+            - condition: template
+              value_template: "{{ is_active }}"
+          sequence:
+            # Sync Mode (Forzato se cambia l'helper o se lo stato reale differisce da quello target)
+            - if:
+                - condition: template
+                  value_template: >
+                    {{ target_mode | string != last_mode | string 
+                       or target_mode | int != real_prism_mode_num | int
+                       or last_mode in ['unknown','unavailable',''] 
+                       or mode_helper_changed 
+                       or no_grid_changed
+                       or is_boot }}
+              then:
+                - action: mqtt.publish
+                  data: { topic: "home/prism/1/command/set_mode", payload: "{{ target_mode }}" }
+                - action: input_text.set_value
+                  target: { entity_id: input_text.ev_charge_2025_last_mqtt_mode }
+                  data: { value: "{{ target_mode }}" }
+                # Reset della memoria ampere per forzare l'invio immediato della nuova potenza
+                - action: input_text.set_value
+                  target: { entity_id: input_text.ev_charge_2025_last_mqtt_payload }
+                  data: { value: "-1" }
+                - delay: "00:00:02"
+
+            # Sync Current
+            - variables:
+                current_last_amp: "{{ states('input_text.ev_charge_2025_last_mqtt_payload') | int(0) }}"
+                amp_delta: "{{ ((target_amp | int) - (states('input_text.ev_charge_2025_last_mqtt_payload') | int(0))) | abs }}"
+                seconds_since_current_change: "{{ (as_timestamp(now()) - last_current_change_ts | float(0)) | int }}"
+                force_current_sync: >
+                  {{ target_amp | int == 0
+                     or states('input_text.ev_charge_2025_last_mqtt_payload') | int(0) < 0
+                     or mode == "Manuale"
+                     or ((target_amp | int) < (states('input_text.ev_charge_2025_last_mqtt_payload') | int(0))
+                         and (((target_amp | int) - (states('input_text.ev_charge_2025_last_mqtt_payload') | int(0))) | abs) >= (inertia_delta_a | int))
+                     or mode_helper_changed
+                     or manual_power_changed
+                     or no_grid_changed
+                     or no_grid_2025_changed
+                     or is_boot
+                     or target_mode | int != last_mode | int
+                     or target_mode | int != real_prism_mode_num | int
+                     or (target_mode | int == 2 and states('input_text.ev_charge_2025_last_mqtt_payload') | int(0) < 6)
+                     or (target_mode | int == 2 and real_prism_amp | int < 6 and target_amp | int >= 6) }}
+            - variables:
+                should_send_current: >
+                  {% set last = states('input_text.ev_charge_2025_last_mqtt_payload') | int(0) %}
+                  {% set delta_ok = ((target_amp | int) - last) | abs >= inertia_delta_a | int %}
+                  {% set interval_ok = (as_timestamp(now()) - last_current_change_ts | float(0)) | int >= inertia_interval_s | int %}
+                  {{ target_amp | int != last and (force_current_sync or (delta_ok and interval_ok)) }}
+            
+            - if:
+                - condition: template
+                  value_template: "{{ should_send_current }}"
+              then:
+                - action: mqtt.publish
+                  data: { topic: "home/prism/1/command/set_current_user", payload: "{{ target_amp | int }}" }
+                - action: mqtt.publish
+                  data: { topic: "home/prism/1/command/set_current", payload: "{{ target_amp | int }}" }
+                - action: input_text.set_value
+                  target: { entity_id: input_text.ev_charge_2025_last_mqtt_payload }
+                  data: { value: "{{ target_amp | int }}" }
+                - action: input_text.set_value
+                  target: { entity_id: input_text.ev_charge_2025_last_current_change_time }
+                  data: { value: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}" }
+                - event: ev_log_event
+                  event_data: { message: "Step3_MQTT_Sent: {{target_amp}}A (mode={{target_mode}}, delta={{amp_delta}}A, age={{seconds_since_current_change}}s)" }
+              else:
+                - event: ev_log_event
+                  event_data: { level: debug, message: "Step3_MQTT_Held_By_Inertia: target={{target_amp}}A last={{current_last_amp}}A delta={{amp_delta}}A age={{seconds_since_current_change}}s min={{inertia_delta_a}}A/{{inertia_interval_s}}s" }

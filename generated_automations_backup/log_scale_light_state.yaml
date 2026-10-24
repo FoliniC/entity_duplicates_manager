@@ -1,0 +1,57 @@
+- id: "log_scale_light_switch_events"
+  alias: "Log Scale Light Switch Events"
+  description: "Logs physical and HA switching events for Scale Light (Switches)"
+  triggers:
+    - trigger: state
+      entity_id: 
+        - switch.sonoff_10024024c4_1
+        - switch.sonoff_10024024c4_2
+  conditions: []
+  actions:
+    - variables:
+        user_id: "{{ trigger.to_state.context.user_id }}"
+        source: "{{ states('input_text.scale_light_source') }}"
+        user_name: >
+          {% if user_id is not none %}
+            {% set person = states.person | selectattr('attributes.user_id', 'eq', user_id) | first | default(none) %}
+            {{ person.attributes.friendly_name if person else 'ID:' ~ user_id[:8] }}
+          {% else %}
+            none
+          {% endif %}
+    - choose:
+        # Case 1: Intent declared (Automation/UI script)
+        - conditions:
+            - condition: template
+              value_template: "{{ source != '' }}"
+          sequence:
+            - event: scale_log_event
+              event_data:
+                message: "Switch {{ trigger.entity_id }} cambiato a {{ trigger.to_state.state }} (Origine: HA - {{ source }})"
+                level: INFO
+                action: "attuatore"
+                wait: 3
+        
+        # Case 2: Direct UI interaction (No intent but has user)
+        - conditions:
+            - condition: template
+              value_template: "{{ source == '' and user_name != 'none' }}"
+          sequence:
+            - event: scale_log_event
+              event_data:
+                message: "Switch {{ trigger.entity_id }} cambiato a {{ trigger.to_state.state }} (Origine: Interfaccia - {{ user_name }})"
+                level: INFO
+                action: "attuatore"
+                wait: 3
+
+        # Case 3: Physical (No source, no user)
+        - conditions:
+            - condition: template
+              value_template: "{{ source == '' and user_name == 'none' }}"
+          sequence:
+            - event: scale_log_event
+              event_data:
+                message: "Switch {{ trigger.entity_id }} cambiato a {{ trigger.to_state.state }} (Origine: Interruttore Fisico)"
+                level: INFO
+                action: "attuatore"
+                wait: 3
+  mode: queued

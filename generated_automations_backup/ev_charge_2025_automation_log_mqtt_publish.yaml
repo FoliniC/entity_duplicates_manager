@@ -1,0 +1,55 @@
+- id: ev_charge_2025_log_mqtt_publish
+  alias: EV Charge 2025 - Log MQTT publish (Prism)
+  description: Logga in input_text gli mqtt.publish verso home/prism/1/command/* per diagnostica UI
+  triggers:
+    - trigger: event
+      event_type: call_service
+      event_data:
+        domain: mqtt
+        service: publish
+  conditions:
+    - condition: template
+      value_template: >-
+        {% set topic = trigger.event.data.service_data.topic | default('') %}
+        {{ topic.startswith('home/prism/1/command/') }}
+  actions:
+    - variables:
+        topic: "{{ trigger.event.data.service_data.topic | default('') }}"
+        payload: "{{ trigger.event.data.service_data.payload | default('') }}"
+        now_str: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.ev_charge_2025_last_mqtt_topic
+      data:
+        value: "{{ topic }}"
+    - if:
+        - condition: template
+          value_template: "{{ 'set_current' in topic }}"
+      then:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.ev_charge_2025_last_mqtt_payload
+          data:
+            value: "{{ payload }}"
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.ev_charge_2025_last_mqtt_time
+      data:
+        value: "{{ now_str }}"
+    - event: ev_log_event
+      event_data:
+        level: info
+        message: "MQTT publish -> topic={{ topic }} payload={{ payload }}"
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: input_boolean.ev_charging_logging_enabled
+              state: "on"
+          sequence:
+            - action: system_log.write
+              data:
+                level: info
+                message: >-
+                  EV_CHARGE_2025 MQTT publish -> topic={{ topic }} payload={{ payload }} at {{ now_str }}
+  mode: queued
+  max: 20

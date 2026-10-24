@@ -37,6 +37,15 @@ homeassistant:
     - /config/www/cronostar_profiles
   packages: !include_dir_named packages
 
+# ============================================================================
+# NOTIFY GROUP - per inviare notifiche a più dispositivi mobile
+# ============================================================================
+notify:
+  - name: all_devices
+    platform: group
+    services:
+      - action: mobile_app_ultra17
+      - action: mobile_app_redmi_note_13_pro_5g
 
 # ============================================================================
 # GROUPS
@@ -445,10 +454,10 @@ logger:
     esphome: error
     homeassistant.helpers.script: warning
     # DEBUG xiaomi_ble troubleshooting
-    homeassistant.components.xiaomi_ble: debug
-    homeassistant.components.bluetooth: debug
-    homeassistant.components.bluetooth.manager: debug
-    homeassistant.components.bluetooth.scanner: debug
+    homeassistant.components.xiaomi_ble: error
+    homeassistant.components.bluetooth: error
+    homeassistant.components.bluetooth.manager: error
+    homeassistant.components.bluetooth.scanner: error
     custom_components.pyscript: warning
 # ============================================================================
 # LOGBOOK & RECORDER

@@ -1,0 +1,1274 @@
+- id: log_homeassistant_events
+  alias: Log Home Assistant lifecycle events
+  description: Scrive nei log gli eventi start/stop/restart di HA (formato compatibile per analisi)
+  triggers:
+    - trigger: homeassistant
+      event: start
+    - trigger: homeassistant
+      event: shutdown
+  actions:
+    - action: persistent_notification.create
+      data:
+        title: "Home Assistant Event"
+        message: >
+          {% if trigger.event == 'start' %}
+            EVENTO: HA STARTED alle {{ now().strftime('%Y-%m-%d %H:%M:%S') }}
+          {% elif trigger.event == 'shutdown' %}
+            EVENTO: HA STOPPED alle {{ now().strftime('%Y-%m-%d %H:%M:%S') }}
+          {% endif %}
+        notification_id: "ha_{{ trigger.event }}"
+- id: programmazione_riscaldamento
+  alias: ProgrammazioneRiscaldamento
+  description: Programmazione riscaldamento
+  triggers:
+    - entity_id:
+        - schedule.riscaldamento
+      from: "off"
+      to: "on"
+      trigger: state
+  conditions: []
+  actions:
+    - target:
+      entity_id:
+          # - switch.attiva_fancoil
+          - switch.attiva_pdc
+      action: homeassistant.turn_{{ trigger.to_state.state }}
+  mode: single
+- id: spegni_riscaldamento
+  alias: SpegniRiscaldamento
+  description: Programmazione riscaldamento spegni
+  triggers:
+    - entity_id:
+        - schedule.riscaldamento
+      from: "on"
+      to: "off"
+      trigger: state
+  conditions: []
+  actions:
+    - target:
+      entity_id:
+          # - switch.attiva_fancoil
+          - switch.attiva_pdc
+      action: homeassistant.turn_{{ trigger.to_state.state }}
+  mode: single
+- id: accendi_balcone
+  alias: accendi balcone
+  description: ""
+  triggers:
+    - trigger: sun
+      event: sunset
+      offset: 00:00:00
+  conditions: []
+  actions:
+    - data: {}
+
+      entity_id:
+          - switch.luce_balcone
+      action: switch.turn_on
+  mode: single
+- id: spegni_balcone
+  alias: spegni balcone
+  description: ""
+  triggers:
+    - trigger: sun
+      event: sunset
+      offset: 03:20:00
+  conditions: []
+  actions:
+    - data: {}
+
+      entity_id: switch.luce_balcone
+      action: switch.turn_off
+  mode: single
+- id: "1706437692341"
+  alias: Regola carica colonnina
+  description:
+    Imposta gli ampere di ricarica della colonnina. Control the logging
+    by toggling the input_boolean.logging_enabled entity
+  triggers:
+    - entity_id:
+        - sensor.envoy_122134037538_current_power_production
+      trigger: state
+    - topic: home/prism/1/state
+      trigger: mqtt
+    - minutes: "10"
+      trigger: time_pattern
+  conditions: []
+  actions:
+    - variables:
+        logging_enabled: "{{ states('input_boolean.logging_enabled') }}"
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ logging_enabled == 'on' }}"
+          sequence:
+            - data:
+                message:
+                  "Messaggio W prodotti: {{states('sensor.envoy_122134037538_current_power_production'
+                  )}} \n byd_battery_box_premium_hv_state_of_charge: {{states('sensor.byd_battery_box_premium_hv_state_of_charge')}}\n
+                  voltage: {{ states('sensor.folini_carlo_voltage_ac') | float(220)}}\n
+                  W per batteria: {{ ((30-states('sensor.byd_battery_box_premium_hv_state_of_charge')
+                  | float(0)) / 30 * -4500) if states('sensor.byd_battery_box_premium_hv_state_of_charge')
+                  | float(0) < 30 else ((states('sensor.byd_battery_box_premium_hv_state_of_charge')
+                  | float(0) - 30) / 70 * 4500) if states('sensor.byd_battery_box_premium_hv_state_of_charge')
+                  | float(0) <= 100 else 0 }}\n solarnet_power_battery: {{ states('sensor.solarnet_power_battery')
+                  | float(0)}}\n W pef PDC e appartamento : {{ ( ( states('sensor.smart_meter_2026_a_pdc_power_a')
+                  | float(50)  + states('sensor.consumo_appartamento_template') | float(100)  )  )
+                  }}\n W totale : {{  (states('sensor.envoy_122134037538_current_power_production'
+                  ) | float(0) \n         + \n        (((30-states('sensor.byd_battery_box_premium_hv_state_of_charge')
+                  | float(0)) / 30 * -4500) if states('sensor.byd_battery_box_premium_hv_state_of_charge')
+                  | float(0) < 30 else ((states('sensor.byd_battery_box_premium_hv_state_of_charge')
+                  | float(0) - 30) / 70 * 4500) if states('sensor.byd_battery_box_premium_hv_state_of_charge')
+                  | float(0) <= 100 else 0)\n        -  (states('sensor.smart_meter_2026_a_pdc_power_a') |
+                  float(50) +  states('sensor.consumo_appartamento_template') | float(100) ) \n       )
+                  \ }}\n A per colonnina: {{ \n (\n   (\n     (\n        (states('sensor.envoy_122134037538_current_power_production'
+                  ) | float(0) \n         + \n        (((30-states('sensor.byd_battery_box_premium_hv_state_of_charge')
+                  | float(0)) / 30 * -4500) if states('sensor.byd_battery_box_premium_hv_state_of_charge')
+                  | float(0) < 30 else ((states('sensor.byd_battery_box_premium_hv_state_of_charge')
+                  | float(0) - 30) / 70 * 4500) if states('sensor.byd_battery_box_premium_hv_state_of_charge')
+                  | float(0) <= 100 else 0)\n        -  (states('sensor.smart_meter_2026_a_pdc_power_a') |
+                  float(50) +  states('sensor.consumo_appartamento_template') | float(100) ) \n       )
+                  \n       / \n       (states('sensor.folini_carlo_voltage_ac') | float(220)\n
+                  \      ) +0\n     ) | round(0)\n   )\n ) | string }}\n current_value:
+                  \"{{ current_value }}\"\n previous_recharge_ampere_value: \"{{ states('input_text.previous_recharge_ampere_value')
+                  }}\""
+                title: Titolo
+              action: persistent_notification.create
+    - variables:
+        current_value:
+          "{{ (\n   (\n     (\n        (states('sensor.envoy_122134037538_current_power_production'
+          ) | float(0) \n         + \n        (((30-states('sensor.byd_battery_box_premium_hv_state_of_charge')
+          | float(0)) / 30 * -4500) if states('sensor.byd_battery_box_premium_hv_state_of_charge')
+          | float(0) < 30 else ((states('sensor.byd_battery_box_premium_hv_state_of_charge')
+          | float(0) - 30) / 70 * 4500) if states('sensor.byd_battery_box_premium_hv_state_of_charge')
+          | float(0) <= 100 else 0)\n        -  (states('sensor.smart_meter_2026_a_pdc_power_a') | float(50)
+          +  states('sensor.consumo_appartamento_template') | float(100) ) \n       ) \n       /
+          \n       (states('sensor.folini_carlo_voltage_ac') | float(220)\n       )
+          +0\n     ) | round(0)\n   )\n ) | string }}"
+        previous_recharge_ampere_value:
+          "{{ states('input_text.previous_recharge_ampere_value')
+          }}"
+    - target:
+      entity_id: input_text.previous_recharge_ampere_value
+      data:
+        value: "{{ current_value }}"
+      action: input_text.set_value
+    - choose:
+        - conditions:
+            - condition: template
+              value_template:
+                "{{ current_value | int >= 6 and current_value != previous_recharge_ampere_value
+                }}"
+          sequence:
+            - event: ev_log_event
+              event_data:
+                level: info
+                message: "LEGACY_AUTO (1706437692341) -> set_mode: 2"
+            - data:
+                topic: home/prism/1/command/set_mode
+                payload: "2"
+              action: mqtt.publish
+            - event: ev_log_event
+              event_data:
+                level: info
+                message: "LEGACY_AUTO (1706437692341) -> set_current_user: {{ current_value }}"
+            - data:
+                topic: home/prism/1/command/set_current_user
+                payload: "{{ current_value }}"
+              action: mqtt.publish
+        - conditions:
+            - condition: template
+              value_template: "{{ current_value | int < 6  }}"
+          sequence:
+            - event: ev_log_event
+              event_data:
+                level: info
+                message: "LEGACY_AUTO (1706437692341) -> set_mode: 3"
+            - data:
+                topic: home/prism/1/command/set_mode
+                payload: "3"
+              action: mqtt.publish
+  mode: single
+# - id: "interrompi_ricarica_soc_raggiunto"
+#   alias: Interrompi Ricarica - SOC Raggiunto
+#   description: Interrompe la ricarica quando il SOC del veicolo raggiunge il target SOC.
+#   triggers:
+#     - trigger: state
+#       entity_id: sensor.silla_prism_current_state
+#     - trigger: homeassistant
+#       event: start
+#   conditions:
+#     - condition: template
+#       value_template: "{{ states('sensor.mg_eh32_x7_state_of_charge') | float(0) >= states('number.mg_eh32_x7_target_soc_2') | float(0) }}"
+#     - condition: template
+#       value_template: >-
+#         {{ states('sensor.silla_prism_current_state') | lower == 'charging' }}
+#   actions:
+#     - action: mqtt.publish
+#       data:
+#         topic: home/prism/1/command/set_mode
+#         payload: "3" # Modalità di spegnimento o standby
+#     - action: notify.persistent_notification
+#       data:
+#         title: "Ricarica Interrotta"
+#         message: "SOC target raggiunto: {{ states('sensor.state_of_charge') }}% (Target: {{ states('number.mg_eh32_x7_target_soc_2') }}%)"
+#   mode: single
+# - id: "interrompi_ricarica_tempo_massimo_clessidra_singolo"
+#   alias: Interrompi Ricarica - Tempo Massimo (Clessidra Singolo Input)
+#   description: Interrompe la ricarica dopo un tempo massimo definito dall'utente, con effetto clessidra usando un solo input_number.
+#   triggers:
+#     - trigger: state
+#       entity_id: sensor.silla_prism_current_state
+#       to: "Charging" # Rileva l'inizio della ricarica dalla colonnina Silla Prism
+#       id: start_charging
+#     - trigger: time_pattern
+#       minutes: "/1" # Controlla ogni minuto per aggiornare il countdown
+#       id: check_timer
+#   conditions:
+#     - condition: state
+#       entity_id: sensor.silla_prism_current_state
+#       state: "Charging" # Verifica che la ricarica sia in corso
+#   actions:
+#     - choose:
+#         - conditions:
+#             - condition: trigger
+#               id: start_charging
+#           sequence:
+#             - action: input_datetime.set_datetime
+#               target:
+#                 entity_id: input_datetime.inizio_ricarica
+#               data:
+#                 datetime: "{{ now().isoformat() }}"
+#             - action: input_number.set_value
+#               target:
+#                 entity_id: input_number.tempo_ricarica_clessidra
+#               data:
+#                 value: "{{ states('input_number.tempo_ricarica_clessidra') | int(0) if states('input_number.tempo_ricarica_clessidra') | int(0) > 0 else 60 }}" # Usa il valore impostato, default 60 minuti se 0
+#         - conditions:
+#             - condition: trigger
+#               id: check_timer
+#           sequence:
+#             - variables:
+#                 current_value: "{{ states('input_number.tempo_ricarica_clessidra') | int(0) }}"
+#                 new_value: "{{ current_value - 1 if current_value > 0 else 0 }}"
+#             - action: input_number.set_value
+#               target:
+#                 entity_id: input_number.tempo_ricarica_clessidra
+#               data:
+#                 value: "{{ new_value }}"
+#             - if:
+#                 - condition: template
+#                   value_template: "{{ new_value <= 0 and current_value > 0 }}"
+#               then:
+#                 - action: mqtt.publish
+#                   data:
+#                     topic: home/prism/1/command/set_mode
+#                     payload: "3" # Modalità di spegnimento o standby
+#                 - action: notify.persistent_notification
+#                   data:
+#                     title: "Ricarica Interrotta"
+#                     message: "Tempo massimo di ricarica raggiunto: il timer è scaduto."
+#   mode: single
+- id: "1706437692342"
+  alias: Regola carica colonnina GUI
+  description: Imposta gli ampere di ricarica della colonnina. Controlla il logging tramite input_boolean.logging_enabled.
+  triggers:
+    - trigger: state
+      entity_id:
+        - sensor.envoy_122134037538_current_power_production
+    - trigger: mqtt
+      topic: home/prism/1/state
+    - trigger: time_pattern
+      minutes: "10"
+  conditions: []
+  actions:
+    - variables:
+        logging_enabled: "{{ states('input_boolean.logging_enabled') }}"
+        soc: "{{ states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) }}"
+        power_production: "{{ states('sensor.envoy_122134037538_current_power_production') | float(0) }}"
+        voltage: "{{ states('sensor.folini_carlo_voltage_ac') | float(220) }}"
+        consumo_pdc: "{{ states('sensor.smart_meter_2026_a_pdc_power_a') | float(50) }}"
+        consumo_appartamento: "{{ states('sensor.consumo_appartamento_template') | float(100) }}"
+        solarnet_power_battery: "{{ states('sensor.solarnet_power_battery') | float(0) }}"
+        w_battery: >
+          {{ ((30 - soc) / 30 * -4500) if soc < 30 else ((soc - 30) / 70 * 4500) if soc <= 100 else 0 }}
+        w_totale: "{{ (power_production + w_battery - (consumo_pdc + consumo_appartamento)) | round(2) }}"
+        current_value: "{{ ((w_totale / voltage) | round(0)) | string }}"
+        previous_recharge_ampere_value: "{{ states('input_text.previous_recharge_ampere_value') }}"
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ logging_enabled == 'on' }}"
+          sequence:
+            - action: persistent_notification.create
+                title: "Titolo"
+                message: >
+                  Messaggio W prodotti: {{ power_production }} W
+                  SOC Batteria BYD: {{ soc }} %
+                  Voltage: {{ voltage }} V
+                  W per batteria: {{ w_battery | round(2) }} W
+                  Solarnet Power Battery: {{ solarnet_power_battery }} W
+                  W per PDC e Appartamento: {{ (consumo_pdc + consumo_appartamento) | round(2) }} W
+                  W totale: {{ w_totale }} W
+                  A per colonnina: {{ current_value }} A
+                  Current Value: {{ current_value }}
+                  Previous Recharge Ampere Value: {{ previous_recharge_ampere_value }}
+    - action: input_text.set_value
+
+      entity_id: input_text.previous_recharge_ampere_value
+      data:
+        value: "{{ current_value }}"
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ current_value | int >= 6 and current_value != previous_recharge_ampere_value }}"
+          sequence:
+            - event: ev_log_event
+              event_data:
+                level: info
+                message: "LEGACY_GUI (1706437692342) -> set_mode: 2"
+            - action: mqtt.publish
+                topic: home/prism/1/command/set_mode
+                payload: "2" # Modalità di ricarica
+            - event: ev_log_event
+              event_data:
+                level: info
+                message: "LEGACY_GUI (1706437692342) -> set_current_user: {{ current_value }}"
+            - action: mqtt.publish
+                topic: home/prism/1/command/set_current_user
+                payload: "{{ current_value }}"
+        - conditions:
+            - condition: template
+              value_template: "{{ current_value | int < 6 }}"
+          sequence:
+            - event: ev_log_event
+              event_data:
+                level: info
+                message: "LEGACY_GUI (1706437692342) -> set_mode: 3"
+            - action: mqtt.publish
+                topic: home/prism/1/command/set_mode
+                payload: "3" # Modalità di spegnimento o standby
+  mode: single
+- id: "1707128644063"
+  alias: Alert finestra stanza
+  description: "Rileva apertura finestre tramite varianza termica e di umidità con controllo delta esterno"
+  triggers:
+    - entity_id:
+        - sensor.statistics_temperatura_bagno_variance
+        - sensor.statistics_temperatura_cucina_variance
+        - sensor.statistics_temperatura_camera_grande_variance
+        - sensor.statistics_temperatura_camera_variance
+        - sensor.statistics_temperatura_sala_variance
+      above: "0.07"
+      for:
+        minutes: 1
+      trigger: numeric_state
+    - entity_id:
+        - sensor.statistics_umidita_bagno_variance
+        - sensor.statistics_umidita_cucina_variance
+        - sensor.statistics_umidita_camera_grande_variance
+        - sensor.statistics_umidita_camera_variance
+        - sensor.statistics_umidita_sala_variance
+      above: "2.0"
+      for:
+        minutes: 1
+      trigger: numeric_state
+  conditions:
+    - condition: template
+      alias: "Verifica differenziale termico interno/esterno > 5 gradi"
+      value_template: >
+        {% set temp_ext = states('sensor.temperatura_strenscia') | float(none) %}
+        {% set room = trigger.entity_id.replace('sensor.statistics_temperatura_', '').replace('sensor.statistics_umidita_', '').replace('_variance', '') %}
+        {% set room_temps = {
+          'bagno': 'sensor.temperatura_bagno',
+          'cucina': 'sensor.th1a_temperature',
+          'camera_grande': 'sensor.temperatura_camera_grande',
+          'camera': 'sensor.temperatura_camera',
+          'sala': 'sensor.temperatura_sala'
+        } %}
+        {% set source_entity = room_temps.get(room) %}
+        {% set temp_int = states(source_entity) | float(none) if source_entity else none %}
+        
+        {% if temp_ext is not none and temp_int is not none %}
+          {{ (temp_int - temp_ext) | abs > 5 }}
+        {% else %}
+          true
+        {% endif %}
+  actions:
+    - event: fancoil_log_event
+      event_data:
+        level: info
+        message: >
+          Window Alert Triggered - Room: {{ trigger.to_state.name.replace('statistics_temperatura_','').replace('statistics_umidita_','').replace('_variance','') }}, 
+          Entity: {{ trigger.entity_id }}, 
+          Value: {{ trigger.to_state.state }},
+          Temp Est: {{ states('sensor.temperatura_strenscia') }}
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ 'bagno' in trigger.entity_id }}"
+          sequence:
+            # Usare notify group per notifiche device-agnostic
+            - action: notify.mobile_devices
+              target:
+                message: TTS
+            data:
+                  tts_text: Probabilmente la finestra del bagno è aperta.
+        - conditions:
+            - condition: template
+              value_template: "{{ 'cucina' in trigger.entity_id }}"
+          sequence:
+            # Usare notify group per notifiche device-agnostic
+            - action: notify.mobile_devices
+              target:
+                message: TTS
+            data:
+                  tts_text: Probabilmente la finestra della cucina è aperta.
+        - conditions:
+            - condition: template
+              value_template: "{{ 'camera_grande' in trigger.entity_id }}"
+          sequence:
+            # Usare notify group per notifiche device-agnostic
+            - action: notify.mobile_devices
+              target:
+                message: TTS
+            data:
+                  tts_text: Probabilmente la finestra della camera grande è aperta.
+        - conditions:
+            - condition: template
+              value_template: "{{ 'camera' in trigger.entity_id and 'camera_grande' not in trigger.entity_id }}"
+          sequence:
+            # Usare notify group per notifiche device-agnostic
+            - action: notify.mobile_devices
+              target:
+                message: TTS
+            data:
+                  tts_text: Probabilmente la finestra della camera è aperta.
+        - conditions:
+            - condition: template
+              value_template: "{{ 'sala' in trigger.entity_id }}"
+          sequence:
+            # Usare notify group per notifiche device-agnostic
+            - action: notify.mobile_devices
+              target:
+                message: TTS
+            data:
+                  tts_text: Probabilmente la finestra della sala è aperta.
+  mode: single
+# - id: "1712908929755"
+#   alias: Example Automation When Condition Is False
+#   description: Perform an action when the first condition is false
+#   triggers:
+#     - entity_id: sensor.example_sensor
+#       to: "on"
+#       trigger: state
+#   actions:
+#     - choose:
+#         - conditions:
+#             - condition: numeric_state
+#               entity_id: sensor.example_sensor_value
+#               above: 100
+#           sequence:
+#             - data:
+#                 message: "Condition is true: Sensor value is above 100."
+#               action: notify.notify
+#       default:
+#         - data:
+#             message: "Condition is false: Sensor value is not above 100."
+#           action: notify.notify
+#   mode: single
+# - id: "1713558627802"
+#   alias: Accendi lavatrice
+#   description: ""
+#   triggers:
+#     - at: 05:30:00
+#       trigger: time
+#   conditions: []
+#   actions:
+#     - type: turn_on
+#       device_id: 239b8877e08308cb01046610cdaa2637
+#       entity_id: 651d10faf26c18f5eec7d9c35cbbad3c
+#       domain: switch
+#   mode: single
+# - id: "1721201611314"
+#   alias: KNX - Climate control cucina
+#   description: ""
+#   use_blueprint:
+#     path: kalhimeo/knx-climate-entitie-control.yaml
+#     input:
+#       climate_entity: climate.cucina_3
+#       target_temperature_address: 3/3/17
+#       target_temperature_state_address: 3/3/24
+#       current_temperature_state_address: 3/3/15
+- id: announceGoogleCalling
+  alias: Announce Google Calling
+  triggers:
+    - trigger: event
+      event_type: google_cloud_speech_to_text.result
+  actions:
+    # Usare notify group per notifiche device-agnostic
+    - action: notify.mobile_devices
+
+      data:
+        title: TTS
+        message: Google calling
+- id: debug_deviatore_states
+  alias: DEBUG - Stati Deviatore Scale
+  triggers:
+    - trigger: state
+      entity_id:
+        - switch.sonoff_10024024c4_1
+        - switch.sonoff_10024024c4_2
+    - trigger: time_pattern
+      minutes: "/2"
+    - trigger: homeassistant
+      event: start
+  action:
+    - delay: "00:00:02"
+    - variables:
+        current_state_str: >
+          {% set s1 = states('switch.sonoff_10024024c4_1') %}
+          {% set s2 = states('switch.sonoff_10024024c4_2') %}
+          {% set l = states('light.luce_scale') %}
+          S1={{ s1 }}, S2={{ s2 }}{% if l not in ['unknown', 'unavailable'] %}, Luce={{ l }}{% endif %}
+        last_state_str: "{{ states('input_text.debug_deviatore_last_state') }}"
+    - choose:
+        # Caso 1: HA Start
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.platform == 'homeassistant' }}"
+          sequence:
+            - event: scale_log_event
+              event_data:
+                message: "DEBUG - Ripartito Home Assistant. {{ current_state_str }}"
+                level: INFO
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.debug_deviatore_last_state
+                value: "{{ current_state_str }}"
+
+        # Caso 2: State Change (Sempre log)
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.platform == 'state' }}"
+          sequence:
+            - event: scale_log_event
+              event_data:
+                message: "DEBUG - Cambio stato rilevato. {{ current_state_str }}"
+                level: INFO
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.debug_deviatore_last_state
+                value: "{{ current_state_str }}"
+
+        # Caso 3: Time Pattern (Log solo se diverso dall'ultimo salvato)
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.platform == 'time_pattern' }}"
+            - condition: template
+              value_template: "{{ current_state_str != last_state_str }}"
+          sequence:
+            - event: scale_log_event
+              event_data:
+                message: "DEBUG - Aggiornamento periodico (stato disallineato?). {{ current_state_str }} (Era: {{ last_state_str }})"
+                level: INFO
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.debug_deviatore_last_state
+                value: "{{ current_state_str }}"
+      default: []
+  mode: queued
+
+- id: keepDeviatoreScaleTurnedOn
+  alias: Controlla stati deviatore scale (anti-oscillazione)
+  triggers:
+    - trigger: state
+      entity_id:
+        - switch.sonoff_10024024c4_1
+        - switch.sonoff_10024024c4_2
+      for:
+        seconds: 5
+    - trigger: time_pattern
+      minutes: "/5"
+  variables:
+    s1: "{{ states('switch.sonoff_10024024c4_1') }}"
+    s2: "{{ states('switch.sonoff_10024024c4_2') }}"
+    power_total: "{{ (states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0)) }}"
+    valid_states: ["on", "off"]
+    problematic_states: ["unknown", "unavailable", "none"]
+  conditions: []
+  actions:
+    - choose:
+        # Caso 1: Entrambi ON - Spegni switch_2 (mantieni switch_1 come principale)
+        - conditions:
+            - condition: template
+              value_template: "{{ states('switch.sonoff_10024024c4_1') == 'on' and states('switch.sonoff_10024024c4_2') == 'on' }}"
+          sequence:
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.scale_light_source
+                value: "Automazione: Correzione Deviatore (ON-ON)"
+            - action: switch.turn_off
+              target:
+                entity_id: switch.sonoff_10024024c4_2
+            - delay:
+                milliseconds: 500
+            - action: system_log.write
+                #name: "Deviatore Scale"
+                level: info
+                message: >-
+                  Correzione ENTRAMBI ON: Spento switch_2 - 
+                  S1: {{ states('switch.sonoff_10024024c4_1') }}, 
+                  S2: {{ states('switch.sonoff_10024024c4_2') }},
+                  Power: {{ (states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0)) }}W
+            - action: notify.mobile_devices
+              target:
+                entity_id: notify.ultra17
+                title: "⚠️ Deviatore Scale Corretto"
+                message: >-
+                  Entrambi ON rilevati → Spento switch_2
+                  Stato finale: S1={{ states('switch.sonoff_10024024c4_1') }}, S2={{ states('switch.sonoff_10024024c4_2') }}
+                  Power: {{ (states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0)) }}W
+            - event: scale_log_event
+              event_data:
+                message: "Correzione ENTRAMBI ON: Spento switch_2. S1={{ states('switch.sonoff_10024024c4_1') }}, S2={{ states('switch.sonoff_10024024c4_2') }}"
+                level: WARNING
+                action: "attuatore"
+            - delay: "0:00:02"
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.scale_light_source
+                value: ""
+
+        # Caso 2: Entrambi OFF - Accendi switch_1
+        - conditions:
+            - condition: template
+              value_template: "{{ states('switch.sonoff_10024024c4_1') == 'off' and states('switch.sonoff_10024024c4_2') == 'off' }}"
+          sequence:
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.scale_light_source
+                value: "Automazione: Correzione Deviatore (OFF-OFF)"
+            - action: switch.turn_on
+              target:
+                entity_id: switch.sonoff_10024024c4_1
+            - delay:
+                milliseconds: 500
+            - action: system_log.write
+                #name: "Deviatore Scale"
+                level: info
+                message: >-
+                  Correzione ENTRAMBI OFF: Acceso switch_1 - 
+                  S1: {{ states('switch.sonoff_10024024c4_1') }}, 
+                  S2: {{ states('switch.sonoff_10024024c4_2') }},
+                  Power: {{ (states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0)) }}W
+            - action: notify.mobile_devices
+              target:
+                entity_id: notify.ultra17
+                title: "⚠️ Deviatore Scale Corretto"
+                message: >-
+                  Entrambi OFF rilevati → Acceso switch_1
+                  Stato finale: S1={{ states('switch.sonoff_10024024c4_1') }}, S2={{ states('switch.sonoff_10024024c4_2') }}
+                  Power: {{ (states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0)) }}W
+            - event: scale_log_event
+              event_data:
+                message: "Correzione ENTRAMBI OFF: Acceso switch_1. S1={{ states('switch.sonoff_10024024c4_1') }}, S2={{ states('switch.sonoff_10024024c4_2') }}"
+                level: WARNING
+                action: "attuatore"
+            - delay: "0:00:02"
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.scale_light_source
+                value: ""
+
+        # Caso 3: Stati problematici - logghiamo senza correggere
+        - conditions:
+            - condition: template
+              value_template: "{{ states('switch.sonoff_10024024c4_1') in problematic_states or states('switch.sonoff_10024024c4_2') in problematic_states }}"
+          sequence:
+            - action: system_log.write
+                #name: "Deviatore Scale"
+                level: info
+                message: >-
+                  Stato problematico rilevato - 
+                  Switch1: {{ states('switch.sonoff_10024024c4_1') }}, Switch2: {{ states('switch.sonoff_10024024c4_2') }},
+                  Power: {{ power_total }}W
+            - action: notify.mobile_devices
+              target:
+                entity_id: notify.ultra17
+                title: "❌ Problema Deviatore Scale"
+                message: "Stato problematico: S1={{ states('switch.sonoff_10024024c4_1') }}, S2={{ states('switch.sonoff_10024024c4_2') }}"
+            - event: scale_log_event
+              event_data:
+                message: "Stato problematico rilevato. S1={{ states('switch.sonoff_10024024c4_1') }}, S2={{ states('switch.sonoff_10024024c4_2') }}"
+                level: ERROR
+                action: "nulla"
+
+        # Caso 4: Stati diversi (uno ON, uno OFF) - tutto OK
+        - conditions:
+            - condition: template
+              value_template: "{{ states('switch.sonoff_10024024c4_1') != states('switch.sonoff_10024024c4_2') and states('switch.sonoff_10024024c4_1') in valid_states and states('switch.sonoff_10024024c4_2') in valid_states }}"
+          sequence:
+            - action: system_log.write
+                #name: "Deviatore Scale"
+                level: info
+                message: >-
+                  Stati OK: S1={{ s1 }}, S2={{ s2 }},
+                  Power: {{ power_total }}W
+      default:
+        - action: system_log.write
+          data:
+            #name: "Deviatore Scale"
+            level: info
+            message: >-
+              Stato non gestito: S1={{ s1 }}, S2={{ s2 }}
+  mode: restart
+- id: "1739986157014"
+  alias: "Spegni luci scale dopo tempo - Avvia timer"
+  description: Avvia timer 4min quando luce scale si accende
+  triggers:
+    - trigger: state
+      entity_id: light.luce_scale
+      to: "on"
+      for:
+        seconds: 15
+    - trigger: homeassistant
+      event: start
+  conditions:
+    - condition: state
+      entity_id: light.luce_scale
+      state: "on"
+  actions:
+    - service: timer.start
+
+      entity_id: timer.luce_scale_auto_off
+    - service: system_log.write
+      data:
+        level: info
+        message: "Timer luci scale avviato (4 min)"
+  mode: restart
+- id: "1739986157015"
+  alias: "Spegni luci scale dopo tempo - Timer scaduto"
+  description: Spegne luci scale quando timer scade
+  triggers:
+    - trigger: event
+      event_type: timer.finished
+      event_data:
+      entity_id: timer.luce_scale_auto_off
+  conditions:
+    - condition: state
+      entity_id: light.luce_scale
+      state: "on"
+  actions:
+    - variables:
+        we_turned_it_off: false
+    - action: persistent_notification.create
+      data:
+        title: "Luce Scale"
+        message: >-
+          Spegnimento automatico luci scale.
+          Consumo: {{ states('sensor.luce_scale_switch_infos') }}W
+        notification_id: spegni_luci_123
+    - if:
+        - condition: template
+          value_template: "{{ states('sensor.luce_scale_switch_infos') | float(0) > 7 }}"
+      then:
+        - action: input_text.set_value
+            entity_id: input_text.scale_light_source
+          data:
+            value: "{{ trigger.entity_id }}"
+        - action: light.turn_off
+            entity_id: light.luce_scale
+        - variables:
+            we_turned_it_off: true
+    - delay:
+        seconds: 2
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: light.luce_scale
+              state: "off"
+            - condition: template
+              value_template: "{{ we_turned_it_off }}"
+          sequence:
+            # Usare notify group per notifiche device-agnostic
+            - action: notify.mobile_devices
+              target:
+                title: "Luce Scale"
+                message: "Luce scale spenta automaticamente dopo 4 minuti. Consumo: {{ states('sensor.luce_scale_switch_infos') }}W"
+            data:
+                  tts_text: "Spenta la luce scale"
+        - conditions:
+            - condition: state
+              entity_id: light.luce_scale
+              state: "off"
+          sequence:
+            # Usare notify group per notifiche device-agnostic
+            - action: notify.mobile_devices
+              target:
+                title: "Luce Scale"
+                message: "Luce scale era già spenta (spenta da altra automazione). Consumo: {{ states('sensor.luce_scale_switch_infos') }}W"
+            data:
+                  tts_text: "La luce scale era già spenta"
+      default:
+        # Usare notify group per notifiche device-agnostic
+        - action: notify.mobile_devices
+          data:
+            title: "⚠️ Errore Luce Scale"
+            message: "La luce non si è spenta correttamente dopo il timeout"
+  mode: single
+- id: "1739986157016"
+  alias: "Spegni luci scale dopo tempo - Annulla timer se spenta manualmente"
+  description: Annulla timer se luce scale spenta manualmente
+  triggers:
+    - trigger: state
+      entity_id: light.luce_scale
+      to: "off"
+  actions:
+    - service: timer.cancel
+
+      entity_id: timer.luce_scale_auto_off
+    - service: system_log.write
+      data:
+        level: info
+        message: "Timer luci scale annullato (spenta manualmente)"
+  mode: single
+
+- id: "1740142914490"
+  alias: Memorizza stato di luci_scale_switch_2 e luci_scale_switch_3
+  description:
+    Memorizza lo stato di switch.luci_scale_switch_2 e switch.luci_scale_switch_3
+    ogni volta che vengono modificati
+  triggers:
+    - entity_id: switch.sonoff_10024024c4_1
+      trigger: state
+    - entity_id: switch.sonoff_10024024c4_2
+      trigger: state
+  actions:
+    - action: input_text.set_value
+      data:
+      entity_id: input_text.state_luci_scale_switch_2
+        value: "{{ trigger.to_state.state }}"
+    - action: input_text.set_value
+      data:
+      entity_id: input_text.state_luci_scale_switch_3
+        value: "{{ trigger.to_state.state }}"
+  mode: single
+# - id: "1741528516379"
+#   alias: Spegni luce scale dopo 10 minuti
+#   description: Spegni luce scale
+#   triggers:
+#     - trigger: state
+#       entity_id: light.luce_scale_switch
+#       to: "on"
+#       for:
+#         seconds: 15
+#   actions:
+#     - delay:
+#         minutes: 10
+#     - action: light.turn_off
+#       target:
+#         entity_id: light.luce_scale_switch
+#       data: {}
+#     - event: scale_log_event
+#       data:
+#         message: "Spegni luce scale dopo tempo - Spenta light.luce_scale_switch dopo 10 min"
+#         level: INFO
+#         action: "spento"
+#   mode: restart
+# - id: "1742548085000"
+#   alias: Blocca ricarica temporaneamente
+#   description: Blocca ricarica temporaneamente
+#   triggers:
+#     - trigger: state
+#       entity_id:
+#         - input_button.blocca_ricarica_button
+#       to: pressed
+#   conditions: []
+#   actions:
+#     - action: automation.turn_off
+#       metadata: {}
+#       data: {}
+#       target:
+#         entity_id: automation.regola_carica_colonnina
+#     - delay:
+#         hours: 0
+#         minutes: "{{ states('input_number.minuticolonnina_input') | int * 60 }}"
+#         seconds: 0
+#         milliseconds: 0
+#     - action: automation.turn_on
+#       metadata: {}
+#       data: {}
+#       target:
+#         entity_id: automation.regola_carica_colonnina
+#   mode: single
+- id: Notifica ping google eliminata
+  alias: Notifica ping google eliminata
+  triggers:
+    - entity_id: binary_sensor.ping_google
+      to: "off"
+      trigger: state
+  actions:
+    - repeat:
+        until:
+          - condition: state
+            entity_id: binary_sensor.ping_google
+            state: "on"
+        sequence:
+          - alias: Controlla se ping è ancora off
+            condition: state
+            entity_id: binary_sensor.ping_google
+            state: "off"
+          - alias: Notifica mancata raggiungibilità Google
+            action: notify.notify
+            data:
+              message: Il server Google non è raggiungibile.
+          - alias: Attendi 5 minuti
+            delay:
+              minutes: 5
+# - id: ping google 30 minuti
+#   alias: Ping google automation
+#   description: ""
+#   triggers:
+#     - minutes: /30
+#       trigger: time_pattern
+#   conditions:
+#     - condition: state
+#       entity_id: person.carlo
+#       state: not_home
+#   actions:
+#     - target:
+#         entity_id: device_tracker.ping_google
+#       data: {}
+#       action: homeassistant.update_entity
+#   mode: single
+# - id: Verifica e sistema connessione internet
+#   alias: Verifica e sistema connessione internet
+#   triggers:
+#     - entity_id: binary_sensor.ping_google
+#       to: "off"
+#       trigger: state
+#   actions:
+#     - choose:
+#         - conditions:
+#             - condition: state
+#               entity_id: input_boolean.ssid_changed
+#               state: "off"
+#           sequence:
+#             - data:
+#                 ssid: wifi domotica
+#               action: reboot_service.change_ssid
+#             - target:
+#                 entity_id: input_boolean.ssid_changed
+#               action: input_boolean.turn_on
+#               data: {}
+#         - conditions:
+#             - condition: state
+#               entity_id: input_boolean.ssid_changed
+#               state: "on"
+#           sequence:
+#             - data:
+#                 ssid: reboot
+#               action: reboot_service.change_ssid
+#             - target:
+#                 entity_id: input_boolean.ssid_changed
+#               action: input_boolean.turn_off
+#               data: {}
+#             - delay:
+#                 hours: 0
+#                 minutes: 1
+#                 seconds: 0
+#                 milliseconds: 0
+# - id: Esegui ping google 5 minuti
+#   alias: Esegui ping google
+#   description: Esegue un ping su google ogni 5 minuti
+#   triggers:
+#     - trigger: time_pattern
+#       minutes: /5
+#   conditions: []
+#   actions:
+#     - action: homeassistant.update_entity
+#       metadata: {}
+#       data:
+#         entity_id:
+#           - binary_sensor.ping_google
+#     - delay: 00:00:10
+#     - condition: state
+#       entity_id: binary_sensor.ping_google
+#       state: "off"
+#     - action: automation.turn_on
+#       metadata: {}
+#       data: {}
+#       target:
+#         entity_id: automation.verifica_e_sistema_connessione_internet
+#   mode: single
+# File: automations.yaml
+
+# File: automations.yaml
+
+- alias: "Ping google automation"
+  id: ping_google_30_minuti
+  description: "Aggiorna lo stato del ping ogni 30 minuti quando non si è a casa"
+  triggers:
+    - trigger: time_pattern
+      minutes: "/30"
+  conditions:
+    - condition: state
+      entity_id: person.carlo
+      state: not_home
+    # Trigger solo se l'automazione target è abilitata E non è già in esecuzione
+    - condition: state
+      entity_id: automation.verifica_e_sistema_connessione_internet_2
+      state: "on" # Assicurati che sia abilitata
+    - condition: template
+      value_template: "{{ state_attr('automation.verifica_e_sistema_connessione_internet_2', 'current') == 0 }}" # Assicurati che non sia già in esecuzione
+  actions:
+    - action: homeassistant.update_entity
+
+      entity_id: binary_sensor.ping_google
+  mode: single
+
+# - alias: "Verifica e sistema connessione internet"
+#   id: verifica_e_sistema_connessione_internet_2
+#   description: "Cambia SSID o riavvia il router quando Internet non funziona"
+#   triggers:
+#     - trigger: state
+#       entity_id: binary_sensor.ping_google
+#       to: "off"
+#       for:
+#         minutes: 2 # Aggiungi conferma per evitare falsi positivi
+#   conditions:
+#     # Evita loop: controlla che non sia già stata eseguita di recente
+#     - condition: template
+#       value_template: >
+#         {% set last_triggered_attr = states.automation.verifica_e_sistema_connessione_internet_2.attributes.last_triggered %}
+#         {% set last_changed = as_timestamp(last_triggered_attr) if last_triggered_attr is not none else 0 %}
+#         {% set now = as_timestamp(now()) %}
+#         {{ (now - last_changed) > 300 }}  {# Almeno 5 minuti dall'ultima esecuzione #}
+#   actions:
+#     # PRIMA: Aggiorna l'SSID corrente per sapere dove siamo
+#     - action: homeassistant.update_entity
+#       target:
+#         entity_id: sensor.router_ssid
+#     - delay: "00:00:05"
+# 
+#     - choose:
+#         - conditions:
+#             - condition: template
+#               value_template: >
+#                 {{ states('input_boolean.ssid_changed') in ['off', 'unavailable', 'unknown'] }}
+#           sequence:
+#             - action: reboot_service.change_ssid
+#               data:
+#                 ssid: "wifi domotica"
+#             - delay: "00:00:30"
+#             - action: input_boolean.turn_on
+#               target:
+#                 entity_id: input_boolean.ssid_changed
+#             # Aggiorna SSID dopo il cambio
+#             - delay: "00:01:00"
+#             - action: homeassistant.update_entity
+#               target:
+#                 entity_id: sensor.router_ssid
+#         - conditions:
+#             - condition: state
+#               entity_id: input_boolean.ssid_changed
+#               state: "on"
+#           sequence:
+#             - action: reboot_service.change_ssid
+#               data:
+#                 ssid: "reboot"
+#             - delay: "00:00:30"
+#             - action: input_boolean.turn_off
+#               target:
+#                 entity_id: input_boolean.ssid_changed
+#             # Dopo reboot, attendi più a lungo prima di aggiornare
+#             - delay: "00:02:00"
+#             - action: homeassistant.update_entity
+#               target:
+#                 entity_id: sensor.router_ssid
+#   mode: single
+# 
+# - alias: "Esegui ping google"
+#   id: esegui_ping_google_5_minuti
+#   description: "Esegue un ping su google ogni 5 minuti"
+#   triggers:
+#     - trigger: time_pattern
+#       minutes: "/5"
+#   conditions:
+#     # Trigger solo se l'automazione target è abilitata E non è già in esecuzione
+#     - condition: state
+#       entity_id: automation.verifica_e_sistema_connessione_internet_2
+#       state: "on" # Assicurati che sia abilitata
+#     - condition: template
+#       value_template: "{{ state_attr('automation.verifica_e_sistema_connessione_internet_2', 'current') == 0 }}" # Assicurati che non sia già in esecuzione
+#   actions:
+#     - action: homeassistant.update_entity
+#       target:
+#         entity_id: binary_sensor.ping_google
+#     - delay: "00:00:15" # Aumentato per dare tempo al ping
+#     - condition: state
+#       entity_id: binary_sensor.ping_google
+#       state: "off"
+#       for:
+#         minutes: 1 # Conferma che sia effettivamente offline
+#     - action: automation.trigger
+#       target:
+#         entity_id: automation.verifica_e_sistema_connessione_internet_2
+#       data:
+#         skip_condition: false # Rispetta le condizioni dell'automazione
+#   mode: single
+
+# - alias: "Aggiorna SSID router all'avvio"
+#   id: update_router_ssid_on_start
+#   description: "Aggiorna l'SSID una volta all'avvio"
+#   triggers:
+#     - trigger: homeassistant
+#       event: start
+#   actions:
+#     - delay: "00:00:45" # Aspetta che il sistema sia pronto
+#     - action: homeassistant.update_entity
+#       target:
+#         entity_id: sensor.router_ssid
+
+- id: "1745502574489"
+  alias: Log TH1A branch
+  description: Log TH1A branch
+  triggers:
+    - entity_id: sensor.th1a_temperature
+      trigger: state
+  conditions: []
+  actions:
+    - action: system_log.write
+      data:
+        message: th1a_temperature is now {{ states('sensor.th1a_temperature') }} - {{states('sensor.th1a_temperature_humidity_temperature_last')}}
+        level: info
+  mode: single
+- id: "1748883584464"
+  alias: Ingressi e uscite
+  description: Notifica ingressi e uscite di Carlo
+  triggers:
+    - entity_id:
+        - device_tracker.2312dra50g
+      trigger: state
+  conditions:
+    - condition: template
+      value_template: "{{ trigger.to_state.state != trigger.from_state.state }}"
+  actions:
+    - alias: Invia notifica
+      action: notify.mobile_devices
+
+      entity_id: notify.ultra17
+      data:
+        message:
+          "{%- if trigger.to_state.state == 'home' -%}           Rilevato ingresso
+          in casa da parte di {{ trigger.from_state.attributes.friendly_name }}         {%-
+          elif trigger.to_state.state in ['away', 'not_home'] and trigger.from_state.state
+          == 'home' -%}           Rilevata uscita da parte di {{ trigger.from_state.attributes.friendly_name
+          }}         {%- endif -%}"
+  mode: single
+# - id: "1748883584123"
+#   alias: "Fancoil cucina fanmode dinamica"
+#   mode: restart
+#   description: >-
+#     Regola la velocità ventola del fan-coil cucina in base alla distanza dal setpoint e alla modalità caldo/freddo.
+#   triggers:
+#     - trigger: state
+#       entity_id:
+#         - sensor.stox_fancoil_cucina
+#         - climate.controllo_temperatura_cucina
+#       for: "00:00:10" # evita trigger troppo ravvicinati
+#     - minutes: /1
+#       trigger: time_pattern
+#   condition:
+#     - condition: state
+#       entity_id: input_boolean.fancoil_cucina_enabled
+#       state: "on"
+#     - condition: state
+#       entity_id: climate.controllo_temperatura_cucina
+#       state:
+#         - "off"
+#         - "heat"
+#         - "cool"
+#   action:
+#     - variables:
+#         temp_attuale: "{{ states('sensor.stox_fancoil_cucina') | float(0) }}"
+#         setpoint: "{{ state_attr('climate.controllo_temperatura_cucina', 'temperature') | float(21) }}"
+#         mode: "{{ states('climate.controllo_temperatura_cucina' ) }}"
+#         soglia_high: "{{ states('input_number.fan_distance_high') | float }}"
+#         soglia_medium: "{{ states('input_number.fan_distance_medium') | float }}"
+#         soglia_low: "{{ states('input_number.fan_distance_low') | float }}"
+#         soglia_idle: "{{ states('input_number.fan_distance_idle') | float }}"
+#         diff: >-
+#           {% if mode == 'heat' %}
+#             {{ setpoint - temp_attuale }}
+#           {% elif mode == 'cool' %}
+#             {{ temp_attuale - setpoint }}
+#           {% else %}
+#             0
+#           {% endif %}
+#         fan: >-
+#           {% if diff | float < soglia_low %}
+#             off
+#           {% elif diff | float < soglia_medium %}
+#             low
+#           {% elif diff | float < soglia_high %}
+#             medium
+#           {% else %}
+#             high
+#           {% endif %}
+#         hvac_temp_mode: >-
+#           {% if diff | float < soglia_idle %}
+#             off
+#           {% else %}
+#             {{ states('climate.controllo_temperatura_cucina' ) }}
+#           {% endif %}
+#     - action: climate.set_fan_mode
+#       target:
+#         entity_id: climate.controllo_temperatura_cucina
+#       data:
+#         fan_mode: "{{ fan }}"
+#     - action: climate.set_hvac_mode
+#       target:
+#         entity_id: climate.controllo_temperatura_cucina
+#       data:
+#         hvac_mode: "{{ hvac_temp_mode }}"
+#     - action: system_log.write
+#       data:
+#         message: "Fanmode chiamato: temp_attuale: {{ temp_attuale }} setpoint: {{ setpoint }} mode: {{ mode }} soglia_high: {{ soglia_high }} soglia_medium: {{ soglia_medium }} soglia_low: {{ soglia_low }} diff:{{ diff }} fan:{{ fan }}"
+#         level: info
+# - id: "1752846100001"
+#   alias: Debug fancoil cucina (tutte le variazioni)
+#   description: Logga ogni cambio di stato e il contesto (chi/che cosa lo ha cambiato)
+#   triggers:
+#     - entity_id:
+#         - input_boolean.fancoil_cucina_enabled
+#       trigger: state
+#   conditions:
+#     - condition: template
+#       value_template: "{{ trigger.to_state.state != (trigger.from_state.state if trigger.from_state else none) }}"
+#   actions:
+#     - alias: Scrivi nel Logbook
+#       action: notify.mobile_devices
+#       data:
+#         message: Cambio di stato in  {{ trigger.to_state.state }}
+#           context.id={{ trigger.to_state.context.id }},
+#           user_id={{ trigger.to_state.context.user_id }},
+#           parent_id={{ trigger.to_state.context.parent_id }}
+#   mode: single
+# - id: accendi_scale_se_aperta_porta
+#   alias: Accendi scale se aperta porta
+#   description: ""
+#   triggers:
+#     - trigger: state
+#       entity_id:
+#         - cover.wifi_garage_door_module_door
+#       to: open
+#   conditions: []
+#   actions:
+#     - action: light.turn_on
+#       metadata: {}
+#       data: {}
+#       target:
+#         entity_id: light.luce_scale_switch
+#   mode: single

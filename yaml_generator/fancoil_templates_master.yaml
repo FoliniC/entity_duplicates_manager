@@ -33,3 +33,148 @@
 - !include managed_persistence/bagno_persistence.yaml
 - !include managed_persistence/sala_persistence.yaml
 - !include managed_persistence/th_persistence.yaml
+
+# TH Battery Monitored Sensors with Staleness Detection (24h) - Regular Template Sensors
+# Refer to LocalTuya source entities directly; use states.sensor.xxx.last_updated for staleness
+- sensor:
+    - name: "TH1A Battery Monitored"
+      unique_id: "th1a_battery_monitored"
+      device_class: "battery"
+      unit_of_measurement: "%"
+      state_class: "measurement"
+      state: >
+        {% set src_id = 'sensor.th1a_temperature_humidity_battery' %}
+        {% set src = states[src_id] %}
+        {% if not src or src.state in ['unknown', 'unavailable', 'none'] %}
+          {{ this.state | float(default=100.0) }}
+        {% else %}
+          {% set last_update = src.last_updated %}
+          {% set hours_since = ((now() - last_update).total_seconds() / 3600) | float(0) %}
+          {% if hours_since > 24 %}0
+          {% elif src.state | is_number %}{{ src.state | float }}
+          {% else %}{{ this.state | float(default=100.0) }}{% endif %}
+        {% endif %}
+      availability: "{{ states('sensor.th1a_temperature_humidity_battery') not in ['unknown', 'unavailable', 'none'] }}"
+      attributes:
+        hours_since_update: >
+          {% set src = states.sensor.th1a_temperature_humidity_battery %}
+          {% if src.state not in ['unknown', 'unavailable', 'none'] and src.last_updated is not none %}
+            {{ ((now() - src.last_updated).total_seconds() / 3600) | round(1) }}
+          {% else %}
+            N/A
+          {% endif %}
+        staleness_warning: >
+          {% set src = states.sensor.th1a_temperature_humidity_battery %}
+          {% if src.state not in ['unknown', 'unavailable', 'none'] and src.last_updated is not none %}
+            {{ 'STALE' if ((now() - src.last_updated).total_seconds() / 3600) | float(0) > 24 else 'OK' }}
+          {% else %}
+            UNKNOWN
+          {% endif %}
+
+    - name: "TH2B Battery Monitored"
+      unique_id: "th2b_battery_monitored"
+      device_class: "battery"
+      unit_of_measurement: "%"
+      state_class: "measurement"
+      state: >
+        {% set src_id = 'sensor.th2b_temperature_humidity_battery' %}
+        {% set src = states[src_id] %}
+        {% if not src or src.state in ['unknown', 'unavailable', 'none'] %}
+          {{ this.state | float(default=100.0) }}
+        {% else %}
+          {% set last_update = src.last_updated %}
+          {% set hours_since = ((now() - last_update).total_seconds() / 3600) | float(0) %}
+          {% if hours_since > 24 %}0
+          {% elif src.state | is_number %}{{ src.state | float }}
+          {% else %}{{ this.state | float(default=100.0) }}{% endif %}
+        {% endif %}
+      availability: "{{ states('sensor.th2b_temperature_humidity_battery') not in ['unknown', 'unavailable', 'none'] }}"
+      attributes:
+        hours_since_update: >
+          {% set src = states.sensor.th2b_temperature_humidity_battery %}
+          {% if src.state not in ['unknown', 'unavailable', 'none'] and src.last_updated is not none %}
+            {{ ((now() - src.last_updated).total_seconds() / 3600) | round(1) }}
+          {% else %}
+            N/A
+          {% endif %}
+        staleness_warning: >
+          {% set src = states.sensor.th2b_temperature_humidity_battery %}
+          {% if src.state not in ['unknown', 'unavailable', 'none'] and src.last_updated is not none %}
+            {{ 'STALE' if ((now() - src.last_updated).total_seconds() / 3600) | float(0) > 24 else 'OK' }}
+          {% else %}
+            UNKNOWN
+          {% endif %}
+
+    - name: "TH3C Battery Monitored"
+      unique_id: "th3c_battery_monitored"
+      device_class: "battery"
+      unit_of_measurement: "%"
+      state_class: "measurement"
+      state: >
+        {% set src_id = 'sensor.th3c_temperature_humidity_battery_level' %}
+        {% set src = states[src_id] %}
+        {% if not src or src.state in ['unknown', 'unavailable', 'none'] %}
+          {{ this.state | float(default=100.0) }}
+        {% else %}
+          {% set last_update = src.last_updated %}
+          {% set hours_since = ((now() - last_update).total_seconds() / 3600) | float(0) %}
+          {% if hours_since > 24 %}0
+          {% elif src.state == 'high' %}100
+          {% elif src.state == 'middle' %}50
+          {% elif src.state == 'low' %}20
+          {% elif src.state | is_number %}{{ src.state | float }}
+          {% else %}{{ this.state | float(default=100.0) }}{% endif %}
+        {% endif %}
+      availability: "{{ states('sensor.th3c_temperature_humidity_battery_level') not in ['unknown', 'unavailable', 'none'] }}"
+      attributes:
+        hours_since_update: >
+          {% set src = states.sensor.th3c_temperature_humidity_battery_level %}
+          {% if src.state not in ['unknown', 'unavailable', 'none'] and src.last_updated is not none %}
+            {{ ((now() - src.last_updated).total_seconds() / 3600) | round(1) }}
+          {% else %}
+            N/A
+          {% endif %}
+        staleness_warning: >
+          {% set src = states.sensor.th3c_temperature_humidity_battery_level %}
+          {% if src.state not in ['unknown', 'unavailable', 'none'] and src.last_updated is not none %}
+            {{ 'STALE' if ((now() - src.last_updated).total_seconds() / 3600) | float(0) > 24 else 'OK' }}
+          {% else %}
+            UNKNOWN
+          {% endif %}
+
+    - name: "TH4D Battery Monitored"
+      unique_id: "th4d_battery_monitored"
+      device_class: "battery"
+      unit_of_measurement: "%"
+      state_class: "measurement"
+      state: >
+        {% set src_id = 'sensor.th4d_temperature_humidity_battery_level' %}
+        {% set src = states[src_id] %}
+        {% if not src or src.state in ['unknown', 'unavailable', 'none'] %}
+          {{ this.state | float(default=100.0) }}
+        {% else %}
+          {% set last_update = src.last_updated %}
+          {% set hours_since = ((now() - last_update).total_seconds() / 3600) | float(0) %}
+          {% if hours_since > 24 %}0
+          {% elif src.state == 'high' %}100
+          {% elif src.state == 'middle' %}50
+          {% elif src.state == 'low' %}20
+          {% elif src.state | is_number %}{{ src.state | float }}
+          {% else %}{{ this.state | float(default=100.0) }}{% endif %}
+        {% endif %}
+      availability: "{{ states('sensor.th4d_temperature_humidity_battery_level') not in ['unknown', 'unavailable', 'none'] }}"
+      attributes:
+        hours_since_update: >
+          {% set src = states.sensor.th4d_temperature_humidity_battery_level %}
+          {% if src.state not in ['unknown', 'unavailable', 'none'] and src.last_updated is not none %}
+            {{ ((now() - src.last_updated).total_seconds() / 3600) | round(1) }}
+          {% else %}
+            N/A
+          {% endif %}
+        staleness_warning: >
+          {% set src = states.sensor.th4d_temperature_humidity_battery_level %}
+          {% if src.state not in ['unknown', 'unavailable', 'none'] and src.last_updated is not none %}
+            {{ 'STALE' if ((now() - src.last_updated).total_seconds() / 3600) | float(0) > 24 else 'OK' }}
+          {% else %}
+            UNKNOWN
+          {% endif %}

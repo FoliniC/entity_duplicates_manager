@@ -55,8 +55,7 @@
           value_template: "{{ (states('counter.tenda_roam_failures') | int(0)) == 1 }}"
       then:
         - service: input_datetime.set_datetime
-          target:
-            entity_id: input_datetime.tenda_roam_last_reset
+          entity_id: input_datetime.tenda_roam_last_reset
           data:
             datetime: "{{ now().isoformat() }}"
     # Log dettagliato su HALog2026 (cucina log)
@@ -64,7 +63,7 @@
       event_data:
         level: WARNING
         message: >
-          Tenda Roam Watchdog: Wake-up failure #{{
+          Tenda Roam Watchdog: Wake-up failure #{
           states('counter.tenda_roam_failures') }} per luci-cucina (192.168.0.25)
           | NetDiag: {{ net_diag }} | Loss: {{ packet_loss }}% | Jitter: {{ jitter }}ms | Lat: {{ latency }}ms
           | Msg: {{ last_log_message }}
@@ -86,9 +85,7 @@
               | NetDiag: {{ net_diag }} | Loss: {{ packet_loss }}% | Jitter: {{ jitter }}ms
               | AZIONE RICHIESTA: Disabilitare Fast Roaming / Band Steering su app Tenda
             action: "tenda_roam_alert"
-        - action: notify.send_message
-          target:
-            entity_id: notify.notify_mobile_devices
+        - action: notify.all_devices
           data:
             title: "🔴 Tenda Roam Alert: luci-cucina"
             message: >
@@ -104,8 +101,7 @@
           target:
             entity_id: counter.tenda_roam_failures
         - service: input_datetime.set_datetime
-          target:
-            entity_id: input_datetime.tenda_roam_last_reset
+          entity_id: input_datetime.tenda_roam_last_reset
           data:
             datetime: "{{ now().isoformat() }}"
       else: []
