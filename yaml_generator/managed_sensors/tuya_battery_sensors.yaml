@@ -1,0 +1,28 @@
+# Tuya Battery Sensors - Template sensors for enum-to-percentage conversion
+
+# Contact Cucina Battery (DP 2 / 102 via cloud polling)
+- name: "Contact Cucina Battery"
+  unique_id: "tuya_contact_cucina_battery_pct"
+  device_class: "battery"
+  unit_of_measurement: "%"
+  state_class: "measurement"
+  state: >
+    {% set src = states('sensor.contact_cucina_battery_2') %}
+    {% if src == 'high' %}100
+    {% elif src == 'middle' %}50
+    {% elif src == 'low' %}20
+    {% elif src | is_number %}{{ src | float }}
+    {% else %}{{ this.state | float(default=100) }}{% endif %}
+  availability: "{{ states('sensor.contact_cucina_battery_2') not in ['unknown', 'unavailable', 'none'] }}"
+  attributes:
+    raw_value: "{{ states('sensor.contact_cucina_battery_2') }}"
+    source_entity: "sensor.contact_cucina_battery_2"
+    last_update: "{{ state_attr('sensor.contact_cucina_battery_2', 'last_updated') }}"
+
+- name: "Contact Cucina Battery Raw"
+  unique_id: "tuya_contact_cucina_battery_raw"
+  icon: "mdi:battery-outline"
+  state: "{{ states('sensor.contact_cucina_battery_2') }}"
+  availability: "{{ states('sensor.contact_cucina_battery_2') not in ['unknown', 'unavailable', 'none'] }}"
+  attributes:
+    source_entity: "sensor.contact_cucina_battery_2"

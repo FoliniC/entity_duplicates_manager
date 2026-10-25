@@ -54,6 +54,21 @@ notify:
 group: !include groups.yaml
 
 # ============================================================================
+# SONOFF LAN CONFIGURATION
+# ============================================================================
+sonoff:
+  devices:
+    "10024024c4":
+      host: "192.168.0.158"
+      local: true
+      localtype: "multifun_switch"
+    "10024cc29e":
+      host: "192.168.0.102"
+      local: true
+      localtype: "multifun_switch"
+
+
+# ============================================================================
 # TEMPLATE ENTITIES (CONSOLIDATO)
 # ============================================================================
 template: !include yaml_generator/fancoil_templates_master.yaml

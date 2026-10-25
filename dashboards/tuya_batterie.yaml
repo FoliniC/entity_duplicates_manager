@@ -13,10 +13,10 @@ views:
           ## 📋 Riepilogo Livelli Batteria
           | Dispositivo | % Batteria | Livello Testuale | Allarme Bassa | Stato |
           |-------------|------------|------------------|---------------|-------|
-          | TH1A | {{ states("sensor.th1a_battery") }}% | {{ states("sensor.th1a_temperature_humidity_battery") }} | {{ "🔴" if is_state("binary_sensor.th1a_battery_low", "on") else "🟢" }} | {{ "⚠️ CRITICO" if states("sensor.th1a_battery")|float(100) < 20 else "OK" }} |
-          | TH2B | {{ states("sensor.th2b_battery") }}% | {{ states("sensor.th2b_temperature_humidity_battery") }}% | {{ "🔴" if is_state("binary_sensor.th2b_battery_low", "on") else "🟢" }} | OK |
-          | TH3C | {{ states("sensor.th3c_battery") }}% | {{ states("sensor.th3c_temperature_humidity_battery_level") }} | {{ "🔴" if is_state("binary_sensor.th3c_battery_low", "on") else "🟢" }} | OK |
-          | TH4D | {{ states("sensor.th4d_battery") }}% | {{ states("sensor.th4d_temperature_humidity_battery_level") }} | {{ "🔴" if is_state("binary_sensor.th4d_battery_low", "on") else "🟢" }} | OK |
+          | TH1A | {{ states("sensor.th1a_battery_monitored") }}% | {{ states("sensor.th1a_temperature_humidity_battery") }} | {{ "🔴" if is_state("binary_sensor.th1a_battery_low", "on") else "🟢" }} | {{ "⚠️ CRITICO" if states("sensor.th1a_battery_monitored")|float(100) < 20 else "OK" }} |
+          | TH2B | {{ states("sensor.th2b_battery_monitored") }}% | {{ states("sensor.th2b_temperature_humidity_battery") }}% | {{ "🔴" if is_state("binary_sensor.th2b_battery_low", "on") else "🟢" }} | OK |
+          | TH3C | {{ states("sensor.th3c_battery_monitored") }}% | {{ states("sensor.th3c_temperature_humidity_battery_level") }} | {{ "🔴" if is_state("binary_sensor.th3c_battery_low", "on") else "🟢" }} | OK |
+          | TH4D | {{ states("sensor.th4d_battery_monitored") }}% | {{ states("sensor.th4d_temperature_humidity_battery_level") }} | {{ "🔴" if is_state("binary_sensor.th4d_battery_low", "on") else "🟢" }} | OK |
           | Sensor 3116 | N/D | N/D | N/D | ❌ Offline |
           | Contact Cucina | {{ states("sensor.contact_cucina_battery") }}% | {{ states("sensor.contact_cucina_battery_raw") }} | N/D | {{ "🟢 Chiusa" if is_state("binary_sensor.contact_cucina_contact_cucina", "off") else "🔴 Aperta" }} |
 
@@ -30,10 +30,13 @@ views:
           - type: entities
             title: Stato Batteria TH1A
             entities:
-              - entity: sensor.th1a_battery
-                name: "Batteria (percentuale)"
+              - entity: sensor.th1a_battery_monitored
+                name: "Batteria Monitorata (con staleness 24h)"
                 icon: mdi:battery
                 unit_of_measurement: "%"
+              - entity: sensor.th1a_battery
+                name: "Batteria (persistenza)"
+                icon: mdi:battery-outline
               - entity: sensor.th1a_temperature_humidity_battery
                 name: "Batteria (entità LocalTuya)"
                 icon: mdi:battery-outline
@@ -63,10 +66,13 @@ views:
           - type: entities
             title: Stato Batteria TH2B
             entities:
-              - entity: sensor.th2b_battery
-                name: "Batteria (percentuale)"
+              - entity: sensor.th2b_battery_monitored
+                name: "Batteria Monitorata (con staleness 24h)"
                 icon: mdi:battery
                 unit_of_measurement: "%"
+              - entity: sensor.th2b_battery
+                name: "Batteria (persistenza)"
+                icon: mdi:battery-outline
               - entity: sensor.th2b_temperature_humidity_battery
                 name: "Batteria (entità LocalTuya)"
                 icon: mdi:battery-outline
@@ -96,10 +102,13 @@ views:
           - type: entities
             title: Stato Batteria TH3C
             entities:
-              - entity: sensor.th3c_battery
-                name: "Batteria (percentuale)"
+              - entity: sensor.th3c_battery_monitored
+                name: "Batteria Monitorata (con staleness 24h)"
                 icon: mdi:battery
                 unit_of_measurement: "%"
+              - entity: sensor.th3c_battery
+                name: "Batteria (persistenza)"
+                icon: mdi:battery-outline
               - entity: sensor.th3c_temperature_humidity_battery_level
                 name: "Livello batteria (testuale)"
                 icon: mdi:battery-outline
@@ -129,10 +138,13 @@ views:
           - type: entities
             title: Stato Batteria TH4D
             entities:
-              - entity: sensor.th4d_battery
-                name: "Batteria (percentuale)"
+              - entity: sensor.th4d_battery_monitored
+                name: "Batteria Monitorata (con staleness 24h)"
                 icon: mdi:battery
                 unit_of_measurement: "%"
+              - entity: sensor.th4d_battery
+                name: "Batteria (persistenza)"
+                icon: mdi:battery-outline
               - entity: sensor.th4d_temperature_humidity_battery_level
                 name: "Livello batteria (testuale)"
                 icon: mdi:battery-outline

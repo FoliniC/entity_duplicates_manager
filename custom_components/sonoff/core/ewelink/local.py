@@ -215,7 +215,7 @@ class XRegistryLocal(XRegistryBase):
                     if "iv" in resp:
                         msg = {
                             "deviceid": device["deviceid"],
-                            "localtype": device["localtype"],
+                            "localtype": device.get("localtype", "multifun_switch"),
                             "seq": resp["seq"],
                             "data": resp["data"],
                             "iv": resp["iv"],
