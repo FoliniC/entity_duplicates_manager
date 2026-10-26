@@ -38,6 +38,7 @@ from .const import (
     CONF_DEVICE_SLEEP_TIME,
     CONF_DOWNLOAD_CLOUD_INFO,
     CONF_GATEWAY_ID,
+    CONF_MAC,
     CONF_MAC_RETRIEVAL,
     CONF_MODEL,
     CONF_NODE_ID,
@@ -565,6 +566,12 @@ async def _download_cloud_info_on_startup(hass: HomeAssistant, entry: ConfigEntr
         
         # Call factory info API one device at a time (like Tuya GUI does)
         for device_id in device_ids:
+            # CACHE: skip devices that already have MAC address stored
+            device_config = entry.data.get(CONF_DEVICES, {}).get(device_id, {})
+            if device_config.get(CONF_MAC):
+                _LOGGER.debug(f"MAC address already cached for {device_id}: {device_config[CONF_MAC]}, skipping API call")
+                continue
+            
             try:
                 factory_info = await hass_data.cloud_data.async_get_device_factory_info(device_id)
                 

@@ -83,8 +83,9 @@
           data:
             title: "💡 Luce balcone {{ action_word }}{% if anomalous %} ⚠️{% endif %}"
             message: "Motivo: {{ reason }}"
-            tag: luce_balcone_change
-            importance: "{{ 'high' if (to_state == 'on' or anomalous) else 'normal' }}"
-            notification_icon: "mdi:lightbulb"
+            data:
+              tag: luce_balcone_change
+              importance: "{{ 'high' if (to_state == 'on' or anomalous) else 'normal' }}"
+              notification_icon: "mdi:lightbulb"
       # fall-through controllato: in caso di errore notify non blocca il flow
       else: []

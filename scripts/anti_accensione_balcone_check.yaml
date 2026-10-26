@@ -43,10 +43,10 @@ sequence:
       entity_id: switch.luce_balcone_switch_1
   # Usare notify group per notifiche device-agnostic
   - action: notify.all_devices
-    target:
     data:
       title: "🚫 Luce balcone spenta (anti-accensione)"
       message: "Rilevata accensione esterna non voluta (nessun traffico cloud) -> spenta automaticamente"
-      tag: balcone_anti_accensione
-      importance: high
-      notification_icon: "mdi:shield-alert"
+      data:
+        tag: balcone_anti_accensione
+        importance: high
+        notification_icon: "mdi:shield-alert"

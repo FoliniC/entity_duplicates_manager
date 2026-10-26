@@ -483,6 +483,7 @@ class TuyaCloudApi:
             "mac": device_info.get("mac"),
             "sn": device_info.get("sn"),
             "uuid": device_info.get("uuid"),
+            "result": result,
         }
 
     async def async_connect(self):

@@ -114,3 +114,101 @@ def get_gateway_by_deviceid(device_id: str, cloud_data: dict) -> GATEWAY:
 #    Auto configure device    #
 ###############################
 from .ha_entities import gen_localtuya_entities
+
+
+def format_mac(mac: str | None) -> str | None:
+    """Format MAC address with colons."""
+    if not mac:
+        return None
+    clean = str(mac).lower().replace(":", "").replace("-", "").strip()
+    if len(clean) == 12:
+        return ":".join(clean[i:i + 2] for i in range(0, 12, 2))
+    return mac
+
+
+async def async_find_local_ip_by_mac(hass, mac: str) -> str | None:
+    """Find local IP (192.168.0.x) for a given MAC address via ARP table and AdGuard DHCP."""
+    if not mac:
+        return None
+    clean_target = str(mac).lower().replace(":", "").replace("-", "").strip()
+    if not clean_target:
+        return None
+
+    # 1. Search in /proc/net/arp
+    try:
+        def _read_arp():
+            try:
+                with open("/proc/net/arp", "r", encoding="utf-8") as f:
+                    for line in f.readlines()[1:]:
+                        parts = line.split()
+                        if len(parts) >= 4:
+                            arp_ip = parts[0]
+                            arp_mac = parts[3].lower().replace(":", "").replace("-", "").strip()
+                            if arp_mac == clean_target and arp_ip.startswith("192.168.0."):
+                                return arp_ip
+            except Exception:
+                pass
+            return None
+
+        arp_ip = await hass.async_add_executor_job(_read_arp)
+        if arp_ip:
+            _LOGGER.info("Found local IP %s in /proc/net/arp for MAC %s", arp_ip, mac)
+            return arp_ip
+    except Exception as err:
+        _LOGGER.debug("Error checking /proc/net/arp for MAC %s: %s", mac, err)
+
+    # 2. Search in AdGuard Home DHCP status
+    try:
+        # Default to the known direct IP — "homeassistant.local" does NOT resolve
+        # inside the HA Docker container, so we always keep 192.168.0.3 as a fallback.
+        ADGUARD_FALLBACK_IP = "192.168.0.3"
+        adguard_hosts = [ADGUARD_FALLBACK_IP]
+        adguard_port = 3001
+        adguard_user = "carlo"
+        adguard_pass = "casacp1!"
+
+        for entry in hass.config_entries.async_entries("adguard"):
+            if entry.data:
+                entry_host = entry.data.get("host", ADGUARD_FALLBACK_IP)
+                adguard_port = entry.data.get("port", adguard_port)
+                adguard_user = entry.data.get("username", adguard_user)
+                adguard_pass = entry.data.get("password", adguard_pass)
+                # Prepend the entry hostname so it is tried first, then fall back to the
+                # hardcoded IP in case the hostname doesn't resolve inside the container.
+                if entry_host != ADGUARD_FALLBACK_IP:
+                    adguard_hosts = [entry_host, ADGUARD_FALLBACK_IP]
+                break
+
+        import urllib.request
+        import base64
+        import json
+
+        def _query_adguard():
+            auth = base64.b64encode(f"{adguard_user}:{adguard_pass}".encode()).decode("ascii")
+            for host in adguard_hosts:
+                try:
+                    url = f"http://{host}:{adguard_port}/control/dhcp/status"
+                    req = urllib.request.Request(url, headers={"Authorization": f"Basic {auth}"})
+                    with urllib.request.urlopen(req, timeout=4) as resp:
+                        data = json.loads(resp.read().decode())
+                        all_leases = data.get("leases", []) + data.get("static_leases", [])
+                        for lease in all_leases:
+                            lease_mac = str(lease.get("mac", "")).lower().replace(":", "").replace("-", "").strip()
+                            if lease_mac == clean_target:
+                                return lease.get("ip")
+                    # Reached the end of leases list without a match — no need to retry other hosts
+                    return None
+                except Exception:
+                    # This host failed (e.g. DNS resolution error) — try the next one
+                    continue
+            return None
+
+        dhcp_ip = await hass.async_add_executor_job(_query_adguard)
+        if dhcp_ip:
+            _LOGGER.info("Found local IP %s in AdGuard DHCP for MAC %s", dhcp_ip, mac)
+            return dhcp_ip
+    except Exception as err:
+        _LOGGER.debug("Error querying AdGuard DHCP for MAC %s: %s", mac, err)
+
+    return None
+

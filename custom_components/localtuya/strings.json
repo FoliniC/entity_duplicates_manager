@@ -29,8 +29,8 @@
                 }
             },
             "configure_device": {
-                "title": "Configuring device connectivity (FIXED)",
-                "description": "Validating connection...",
+                "title": "Configure device connectivity",
+                "description": "Configure device details{for_device} to allow LocalTuya to connect.",
                 "data": {
                     "friendly_name": "Device Name",
                     "host": "IP Address",
@@ -90,8 +90,8 @@
                 }
             },
             "configure_device": {
-                "title": "Configuring device connectivity (FIXED)",
-                "description": "Validating connection...",
+                "title": "Configure device connectivity",
+                "description": "Configure device details{for_device} to allow LocalTuya to connect.",
                 "data": {
                     "friendly_name": "Device Name",
                     "host": "IP Address",

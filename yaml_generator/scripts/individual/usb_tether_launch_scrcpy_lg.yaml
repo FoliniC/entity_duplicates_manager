@@ -1,0 +1,15 @@
+alias: "Tethering: Avvia SCRCPY LG-X150 (Debian)"
+icon: mdi:cellphone-screenshot
+mode: single
+sequence:
+  - event: halog2026_write_event
+    event_data:
+      subsystem: usb_tether
+      level: INFO
+      message: "AVVIO: SCRCPY su LG-X150 (0123456789ABCDEF) - Android 5.0.2"
+  - action: input_text.set_value
+    target:
+      entity_id: input_text.usb_tether_status_message
+    data:
+      value: "AVVIO SCRCPY LG-X150: scrcpy -s 0123456789ABCDEF --max-size 800 --video-bit-rate 2M --video-codec h264"
+  - action: shell_command.usb_tether_launch_scrcpy_lg

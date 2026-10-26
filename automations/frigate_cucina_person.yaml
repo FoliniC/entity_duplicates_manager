@@ -17,7 +17,8 @@
       data:
         title: "🚨 Persona rilevata - Cucina/Balcone"
         message: "Persona rilevata dalla camera **Cucina** (zona balcone) alle {{ now().strftime('%H:%M:%S') }} del {{ now().strftime('%d/%m/%Y') }}"
-        tag: frigate_cucina_person
-        importance: high
-        notification_icon: "mdi:shield-alert"
+        data:
+          tag: frigate_cucina_person
+          importance: high
+          notification_icon: "mdi:shield-alert"
   mode: single

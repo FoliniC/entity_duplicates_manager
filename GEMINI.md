@@ -35,6 +35,51 @@ action:
 - **Startup Resilience**: The integration is configured to avoid blocking HA startup. If the cloud is unreachable during boot, it uses `ConfigEntryNotReady` to defer setup.
 - **Persistent Fix**: Do not replace the `CoreState.starting` check with `asyncio.sleep` as it blocks the boot sequence.
 
+## 📱 Notifiche Companion App & Gruppi Notify
+Regole e convenzioni mandatorie per l'invio delle notifiche push e vocali (TTS).
+
+### 1. Annidamento del blocco `data` (Regola Fondamentale)
+I servizi `notify` di Home Assistant accettano al primo livello di `data:` **soltanto** `message` e `title`.
+Tutti i parametri specifici della Home Assistant Companion App (`tag`, `importance`, `notification_icon`, `channel`, `color`, `tts_text`, ecc.) **DEVONO essere annidati in un sotto-blocco `data:`**.
+
+```yaml
+# ✅ CORRETTO — opzioni companion annidate in data.data:
+action: notify.all_devices
+data:
+  title: "🚨 Allarme"
+  message: "Testo del messaggio"
+  data:
+    tag: frigate_alert
+    importance: high
+    notification_icon: "mdi:shield-alert"
+
+# ❌ SBAGLIATO — errore: not a valid option, did you mean 'target'? at 'tag'
+action: notify.all_devices
+data:
+  title: "🚨 Allarme"
+  message: "Testo del messaggio"
+  tag: frigate_alert               # ERRORE: deve stare sotto data.data!
+  importance: high                 # ERRORE: deve stare sotto data.data!
+  notification_icon: "mdi:shield-alert"
+```
+
+### 2. Dispositivo Target e Gruppo Globale
+- **Gruppo Predefinito**: Usare preferibilmente `notify.all_devices` per inviare notifiche push a tutti i dispositivi mobile registrati (definito in `configuration.yaml`).
+- **Targeting Diretto**: Quando si usa `notify.send_message`, preferire `target: device_id: <id>` rispetto a `entity_id` per non rompere le automazioni in caso di rinomina del dispositivo.
+- **Dispositivo Attuale**: Xiaomi 17 Ultra (`notify.ultra17`, device_id: `fc341b50cab254797adabe5afaabede3`).
+
+### 3. Notifiche Vocali TTS su Mobile App
+- `notify.send_message` ha uno schema restrittivo (solo `message` e `title`) e **rifiuta** opzioni TTS.
+- Per inviare TTS vocale su dispositivo mobile Companion, invocare direttamente il servizio `notify.mobile_app_<device>`:
+```yaml
+# ✅ CORRETTO per TTS vocale su telefono
+action: notify.mobile_app_ultra17
+data:
+  message: TTS
+  data:
+    tts_text: "Testo pronunciato a voce dal telefono"
+```
+
 ## 🚀 Deployment Info
 - Backup script: `/usr/local/bin/ha_gh_backup` (managed by `ha-gh-backup.timer`).
 - Authentication: Root SSH key (`/root/.ssh/id_rsa`).

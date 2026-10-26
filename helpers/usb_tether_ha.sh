@@ -355,7 +355,7 @@ activate_windows() {
 
 activate_debian() {
   local out rc
-  
+
   # PRE-FLIGHT CHECK: Verifica che il tethering USB sia disponibile su Debian
   # Prima di tentare l'attivazione (specialmente per intranet che gira in background)
   local detect_out
@@ -368,6 +368,27 @@ activate_debian() {
     json_error "Tethering USB non disponibile su Debian: collega il telefono e attiva il tethering USB prima di procedere"
     return 0
   fi
+
+  # Parse IFACE|GW from detect output
+  local detect_iface detect_gw
+  detect_iface=$(echo "$detect_out" | cut -d'|' -f1)
+  detect_gw=$(echo "$detect_out" | cut -d'|' -f2)
+
+  # PRE-FLIGHT INTERNET: Verifica connettività internet REALE sull'interfaccia rilevata
+  # (simile a usb_tether_preflight.sh per il router). Senza questo, un'interfaccia
+  # con IP/gateway reachable ma senza NAT mobile funzionante passerebbe il preflight
+  # e l'intranet attiverebbe, lasciando la LAN senza internet (watchdog -> rollback).
+  log_line INFO "PRE-FLIGHT INTERNET: verifica connettività via $detect_iface (GW=$detect_gw)..."
+  local inet_test
+  inet_test="$(ssh_debian "ping -c 2 -W 3 -I $detect_iface 8.8.8.8 >/dev/null 2>&1 || ping -c 2 -W 3 -I $detect_iface 1.1.1.1 >/dev/null 2>&1; echo \$?" 2>&1)"
+  if [[ "$inet_test" != "0" ]]; then
+    log_line ERROR "PRE-FLIGHT FALLITO: Internet non raggiungibile via $detect_iface (GW=$detect_gw). Tethering attivo ma NAT mobile non instrada verso internet."
+    printf '%s\n%s\n' "Internet non raggiungibile via $detect_iface (GW=$detect_gw): tethering USB attivo ma NAT mobile non funziona" "$(date '+%Y-%m-%d %H:%M:%S')" > "$ERROR_MARKER"
+    json_error "Internet non raggiungibile via $detect_iface (GW=$detect_gw): tethering USB attivo ma NAT mobile non instrada verso internet"
+    return 0
+  fi
+  log_line INFO "PRE-FLIGHT OK: Internet raggiungibile via $detect_iface (GW=$detect_gw)"
+
   # Clear error marker on success
   rm -f "$ERROR_MARKER" 2>/dev/null || true
   log_line INFO "PRE-FLIGHT OK: Tethering USB rilevato su Debian -> $detect_out"

@@ -1029,9 +1029,10 @@ views:
                       show_header_toggle: false
                       state_color: true
                       entities:
-                        - entity: input_boolean.finestra_camera_grande_aperta
+                        - entity: binary_sensor.finestra_camera_grande_finestra_camera_grande
                           name: Finestra aperta
                           icon: mdi:window-open
+                          device_class: door
                       card_mod: *row_style
                     - type: conditional
                       conditions:
@@ -1055,26 +1056,6 @@ views:
                                 name: Trend umidita
                               - entity: sensor.log_attivita_manuali_camera_grande
                                 name: Log manuale
-                          - type: grid
-                            columns: 2
-                            square: false
-                            cards:
-                              - type: button
-                                name: Apri finestra
-                                icon: mdi:window-open-variant
-                                tap_action:
-                                  action: call-service
-                                  service: input_boolean.turn_on
-                                  target:
-                                    entity_id: input_boolean.finestra_camera_grande_aperta
-                              - type: button
-                                name: Chiudi finestra
-                                icon: mdi:window-closed-variant
-                                tap_action:
-                                  action: call-service
-                                  service: input_boolean.turn_off
-                                  target:
-                                    entity_id: input_boolean.finestra_camera_grande_aperta
                     - type: custom:mushroom-template-card
                       primary: "🌡️ Temperatura Fancoil {{ states('sensor.fancoil_camera_grande_temperature') }}°C"
                       entity: sensor.fancoil_camera_grande_temperature

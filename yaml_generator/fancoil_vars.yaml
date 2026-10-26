@@ -40,6 +40,12 @@ fancoil_vars:
     th_humidity_sensor: sensor.th2b_humidity
     # External humidity sensor for fallback
     external_humidity_sensor: sensor.meteo_castionetto_umidita
+    # Sensore contatto finestra (automatico) - binary_sensor che comunica solo su cambio stato
+    # Quando definito, sostituisce l'input_boolean.finestra_<stanza>_aperta e rende
+    # il rilevamento della finestra completamente automatico senza intervento manuale.
+    # Il sensore risulta generalmente unavailable e invia aggiornamenti solo quando la
+    # finestra viene aperta o chiusa.
+    window_contact_sensor: binary_sensor.finestra_camera_grande_finestra_camera_grande
     # Fase 13 - Soglie di verifica (opzionale, può essere sovrascritte da utente)
     verifica_thresholds:
       delta_omega_apertura: 1.5

@@ -93,9 +93,10 @@
               Rete: {{ net_diag }} | Loss: {{ packet_loss }}% | Jitter: {{ jitter }}ms
               Il device Tuya sta facendo roaming tra Base e Satellite Tenda.
               Fix: App Tenda → Impostazioni Mesh → Disabilita Fast Roaming & Band Steering
-            tag: tenda_roam_alert
-            importance: high
-            notification_icon: "mdi:wifi-alert"
+            data:
+              tag: tenda_roam_alert
+              importance: high
+              notification_icon: "mdi:wifi-alert"
         # Reset counter dopo alert per evitare spam
         - service: counter.reset
           target:

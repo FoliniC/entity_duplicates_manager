@@ -59,7 +59,13 @@ from homeassistant.const import (
 from .coordinator import HassLocalTuyaData
 from .core import pytuya
 from .core.cloud_api import TUYA_ENDPOINTS, TuyaCloudApi
-from .core.helpers import templates, get_gateway_by_deviceid, gen_localtuya_entities
+from .core.helpers import (
+    templates,
+    get_gateway_by_deviceid,
+    gen_localtuya_entities,
+    format_mac,
+    async_find_local_ip_by_mac,
+)
 from .const import (
     CONF_CLOUD_POLLING_ENABLED,
     CONF_CLOUD_POLL_DELAY,
@@ -733,8 +739,9 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
         }
 
     @property
-    def localtuya_data(self) -> HassLocalTuyaData:
-        return self.hass.data[DOMAIN][self._entry_id]
+    def localtuya_data(self) -> HassLocalTuyaData | None:
+        domain_data = self.hass.data.get(DOMAIN, {})
+        return domain_data.get(self._entry_id)
     async def async_step_connecting(self, user_input=None):
         """Step to show connection progress."""
         if not hasattr(self, "_validate_task"):
@@ -877,8 +884,12 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
             raise e
 
     @property
-    def cloud_data(self) -> TuyaCloudApi:
-        return self.localtuya_data.cloud_data
+    def cloud_data(self) -> TuyaCloudApi | None:
+        lt_data = self.localtuya_data
+        if lt_data and getattr(lt_data, "cloud_data", None):
+            self._cached_cloud_data = lt_data.cloud_data
+            return lt_data.cloud_data
+        return getattr(self, "_cached_cloud_data", None)
 
     async def async_step_init(self, user_input=None):
         _LOGGER.debug("async_step_init called")
@@ -2374,7 +2385,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                     self.discovered_devices, _ = await discover_devices()
                     _LOGGER.debug("Discovered devices via fresh discovery: %s", list(self.discovered_devices.keys()))
             
-# Auto-retrieve MAC if enabled and device doesn't have one
+            # Auto-retrieve MAC if enabled and device doesn't have one
             if self.config_entry.data.get(CONF_MAC_RETRIEVAL, False):
                 if not dev_conf.get(CONF_MAC):
                     _LOGGER.info("Auto-retrieving MAC for device %s", self.selected_device)
@@ -2382,17 +2393,17 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                         cloud_api = self.cloud_data
                         factory_info = await cloud_api.async_get_device_factory_info(self.selected_device)
                         mac_retrieved = False
-                        if factory_info and factory_info.get("result"):
-                            mac = factory_info["result"][0].get("mac")
-                            if mac and mac != "00:00:00:00:00:00":
-                                new_data = self.config_entry.data.copy()
-                                new_data[CONF_DEVICES][self.selected_device][CONF_MAC] = mac
-                                new_data[ATTR_UPDATED_AT] = str(int(time.time() * 1000))
-                                self.hass.config_entries.async_update_entry(self.config_entry, data=new_data)
-                                _LOGGER.info("Auto-retrieved MAC address for %s: %s", self.selected_device, mac)
-                                # Refresh dev_conf with new MAC
-                                dev_conf = new_data[CONF_DEVICES][self.selected_device]
-                                mac_retrieved = True
+                        mac = None
+                        if factory_info and isinstance(factory_info, dict):
+                            mac = factory_info.get("mac")
+                            if not mac and isinstance(factory_info.get("result"), list) and factory_info["result"]:
+                                mac = factory_info["result"][0].get("mac")
+                        if mac and mac != "00:00:00:00:00:00":
+                            formatted_mac = format_mac(mac)
+                            dev_conf[CONF_MAC] = formatted_mac
+                            dev_conf["cloud_mac"] = formatted_mac
+                            _LOGGER.info("Auto-retrieved MAC address for %s: %s", self.selected_device, formatted_mac)
+                            mac_retrieved = True
                         
                         if not mac_retrieved:
                             if isinstance(factory_info, dict) and factory_info.get("_debug"):
@@ -2521,7 +2532,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                     self.dps_strings = merge_dps_manual_strings(
                         self.device_data.get(CONF_MANUAL_DPS, ""), self.dps_strings
                     )
-                    if self.device_data.pop(CONF_ENABLE_ADD_ENTITIES, False):
+                    if self.device_data.pop(CONF_ENABLE_ADD_ENTITIES, False) or not self.entities:
                         self.editing_device = False
                         user_input[CONF_DEVICE_ID] = dev_id
                         self.device_data.update(
@@ -2795,7 +2806,7 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 device = self.discovered_devices.get(dev_id, {})
                 defaults[CONF_HOST] = device.get(CONF_TUYA_IP)
                 defaults[CONF_DEVICE_ID] = device.get(CONF_TUYA_GWID)
-                defaults[CONF_PROTOCOL_VERSION] = device.get(CONF_TUYA_VERSION)
+                defaults[CONF_PROTOCOL_VERSION] = device.get(CONF_TUYA_VERSION) or "auto"
                 defaults[CONF_NODE_ID] = device.get(CONF_NODE_ID, None)
 
             if dev_id in cloud_devs:
@@ -2878,9 +2889,67 @@ class LocalTuyaOptionsFlowHandler(OptionsFlow):
                 if device.get(CONF_TUYA_IP):
                     defaults[CONF_HOST] = device.get(CONF_TUYA_IP)
 
-            schema = schema_suggested_values(DEVICE_SCHEMA, **defaults)
-
             placeholders["for_device"] = ""
+
+        # Resolve MAC and Local IP (192.168.0.x) to assist user and prefill host
+        device_mac = defaults.get(CONF_MAC) or (cloud_devs.get(dev_id, {}).get("mac") if dev_id and dev_id in cloud_devs else None)
+        if not device_mac and self.cloud_data and dev_id:
+            try:
+                factory_info = await self.cloud_data.async_get_device_factory_info(dev_id)
+                if factory_info and isinstance(factory_info, dict):
+                    raw_mac = factory_info.get("mac")
+                    if not raw_mac and isinstance(factory_info.get("result"), list) and factory_info["result"]:
+                        raw_mac = factory_info["result"][0].get("mac")
+                    if raw_mac and raw_mac != "00:00:00:00:00:00":
+                        device_mac = format_mac(raw_mac)
+                        defaults[CONF_MAC] = device_mac
+                        defaults["cloud_mac"] = device_mac
+            except Exception as err:
+                _LOGGER.debug("Could not auto-fetch MAC for %s: %s", dev_id, err)
+
+        if device_mac:
+            device_mac = format_mac(device_mac)
+            defaults[CONF_MAC] = device_mac
+            defaults["cloud_mac"] = device_mac
+            local_ip = await async_find_local_ip_by_mac(self.hass, device_mac)
+            if local_ip:
+                defaults["local_ip"] = local_ip
+                current_host = defaults.get(CONF_HOST, "")
+                if not current_host or current_host == "0.0.0.0":
+                    defaults[CONF_HOST] = local_ip
+                else:
+                    try:
+                        import ipaddress
+                        if not ipaddress.ip_address(current_host).is_private:
+                            defaults[CONF_HOST] = local_ip
+                    except ValueError:
+                        defaults[CONF_HOST] = local_ip
+
+                dhcp_msg = (
+                    f" (`{dev_id}`)\n\n"
+                    f"🔍 **Dispositivo Rilevato in Rete:**\n"
+                    f"• **MAC Address**: `{device_mac}`\n"
+                    f"• **IP Locale (DHCP)**: `{local_ip}`\n\n"
+                    f"💡 **Consiglio**: Assegna un **lease statico** per questo IP (`{local_ip}`) "
+                    f"associato al MAC `{device_mac}` nelle impostazioni DHCP di **AdGuard Home** "
+                    f"per evitare future disconnessioni del sensore."
+                )
+                placeholders["for_device"] = f"\n{dhcp_msg}"
+            else:
+                dhcp_msg = (
+                    f" (`{dev_id}`)\n\n"
+                    f"🔍 **Dispositivo Rilevato in Rete:**\n"
+                    f"• **MAC Address**: `{device_mac}`\n\n"
+                    f"💡 **Consiglio**: Assegna un **lease statico** nel DHCP di **AdGuard Home** "
+                    f"usando il MAC `{device_mac}` per garantire un IP locale fisso."
+                )
+                placeholders["for_device"] = f"\n{dhcp_msg}"
+
+        # Re-apply schema with any updated defaults (host, mac, local_ip)
+        if self.editing_device:
+            schema = schema_suggested_values(options_schema(self.entities), **defaults)
+        else:
+            schema = schema_suggested_values(DEVICE_SCHEMA, **defaults)
 
         return self.async_show_form(
             step_id="configure_device",
@@ -3372,8 +3441,8 @@ def options_schema(entities):
             vol.Required(CONF_FRIENDLY_NAME): cv.string,
             vol.Required(CONF_HOST): cv.string,
             vol.Required(CONF_LOCAL_KEY): cv.string,
-            vol.Required(CONF_PROTOCOL_VERSION, default="3.3"): col_to_select(
-                sorted(SUPPORTED_PROTOCOL_VERSIONS)
+            vol.Required(CONF_PROTOCOL_VERSION, default="auto"): col_to_select(
+                ["auto"] + sorted(SUPPORTED_PROTOCOL_VERSIONS)
             ),
             vol.Required(CONF_ENABLE_DEBUG, default=False): bool,
             vol.Optional(CONF_SCAN_INTERVAL): int,
