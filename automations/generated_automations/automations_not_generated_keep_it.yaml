@@ -25,7 +25,7 @@
         - schedule.riscaldamento
       from: "off"
       to: "on"
-      trigger: state
+      platform: state
   conditions: []
   actions:
     - target:
@@ -42,7 +42,7 @@
         - schedule.riscaldamento
       from: "on"
       to: "off"
-      trigger: state
+      platform: state
   conditions: []
   actions:
     - target:
@@ -88,7 +88,7 @@
   triggers:
     - entity_id:
         - sensor.envoy_122134037538_current_power_production
-      trigger: state
+      platform: state
     - topic: home/prism/1/state
       trigger: mqtt
     - minutes: "10"
@@ -273,7 +273,7 @@
   alias: Regola carica colonnina GUI
   description: Imposta gli ampere di ricarica della colonnina. Controlla il logging tramite input_boolean.logging_enabled.
   triggers:
-    - trigger: state
+    - platform: state
       entity_id:
         - sensor.envoy_122134037538_current_power_production
     - trigger: mqtt
@@ -366,7 +366,7 @@
       above: "0.07"
       for:
         minutes: 1
-      trigger: numeric_state
+      platform: numeric_state
     - entity_id:
         - sensor.statistics_umidita_bagno_variance
         - sensor.statistics_umidita_cucina_variance
@@ -376,7 +376,7 @@
       above: "2.0"
       for:
         minutes: 1
-      trigger: numeric_state
+      platform: numeric_state
   conditions:
     - condition: template
       alias: "Verifica differenziale termico interno/esterno > 5 gradi"
@@ -512,7 +512,7 @@
 - id: debug_deviatore_states
   alias: DEBUG - Stati Deviatore Scale
   triggers:
-    - trigger: state
+    - platform: state
       entity_id:
         - switch.sonoff_10024024c4_1
         - switch.sonoff_10024024c4_2
@@ -582,7 +582,7 @@
 - id: keepDeviatoreScaleTurnedOn
   alias: Controlla stati deviatore scale (anti-oscillazione)
   triggers:
-    - trigger: state
+    - platform: state
       entity_id:
         - switch.sonoff_10024024c4_1
         - switch.sonoff_10024024c4_2
@@ -738,7 +738,7 @@
   alias: "Spegni luci scale dopo tempo - Avvia timer"
   description: Avvia timer 4min quando luce scale si accende
   triggers:
-    - trigger: state
+    - platform: state
       entity_id: light.luce_scale
       to: "on"
       for:
@@ -831,7 +831,7 @@
   alias: "Spegni luci scale dopo tempo - Annulla timer se spenta manualmente"
   description: Annulla timer se luce scale spenta manualmente
   triggers:
-    - trigger: state
+    - platform: state
       entity_id: light.luce_scale
       to: "off"
   actions:
@@ -851,9 +851,9 @@
     ogni volta che vengono modificati
   triggers:
     - entity_id: switch.sonoff_10024024c4_1
-      trigger: state
+      platform: state
     - entity_id: switch.sonoff_10024024c4_2
-      trigger: state
+      platform: state
   actions:
     - action: input_text.set_value
       data:
@@ -917,7 +917,7 @@
   triggers:
     - entity_id: binary_sensor.ping_google
       to: "off"
-      trigger: state
+      platform: state
   actions:
     - repeat:
         until:
@@ -1146,7 +1146,7 @@
   description: Log TH1A branch
   triggers:
     - entity_id: sensor.th1a_temperature
-      trigger: state
+      platform: state
   conditions: []
   actions:
     - action: system_log.write
@@ -1160,7 +1160,7 @@
   triggers:
     - entity_id:
         - device_tracker.2312dra50g
-      trigger: state
+      platform: state
   conditions:
     - condition: template
       value_template: "{{ trigger.to_state.state != trigger.from_state.state }}"
