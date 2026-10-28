@@ -72,6 +72,17 @@ script:
         data:
           level: info
           message: "Alexa Stop: interrompi riproduzione"
+      - action: alexa_devices.send_text_command
+        data:
+          device_id: "9f7fa85d1597bcdd4948d75d1524dad8"
+          text_command: "ferma"
+      - action: alexa_devices.send_text_command
+        data:
+          device_id: "e029aab2768927141cbfaf737132ed29"
+          text_command: "ferma"
       - action: media_player.media_stop
         target:
-          entity_id: media_player.alexa_echo_dots
+          entity_id: media_player.2o_echo_dot_di_carlo
+      - action: media_player.media_stop
+        target:
+          entity_id: media_player.echo_dot_di_carlo

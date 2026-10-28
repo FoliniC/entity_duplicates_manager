@@ -1,8 +1,9 @@
 # Ripristina switch KNX write-only all'avvio basandosi sullo stato termico reale (pdc_heating)
 # I switch attiva_pdc e attiva_pompa_circolazione non hanno state_address -> default OFF al restart
 # binary_sensor.pdc_heating HA state_address + sync_state -> legge stato reale KNX e persiste
+# MA all'avvio controlliamo ANCHE lo schedule: se schedule=on, forziamo gli switch ON
 
-- alias: "Ripristino switch PDC/pompa all'avvio (da pdc_heating)"
+- alias: "Ripristino switch PDC/pompa all'avvio (da pdc_heating OR schedule)"
   id: "restore_pdc_switches_on_startup"
   initial_state: true
   mode: single
@@ -11,7 +12,10 @@
       event: start
   condition:
     - condition: template
-      value_template: "{{ is_state('binary_sensor.pdc_heating', 'on') }}"
+      value_template: >-
+        {{ is_state('binary_sensor.pdc_heating', 'on') 
+           or is_state('schedule.riscaldamento', 'on')
+           or states('input_select.fancoil_system_hvac_mode') in ['heat', 'cool'] }}
   action:
     - service: switch.turn_on
       target:
@@ -23,7 +27,7 @@
     - event: fancoil_log_event
       event_data:
         level: info
-        message: "[Startup] Ripristinati attiva_pdc e attiva_pompa_circolazione (pdc_heating=on)"
+        message: "[Startup] Ripristinati attiva_pdc e attiva_pompa_circolazione (pdc_heating={{ states('binary_sensor.pdc_heating') }}, schedule={{ states('schedule.riscaldamento') }}, hvac={{ states('input_select.fancoil_system_hvac_mode') }})"
 
 # Opzionale: se pdc_heating torna ON mentre HA è già avviato (es. PDC si accende da solo)
 - alias: "Ripristino switch PDC/pompa se pdc_heating si attiva"
@@ -51,8 +55,36 @@
         level: info
         message: "[Runtime] Ripristinati attiva_pdc e attiva_pompa_circolazione (pdc_heating tornato ON)"
 
+# Accendi gli switch quando lo schedule si attiva (orario di accensione)
+- alias: "Accendi switch PDC/pompa quando schedule si accende"
+  id: "turn_on_pdc_switches_on_schedule_on"
+  initial_state: true
+  mode: single
+  trigger:
+    - platform: state
+      entity_id: schedule.riscaldamento
+      to: "on"
+      from: "off"
+  condition:
+    - condition: template
+      value_template: "{{ not is_state('switch.attiva_pdc', 'on') or not is_state('switch.attiva_pompa_circolazione', 'on') }}"
+  action:
+    - service: switch.turn_on
+      target:
+        entity_id: switch.attiva_pdc
+    - service: switch.turn_on
+      target:
+        entity_id: switch.attiva_pompa_circolazione
+    - delay: "00:00:02"
+    - event: fancoil_log_event
+      event_data:
+        level: info
+        message: "[Schedule ON] Ripristinati attiva_pdc e attiva_pompa_circolazione (schedule.riscaldamento=on)"
+
 # Spegni gli switch se pdc_heating va OFF (coerenza)
-- alias: "Spegni switch PDC/pompa se pdc_heating si spegne"
+# MA NON spegnere se lo schedule richiede riscaldamento/raffreddamento 
+# o la modalità HVAC globale non è 'off'
+- alias: "Spegni switch PDC/pompa se pdc_heating si spegne (e schedule off)"
   id: "turn_off_pdc_switches_on_pdc_heating_off"
   initial_state: true
   mode: single
@@ -64,6 +96,11 @@
   condition:
     - condition: template
       value_template: "{{ is_state('switch.attiva_pdc', 'on') or is_state('switch.attiva_pompa_circolazione', 'on') }}"
+    - condition: template
+      value_template: >-
+        {# Non spegnere se schedule ON o HVAC mode non off #}
+        {{ not is_state('schedule.riscaldamento', 'on') 
+           and states('input_select.fancoil_system_hvac_mode') == 'off' }}
   action:
     - service: switch.turn_off
       target:
@@ -75,4 +112,32 @@
     - event: fancoil_log_event
       event_data:
         level: info
-        message: "[Runtime] Spenti attiva_pdc e attiva_pompa_circolazione (pdc_heating tornato OFF)"
+        message: "[Runtime] Spenti attiva_pdc e attiva_pompa_circolazione (pdc_heating OFF, schedule OFF, HVAC off)"
+
+# Spegni gli switch quando lo schedule si spegne (orario di spegnimento)
+- alias: "Spegni switch PDC/pompa quando schedule si spegne"
+  id: "turn_off_pdc_switches_on_schedule_off"
+  initial_state: true
+  mode: single
+  trigger:
+    - platform: state
+      entity_id: schedule.riscaldamento
+      to: "off"
+      from: "on"
+  condition:
+    - condition: template
+      value_template: "{{ is_state('switch.attiva_pdc', 'on') or is_state('switch.attiva_pompa_circolazione', 'on') }}"
+    - condition: template
+      value_template: "{{ states('input_select.fancoil_system_hvac_mode') == 'off' }}"
+  action:
+    - service: switch.turn_off
+      target:
+        entity_id: switch.attiva_pdc
+    - service: switch.turn_off
+      target:
+        entity_id: switch.attiva_pompa_circolazione
+    - delay: "00:00:02"
+    - event: fancoil_log_event
+      event_data:
+        level: info
+        message: "[Schedule OFF] Spenti attiva_pdc e attiva_pompa_circolazione (schedule.riscaldamento=off, HVAC=off)"

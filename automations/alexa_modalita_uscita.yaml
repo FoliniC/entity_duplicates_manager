@@ -46,23 +46,12 @@
           - switch.tavolo_cucina
           - switch.cucina_luci_cucina_switch_4
     # 3. Spegni radio/sistema audio se in riproduzione
+    - service: system_log.write
+      data:
+        level: info
+        message: "Alexa Uscita - Invio comando FERMA a tutti i device Alexa (stati: cucina={{ states('media_player.cucina') }}, sistema_audio={{ states('media_player.sistema_audio') }}, 2o_echo={{ states('media_player.2o_echo_dot_di_carlo') }})"
     - choose:
-        - conditions:
-            - condition: state
-              entity_id: media_player.cucina
-              state: "playing"
-          sequence:
-            - service: media_player.media_stop
-              target:
-                entity_id: media_player.cucina
-        - conditions:
-            - condition: state
-              entity_id: media_player.sistema_audio
-              state: "playing"
-          sequence:
-            - service: media_player.media_stop
-              target:
-                entity_id: media_player.sistema_audio
+        # alexa_media (supporta media_stop) - Ora abilitato!
         - conditions:
             - condition: state
               entity_id: media_player.2o_echo_dot_di_carlo
@@ -79,6 +68,17 @@
             - service: media_player.media_stop
               target:
                 entity_id: media_player.echo_dot_di_carlo
+        # alexa_devices - SEMPRE invia "ferma" (non controlla stato, non fa male se non suona)
+        - conditions: []
+          sequence:
+            - service: alexa_devices.send_text_command
+              data:
+                device_id: "9f7fa85d1597bcdd4948d75d1524dad8"
+                text_command: "ferma"
+            - service: alexa_devices.send_text_command
+              data:
+                device_id: "e029aab2768927141cbfaf737132ed29"
+                text_command: "ferma"
     # 4. Accendi luci scale (per percorso uscita)
     - service: light.turn_on
       target:

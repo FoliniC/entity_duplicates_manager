@@ -23,7 +23,6 @@
 - !include managed_trigger_sensors/cucina_window_efficiency.yaml
 - !include managed_trigger_sensors/camera_grande_window_efficiency.yaml
 - !include managed_trigger_sensors/camera_window_efficiency.yaml
-- !include managed_trigger_sensors/corridoio_window_efficiency.yaml
 - !include managed_trigger_sensors/bagno_window_efficiency.yaml
 - !include managed_trigger_sensors/sala_window_efficiency.yaml
 - !include managed_persistence/cucina_persistence.yaml

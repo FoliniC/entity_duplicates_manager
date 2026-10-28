@@ -7,15 +7,7 @@
 # Risolve problemi di dati non validi che causavano valutazioni errate (es. umidità impossibile).
 
 trigger:
-  - platform: state
-    entity_id: sensor.consiglio_finestra_%%id%%
-    id: advice_changed
-  - platform: state
-    entity_id: {{ window_contact_sensor if window_contact_sensor else 'input_boolean.finestra_%%id%%_aperta' }}
-    id: window_changed
-  - platform: time_pattern
-    minutes: "/1"
-    id: time_tick
+%%TRIGGERS_YAML%%
 
 sensor:
 # ---------------------------------------------------------------------------
@@ -26,12 +18,19 @@ sensor:
   unique_id: esito_ultimo_consiglio_finestra_%%id%%_validated
   variables:
     window_contact_sensor: %%WINDOW_CONTACT_SENSOR%%
+    umidita_helper: "input_number.umidita_%%id%%_ultima_valida"
+    th_humidity_sensor: "%%TH_HUMIDITY_SENSOR%%"
+    external_humidity_sensor: "%%EXTERNAL_HUMIDITY_SENSOR%%"
   state: >-
     {% set consiglio = states('sensor.consiglio_finestra_%%id%%') %}
     {% set finestra = states(window_contact_sensor) if window_contact_sensor else states('input_boolean.finestra_%%id%%_aperta') %}
     {% set rh = states('sensor.umidita_%%id%%_pilota') | float(none) %}
-    {% set rh_th = states('%%TH_HUMIDITY_SENSOR%%') | float(none) %}  {# KNX TH come fallback #}
-    {% set rh_external = states('%%EXTERNAL_HUMIDITY_SENSOR%%') | float(none) %}  {# Meteo esterno come fallback #}
+    {% set rh_th = states(th_humidity_sensor) | float(none) if th_humidity_sensor else none %}  {# KNX TH come fallback #}
+    {% set rh_external = states(external_humidity_sensor) | float(none) %}  {# Meteo esterno come fallback #}
+    {% set u_prima_helper = states('input_number.umidita_%%id%%_ultima_valida') | float(none) %}
+    {# Fallback: se helper non valido (es. al primo avvio prima restore), usa lettura corrente #}
+    {% set u_prima = u_prima_helper if (u_prima_helper is not none and 10 <= u_prima_helper <= 95) else rh %}
+    {% set u_prima_valida = u_prima is not none and 10 <= u_prima <= 95 %}
     {% set prev_state = this.state | default('in_attesa') %}
     {% set prev_attrs = this.attributes | default({}) %}
     
@@ -95,7 +94,9 @@ sensor:
        --------------------------------------------------------------------------- #}
     {% if trigger.id == 'advice_changed' %}
       {% if trigger.to_state.state in ['apri', 'apri_se_riparata', 'chiudi'] %}
-        {% if not any_data_valid %}
+        {% if not u_prima_valida %}
+          non_valutabile  {# Umidità helper non valida - non possiamo valutare #}
+        {% elif not any_data_valid %}
           non_valutabile  {# No valid data available #}
         {% else %}
           in_attesa
@@ -109,18 +110,22 @@ sensor:
       {% else %}
         {{ prev_state }}
       {% endif %}
-        
+       
     {% elif trigger.id == 'window_changed' %}
       {% if prev_state == 'in_attesa' %}
         {% set cons_val = prev_attrs.get('consiglio_valutato', '') %}
         {% if trigger.to_state.state == 'on' and cons_val in ['apri', 'apri_se_riparata'] %}
-          {% if not any_data_valid %}
+          {% if not u_prima_valida %}
+            non_valutabile
+          {% elif not any_data_valid %}
             non_valutabile
           {% else %}
             in_corso
           {% endif %}
         {% elif trigger.to_state.state == 'off' and cons_val == 'chiudi' %}
-          {% if not any_data_valid %}
+          {% if not u_prima_valida %}
+            non_valutabile
+          {% elif not any_data_valid %}
             non_valutabile
           {% else %}
             in_corso
@@ -154,7 +159,7 @@ sensor:
       {% else %}
         {{ prev_state }}
       {% endif %}
-        
+       
     {% elif trigger.id == 'time_tick' %}
       {% if prev_state == 'in_corso' %}
         {% set t_inizio = prev_attrs.get('ora_inizio_valutazione') %}
@@ -168,7 +173,7 @@ sensor:
               {% set tipo = prev_attrs.get('tipo_azione') %}
               {% set rh_ini_debug = rh_ini | round(2) %}
               {% set rh_debug = rh | round(2) %}
-              
+             
               {% if not any_data_valid %}
                 non_valutabile  {# No valid data available at all #}
               {% else %}
@@ -176,7 +181,7 @@ sensor:
                 {% set delta_h_debug = delta_h | round(2) %}
                 {% set trend = states('sensor.trend_umidita_%%id%%') %}
                 {% set trend_valid = trend not in ['incerto', 'unknown'] %}
-                
+               
                 {# APPLY VALIDATION LAYER #}
                 {% if tipo == 'apertura' %}
                   {% if delta_h_debug < -30.0 or delta_h_debug > 30.0 %}
@@ -234,7 +239,7 @@ sensor:
       {% else %}
         {{ prev_state }}
       {% endif %}
-        
+       
     {% else %}
       {{ prev_state }}
     {% endif %}
@@ -243,6 +248,13 @@ sensor:
       # ---------------------------------------------------------------------------
       # QUALITY METRICS: Track data quality alongside evaluation results
       # ---------------------------------------------------------------------------
+      umidita_inizio: >-
+        {% set new_state = (trigger.id == 'advice_changed' and trigger.to_state.state in ['apri', 'apri_se_riparata', 'chiudi'] and u_prima_valida and any_data_valid) or (trigger.id == 'window_changed' and prev_state == 'in_attesa' and trigger.to_state.state == 'on') %}
+        {% if new_state %}
+          {{ u_prima }}
+        {% else %}
+          {{ prev_attrs.get('umidita_inizio', 'N/A') }}
+        {% endif %}
       dati_primari_validi: >-
         {{ primary_data_valid }}
       dati_th_validi: >-
@@ -251,83 +263,81 @@ sensor:
         {{ external_data_valid }}
       qualsiasi_dato_valido: >-
         {{ any_data_valid }}
-      
+      \
       controllo_coerenza_superato: >-
         {{ coherence_check_passed }}
-      
+      \
       umidita_pilota_valida: >-
         {{ rh }}
       umidita_th_valida: >-
         {{ rh_th }}
       umidita_esterna_valida: >-
         {{ rh_external }}
-      
+      \
       eta_dati_minuti: >-
-        {% set current_time = now() | as_timestamp %}
-        {% set last_update = state_attr('sensor.umidita_%%id%%_pilota', 'last_updated') %}
-        {% if last_update %}
-          {% set last_update_time = as_timestamp(last_update) %}
-          {% set data_age_minutes = (current_time - last_update_time) / 60 %}
-          {% if data_age_minutes < 999 %}
-            {{ data_age_minutes | round(1) }}
-          {% else %}
-            999
-          {% endif %}
-        {% else %}
+        {% set current_time = now() | as_timestamp -%}
+        {% set last_update = state_attr('sensor.umidita_%%id%%_pilota', 'last_updated') -%}
+        {% if last_update -%}
+          {% set last_update_time = as_timestamp(last_update) -%}
+          {% set data_age_minutes = (current_time - last_update_time) / 60 -%}
+          {{ data_age_minutes | round(1) if data_age_minutes < 999 else 999 }}
+        {%- else -%}
           999
-        {% endif %}
+        {%- endif %}
       dati_troppo_vecchi: >-
-        {% set current_time = now() | as_timestamp %}
-        {% set last_update = state_attr('sensor.umidita_%%id%%_pilota', 'last_updated') %}
-        {% if last_update %}
-          {% set last_update_time = as_timestamp(last_update) %}
-          {% set data_age_minutes = (current_time - last_update_time) / 60 %}
+        {% set current_time = now() | as_timestamp -%}
+        {% set last_update = state_attr('sensor.umidita_%%id%%_pilota', 'last_updated') -%}
+        {% if last_update -%}
+          {% set last_update_time = as_timestamp(last_update) -%}
+          {% set data_age_minutes = (current_time - last_update_time) / 60 -%}
           {{ data_age_minutes > 60 }}
-        {% else %}
+        {%- else -%}
           true
-        {% endif %}
+        {%- endif %}
       trend_sensore: >-
         {{ trend }}
       trend_valido: >-
         {{ trend_valid }}
-      
+      \
       # ---------------------------------------------------------------------------
-      # FALLBACK LOGIC: Track fallback usage
-      # ---------------------------------------------------------------------------
-      sensore_fallback_usato: >-
-        {% if primary_data_valid == false and (th_data_valid == true or external_data_valid == true) %}
-          senso_reale_o_esterno
-        {% elif primary_data_valid == true and coherence_check_passed == false %}
-          coerenza_sensori_non_aggressivi
-        {% else %}
-          normale
-        {% endif %}
-        
-      # ---------------------------------------------------------------------------
-      # VALIDATION NOTES: Record any data quality issues
-      # ---------------------------------------------------------------------------
-      note_validazione: >-
-        {% if not primary_data_valid %}
-          Umidità pilota non valida o mancante;
-        {% else %}
-          {{ prev_attrs.get('note_validazione', '') }}
-        {% endif %}
-        
-      # ---------------------------------------------------------------------------
-      # DATI ALTERNATIVI: Track fallback sensor readings when primary fails
-      # ---------------------------------------------------------------------------
-      umidita_alternativa_utilizzata: >-
-        {% if not primary_data_valid and th_data_valid %}
-          {{ th_humidity_sensor }}
-        {% elif not primary_data_valid and external_data_valid %}
+            # FALLBACK LOGIC: Track fallback usage
+            # ---------------------------------------------------------------------------
+            sensore_fallback_usato: >-
+              {%- if not primary_data_valid and (th_data_valid or external_data_valid) -%}
+                senso_reale_o_esterno
+              {%- elif primary_data_valid and not coherence_check_passed -%}
+                coerenza_sensori_non_aggressivi
+              {%- else -%}
+                normale
+              {%- endif %}
+            \
+            # ---------------------------------------------------------------------------
+            # VALIDATION NOTES: Record any data quality issues
+            # ---------------------------------------------------------------------------
+            note_validazione: >-
+              {%- if not u_prima_valida -%}
+                Umidità helper (prima) non disponibile o fuori range [10,95];
+              {%- elif not primary_data_valid -%}
+                Umidità pilota non valida o mancante;
+              {%- else -%}
+                {{ prev_attrs.get('note_validazione', '') }}
+              {%- endif %}
+            \
+            # ---------------------------------------------------------------------------
+            # DATI ALTERNATIVI: Track fallback sensor readings when primary fails
+            # ---------------------------------------------------------------------------
+            umidita_alternativa_utilizzata: >-
+              {%- if not primary_data_valid and th_data_valid -%}
+                {{ th_humidity_sensor }}
+              {%- elif not primary_data_valid and external_data_valid -%}
           sensor.meteo_castionetto_umidita
         {% else %}
           sensor.umidita_%%id%%_pilota (principale)
         {% endif %}
-        
+        \
       coerenza_sensori_pct: >-
         {{ 100 if coherence_check_passed else 0 }}
-        
+        \
       affidabilita_dati_pct: >-
         {% set valid_count = (1 if primary_data_valid else 0) + (1 if th_data_valid else 0) + (1 if external_data_valid else 0) %}
         {% set total_count = 3 %}
@@ -337,10 +347,8 @@ sensor:
         {% else %}
           0%
         {% endif %}
-        
+        \
       # ---------------------------------------------------------------------------
       # TIME STAMP: Track when data was last updated
       # ---------------------------------------------------------------------------
-      ultima_aggiornamento_dati: >-
-        {% set last_update = state_attr('sensor.umidita_%%id%%_pilota', 'last_updated') %}
-        {% if last_update %}{{ last_update }}{% else %}N/A{% endif %}
+      ultima_aggiornamento_dati: "{{ state_attr('sensor.umidita_%%id%%_pilota', 'last_updated') if state_attr('sensor.umidita_%%id%%_pilota', 'last_updated') else 'N/A' }}"

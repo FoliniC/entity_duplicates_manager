@@ -87,7 +87,7 @@ WINDOW_LOGGER_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "fancoil_window_logger.j2")
 )
 WINDOW_EFFICIENCY_TEMPLATE_PATH = (
-    os.path.join(SCRIPT_DIR, "templates", "fancoil_window_efficiency.j2")
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_window_efficiency_v2.j2")
 )
 WINDOW_VERIFICATION_MODE_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "fancoil_verification_mode.j2")
@@ -98,6 +98,25 @@ CLIMATE_ADVICE_TRIGGER_TEMPLATE_PATH = (
 DASHBOARD_GRAPHS_TEMPLATE_PATH = os.path.join(SCRIPT_DIR, "templates", "dashboard_graphs.j2")
 MANUAL_ADVICE_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "fancoil_manual_advice.j2")
+)
+
+# Nuovi template per Layer 2 fix e debounce
+ROOM_INPUT_NUMBER_LAST_VALID_HUMIDITY_TEMPLATE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_room_input_numbers_last_valid_humidity.j2")
+)
+AUTOMATION_MEMORIZZA_UMIDITA_VALIDA_TEMPLATE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_automation_memorizza_umidita_valida.j2")
+)
+BINARY_SENSOR_DEBOUNCED_ADVICE_TEMPLATE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_binary_sensor_debounced_advice.j2")
+)
+AUTOMATION_RESET_STUCK_SESSION_TEMPLATE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_automation_reset_stuck_session.j2")
+)
+
+# External climate sensors (omega_esterno, T_dew esterno) con filtro outlier
+EXTERNAL_CLIMATE_SENSORS_TEMPLATE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "external_climate_sensors.j2")
 )
 
 # Outputs (generated)
@@ -747,6 +766,16 @@ def main():
         vars_map,
     )
 
+    # External climate sensors (omega_esterno, T_dew esterno) con filtro outlier
+    # Genera file singolo in managed_sensors/ (incluso via !include_dir_merge_list)
+    external_ctx = {"external": {"id": "external", "friendly_name": "Esterno", "filename": "external_climate"}}
+    generate_from_template(
+        EXTERNAL_CLIMATE_SENSORS_TEMPLATE_PATH,
+        SENSORS_OUTPUT_DIR,
+        external_ctx,
+        "",
+    )
+
     # Fase 5 - Per-room trend sensors (trend umidità)
     generate_from_template(
         TREND_SENSORS_TEMPLATE_PATH,
@@ -839,6 +868,8 @@ def main():
     # Build trigger entities based on has_window
     window_efficiency_vars = {}
     for key, context in vars_map.items():
+        if not context.get("has_window", True):  # Skip rooms without windows
+            continue
         local_ctx = dict(context)
         room_id = local_ctx.get("id", key)
         has_win = local_ctx.get("has_window", True)
@@ -920,6 +951,41 @@ def main():
         "_manual_advice",
     )
 
+    # Filter rooms with windows for new templates (exclude corridoio)
+    vars_map_with_windows = {k: v for k, v in vars_map.items() if v.get("has_window", True)}
+
+    # Nuovi: Input Number helper per ultima umidità valida (Layer 2 fix)
+    generate_from_template(
+        ROOM_INPUT_NUMBER_LAST_VALID_HUMIDITY_TEMPLATE_PATH,
+        "yaml_generator/input_number",
+        vars_map_with_windows,
+        "_last_valid_humidity",
+    )
+
+    # Nuovi: Automazione memorizza ultima umidità valida (Layer 2 fix)
+    generate_from_template(
+        AUTOMATION_MEMORIZZA_UMIDITA_VALIDA_TEMPLATE_PATH,
+        AUTOMATION_OUTPUT_DIR,
+        vars_map_with_windows,
+        "_memorizza_umidita_valida",
+    )
+
+    # Nuovi: Binary Sensor debounced per consiglio finestra
+    generate_from_template(
+        BINARY_SENSOR_DEBOUNCED_ADVICE_TEMPLATE_PATH,
+        BINARY_SENSORS_OUTPUT_DIR,
+        vars_map_with_windows,
+        "_debounced_advice",
+    )
+
+    # Nuovi: Automazione reset sessioni bloccate (Layer 2 fix)
+    generate_from_template(
+        AUTOMATION_RESET_STUCK_SESSION_TEMPLATE_PATH,
+        AUTOMATION_OUTPUT_DIR,
+        vars_map_with_windows,
+        "_reset_stuck_session",
+    )
+
     # Aggregated helpers
     # Input booleans - use all rooms; template handles window_contact_sensor condition
     generate_master_and_rooms(
@@ -995,13 +1061,15 @@ def main():
         "- !include ev_charge_2025_triggers.yaml",
         "- !include luce_scale_template.yaml"
     ]
+    # Rooms with windows (for window_efficiency)
+    window_rooms = [k for k, v in vars_map.items() if v.get("has_window", True)]
     for key in vars_map.keys():
         master_lines.append(f"- !include managed_trigger_sensors/{key}_climate_advice.yaml")
     for key in vars_map.keys():
         master_lines.append(f"- !include managed_trigger_sensors/{key}_window_advice.yaml")
     for key in vars_map.keys():
         master_lines.append(f"- !include managed_trigger_sensors/{key}_window_logger.yaml")
-    for key in vars_map.keys():
+    for key in window_rooms:
         master_lines.append(f"- !include managed_trigger_sensors/{key}_window_efficiency.yaml")
     for key in vars_map.keys():
         master_lines.append(f"- !include managed_persistence/{key}_persistence.yaml")

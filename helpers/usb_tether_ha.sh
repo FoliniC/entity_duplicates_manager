@@ -708,7 +708,7 @@ case "$ACTION" in
   reset)
     log_line INFO "[USER_ACTION] 🔴 RESET DI EMERGENZA PREMUTO: Interruzione watchdog in corso e ripristino forzato rete normale."
     pkill -f failsafe_watchdog.sh >/dev/null 2>&1 || true
-    rm -f /config/logs/usb_tether/*.marker >/dev/null 2>&1 || true
+    rm -f /config/logs/usb_tether/*.marker /config/logs/usb_tether/restoring_windows.marker >/dev/null 2>&1 || true
     if [[ "$HOST" == *"Windows"* ]]; then
       restore_windows
     else
