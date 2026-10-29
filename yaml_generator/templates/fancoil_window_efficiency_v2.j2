@@ -14,7 +14,7 @@ sensor:
 # LAYER 1: VALIDAZIONE DATI PRIMARIA
 # Controlla se i dati sono validi prima di qualsiasi valutazione
 # ---------------------------------------------------------------------------
-- name: "Esito Ultimo Consiglio Finestra %%friendly_name%% (Con Validazione)"
+- name: "Esito Ultimo Consiglio Finestra %%friendly_name%% Validated"
   unique_id: esito_ultimo_consiglio_finestra_%%id%%_validated
   variables:
     window_contact_sensor: %%WINDOW_CONTACT_SENSOR%%
@@ -33,7 +33,7 @@ sensor:
     {% set u_prima_valida = u_prima is not none and 10 <= u_prima <= 95 %}
     {% set prev_state = this.state | default('in_attesa') %}
     {% set prev_attrs = this.attributes | default({}) %}
-    
+
     {# ---------------------------------------------------------------------------
        CHECK DATI QUALITÀ #1: Validità sensore primario
        --------------------------------------------------------------------------- #}
@@ -41,7 +41,7 @@ sensor:
     {% set th_data_valid = rh_th is not none and rh_th >= 0 and rh_th <= 100 %}
     {% set external_data_valid = rh_external is not none and rh_external >= 0 and rh_external <= 100 %}
     {% set any_data_valid = primary_data_valid or th_data_valid or external_data_valid %}
-    
+
     {# ---------------------------------------------------------------------------
        CHECK DATI QUALITÀ #2: Transition Rate Validation
        --------------------------------------------------------------------------- #}
@@ -51,7 +51,7 @@ sensor:
     {% set max_rate_30min_closing = 35.0 %}
     {% set max_rate_60min_opening = 80.0 %}
     {% set max_rate_60min_closing = 50.0 %}
-    
+
     {# ---------------------------------------------------------------------------
        CHECK DATI QUALITÀ #3: Coherence Check (Pilota vs TH vs External)
        --------------------------------------------------------------------------- #}
@@ -71,7 +71,7 @@ sensor:
     {% if coherence_check_passed == false %}
       {% set coherence_check_passed = true %}  {# Allow if only one valid sensor #}
     {% endif %}
-    
+
     {# ---------------------------------------------------------------------------
        CHECK DATI QUALITÀ #4: Stability Check (Recent trend validation)
        --------------------------------------------------------------------------- #}
@@ -88,267 +88,265 @@ sensor:
       {% set data_too_old = true %}
     {% endif %}
     {% set trend_valid = trend not in ['incerto', 'unknown'] %}
-    
+
     {# ---------------------------------------------------------------------------
-       MAIN LOGIC: Evaluation Flow
+       MAIN LOGIC: Evaluation Flow + Session Attribute Computation
        --------------------------------------------------------------------------- #}
+    {# Default session attribute values (persist from prev_attrs) #}
+    {% set ora_inizio_valutazione = prev_attrs.get('ora_inizio_valutazione', 'N/A') %}
+    {% set tipo_azione = prev_attrs.get('tipo_azione', 'N/A') %}
+    {% set consiglio_valutato = prev_attrs.get('consiglio_valutato', 'N/A') %}
+    {% set umidita_inizio = prev_attrs.get('umidita_inizio', 'N/A') %}
+    {% set esito_15m = prev_attrs.get('esito_15m', 'N/A') %}
+    {% set esito_30m = prev_attrs.get('esito_30m', 'N/A') %}
+    {% set esito_60m = prev_attrs.get('esito_60m', 'N/A') %}
+
+    {# Determine new state and update session attributes #}
+    {% set new_state = prev_state %}
+
     {% if trigger.id == 'advice_changed' %}
       {% if trigger.to_state.state in ['apri', 'apri_se_riparata', 'chiudi'] %}
-        {% if not u_prima_valida %}
-          non_valutabile  {# Umidità helper non valida - non possiamo valutare #}
+        {% if not u_prima_valida and primary_data_valid %}
+          {# Startup fallback: helper not ready but current sensor reading valid -> use it #}
+          {% set new_state = 'in_attesa' %}
+        {% elif not u_prima_valida %}
+          {# No helper and no current reading yet -> stay in_attesa (waiting for first valid data) #}
+          {% set new_state = prev_state %}
         {% elif not any_data_valid %}
-          non_valutabile  {# No valid data available #}
+          {% set new_state = 'non_valutabile' %}  {# No valid data available #}
         {% else %}
-          in_attesa
+          {% set new_state = 'in_attesa' %}
+          {# Initialize session attributes for new evaluation #}
+          {% set ora_inizio_valutazione = (now() | as_timestamp) | string %}
+          {% set consiglio_valutato = trigger.to_state.state %}
+          {% set umidita_inizio = u_prima %}
+          {% if trigger.to_state.state in ['apri', 'apri_se_riparata'] %}
+            {% set tipo_azione = 'apertura' %}
+          {% else %}
+            {% set tipo_azione = 'chiusura' %}
+          {% endif %}
+          {# Reset milestone results #}
+          {% set esito_15m = 'N/A' %}
+          {% set esito_30m = 'N/A' %}
+          {% set esito_60m = 'N/A' %}
         {% endif %}
       {% elif trigger.to_state.state in ['nessuna_azione', 'incerto', 'mantieni_aperta', 'mantieni_chiusa'] %}
         {% if prev_state == 'in_corso' %}
-          in_corso
+          {% set new_state = 'in_corso' %}
         {% else %}
-          non_valutabile  {# Cannot evaluate without previous data #}
+          {% set new_state = 'non_valutabile' %}  {# Cannot evaluate without previous data #}
         {% endif %}
       {% else %}
-        {{ prev_state }}
+        {% set new_state = prev_state %}
       {% endif %}
-       
+
     {% elif trigger.id == 'window_changed' %}
       {% if prev_state == 'in_attesa' %}
         {% set cons_val = prev_attrs.get('consiglio_valutato', '') %}
         {% if trigger.to_state.state == 'on' and cons_val in ['apri', 'apri_se_riparata'] %}
-          {% if not u_prima_valida %}
-            non_valutabile
+          {% if not u_prima_valida and primary_data_valid %}
+            {% set new_state = 'in_corso' %}
+          {% elif not u_prima_valida %}
+            {% set new_state = 'non_valutabile' %}
           {% elif not any_data_valid %}
-            non_valutabile
+            {% set new_state = 'non_valutabile' %}
           {% else %}
-            in_corso
+            {% set new_state = 'in_corso' %}
+            {# Initialize session if not already set #}
+            {% if ora_inizio_valutazione == 'N/A' %}
+              {% set ora_inizio_valutazione = (now() | as_timestamp) | string %}
+              {% set umidita_inizio = u_prima %}
+              {% set tipo_azione = 'apertura' %}
+            {% endif %}
           {% endif %}
         {% elif trigger.to_state.state == 'off' and cons_val == 'chiudi' %}
-          {% if not u_prima_valida %}
-            non_valutabile
+          {% if not u_prima_valida and primary_data_valid %}
+            {% set new_state = 'in_corso' %}
+          {% elif not u_prima_valida %}
+            {% set new_state = 'non_valutabile' %}
           {% elif not any_data_valid %}
-            non_valutabile
+            {% set new_state = 'non_valutabile' %}
           {% else %}
-            in_corso
+            {% set new_state = 'in_corso' %}
+            {% if ora_inizio_valutazione == 'N/A' %}
+              {% set ora_inizio_valutazione = (now() | as_timestamp) | string %}
+              {% set umidita_inizio = u_prima %}
+              {% set tipo_azione = 'chiusura' %}
+            {% endif %}
           {% endif %}
         {% else %}
-          {{ prev_state }}
+          {% set new_state = prev_state %}
         {% endif %}
       {% elif prev_state == 'in_corso' %}
         {% if data_too_old %}
-          non_valutabile  {# Data too old to trust #}
+          {% set new_state = 'non_valutabile' %}  {# Data too old to trust #}
         {% elif not coherence_check_passed %}
-          non_valutabile  {# Sensors don't agree #}
+          {% set new_state = 'non_valutabile' %}  {# Sensors don't agree #}
         {% else %}
           {# Continue evaluation with available data #}
-          {% set t_inizio = prev_attrs.get('ora_inizio_valutazione') %}
-          {% if t_inizio %}
+          {% set t_inizio = ora_inizio_valutazione %}
+          {% if t_inizio != 'N/A' %}
             {% set elapsed = current_time - as_timestamp(t_inizio) %}
             {% if elapsed < 900 %}
-              non_valutabile  {# Too soon for evaluation #}
+              {% set new_state = 'non_valutabile' %}  {# Too soon for evaluation #}
             {% elif elapsed < 1800 %}
-              {{ prev_attrs.get('esito_15m', 'non_valutabile') }}
+              {% set new_state = esito_15m %}
             {% elif elapsed < 3600 %}
-              {{ prev_attrs.get('esito_30m', 'non_valutabile') }}
+              {% set new_state = esito_30m %}
             {% else %}
-              {{ prev_attrs.get('esito_60m', 'non_valutabile') }}
+              {% set new_state = esito_60m %}
             {% endif %}
           {% else %}
-            non_valutabile
+            {% set new_state = 'non_valutabile' %}
           {% endif %}
         {% endif %}
       {% else %}
-        {{ prev_state }}
+        {% set new_state = prev_state %}
       {% endif %}
-       
+
     {% elif trigger.id == 'time_tick' %}
       {% if prev_state == 'in_corso' %}
-        {% set t_inizio = prev_attrs.get('ora_inizio_valutazione') %}
-        {% if t_inizio %}
+        {% set t_inizio = ora_inizio_valutazione %}
+        {% if t_inizio != 'N/A' %}
           {% set elapsed = current_time - as_timestamp(t_inizio) %}
           {% if elapsed >= 3600 %}
             {# 60 minuti decorsi, finalizziamo con logica di validazione completa #}
-            {% set val_60 = prev_attrs.get('esito_60m') %}
-            {% if val_60 in [none, '', 'in_attesa', 'unknown'] %}
-              {% set rh_ini = prev_attrs.get('umidita_inizio') | float(none) %}
-              {% set tipo = prev_attrs.get('tipo_azione') %}
+            {% set val_60 = esito_60m %}
+            {% if val_60 in [none, '', 'in_attesa', 'unknown', 'N/A'] %}
+              {% set rh_ini = umidita_inizio | float(none) %}
+              {% set tipo = tipo_azione %}
               {% set rh_ini_debug = rh_ini | round(2) %}
               {% set rh_debug = rh | round(2) %}
-             
+
               {% if not any_data_valid %}
-                non_valutabile  {# No valid data available at all #}
+                {% set new_state = 'non_valutabile' %}  {# No valid data available at all #}
+                {% set esito_60m = 'non_valutabile' %}
               {% else %}
                 {% set delta_h = rh - rh_ini %}
                 {% set delta_h_debug = delta_h | round(2) %}
                 {% set trend = states('sensor.trend_umidita_%%id%%') %}
                 {% set trend_valid = trend not in ['incerto', 'unknown'] %}
-               
+
                 {# APPLY VALIDATION LAYER #}
                 {% if tipo == 'apertura' %}
                   {% if delta_h_debug < -30.0 or delta_h_debug > 30.0 %}
-                    {% set data_quality_issue = "Variazione >30% (apertura) - possibile errore sensore" %}
-                    {% if data_quality_issue %}
-                      inefficace  {# Reject impossible data #}
-                    {% else %}
-                      {% if delta_h <= -2.0 or (trend == 'in_calata' and delta_h < 0 and trend_valid) %}
-                        efficace
-                      {% else %}
-                        inefficace
-                      {% endif %}
-                    {% endif %}
+                    {% set new_state = 'inefficace' %}  {# Reject impossible data #}
+                    {% set esito_60m = 'inefficace' %}
                   {% else %}
                     {% if delta_h <= -2.0 or (trend == 'in_calata' and delta_h < 0 and trend_valid) %}
-                      efficace
+                      {% set new_state = 'efficace' %}
+                      {% set esito_60m = 'efficace' %}
                     {% else %}
-                      inefficace
+                      {% set new_state = 'inefficace' %}
+                      {% set esito_60m = 'inefficace' %}
                     {% endif %}
                   {% endif %}
                 {% elif tipo == 'chiusura' %}
                   {% if delta_h_debug < -20.0 or delta_h_debug > 20.0 %}
-                    {% set data_quality_issue = "Variazione >20% (chiusura) - possibile errore sensore" %}
-                    {% if data_quality_issue %}
-                      inefficace  {# Reject impossible data #}
-                    {% else %}
-                      {% set trend = states('sensor.trend_umidita_%%id%%') %}
-                      {% if delta_h <= 0.4 or trend in ['stabile', 'in_calata'] %}
-                        efficace
-                      {% else %}
-                        inefficace
-                      {% endif %}
-                    {% endif %}
+                    {% set new_state = 'inefficace' %}  {# Reject impossible data #}
+                    {% set esito_60m = 'inefficace' %}
                   {% else %}
                     {% set trend = states('sensor.trend_umidita_%%id%%') %}
                     {% if delta_h <= 0.4 or trend in ['stabile', 'in_calata'] %}
-                      efficace
+                      {% set new_state = 'efficace' %}
+                      {% set esito_60m = 'efficace' %}
                     {% else %}
-                      inefficace
+                      {% set new_state = 'inefficace' %}
+                      {% set esito_60m = 'inefficace' %}
                     {% endif %}
                   {% endif %}
                 {% else %}
-                  non_valutabile
+                  {% set new_state = 'non_valutabile' %}
+                  {% set esito_60m = 'non_valutabile' %}
                 {% endif %}
               {% endif %}
             {% else %}
-              {{ val_60 }}
+              {% set new_state = val_60 %}
             {% endif %}
+          {% elif elapsed >= 1800 %}
+            {# 30 min milestone #}
+            {% set val_30 = esito_30m %}
+            {% if val_30 in [none, '', 'in_attesa', 'unknown', 'N/A'] %}
+              {% set rh_ini = umidita_inizio | float(none) %}
+              {% set tipo = tipo_azione %}
+              {% if rh_ini is not none and any_data_valid %}
+                {% set delta_h = rh - rh_ini %}
+                {% set trend = states('sensor.trend_umidita_%%id%%') %}
+                {% set trend_valid = trend not in ['incerto', 'unknown'] %}
+                {% if tipo == 'apertura' %}
+                  {% if delta_h <= -2.0 or (trend == 'in_calata' and delta_h < 0 and trend_valid) %}
+                    {% set esito_30m = 'efficace' %}
+                  {% else %}
+                    {% set esito_30m = 'inefficace' %}
+                  {% endif %}
+                {% elif tipo == 'chiusura' %}
+                  {% if delta_h <= 0.4 or trend in ['stabile', 'in_calata'] %}
+                    {% set esito_30m = 'efficace' %}
+                  {% else %}
+                    {% set esito_30m = 'inefficace' %}
+                  {% endif %}
+                {% else %}
+                  {% set esito_30m = 'non_valutabile' %}
+                {% endif %}
+              {% else %}
+                {% set esito_30m = 'non_valutabile' %}
+              {% endif %}
+            {% endif %}
+            {% set new_state = esito_30m %}
+          {% elif elapsed >= 900 %}
+            {# 15 min milestone #}
+            {% set val_15 = esito_15m %}
+            {% if val_15 in [none, '', 'in_attesa', 'unknown', 'N/A'] %}
+              {% set rh_ini = umidita_inizio | float(none) %}
+              {% set tipo = tipo_azione %}
+              {% if rh_ini is not none and any_data_valid %}
+                {% set delta_h = rh - rh_ini %}
+                {% set trend = states('sensor.trend_umidita_%%id%%') %}
+                {% set trend_valid = trend not in ['incerto', 'unknown'] %}
+                {% if tipo == 'apertura' %}
+                  {% if delta_h <= -2.0 or (trend == 'in_calata' and delta_h < 0 and trend_valid) %}
+                    {% set esito_15m = 'efficace' %}
+                  {% else %}
+                    {% set esito_15m = 'inefficace' %}
+                  {% endif %}
+                {% elif tipo == 'chiusura' %}
+                  {% if delta_h <= 0.4 or trend in ['stabile', 'in_calata'] %}
+                    {% set esito_15m = 'efficace' %}
+                  {% else %}
+                    {% set esito_15m = 'inefficace' %}
+                  {% endif %}
+                {% else %}
+                  {% set esito_15m = 'non_valutabile' %}
+                {% endif %}
+              {% else %}
+                {% set esito_15m = 'non_valutabile' %}
+              {% endif %}
+            {% endif %}
+            {% set new_state = esito_15m %}
           {% else %}
-            in_attesa
+            {% set new_state = 'in_attesa' %}
           {% endif %}
         {% else %}
-          non_valutabile
+          {% set new_state = 'non_valutabile' %}
         {% endif %}
       {% else %}
-        {{ prev_state }}
+        {% set new_state = prev_state %}
       {% endif %}
-       
+
     {% else %}
-      {{ prev_state }}
+      {% set new_state = prev_state %}
     {% endif %}
-    
+
+    {{ new_state }}
+
     attributes:
-      # ---------------------------------------------------------------------------
-      # QUALITY METRICS: Track data quality alongside evaluation results
-      # ---------------------------------------------------------------------------
-      umidita_inizio: >-
-        {% set new_state = (trigger.id == 'advice_changed' and trigger.to_state.state in ['apri', 'apri_se_riparata', 'chiudi'] and u_prima_valida and any_data_valid) or (trigger.id == 'window_changed' and prev_state == 'in_attesa' and trigger.to_state.state == 'on') %}
-        {% if new_state %}
-          {{ u_prima }}
-        {% else %}
-          {{ prev_attrs.get('umidita_inizio', 'N/A') }}
-        {% endif %}
-      dati_primari_validi: >-
-        {{ primary_data_valid }}
-      dati_th_validi: >-
-        {{ th_data_valid }}
-      dati_esterni_validi: >-
-        {{ external_data_valid }}
-      qualsiasi_dato_valido: >-
-        {{ any_data_valid }}
-      \
-      controllo_coerenza_superato: >-
-        {{ coherence_check_passed }}
-      \
-      umidita_pilota_valida: >-
-        {{ rh }}
-      umidita_th_valida: >-
-        {{ rh_th }}
-      umidita_esterna_valida: >-
-        {{ rh_external }}
-      \
-      eta_dati_minuti: >-
-        {% set current_time = now() | as_timestamp -%}
-        {% set last_update = state_attr('sensor.umidita_%%id%%_pilota', 'last_updated') -%}
-        {% if last_update -%}
-          {% set last_update_time = as_timestamp(last_update) -%}
-          {% set data_age_minutes = (current_time - last_update_time) / 60 -%}
-          {{ data_age_minutes | round(1) if data_age_minutes < 999 else 999 }}
-        {%- else -%}
-          999
-        {%- endif %}
-      dati_troppo_vecchi: >-
-        {% set current_time = now() | as_timestamp -%}
-        {% set last_update = state_attr('sensor.umidita_%%id%%_pilota', 'last_updated') -%}
-        {% if last_update -%}
-          {% set last_update_time = as_timestamp(last_update) -%}
-          {% set data_age_minutes = (current_time - last_update_time) / 60 -%}
-          {{ data_age_minutes > 60 }}
-        {%- else -%}
-          true
-        {%- endif %}
-      trend_sensore: >-
-        {{ trend }}
-      trend_valido: >-
-        {{ trend_valid }}
-      \
-      # ---------------------------------------------------------------------------
-            # FALLBACK LOGIC: Track fallback usage
-            # ---------------------------------------------------------------------------
-            sensore_fallback_usato: >-
-              {%- if not primary_data_valid and (th_data_valid or external_data_valid) -%}
-                senso_reale_o_esterno
-              {%- elif primary_data_valid and not coherence_check_passed -%}
-                coerenza_sensori_non_aggressivi
-              {%- else -%}
-                normale
-              {%- endif %}
-            \
-            # ---------------------------------------------------------------------------
-            # VALIDATION NOTES: Record any data quality issues
-            # ---------------------------------------------------------------------------
-            note_validazione: >-
-              {%- if not u_prima_valida -%}
-                Umidità helper (prima) non disponibile o fuori range [10,95];
-              {%- elif not primary_data_valid -%}
-                Umidità pilota non valida o mancante;
-              {%- else -%}
-                {{ prev_attrs.get('note_validazione', '') }}
-              {%- endif %}
-            \
-            # ---------------------------------------------------------------------------
-            # DATI ALTERNATIVI: Track fallback sensor readings when primary fails
-            # ---------------------------------------------------------------------------
-            umidita_alternativa_utilizzata: >-
-              {%- if not primary_data_valid and th_data_valid -%}
-                {{ th_humidity_sensor }}
-              {%- elif not primary_data_valid and external_data_valid -%}
-          sensor.meteo_castionetto_umidita
-        {% else %}
-          sensor.umidita_%%id%%_pilota (principale)
-        {% endif %}
-        \
-      coerenza_sensori_pct: >-
-        {{ 100 if coherence_check_passed else 0 }}
-        \
-      affidabilita_dati_pct: >-
-        {% set valid_count = (1 if primary_data_valid else 0) + (1 if th_data_valid else 0) + (1 if external_data_valid else 0) %}
-        {% set total_count = 3 %}
-        {% if total_count > 0 %}
-          {% set reliability = (valid_count / total_count) * 100 %}
-          {{ reliability | round(0) }}%
-        {% else %}
-          0%
-        {% endif %}
-        \
-      # ---------------------------------------------------------------------------
-      # TIME STAMP: Track when data was last updated
-      # ---------------------------------------------------------------------------
-      ultima_aggiornamento_dati: "{{ state_attr('sensor.umidita_%%id%%_pilota', 'last_updated') if state_attr('sensor.umidita_%%id%%_pilota', 'last_updated') else 'N/A' }}"
+      {# ---- Session attributes only (essential for Layer 2 evaluation) ---- #}
+      oi: "{{ (ora_inizio_valutazione | string)[-6:] if ora_inizio_valutazione != 'N/A' else 'N/A' }}"
+      ta: "{{ 'a' if tipo_azione == 'apertura' else ('c' if tipo_azione == 'chiusura' else 'n') }}"
+      cv: "{{ consiglio_valutato[:3] if consiglio_valutato != 'N/A' else 'n/a' }}"
+      u0: "{{ (umidita_inizio | round(1) | string) if umidita_inizio != 'N/A' else 'n/a' }}"
+      e15: "{{ 'e' if esito_15m == 'efficace' else ('i' if esito_15m == 'inefficace' else 'n') }}"
+      e30: "{{ 'e' if esito_30m == 'efficace' else ('i' if esito_30m == 'inefficace' else 'n') }}"
+      e60: "{{ 'e' if esito_60m == 'efficace' else ('i' if esito_60m == 'inefficace' else 'n') }}"
+      {# ---- Minimal diagnostics (1 only) ---- #}
+      dv: "{{ 'p' if primary_data_valid else ('t' if th_data_valid else ('e' if external_data_valid else 'n')) }}"

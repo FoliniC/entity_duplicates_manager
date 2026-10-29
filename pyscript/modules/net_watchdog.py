@@ -19,8 +19,9 @@ from datetime import timedelta
 MAX_BAD = 2
 bad_count = 0
 
+
 @time_trigger("period(60s)")
-def net_watchdog():
+async def net_watchdog():
     global bad_count
     mode = state.get("input_select.usb_tether_mode")
     reality = state.get("sensor.connessione_attiva_reale")
@@ -41,10 +42,10 @@ def net_watchdog():
     log.info("NET_WATCHDOG: lettura #%s non-WAN (reality=%s, internet=%s)", bad_count, reality, internet)
     if bad_count >= MAX_BAD:
         log.warning("NET_WATCHDOG: ripristino Normale (restore) — reality=%s internet=%s", reality, internet)
-        service.call("shell_command", "usb_tether_restore")
+        await service.call("shell_command", "usb_tether_restore")
         bad_count = 0
         # Notifica all'utente
-        service.call("persistent_notification", "create",
+        await service.call("persistent_notification", "create",
                      notification_id="usb_tether_autorestore",
                      title="🔧 Ripristino Normale automatico (watchdog)",
                      message="Connessione reale = %s / internet = %s ma modalita' Normale. "

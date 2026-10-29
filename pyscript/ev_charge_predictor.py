@@ -1,6 +1,7 @@
 import json
 import datetime
 import sys
+import traceback
 
 # Absolute path for HA docker
 LIB_PATH = "/config/pyscript/lib"
@@ -12,17 +13,34 @@ try:
 except ImportError:
     log.error("EV_PREDICT: Failed to import ev_predictor_lib")
 
+# Entity ID constants to avoid string literal issues
+ENT_VEHICLE_LIMIT_SOC = 'input_number.ev_charge_2025_vehicle_limit_soc'
+ENT_BATTERY_CAPACITY = 'input_number.ev_charge_2025_battery_capacity'
+ENT_CURRENT_SOC = 'sensor.ev_charge_2025_current_soc'
+ENT_MODE = 'input_select.ev_charge_2025_mode'
+ENT_ACTIVE_PROFILE = 'select.cronostar_ev_current_profile'
+ENT_VOLTAGE = 'sensor.prism_tensione_attuale'
+ENT_MANUAL_POWER = 'input_number.ev_charge_2025_manual_power_kw'
+ENT_POWER_ABSORBED = 'sensor.prism_potenza'
+ENT_SOLAR_MAX_AMP = 'sensor.ev_charge_2025_solar_max_ampere'
+ENT_CRONOSTAR_TARGET = 'input_number.ev_charge_2025_cronostar_power_target'
+
 @service
 def ev_charge_predict_time():
     """Simulates EV charging based on Cronostar schedule and SOC with detailed logging."""
     try:
         # 1. Recupera parametri base
-        s_cur_soc = state.get('sensor.ev_charge_2025_current_soc')
-        s_limit_soc = state.get('input_number.ev_charge_2025_vehicle_limit_soc')
-        s_capacity_kwh = state.get('input_number.ev_charge_2025_battery_capacity')
-        s_mode = state.get('input_select.ev_charge_2025_mode')
-        s_active_profile = state.get('select.cronostar_ev_current_profile')
-        s_voltage = state.get('sensor.folini_carlo_voltage_ac') or 230.0
+        s_cur_soc = state.get(ENT_CURRENT_SOC)
+        s_limit_soc = state.get(ENT_VEHICLE_LIMIT_SOC)
+        s_capacity_kwh = state.get(ENT_BATTERY_CAPACITY)
+        s_mode = state.get(ENT_MODE)
+        s_active_profile = state.get(ENT_ACTIVE_PROFILE)
+        # Voltage sensor may not exist, handle gracefully
+        try:
+            s_voltage = state.get(ENT_VOLTAGE)
+        except NameError:
+            s_voltage = None
+        s_voltage = s_voltage or 230.0
 
         if s_cur_soc in [None, 'unknown', 'unavailable']: return
         
@@ -40,8 +58,14 @@ def ev_charge_predict_time():
 
         # 2. Logica Manuale
         if s_mode == 'Manuale':
-            manual_kw = float(state.get('input_number.ev_charge_2025_manual_power_kw') or 2.0)
-            power_w = float(state.get('sensor.prism_potenza_assorbita') or 0.0)
+            try:
+                manual_kw = float(state.get(ENT_MANUAL_POWER) or 2.0)
+            except NameError:
+                manual_kw = 2.0
+            try:
+                power_w = float(state.get(ENT_POWER_ABSORBED) or 0.0)
+            except NameError:
+                power_w = 0.0
             calc_kw = max(manual_kw, power_w / 1000.0)
             if calc_kw < 0.1: calc_kw = 1.4
             total_minutes = int(energy_needed_kwh / calc_kw * 60)
@@ -71,7 +95,10 @@ def ev_charge_predict_time():
                              p_kw = 32.0 * voltage / 1000.0
                         elif val >= 7.5:
                             # Solar (7.9): Surplus solare stimato
-                            solar_amp = float(state.get('sensor.ev_charge_2025_solar_max_ampere') or 0)
+                            try:
+                                solar_amp = float(state.get(ENT_SOLAR_MAX_AMP) or 0)
+                            except NameError:
+                                solar_amp = 0
                             p_kw = max(solar_amp * voltage / 1000.0, 1.4)
                         else:
                             # Altri: Valore kW nominale
@@ -120,18 +147,21 @@ def ev_charge_predict_time():
             log.error(f"EV_PREDICT SIM ERROR: {e}")
 
         # Fallback
-        target_kw = float(state.get('input_number.ev_charge_2025_cronostar_power_target') or 1.4)
+        try:
+            target_kw = float(state.get(ENT_CRONOSTAR_TARGET) or 1.4)
+        except NameError:
+            target_kw = 1.4
         total_minutes = int(energy_needed_kwh / max(target_kw, 0.1) * 60)
         state.set('sensor.ev_charge_2025_time_to_limit_sim', total_minutes, {'unit_of_measurement': 'min', 'friendly_name': 'EV Charge 2025 Time to Limit'})
 
     except Exception as e:
-        log.error(f"EV_PREDICT TOTAL ERROR: {e}")
+        log.error(f"EV_PREDICT TOTAL ERROR v2: {e}\n{traceback.format_exc()}")
 
-@state_trigger('select.cronostar_ev_current_profile', 
-               'sensor.ev_charge_2025_current_soc', 
-               'input_number.ev_charge_2025_vehicle_limit_soc', 
-               'input_select.ev_charge_2025_mode',
-               'input_number.ev_charge_2025_cronostar_power_target')
+@state_trigger(ENT_ACTIVE_PROFILE,
+               ENT_CURRENT_SOC,
+               ENT_VEHICLE_LIMIT_SOC,
+               ENT_MODE,
+               ENT_CRONOSTAR_TARGET)
 def ev_charge_trigger(**kwargs):
     ev_charge_predict_time()
 

@@ -75,7 +75,7 @@ views:
             name: Modalita EV
           - entity: sensor.ev_charge_2025_reason
             name: Stato operativo EV
-          - entity: sensor.prism_stato_wallbox
+          - entity: sensor.prism_stato
             name: Stato Prism
           - entity: sensor.prism_potenza_assorbita
             name: Potenza Prism

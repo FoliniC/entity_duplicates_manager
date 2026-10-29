@@ -3,10 +3,10 @@
 # Generated at: %%generation_time%%
 
 # Input Number helper per memorizzare l'ultima umidità valida per stanza
-# Usato dal sensore _con_validazione per evitare di catturare valori unknown/unavailable
+# Usato dal sensore _validated per evitare di catturare valori unknown/unavailable
 
-- name: "Ultima Umidità Valida %%friendly_name%%"
-  unique_id: umidita_%%id%%_ultima_valida
+umidita_%%id%%_ultima_valida:
+  name: "Ultima Umidità Valida %%friendly_name%%"
   min: 10
   max: 95
   step: 0.1

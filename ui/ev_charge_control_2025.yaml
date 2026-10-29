@@ -13,7 +13,7 @@ views:
         cards:
           - type: custom:mushroom-template-card
             primary: "{{ states('sensor.ev_charge_2025_reason') }}"
-            secondary: "Prism: {{ states('sensor.prism_stato_wallbox') }} (Rev. 54)"
+            secondary: "Prism: {{ states('sensor.prism_stato') }} (Rev. 54)"
             icon_color: >
               {% if is_state('binary_sensor.ev_charge_2025_can_charge', 'off') %} orange
               {% elif is_state('input_boolean.ev_charge_2025_charging_active', 'on') %} green
@@ -44,7 +44,7 @@ views:
 
           **Parametri Real-time:**
           - **Solar Max:** {{ states('sensor.ev_charge_2025_solar_max_ampere') }} A
-          - **Tensione:** {{ states('sensor.folini_carlo_voltage_ac') }} V
+          - **Tensione:** {{ states('sensor.prism_tensione_attuale') }} V
           - **MQTT Inviato:** {{ states("input_text.ev_charge_2025_last_mqtt_payload") }} A ({{ states("input_text.ev_charge_2025_last_mqtt_time") }})
 
       # DIAGNOSTICA INVIO CORRENTE
@@ -54,12 +54,12 @@ views:
           {% set smart_meter = states('sensor.smart_meter_ts_100a_1_potenza_reale') | float(0) %}
           {% set unit_sm = state_attr('sensor.smart_meter_ts_100a_1_potenza_reale', 'unit_of_measurement') %}
           {% set grid_p_w = (smart_meter * 1000) if unit_sm == 'kW' else smart_meter %}
-          {% set prism_p = states('sensor.prism_potenza_assorbita') | float(0) %}
+          {% set prism_p = states('sensor.prism_potenza') | float(0) %}
           {% set prism_is_charging = prism_p > 500 %}
           {% set b_discharge = states('sensor.solarnet_power_battery_discharge') | float(0) %}
           {% set b_charge = states('sensor.solarnet_power_battery_charge') | float(0) %}
-          {% set byd_soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) %}
-          {% set voltage_raw = states('sensor.folini_carlo_voltage_ac') | float(230) %}
+          {% set byd_soc = states('sensor.locale_tecnico_byd_battery_box_premium_hv_state_of_charge') | float(0) %}
+          {% set voltage_raw = states('sensor.prism_tensione_attuale') | float(230) %}
           {% set voltage = 230 if voltage_raw <= 0 else voltage_raw %}
           {% set active = is_state('input_boolean.ev_charge_2025_charging_active', 'on') %}
           {% set no_grid = is_state('input_boolean.ev_charge_2025_no_grid', 'on') %}
@@ -150,7 +150,7 @@ views:
           {% elif cur_soc >= limit_soc %}
           **Motivo blocco:** SOC auto {{ cur_soc | round(1) }}% >= limite {{ limit_soc | round(1) }}%.
           {% elif not connected %}
-          **Motivo blocco:** veicolo o colonnina non pronti (`{{ states('sensor.prism_stato_wallbox') }}`).
+          **Motivo blocco:** veicolo o colonnina non pronti (`{{ states('sensor.prism_stato') }}`).
           {% elif mode == 'Manuale' and no_grid and target_amp < 6 %}
           **Motivo blocco:** "Escludi Rete" attivo e surplus utile insufficiente. Disponibili {{ w_disponibile | round(0) }} W = {{ calc_amp }} A, sotto il minimo 6 A.
           {% elif mode == 'Automatico' and crono <= 0.1 %}
@@ -180,7 +180,7 @@ views:
           - Manuale: **{{ manual_kw | round(1) }} kW nominali = {{ manual_amp }} A**
           - Escludi Rete: **{{ 'SI' if no_grid else 'NO' }}**
           {% endif %}
-          - Stato Prism: **{{ states('sensor.prism_stato_wallbox') }}**, mode: **{{ states('sensor.prism_mode') }}**
+          - Stato Prism: **{{ states('sensor.prism_stato') }}**, mode: **{{ states('sensor.prism_mode') }}**
           - Ricarica fisica Prism: **{{ 'si' if prism_is_charging else 'no' }}** ({{ prism_p | round(0) }} W)
           - SOC auto: **{{ cur_soc | round(1) }}%**, limite: **{{ limit_soc | round(1) }}%**, soglia minima: **{{ min_soc | round(1) }}%**
           - Smart meter: **{{ grid_p_w | round(0) }} W** (negativo = immissione)
@@ -212,7 +212,7 @@ views:
               yellow: 20
               red: 0
           - type: gauge
-            entity: sensor.byd_battery_box_premium_hv_state_of_charge
+            entity: sensor.locale_tecnico_byd_battery_box_premium_hv_state_of_charge
             name: Batteria Casa
             unit: "%"
             severity:
@@ -226,7 +226,7 @@ views:
         square: false
         cards:
           - type: gauge
-            entity: sensor.prism_potenza_assorbita
+            entity: sensor.prism_potenza
             name: Potenza Ricarica
             unit: "W"
             min: 0
@@ -237,7 +237,7 @@ views:
               yellow: 3000
               red: 6000
           - type: gauge
-            entity: sensor.envoy_122134037538_current_power_production
+            entity: sensor.locale_tecnico_envoy_122134037538_current_power_production
             name: Produzione Solare (Envoy)
             unit: "W"
             min: 0
@@ -403,7 +403,7 @@ views:
       - type: custom:apexcharts-card
         graph_span: 12h
         header: { show: true, title: "Potenza Ricarica (W)", show_states: true }
-        series: [{ entity: sensor.prism_potenza_assorbita, name: "Prism", type: area, color: "#03a9f4" }]
+        series: [{ entity: sensor.prism_potenza, name: "Prism", type: area, color: "#03a9f4" }]
 
       - type: custom:apexcharts-card
         graph_span: 12h
@@ -419,7 +419,7 @@ views:
         header: { show: true, title: "Stato Carica (%)", show_states: true }
         series:
           - { entity: sensor.ev_charge_2025_current_soc, name: "Auto", color: "#FFD93D" }
-          - { entity: sensor.byd_battery_box_premium_hv_state_of_charge, name: "Batteria Casa", color: "#6BCF7F" }
+          - { entity: sensor.locale_tecnico_byd_battery_box_premium_hv_state_of_charge, name: "Batteria Casa", color: "#6BCF7F" }
 
   # ============================================================================
   # TAB 3: GUIDA

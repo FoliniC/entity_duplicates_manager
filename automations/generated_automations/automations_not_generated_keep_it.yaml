@@ -356,6 +356,7 @@
 - id: "1707128644063"
   alias: Alert finestra stanza
   description: "Rileva apertura finestre tramite varianza termica e di umidità con controllo delta esterno"
+  initial_state: false
   triggers:
     - entity_id:
         - sensor.statistics_temperatura_bagno_variance

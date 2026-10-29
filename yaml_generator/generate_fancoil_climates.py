@@ -87,7 +87,7 @@ WINDOW_LOGGER_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "fancoil_window_logger.j2")
 )
 WINDOW_EFFICIENCY_TEMPLATE_PATH = (
-    os.path.join(SCRIPT_DIR, "templates", "fancoil_window_efficiency_v2.j2")
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_window_efficiency.j2")
 )
 WINDOW_VERIFICATION_MODE_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "fancoil_verification_mode.j2")

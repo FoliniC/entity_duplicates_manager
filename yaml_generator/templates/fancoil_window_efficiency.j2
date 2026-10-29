@@ -2,395 +2,178 @@
 # Template: %%template_name%%
 # Generated at: %%generation_time%%
 
-# FASE 9 - Sistema di Valutazione con Controllo Qualità Dati Avanzato
-# Trigger-based template sensor con validazione dati completa e fallback logic.
-# Risolve problemi di dati non validi che causavano valutazioni errate (es. umidità impossibile).
+# FASE 9 (v3) - Valutazione esito aperture finestra, riscritta.
+#
+# Cosa corregge rispetto alla versione precedente:
+#  - La sessione di valutazione ora VIENE SCRITTA negli attributi (prima venivano solo letti:
+#    l'esito non poteva mai arrivare a efficace/inefficace).
+#  - L'esito si misura su omega (umidita' specifica, g/kg), non sull'RH: l'RH cambia anche solo
+#    per la temperatura. L'RH resta nei dettagli (delta_umidita_*) solo come informazione.
+#  - Le aperture brevi (< 3 min) non sono valutabili: non c'e' ricambio misurabile.
+#  - Niente piu' "last_updated" come attributo (non esiste) ne' controlli di coerenza RH
+#    pilota/esterno (non hanno senso fisico).
+#  - Una sola esecuzione della logica nel blocco variables; state e attributi la riusano.
+#
+# La memoria della sessione e' letta dagli attributi di questo stesso sensore
+# (entity_id: sensor.esito_ultimo_consiglio_finestra_%%id%%_validated_v3).
 
 trigger:
 %%TRIGGERS_YAML%%
 
 sensor:
-  # ---------------------------------------------------------------------------
-  # VARIABLES: Define has_window from generator context
-  # ---------------------------------------------------------------------------
-  - name: "Esito Ultimo Consiglio Finestra %%friendly_name%% (Con Validazione)"
-    unique_id: esito_ultimo_consiglio_finestra_%%id%%_validated
+  - name: "Esito Ultimo Consiglio Finestra %%friendly_name%% Validated v3"
+    unique_id: esito_ultimo_consiglio_finestra_%%id%%_validated_v3
     variables:
       has_window: %%HAS_WINDOW%%
       window_contact_sensor: %%WINDOW_CONTACT_SENSOR%%
+      self_id: sensor.esito_ultimo_consiglio_finestra_%%id%%_validated_v3
+      # parametri di valutazione
+      durata_min_valida: 3        # minuti di apertura sotto i quali l'esito non e' valutabile
+      soglia_domega: -0.3         # g/kg: efficace se omega scende almeno di tanto entro 60 min
+      finestra_valutazione: 60    # minuti dall'apertura
+      nxt: >-
+        {% macro pa(k) %}{{ state_attr(self_id, k) if state_attr(self_id, k) is not none else '' }}{% endmacro %}
+        {% set prev_state = states(self_id) %}
+        {% set ev = trigger.id if trigger is defined and trigger.id is defined else 'time_tick' %}
+        {% set now_ts = now().timestamp() %}
+        {% set w_now = states('sensor.omega_%%id%%') | float(none) %}
+        {% set w_ok = w_now is not none and 1 <= w_now <= 25 %}
+        {% set rh_now = states('sensor.umidita_%%id%%_pilota') | float(none) %}
+        {% set rh_ok = rh_now is not none and 5 <= rh_now <= 100 %}
+        {% set we_now = states('sensor.omega_esterno') | float(none) %}
+        {% set t_now = states('sensor.temperatura_%%id%%_reale_calcolata') | float(none) %}
+        {% set keys = ['sessione_attiva', 'consiglio_valutato', 'tipo_azione', 'ora_inizio_valutazione', 'inizio_ts', 'chiusa_ts',
+                       'durata_apertura_min', 'n_riaperture', 'umidita_inizio', 'omega_inizio', 'temperatura_inizio',
+                       'omega_esterno_inizio', 'calo_previsto_inizio', 'impianto_attivo_inizio',
+                       'umidita_15m', 'umidita_30m', 'umidita_60m', 'omega_15m', 'omega_30m', 'omega_60m', 'motivo'] %}
+        {% set ns = namespace(o={}, st=prev_state) %}
+        {% for k in keys %}{% set ns.o = dict(ns.o, **{k: pa(k) | trim}) %}{% endfor %}
+        {% if ns.st in ['unknown', 'unavailable', 'none', ''] %}{% set ns.st = 'in_attesa' %}{% endif %}
+        {% set active = ns.o.sessione_attiva | string | lower == 'true' %}
+        {% set t0 = ns.o.inizio_ts | float(0) %}
+        {% set to_s = trigger.to_state.state if trigger is defined and trigger.to_state is defined and trigger.to_state is not none else '' %}
+        {% set from_s = trigger.from_state.state if trigger is defined and trigger.from_state is defined and trigger.from_state is not none else '' %}
+        {% set ev_open = ev == 'window_changed' and to_s == 'on' and from_s == 'off' %}
+        {% set ev_close = ev == 'window_changed' and to_s == 'off' %}
+        {# --- apertura: nuova sessione --- #}
+        {% if ev_open and not active %}
+          {% if w_ok and rh_ok %}
+            {% set pred = state_attr('sensor.previsione_finestra_%%id%%', 'predicted_humidity') | float(none) %}
+            {% set ns.st = 'in_corso' %}
+            {% set ns.o = dict(ns.o, sessione_attiva=true, tipo_azione='apertura',
+                 consiglio_valutato=states('sensor.consiglio_finestra_%%id%%'),
+                 ora_inizio_valutazione=now().strftime('%Y-%m-%d %H:%M:%S'), inizio_ts=now_ts, chiusa_ts='',
+                 durata_apertura_min='', n_riaperture=0, umidita_inizio=rh_now | round(1), omega_inizio=w_now | round(2),
+                 temperatura_inizio=(t_now | round(1)) if t_now is not none else '',
+                 omega_esterno_inizio=(we_now | round(2)) if we_now is not none else '',
+                 calo_previsto_inizio=((rh_now - pred) | round(1)) if pred is not none else '',
+                 impianto_attivo_inizio=state_attr('sensor.consiglio_finestra_%%id%%', 'impianto_attivo') | string,
+                 umidita_15m='', umidita_30m='', umidita_60m='', omega_15m='', omega_30m='', omega_60m='',
+                 motivo='Valutazione in corso: apertura rilevata.') %}
+          {% else %}
+            {% set ns.st = 'non_valutabile' %}
+            {% set ns.o = dict(ns.o, sessione_attiva=false, tipo_azione='apertura',
+                 motivo='Dati non validi al momento dell\'apertura: valutazione non possibile.') %}
+          {% endif %}
+        {% elif ev_open and active %}
+          {% set ns.o = dict(ns.o, n_riaperture=(ns.o.n_riaperture | int(0)) + 1) %}
+        {% endif %}
+        {# --- sessione attiva: chiusura, checkpoint, verdetto --- #}
+        {% if active or (ev_open and ns.st == 'in_corso') %}
+          {% set t0 = ns.o.inizio_ts | float(0) %}
+          {% set elapsed = (now_ts - t0) / 60 %}
+          {% if ev_close and ns.o.chiusa_ts | string == '' %}
+            {% set dur = elapsed %}
+            {% set ns.o = dict(ns.o, chiusa_ts=now_ts, durata_apertura_min=dur | round(1)) %}
+            {% if dur < durata_min_valida %}
+              {% set ns.st = 'non_valutabile' %}
+              {% set ns.o = dict(ns.o, sessione_attiva=false,
+                   motivo='Apertura troppo breve (' ~ (dur | round(1)) ~ ' min, minimo ' ~ durata_min_valida ~ '): ricambio non misurabile.') %}
+            {% endif %}
+          {% elif ns.o.chiusa_ts | string == '' and ns.st == 'in_corso' %}
+            {% set ns.o = dict(ns.o, durata_apertura_min=elapsed | round(1)) %}
+          {% endif %}
+          {% if ns.o.sessione_attiva | string | lower == 'true' %}
+            {% for cp in [15, 30, 60] %}
+              {% if elapsed >= cp and ns.o['umidita_' ~ cp ~ 'm'] | string == '' and w_ok and rh_ok %}
+                {% set ns.o = dict(ns.o, **{'umidita_' ~ cp ~ 'm': rh_now | round(1), 'omega_' ~ cp ~ 'm': w_now | round(2)}) %}
+              {% endif %}
+            {% endfor %}
+            {% if ns.o.omega_60m | string != '' %}
+              {% set dw = (ns.o.omega_60m | float(0)) - (ns.o.omega_inizio | float(0)) %}
+              {% set dr = (ns.o.umidita_60m | float(0)) - (ns.o.umidita_inizio | float(0)) %}
+              {% set ok = dw <= soglia_domega %}
+              {% set ns.st = 'efficace' if ok else 'inefficace' %}
+              {% set ns.o = dict(ns.o, sessione_attiva=false,
+                   motivo='Apertura di ' ~ ((ns.o.durata_apertura_min | string) if ns.o.durata_apertura_min | string != '' else (elapsed | round(0))) ~ ' min: omega da ' ~ ns.o.omega_inizio ~ ' a ' ~ ns.o.omega_60m ~ ' g/kg dopo 60 min (variazione ' ~ (dw | round(2)) ~ ', soglia ' ~ soglia_domega ~ '); RH ' ~ (dr | round(1)) ~ ' punti. ' ~ ('Efficace.' if ok else 'Inefficace.')) %}
+            {% elif elapsed >= finestra_valutazione + 15 %}
+              {% set ns.st = 'non_valutabile' %}
+              {% set ns.o = dict(ns.o, sessione_attiva=false, motivo='Dati sensori non disponibili al termine dei 60 minuti.') %}
+            {% endif %}
+          {% endif %}
+        {% endif %}
+        {{ dict(ns.o, stato=ns.st) | tojson }}
     state: >-
-      {% set consiglio = states('sensor.consiglio_finestra_%%id%%') %}
-      {% set finestra = states(window_contact_sensor) if window_contact_sensor else states('input_boolean.finestra_%%id%%_aperta') %}
-      {% set rh = states('sensor.umidita_%%id%%_pilota') | float(none) %}
-      {% set rh_th = states('%%TH_HUMIDITY_SENSOR%%') | float(none) %}  {# KNX TH come fallback #}
-      {% set rh_external = states('%%EXTERNAL_HUMIDITY_SENSOR%%') | float(none) %}  {# Meteo esterno come fallback #}
-      {% set prev_state = this.state | default('in_attesa') %}
-      {% set prev_attrs = this.attributes | default({}) %}
-      
-      {# ---------------------------------------------------------------------------
-         CHECK DATI QUALITÀ #1: Validità sensore primario
-         --------------------------------------------------------------------------- #}
-      {% set primary_data_valid = rh is not none and rh >= 0 and rh <= 100 %}
-      {% set th_data_valid = rh_th is not none and rh_th >= 0 and rh_th <= 100 %}
-      {% set external_data_valid = rh_external is not none and rh_external >= 0 and rh_external <= 100 %}
-      {% set any_data_valid = primary_data_valid or th_data_valid or external_data_valid %}
-      
-      {# ---------------------------------------------------------------------------
-         CHECK DATI QUALITÀ #2: Transition Rate Validation
-         --------------------------------------------------------------------------- #}
-      {% set max_rate_15min_opening = 30.0 %}
-      {% set max_rate_15min_closing = 20.0 %}
-      {% set max_rate_30min_opening = 50.0 %}
-      {% set max_rate_30min_closing = 35.0 %}
-      {% set max_rate_60min_opening = 80.0 %}
-      {% set max_rate_60min_closing = 50.0 %}
-      
-      {# ---------------------------------------------------------------------------
-         CHECK DATI QUALITÀ #3: Coherence Check (Pilota vs TH vs External)
-         --------------------------------------------------------------------------- #}
-      {% set coherence_check_passed = false %}
-      {% if primary_data_valid and th_data_valid %}
-        {% set th_to_pilot_ratio = (rh - rh_th) | abs %}
-        {% if th_to_pilot_ratio <= 15.0 %}
-          {% set coherence_check_passed = true %}
-        {% endif %}
-      {% endif %}
-      {% if coherence_check_passed == false and primary_data_valid and external_data_valid %}
-        {% set external_to_pilot_ratio = (rh - rh_external) | abs %}
-        {% if external_to_pilot_ratio <= 20.0 %}
-          {% set coherence_check_passed = true %}
-        {% endif %}
-      {% endif %}
-      {% if coherence_check_passed == false %}
-        {% set coherence_check_passed = true %}  {# Allow if only one valid sensor #}
-      {% endif %}
-      
-      {# ---------------------------------------------------------------------------
-         CHECK DATI QUALITÀ #4: Stability Check (Recent trend validation)
-         --------------------------------------------------------------------------- #}
-      {% set trend = states('sensor.trend_umidita_%%id%%') %}
-      {% set trend_unstable = trend in ['incerto', 'unknown'] %}
-      {% set current_time = now() | as_timestamp %}
-      {% set last_update = state_attr('sensor.umidita_%%id%%_pilota', 'last_updated') %}
-      {% if last_update %}
-        {% set last_update_time = as_timestamp(last_update) %}
-        {% set data_age_minutes = (current_time - last_update_time) / 60 %}
-        {% set data_too_old = data_age_minutes > 60 %}
-      {% else %}
-        {% set data_age_minutes = 999 %}
-        {% set data_too_old = true %}
-      {% endif %}
-      {% set trend_valid = trend not in ['incerto', 'unknown'] %}
-      
-      {# ---------------------------------------------------------------------------
-         MAIN LOGIC: Evaluation Flow
-         --------------------------------------------------------------------------- #}
-      {% if trigger.id == 'advice_changed' %}
-        {% if trigger.to_state.state in ['apri', 'apri_se_riparata', 'chiudi'] %}
-          {% if not any_data_valid %}
-            non_valutabile  {# No valid data available #}
-          {% else %}
-            in_attesa
-          {% endif %}
-        {% elif trigger.to_state.state in ['nessuna_azione', 'incerto', 'mantieni_aperta', 'mantieni_chiusa'] %}
-          {% if prev_state == 'in_corso' %}
-            in_corso
-          {% else %}
-            non_valutabile  {# Cannot evaluate without previous data #}
-          {% endif %}
-        {% else %}
-          {{ prev_state }}
-        {% endif %}
-          
-      {% elif trigger.id == 'window_changed' %}
-        {% if has_window == true %}
-        {% if prev_state == 'in_attesa' %}
-          {% set cons_val = prev_attrs.get('consiglio_valutato', '') %}
-          {% if trigger.to_state.state == 'on' and cons_val in ['apri', 'apri_se_riparata'] %}
-            {% if not any_data_valid %}
-              non_valutabile
-            {% else %}
-              in_corso
-            {% endif %}
-          {% elif trigger.to_state.state == 'off' and cons_val == 'chiudi' %}
-            {% if not any_data_valid %}
-              non_valutabile
-            {% else %}
-              in_corso
-            {% endif %}
-          {% else %}
-            {{ prev_state }}
-          {% endif %}
-        {% elif prev_state == 'in_corso' %}
-          {% if data_too_old %}
-            non_valutabile  {# Data too old to trust #}
-          {% elif not coherence_check_passed %}
-            non_valutabile  {# Sensors don't agree #}
-          {% else %}
-            {# Continue evaluation with available data #}
-            {% set t_inizio = prev_attrs.get('ora_inizio_valutazione') %}
-            {% if t_inizio %}
-              {% set elapsed = current_time - as_timestamp(t_inizio) %}
-              {% if elapsed < 900 %}
-                non_valutabile  {# Too soon for evaluation #}
-              {% elif elapsed < 1800 %}
-                {{ prev_attrs.get('esito_15m', 'non_valutabile') }}
-              {% elif elapsed < 3600 %}
-                {{ prev_attrs.get('esito_30m', 'non_valutabile') }}
-              {% else %}
-                {{ prev_attrs.get('esito_60m', 'non_valutabile') }}
-              {% endif %}
-            {% else %}
-              non_valutabile
-            {% endif %}
-          {% endif %}
-        {% else %}
-          {{ prev_state }}
-        {% endif %}
-        {% else %}
-        {# No window - evaluation only runs on time_tick #}
-        {{ prev_state }}
-        {% endif %}
-          
-      {% elif trigger.id == 'time_tick' %}
-        {% if prev_state == 'in_corso' %}
-          {% set t_inizio = prev_attrs.get('ora_inizio_valutazione') %}
-          {% if t_inizio %}
-            {% set elapsed = current_time - as_timestamp(t_inizio) %}
-            {% if elapsed >= 3600 %}
-              {# 60 minuti decorsi, finalizziamo con logica di validazione completa #}
-              {% set val_60 = prev_attrs.get('esito_60m') %}
-              {% if val_60 in [none, '', 'in_attesa', 'unknown'] %}
-                {% set rh_ini = prev_attrs.get('umidita_inizio') | float(none) %}
-                {% set tipo = prev_attrs.get('tipo_azione') %}
-                {% set rh_ini_debug = rh_ini | round(2) %}
-                {% set rh_debug = rh | round(2) %}
-                
-                {% if not any_data_valid %}
-                  non_valutabile  {# No valid data available at all #}
-                {% else %}
-                  {% set delta_h = rh - rh_ini %}
-                  {% set delta_h_debug = delta_h | round(2) %}
-                  {% set trend = states('sensor.trend_umidita_%%id%%') %}
-                  {% set trend_valid = trend not in ['incerto', 'unknown'] %}
-                  
-                  {# APPLY VALIDATION LAYER #}
-                  {% if tipo == 'apertura' %}
-                    {% if delta_h_debug < -30.0 or delta_h_debug > 30.0 %}
-                      {% set data_quality_issue = "Variazione >30% (apertura) - possibile errore sensore" %}
-                      {% if data_quality_issue %}
-                        inefficace  {# Reject impossible data #}
-                      {% else %}
-                        {% if delta_h <= -2.0 or (trend == 'in_calata' and delta_h < 0 and trend_valid) %}
-                          efficace
-                        {% else %}
-                          inefficace
-                        {% endif %}
-                      {% endif %}
-                    {% else %}
-                      {% if delta_h <= -2.0 or (trend == 'in_calata' and delta_h < 0 and trend_valid) %}
-                        efficace
-                      {% else %}
-                        inefficace
-                      {% endif %}
-                    {% endif %}
-                  {% elif tipo == 'chiusura' %}
-                    {% if delta_h_debug < -20.0 or delta_h_debug > 20.0 %}
-                      {% set data_quality_issue = "Variazione >20% (chiusura) - possibile errore sensore" %}
-                      {% if data_quality_issue %}
-                        inefficace  {# Reject impossible data #}
-                      {% else %}
-                        {% set trend = states('sensor.trend_umidita_%%id%%') %}
-                        {% if delta_h <= 0.4 or trend in ['stabile', 'in_calata'] %}
-                          efficace
-                        {% else %}
-                          inefficace
-                        {% endif %}
-                      {% endif %}
-                    {% else %}
-                      {% set trend = states('sensor.trend_umidita_%%id%%') %}
-                      {% if delta_h <= 0.4 or trend in ['stabile', 'in_calata'] %}
-                        efficace
-                      {% else %}
-                        inefficace
-                      {% endif %}
-                    {% endif %}
-                  {% else %}
-                    non_valutabile
-                  {% endif %}
-                {% endif %}
-              {% else %}
-                {{ val_60 }}
-              {% endif %}
-            {% else %}
-              in_attesa
-            {% endif %}
-          {% else %}
-            non_valutabile
-          {% endif %}
-        {% else %}
-          {{ prev_state }}
-        {% endif %}
-          
-      {% else %}
-        {{ prev_state }}
-      {% endif %}
+      {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('stato', 'in_attesa') }}
+    icon: >-
+      {% set nx = nxt if nxt is mapping else nxt | from_json %}
+      {% set s = nx.get('stato', 'in_attesa') %}
+      {% if s == 'efficace' %}mdi:check-circle-outline{% elif s == 'inefficace' %}mdi:alert-circle-outline
+      {% elif s == 'in_corso' %}mdi:timer-sand{% else %}mdi:help-circle-outline{% endif %}
     attributes:
-      # ---------------------------------------------------------------------------
-      # QUALITY METRICS: Track data quality alongside evaluation results
-      # ---------------------------------------------------------------------------
-      dati_primari_validi: >-
-        {% set rh = states('sensor.umidita_%%id%%_pilota') | float(none) %}
-        {{ rh is not none and rh >= 0 and rh <= 100 }}
-      dati_th_validi: >-
-        {% set rh_th = states('%%TH_HUMIDITY_SENSOR%%') | float(none) %}
-        {{ rh_th is not none and rh_th >= 0 and rh_th <= 100 }}
-      dati_esterni_validi: >-
-        {% set rh_external = states('%%EXTERNAL_HUMIDITY_SENSOR%%') | float(none) %}
-        {{ rh_external is not none and rh_external >= 0 and rh_external <= 100 }}
-      qualsiasi_dato_valido: >-
-        {% set rh = states('sensor.umidita_%%id%%_pilota') | float(none) %}
-        {% set rh_th = states('%%TH_HUMIDITY_SENSOR%%') | float(none) %}
-        {% set rh_external = states('%%EXTERNAL_HUMIDITY_SENSOR%%') | float(none) %}
-        {{ (rh is not none and rh >= 0 and rh <= 100) or (rh_th is not none and rh_th >= 0 and rh_th <= 100) or (rh_external is not none and rh_external >= 0 and rh_external <= 100) }}
-
-      controllo_coerenza_superato: >-
-        {% set rh = states('sensor.umidita_%%id%%_pilota') | float(none) %}
-        {% set rh_th = states('%%TH_HUMIDITY_SENSOR%%') | float(none) %}
-        {% set rh_external = states('%%EXTERNAL_HUMIDITY_SENSOR%%') | float(none) %}
-        {% set p_valid = rh is not none and rh >= 0 and rh <= 100 %}
-        {% set t_valid = rh_th is not none and rh_th >= 0 and rh_th <= 100 %}
-        {% set e_valid = rh_external is not none and rh_external >= 0 and rh_external <= 100 %}
-        {% set coherence = false %}
-        {% if p_valid and t_valid and (rh - rh_th) | abs <= 15.0 %}
-          {% set coherence = true %}
-        {% endif %}
-        {% if not coherence and p_valid and e_valid and (rh - rh_external) | abs <= 20.0 %}
-          {% set coherence = true %}
-        {% endif %}
-        {% if not p_valid or (not t_valid and not e_valid) %}
-          {% set coherence = true %}
-        {% endif %}
-        {{ coherence }}
-
-      umidita_pilota_valida: >-
-        {{ states('sensor.umidita_%%id%%_pilota') | float(none) }}
-      umidita_th_valida: >-
-        {{ states('%%TH_HUMIDITY_SENSOR%%') | float(none) }}
-      umidita_esterna_valida: >-
-        {{ states('%%EXTERNAL_HUMIDITY_SENSOR%%') | float(none) }}
-
-      eta_dati_minuti: >-
-        {% set current_time = now() | as_timestamp %}
-        {% set last_update = state_attr('sensor.umidita_%%id%%_pilota', 'last_updated') %}
-        {% if last_update %}
-          {% set last_update_time = as_timestamp(last_update) %}
-          {{ ((current_time - last_update_time) / 60) | round(1) }}
-        {% else %}
-          999
-        {% endif %}
-      dati_troppo_vecchi: >-
-        {% set current_time = now() | as_timestamp %}
-        {% set last_update = state_attr('sensor.umidita_%%id%%_pilota', 'last_updated') %}
-        {% if last_update %}
-          {{ ((current_time - as_timestamp(last_update)) / 60) > 60 }}
-        {% else %}
-          true
-        {% endif %}
-      trend_sensore: >-
-        {{ states('sensor.trend_umidita_%%id%%') }}
-      trend_valido: >-
-        {{ states('sensor.trend_umidita_%%id%%') not in ['incerto', 'unknown'] }}
-
-      # ---------------------------------------------------------------------------
-      # FALLBACK LOGIC: Track fallback usage
-      # ---------------------------------------------------------------------------
-      sensore_fallback_usato: >-
-        {% set rh = states('sensor.umidita_%%id%%_pilota') | float(none) %}
-        {% set rh_th = states('%%TH_HUMIDITY_SENSOR%%') | float(none) %}
-        {% set rh_external = states('%%EXTERNAL_HUMIDITY_SENSOR%%') | float(none) %}
-        {% set p_valid = rh is not none and rh >= 0 and rh <= 100 %}
-        {% set t_valid = rh_th is not none and rh_th >= 0 and rh_th <= 100 %}
-        {% set e_valid = rh_external is not none and rh_external >= 0 and rh_external <= 100 %}
-        {% set coherence = false %}
-        {% if p_valid and t_valid and (rh - rh_th) | abs <= 15.0 %}
-          {% set coherence = true %}
-        {% endif %}
-        {% if not coherence and p_valid and e_valid and (rh - rh_external) | abs <= 20.0 %}
-          {% set coherence = true %}
-        {% endif %}
-        {% if not p_valid or (not t_valid and not e_valid) %}
-          {% set coherence = true %}
-        {% endif %}
-        {% if not p_valid and (t_valid or e_valid) %}
-          senso_reale_o_esterno
-        {% elif p_valid and not coherence %}
-          coerenza_sensori_non_aggressivi
-        {% else %}
-          normale
-        {% endif %}
-
-      # ---------------------------------------------------------------------------
-      # VALIDATION NOTES: Record any data quality issues
-      # ---------------------------------------------------------------------------
-      note_validazione: >-
-        {% set rh = states('sensor.umidita_%%id%%_pilota') | float(none) %}
-        {% if rh is none or rh < 0 or rh > 100 %}
-          Umidità prima non valida o mancante
-        {% else %}
-          {{ this.attributes.note_validazione if this.attributes is not none and 'note_validazione' in this.attributes else '' }}
-        {% endif %}
-
-      # ---------------------------------------------------------------------------
-      # DATI ALTERNATIVI: Track fallback sensor readings when primary fails
-      # ---------------------------------------------------------------------------
-      umidita_alternativa_utilizzata: >-
-        {% set rh = states('sensor.umidita_%%id%%_pilota') | float(none) %}
-        {% set rh_th = states('%%TH_HUMIDITY_SENSOR%%') | float(none) %}
-        {% set rh_external = states('%%EXTERNAL_HUMIDITY_SENSOR%%') | float(none) %}
-        {% set p_valid = rh is not none and rh >= 0 and rh <= 100 %}
-        {% set t_valid = rh_th is not none and rh_th >= 0 and rh_th <= 100 %}
-        {% set e_valid = rh_external is not none and rh_external >= 0 and rh_external <= 100 %}
-        {% if not p_valid and t_valid %}
-          %%TH_HUMIDITY_SENSOR%%
-        {% elif not p_valid and e_valid %}
-          sensor.meteo_castionetto_umidita
-        {% else %}
-          sensor.umidita_%%id%%_pilota (principale)
-        {% endif %}
-
-      coerenza_sensori_pct: >-
-        {% set rh = states('sensor.umidita_%%id%%_pilota') | float(none) %}
-        {% set rh_th = states('%%TH_HUMIDITY_SENSOR%%') | float(none) %}
-        {% set rh_external = states('%%EXTERNAL_HUMIDITY_SENSOR%%') | float(none) %}
-        {% set p_valid = rh is not none and rh >= 0 and rh <= 100 %}
-        {% set t_valid = rh_th is not none and rh_th >= 0 and rh_th <= 100 %}
-        {% set e_valid = rh_external is not none and rh_external >= 0 and rh_external <= 100 %}
-        {% set coherence = false %}
-        {% if p_valid and t_valid and (rh - rh_th) | abs <= 15.0 %}
-          {% set coherence = true %}
-        {% endif %}
-        {% if not coherence and p_valid and e_valid and (rh - rh_external) | abs <= 20.0 %}
-          {% set coherence = true %}
-        {% endif %}
-        {% if not p_valid or (not t_valid and not e_valid) %}
-          {% set coherence = true %}
-        {% endif %}
-        {{ 100 if coherence else 0 }}
-
-      affidabilita_dati_pct: >-
-        {% set rh = states('sensor.umidita_%%id%%_pilota') | float(none) %}
-        {% set rh_th = states('%%TH_HUMIDITY_SENSOR%%') | float(none) %}
-        {% set rh_external = states('%%EXTERNAL_HUMIDITY_SENSOR%%') | float(none) %}
-        {% set p_valid = rh is not none and rh >= 0 and rh <= 100 %}
-        {% set t_valid = rh_th is not none and rh_th >= 0 and rh_th <= 100 %}
-        {% set e_valid = rh_external is not none and rh_external >= 0 and rh_external <= 100 %}
-        {% set valid_count = (1 if p_valid else 0) + (1 if t_valid else 0) + (1 if e_valid else 0) %}
-        {{ ((valid_count / 3) * 100) | round(0) }}
-
-      # ---------------------------------------------------------------------------
-      # TIME STAMP: Track when data was last updated
-      # ---------------------------------------------------------------------------
-      ultima_aggiornamento_dati: >-
-        {% set last_update = state_attr('sensor.umidita_%%id%%_pilota', 'last_updated') %}
-        {{ last_update if last_update else 'N/A' }}
+      sessione_attiva: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('sessione_attiva', '') }}
+      consiglio_valutato: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('consiglio_valutato', '') }}
+      tipo_azione: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('tipo_azione', '') }}
+      ora_inizio_valutazione: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('ora_inizio_valutazione', '') }}
+      inizio_ts: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('inizio_ts', '') }}
+      chiusa_ts: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('chiusa_ts', '') }}
+      durata_apertura_min: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('durata_apertura_min', '') }}
+      n_riaperture: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('n_riaperture', '') }}
+      umidita_inizio: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('umidita_inizio', '') }}
+      omega_inizio: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('omega_inizio', '') }}
+      temperatura_inizio: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('temperatura_inizio', '') }}
+      omega_esterno_inizio: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('omega_esterno_inizio', '') }}
+      calo_previsto_inizio: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('calo_previsto_inizio', '') }}
+      impianto_attivo_inizio: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('impianto_attivo_inizio', '') }}
+      umidita_15m: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('umidita_15m', '') }}
+      umidita_30m: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('umidita_30m', '') }}
+      umidita_60m: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('umidita_60m', '') }}
+      omega_15m: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('omega_15m', '') }}
+      omega_30m: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('omega_30m', '') }}
+      omega_60m: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('omega_60m', '') }}
+      motivo: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('motivo', '') }}
+      delta_umidita_15m: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{% set a = nx.get('umidita_15m', '') %}{% set b = nx.get('umidita_inizio', '') %}{{ ((a | float(0)) - (b | float(0))) | round(2) if a != '' and b != '' else '' }}
+      delta_omega_15m: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{% set a = nx.get('omega_15m', '') %}{% set b = nx.get('omega_inizio', '') %}{{ ((a | float(0)) - (b | float(0))) | round(2) if a != '' and b != '' else '' }}
+      delta_umidita_30m: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{% set a = nx.get('umidita_30m', '') %}{% set b = nx.get('umidita_inizio', '') %}{{ ((a | float(0)) - (b | float(0))) | round(2) if a != '' and b != '' else '' }}
+      delta_omega_30m: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{% set a = nx.get('omega_30m', '') %}{% set b = nx.get('omega_inizio', '') %}{{ ((a | float(0)) - (b | float(0))) | round(2) if a != '' and b != '' else '' }}
+      delta_umidita_60m: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{% set a = nx.get('umidita_60m', '') %}{% set b = nx.get('umidita_inizio', '') %}{{ ((a | float(0)) - (b | float(0))) | round(2) if a != '' and b != '' else '' }}
+      delta_omega_60m: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{% set a = nx.get('omega_60m', '') %}{% set b = nx.get('omega_inizio', '') %}{{ ((a | float(0)) - (b | float(0))) | round(2) if a != '' and b != '' else '' }}
+      parametri: >-
+        soglia_domega={{ soglia_domega }} g/kg; durata_min_valida={{ durata_min_valida }} min; finestra={{ finestra_valutazione }} min

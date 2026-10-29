@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
 """
 Analyze fancoil_events.log for window open/close events and advice behavior.
+
+Usage:
+  python3 analyze_fancoil_log.py                    # Analyze all logs
+  python3 analyze_fancoil_log.py --since "1h"       # Last hour
+  python3 analyze_fancoil_log.py --since "30m"      # Last 30 minutes
+  python3 analyze_fancoil_log.py --since "2026-10-28 12:00:00"  # From specific time
 """
 
 import re
-from datetime import datetime
+import sys
+import argparse
+from datetime import datetime, timedelta
 from collections import defaultdict
 
 LOG_FILE = "/home/carlo/docker/homeassistant/config/logs/fancoil_events/fancoil_events.log"
@@ -14,7 +22,35 @@ LOG_PATTERN = re.compile(
     r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \[(.*?)\] \[(.*?)\] (.*)$'
 )
 
-def parse_log():
+def parse_time_spec(spec: str) -> datetime:
+    """Parse time specification: '1h', '30m', '2026-10-28 12:00:00', etc."""
+    now = datetime.now()
+    spec = spec.strip().lower()
+    
+    # Relative time: Nh, Nm, Ns, Nd
+    m = re.match(r'^(\d+)([hmds])$', spec)
+    if m:
+        val = int(m.group(1))
+        unit = m.group(2)
+        if unit == 'h':
+            return now - timedelta(hours=val)
+        elif unit == 'm':
+            return now - timedelta(minutes=val)
+        elif unit == 's':
+            return now - timedelta(seconds=val)
+        elif unit == 'd':
+            return now - timedelta(days=val)
+    
+    # Absolute time: YYYY-MM-DD HH:MM:SS or YYYY-MM-DD HH:MM
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(spec, fmt)
+        except ValueError:
+            pass
+    
+    raise ValueError(f"Invalid time spec: {spec}. Use '1h', '30m', or 'YYYY-MM-DD HH:MM:SS'")
+
+def parse_log(since: datetime | None = None):
     events = []
     with open(LOG_FILE, 'r') as f:
         for line_num, line in enumerate(f, 1):
@@ -25,6 +61,8 @@ def parse_log():
             if m:
                 timestamp_str, level, source, message = m.groups()
                 timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+                if since and timestamp < since:
+                    continue
                 events.append({
                     'line': line_num,
                     'timestamp': timestamp,
@@ -146,8 +184,21 @@ def check_persistent_notifications(events):
             print(f"  {e['timestamp'].strftime('%H:%M:%S')} [{e['level']}] {e['source']}: {msg[:300]}")
 
 def main():
+    parser = argparse.ArgumentParser(description="Analyze fancoil_events.log for window events")
+    parser.add_argument("--since", "-s", type=str, help="Time filter: '1h', '30m', '2026-10-28 12:00:00'")
+    args = parser.parse_args()
+    
+    since = None
+    if args.since:
+        try:
+            since = parse_time_spec(args.since)
+            print(f"Filtering events since: {since.strftime('%Y-%m-%d %H:%M:%S')}")
+        except ValueError as e:
+            print(f"Error: {e}")
+            sys.exit(1)
+    
     print(f"Parsing {LOG_FILE}...")
-    events = parse_log()
+    events = parse_log(since)
     print(f"Total events: {len(events)}")
     
     # Room state dumps

@@ -39,8 +39,8 @@
           {% set finestra = state_attr('sensor.consiglio_finestra_%%id%%', 'finestra_aperta') %}
           {% set confidenza = state_attr('sensor.consiglio_finestra_%%id%%', 'confidenza') | default(0) %}
           {% set rh = states('sensor.umidita_%%id%%_pilota') | float(0) | round(1) %}
-          {% set esito_prec = states('sensor.esito_ultimo_consiglio_finestra_%%id%%') %}
-          {% set motivo_esito = state_attr('sensor.esito_ultimo_consiglio_finestra_%%id%%', 'motivo') %}
+          {% set esito_prec = states('sensor.esito_ultimo_consiglio_finestra_%%id%%_validated_v3') %}
+          {% set motivo_esito = state_attr('sensor.esito_ultimo_consiglio_finestra_%%id%%_validated_v3', 'motivo') %}
           
           **Stanza:** %%friendly_name%%
           **Consiglio:** {{ consiglio | upper }}
@@ -77,7 +77,7 @@
   id: notifica_esito_consiglio_finestra_%%id%%
   trigger:
     - platform: state
-      entity_id: sensor.esito_ultimo_consiglio_finestra_%%id%%
+      entity_id: sensor.esito_ultimo_consiglio_finestra_%%id%%_validated_v3
       to:
         - "efficace"
         - "inefficace"
@@ -104,6 +104,7 @@
           La valutazione per l'azione di **{{ tipo | upper }}** in **%%friendly_name%%** si è conclusa con esito: **{{ esito | upper }}**.
           
           - Umidità iniziale: {{ rh_ini }}%
+          {% if attrs.get('omega_inizio') not in [none, ''] %}- Omega iniziale: {{ attrs.get('omega_inizio') }} g/kg{% if attrs.get('omega_60m') not in [none, ''] %} → dopo 60m: {{ attrs.get('omega_60m') }} g/kg (Δ: {{ attrs.get('delta_omega_60m') }}){% endif %}{% endif %}
           {% if rh_15 is not none and rh_15 != '' %}- Dopo 15m: {{ rh_15 | float(0) | round(1) }}% (Δ: {{ attrs.get('delta_umidita_15m') | float(0) | round(2) }}%){% endif %}
           {% if rh_30 is not none and rh_30 != '' %}- Dopo 30m: {{ rh_30 | float(0) | round(1) }}% (Δ: {{ attrs.get('delta_umidita_30m') | float(0) | round(2) }}%){% endif %}
           {% if rh_60 is not none and rh_60 != '' %}- Dopo 60m: {{ rh_60 | float(0) | round(1) }}% (Δ: {{ attrs.get('delta_umidita_60m') | float(0) | round(2) }}%){% endif %}

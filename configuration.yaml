@@ -325,7 +325,7 @@ sql: !include_dir_merge_list sql_sensors/
 input_boolean: !include_dir_merge_named yaml_generator/input_boolean
 input_button: !include_dir_merge_named yaml_generator/input_buttons
 input_select: !include_dir_merge_named yaml_generator/input_select
-input_number: !include_dir_merge_named yaml_generator/input_number
+input_number: !include_dir_merge_named yaml_generator/input_number/
 input_text: !include_dir_merge_named yaml_generator/input_text
 input_datetime: !include_dir_merge_named yaml_generator/input_datetime
 
