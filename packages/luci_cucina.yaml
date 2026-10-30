@@ -1,6 +1,7 @@
 switch:
   - platform: group
-    name: "luci cucina"
+    name: "luci cucina gruppo"
+    unique_id: switch_luci_cucina_gruppo
     entities:
       - switch.luci_cucina
       - switch.bancone_cucina

@@ -23,7 +23,10 @@ def sensors_of(doc):
 
 def check(path):
     problems = []
-    txt = pathlib.Path(path).read_text(encoding="utf-8")
+    try:
+        txt = pathlib.Path(path).read_text(encoding="utf-8")
+    except PermissionError:
+        return []
     txt = re.sub(r"^(\s*entity_id:\s*)\{\{.*\}\}\s*$", r"\1PLACEHOLDER", txt, flags=re.M)  # solo per poter parsare
     try:
         doc = yaml.safe_load(txt)

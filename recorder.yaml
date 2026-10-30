@@ -12,3 +12,6 @@ exclude:
     - sensor.*_last_reset
     - sensor.*_update_category
     - sensor.*_update_version
+    - sensor.statistics_temperatura_*_variance
+  entities:
+    - automation.fancoil_listener_eventi_log

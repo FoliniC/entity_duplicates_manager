@@ -1051,8 +1051,22 @@ cmd_status() {
                 message="Anchor Intranet presente ma telefono su Debian assente: eseguire restore o riattivare il tethering USB."
             fi
         elif [[ -z "$router_route" ]]; then
-            state="error"; mode="server"
-            message="Router isolato: nessuna default route verso Internet."
+            # Router senza default route: potrebbe essere in transizione intranet (wan down, anchor non ancora aggiunto).
+            # Se Debian ha telefono con internet, consideriamo intranet ATTIVA (il router si allineerà).
+            if [[ -n "$debian_phone_if" ]]; then
+                # Verifica rapida che il telefono su Debian porti davvero a internet
+                if ping -c 1 -W 2 -I "$debian_phone_if" 8.8.8.8 >/dev/null 2>&1 || ping -c 1 -W 2 -I "$debian_phone_if" 1.1.1.1 >/dev/null 2>&1; then
+                    state="active"; mode="intranet"; phone_if="$debian_phone_if"
+                    phone_gw=$(ip -4 addr show dev "$debian_phone_if" 2>/dev/null | grep -oE 'inet [0-9.]+' | awk '{print $2}')
+                    message="Attivo via ${debian_phone_if} (intranet: LAN via Debian, router in allineamento)"
+                else
+                    state="error"; mode="server"
+                    message="Router isolato: nessuna default route e telefono Debian non funziona."
+                fi
+            else
+                state="error"; mode="server"
+                message="Router isolato: nessuna default route verso Internet."
+            fi
         else
             state="error"; mode="server"
             message="Rotta primaria sconosciuta: $router_route"

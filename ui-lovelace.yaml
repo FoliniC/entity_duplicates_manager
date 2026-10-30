@@ -43,7 +43,7 @@ views:
           children:
           - sensor.prism_potenza
           - sensor.consumo_appartamento_template
-          - sensor.consumo_impianto_nuovo_template
+          - sensor.consumo_impianto_nuovo
           - sensor.solarnet_power_battery_charge
           - sensor.potenza_esportata_attuale
           entity_id: sensor.potenza_consumata_attuale
@@ -61,10 +61,10 @@ views:
         - type: entity
           children:
           - sensor.lavastoviglie_wifi_digital_meter_lavastoviglie_potenza
-          - sensor.potenza_misuratore
+          - sensor.wifi_digital_meter_2_induzione_wifi_digital_meter_2_induzione_power
           - sensor.smart_meter_2026_a_pdc_power_a
           - sensor.smart_meter_2026_a_pdc_power_b
-          entity_id: sensor.consumo_impianto_nuovo_template
+          entity_id: sensor.consumo_impianto_nuovo
           name: Impianto nuovo
         - type: entity
           children: []
@@ -78,7 +78,7 @@ views:
       - entities:
         - type: entity
           children: []
-          entity_id: sensor.potenza_misuratore
+          entity_id: sensor.wifi_digital_meter_2_induzione_wifi_digital_meter_2_induzione_power
           name: Induzione
         - type: entity
           children: []
@@ -155,7 +155,7 @@ views:
     - type: entities
       entities:
       - entity: sensor.potenza_esportata_attuale
-      - entity: sensor.smart_meter_ts_100a_1_potenza_reale
+      - entity: sensor.smart_meter_ts_100a_1_real_power
       - entity: sensor.potenza_prelevata_attuale
       - entity: sensor.produzione_solare
       - entity: sensor.envoy_122134037538_current_power_production
@@ -165,11 +165,11 @@ views:
       - entity: sensor.smart_meter_2026_a_pdc_power_a
       - entity: sensor.lavastoviglie_wifi_digital_meter_lavastoviglie_potenza
       - entity: sensor.potenza_consumata_attuale
-      - entity: sensor.potenza_misuratore
+      - entity: sensor.wifi_digital_meter_2_induzione_wifi_digital_meter_2_induzione_power
       - entity: sensor.prism_potenza
       - entity: sensor.prism_potenza
-      - entity: sensor.smart_meter_ts_100a_1_potenza_reale
-      - entity: sensor.potenza_misuratore
+      - entity: sensor.smart_meter_ts_100a_1_real_power
+      - entity: sensor.wifi_digital_meter_2_induzione_wifi_digital_meter_2_induzione_power
       - entity: sensor.solarnet_power_battery
       - entity: sensor.solarnet_power_battery_charge
       - entity: sensor.solarnet_power_battery_discharge
@@ -404,7 +404,7 @@ views:
     - entity: sensor.alfa_new_energia_prelevata_giornaliera_f6
     - entity: sensor.smart_meter_2026_a_pdc_power_a
     - entity: sensor.consumo_appartamento_template
-    - entity: sensor.potenza_misuratore_2
+    - entity: sensor.wifi_digital_meter_2_induzione_wifi_digital_meter_2_induzione_power_2
     - entity: sensor.potenza
     title: Contatore
   - type: entities
@@ -546,7 +546,7 @@ views:
     - sensor.smart_meter_ts_100a_1_energia_reale_prodotta
     - sensor.smart_meter_ts_100a_1_fattore_di_potenza
     - sensor.smart_meter_ts_100a_1_media_delle_fasi_di_frequenza
-    - sensor.smart_meter_ts_100a_1_potenza_reale
+    - sensor.smart_meter_ts_100a_1_real_power
   - type: entities
     entities:
     - entity: switch.luce_balcone
@@ -573,14 +573,14 @@ views:
     entities:
     - light.luce_scale
     - sensor.luce_scale_switch_infos
-    - switch.sonoff_10024024c4_1
-    - switch.sonoff_10024024c4_2
-    - sensor.sonoff_10024024c4_power_1
-    - sensor.sonoff_10024024c4_power_2
-    - sensor.sonoff_10024024c4_current_1
-    - sensor.sonoff_10024024c4_current_2
-    - sensor.sonoff_10024024c4_voltage_1
-    - sensor.sonoff_10024024c4_voltage_2
+    - switch.dualr3
+    - switch.dualr3_2
+    - sensor.dualr3_power_1
+    - sensor.dualr3_power_2
+    - sensor.dualr3_current_1
+    - sensor.dualr3_current_2
+    - sensor.dualr3_voltage_1
+    - sensor.dualr3_voltage_2
     - sensor.sonoff_current_position
     - sensor.sonoff_state
   - type: custom:scheduler-card
@@ -661,7 +661,7 @@ views:
   - type: gauge
     entity: sensor.envoy_122134037538_current_power_production
   - type: gauge
-    entity: sensor.smart_meter_ts_100a_1_potenza_reale
+    entity: sensor.smart_meter_ts_100a_1_real_power
     needle: false
   - type: gauge
     entity: sensor.byd_battery_box_premium_hv_state_of_charge
@@ -735,7 +735,7 @@ views:
     - entity: sensor.envoy_122134037538_current_power_production
     - entity: sensor.consumo_appartamento_template
     - entity: sensor.smart_meter_2026_a_pdc_power_a
-    - entity: sensor.smart_meter_ts_100a_1_potenza_reale
+    - entity: sensor.smart_meter_ts_100a_1_real_power
     - entity: sensor.prism_risultato_set_current_ko
     - entity: sensor.prism_risultato_set_current_ok
     - entity: sensor.pun_fascia_corrente
@@ -1031,7 +1031,7 @@ views:
       - entity: sensor.envoy_122134037538_current_power_production
       - entity: sensor.consumo_appartamento_template
       - entity: sensor.smart_meter_2026_a_pdc_power_a
-      - entity: sensor.smart_meter_ts_100a_1_potenza_reale
+      - entity: sensor.smart_meter_ts_100a_1_real_power
       - entity: sensor.prism_risultato_set_current_ko
       - entity: sensor.prism_risultato_set_current_ok
       - entity: sensor.pun_fascia_corrente
@@ -1166,7 +1166,7 @@ views:
   - type: entities
     entities:
     - entity: sensor.corrente_misuratore
-    - entity: sensor.potenza_misuratore
+    - entity: sensor.wifi_digital_meter_2_induzione_wifi_digital_meter_2_induzione_power
     - entity: sensor.voltaggio_misuratore
     title: Induzione
   - type: alarm-panel

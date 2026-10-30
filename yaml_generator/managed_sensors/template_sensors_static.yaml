@@ -13,10 +13,10 @@
   state_class: measurement
   state: >
     {# Priorità 1: Smart Meter (Più reattivo) - Positivo = Import #}
-    {% set smart_meter = states('sensor.smart_meter_ts_100a_1_potenza_reale') %}
+    {% set smart_meter = states('sensor.smart_meter_ts_100a_1_real_power') %}
     {% if smart_meter not in ['unavailable', 'unknown', 'none'] %}
       {% set val = smart_meter | float(0) %}
-      {% set unit = state_attr('sensor.smart_meter_ts_100a_1_potenza_reale', 'unit_of_measurement') %}
+      {% set unit = state_attr('sensor.smart_meter_ts_100a_1_real_power', 'unit_of_measurement') %}
       {% set val_w = (val * 1000 if unit == 'kW' else val) %}
       {{ (val_w if val_w > 0 else 0) | round(2) }}
     {% else %}
@@ -38,10 +38,10 @@
   state_class: measurement
   state: >
     {# Priorità 1: Smart Meter (Più reattivo) - Negativo = Export #}
-    {% set smart_meter = states('sensor.smart_meter_ts_100a_1_potenza_reale') %}
+    {% set smart_meter = states('sensor.smart_meter_ts_100a_1_real_power') %}
     {% if smart_meter not in ['unavailable', 'unknown', 'none'] %}
       {% set val = smart_meter | float(0) %}
-      {% set unit = state_attr('sensor.smart_meter_ts_100a_1_potenza_reale', 'unit_of_measurement') %}
+      {% set unit = state_attr('sensor.smart_meter_ts_100a_1_real_power', 'unit_of_measurement') %}
       {% set val_w = (val * 1000 if unit == 'kW' else val) %}
       {{ (val_w | abs if val_w < 0 else 0) | round(2) }}
     {% else %}
@@ -60,9 +60,24 @@
   unique_id: potenza_consumata_attuale
   state_class: measurement
   state: >
-    {# Uso del sensore nativo Alfa_new (Carico totale misurato dal contatore) #}
-    {% set p = states('sensor.alfa_new_power_consumed') %}
-    {{ (p | float(0) * 1000) | round(2) if p not in ['unavailable', 'unknown', 'none'] else 0 }}
+    {# Priorità 1: Smart Meter (Più reattivo) - Positivo = Consumo #}
+    {% set smart_meter = states('sensor.smart_meter_ts_100a_1_real_power') %}
+    {% if smart_meter not in ['unavailable', 'unknown', 'none'] %}
+      {% set val = smart_meter | float(0) %}
+      {% set unit = state_attr('sensor.smart_meter_ts_100a_1_real_power', 'unit_of_measurement') %}
+      {% set val_w = (val * 1000 if unit == 'kW' else val) %}
+      {{ (val_w if val_w > 0 else 0) | round(2) }}
+    {% else %}
+      {# Fallback: Alfa New #}
+      {% set alfa = states('sensor.alfa_new_power_consumed') %}
+      {% if alfa not in ['unavailable', 'unknown', 'none'] %}
+        {% set val = alfa | float(0) %}
+        {% set unit = state_attr('sensor.alfa_new_power_consumed', 'unit_of_measurement') %}
+        {{ (val * 1000 if unit == 'kW' else val) | round(2) }}
+      {% else %}
+        0
+      {% endif %}
+    {% endif %}
   unit_of_measurement: W
   device_class: power
 
@@ -80,7 +95,7 @@
       {# Fallback: Somma dei carichi noti #}
       {% set pdc = states('sensor.smart_meter_2026_a_pdc_power_a') | float(0) %}
       {% set lava = states('sensor.lavastoviglie_wifi_digital_meter_lavastoviglie_potenza') | float(0) %}
-      {% set indu = states('sensor.potenza_misuratore') | float(0) %}
+      {% set indu = states('sensor.wifi_digital_meter_2_induzione_wifi_digital_meter_2_induzione_power') | float(0) %}
       {% set knx = states('sensor.smart_meter_2026_a_pdc_power_b') | float(0) %}
       {{ (pdc + lava + indu + knx) | round(2) }}
     {% endif %}
@@ -251,7 +266,7 @@
   unit_of_measurement: "W"
   state: >-
     {% set vecchio = states('sensor.consumo_appartamento_template') %}
-    {% set nuovo = states('sensor.consumo_impianto_nuovo_template') %}
+    {% set nuovo = states('sensor.consumo_impianto_nuovo') %}
     {% set colonnina = states('sensor.prism_potenza') %}
     {% set p_vecchio = (vecchio | float(0)) if vecchio not in ['unavailable', 'unknown', 'none', ''] else 0 %}
     {% set p_nuovo = (nuovo | float(0)) if nuovo not in ['unavailable', 'unknown', 'none', ''] else 0 %}
@@ -268,11 +283,11 @@
   state_class: measurement
   unit_of_measurement: "W"
   state: >-
-    {% set nuovo = states('sensor.consumo_impianto_nuovo_template') %}
+    {% set nuovo = states('sensor.consumo_impianto_nuovo') %}
     {% set pdc = states('sensor.smart_meter_2026_a_pdc_power_a') %}
     {% set knx = states('sensor.smart_meter_2026_a_pdc_power_b') %}
     {% set lava = states('sensor.lavastoviglie_wifi_digital_meter_lavastoviglie_potenza') %}
-    {% set indu = states('sensor.potenza_misuratore') %}
+    {% set indu = states('sensor.wifi_digital_meter_2_induzione_wifi_digital_meter_2_induzione_power') %}
     {% set p_nuovo = (nuovo | float(0)) if nuovo not in ['unavailable', 'unknown', 'none', ''] else 0 %}
     {% set p_pdc = (pdc | float(0)) if pdc not in ['unavailable', 'unknown', 'none', ''] else 0 %}
     {% set p_knx = (knx | float(0)) if knx not in ['unavailable', 'unknown', 'none', ''] else 0 %}

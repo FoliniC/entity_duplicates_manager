@@ -1,0 +1,46 @@
+# Template switch per mappare gli switch fisici Tuya (luci cucina) ai nomi logici
+# Device: bf054a2177fd16678d9yds (PSW-4CH-CBU, "luci cucina", 192.168.0.25)
+# Switch fisici: switch_1, switch_2, switch_3, switch_4
+# Mapping: switch_1=luci_cucina (generale), switch_2=bancone, switch_3=tavolo, switch_4=già corretto
+# NOTA: entity_id deriva da 'name' (es. "tavolo_cucina" -> switch.tavolo_cucina)
+
+template:
+  - switch:
+      - name: "bancone_cucina"
+        unique_id: switch_bancone_cucina
+        state: "{{ is_state('switch.cucina_luci_cucina_switch_1', 'on') }}"
+        turn_on:
+          - action: switch.turn_on
+            target:
+              entity_id: switch.cucina_luci_cucina_switch_1
+        turn_off:
+          - action: switch.turn_off
+            target:
+              entity_id: switch.cucina_luci_cucina_switch_1
+        availability: "{{ states('switch.cucina_luci_cucina_switch_1') not in ['unavailable', 'unknown'] }}"
+
+      - name: "tavolo_cucina"
+        unique_id: switch_tavolo_cucina
+        state: "{{ is_state('switch.cucina_luci_cucina_switch_3', 'on') }}"
+        turn_on:
+          - action: switch.turn_on
+            target:
+              entity_id: switch.cucina_luci_cucina_switch_3
+        turn_off:
+          - action: switch.turn_off
+            target:
+              entity_id: switch.cucina_luci_cucina_switch_3
+        availability: "{{ states('switch.cucina_luci_cucina_switch_3') not in ['unavailable', 'unknown'] }}"
+
+      - name: "luci_cucina"
+        unique_id: switch_luci_cucina
+        state: "{{ is_state('switch.cucina_luci_cucina_switch_2', 'on') }}"
+        turn_on:
+          - action: switch.turn_on
+            target:
+              entity_id: switch.cucina_luci_cucina_switch_2
+        turn_off:
+          - action: switch.turn_off
+            target:
+              entity_id: switch.cucina_luci_cucina_switch_2
+        availability: "{{ states('switch.cucina_luci_cucina_switch_2') not in ['unavailable', 'unknown'] }}"

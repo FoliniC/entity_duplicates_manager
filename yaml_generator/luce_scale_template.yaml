@@ -1,3 +1,4 @@
+
 # Template Sensor - Luce Scale Infos
 sensor:
     - unique_id: luce_scale_switch_infos
@@ -5,32 +6,32 @@ sensor:
       unit_of_measurement: W
       device_class: power
       state_class: measurement
-      state: "{{ ((states('sensor.dualr3_power_1') | float(0)) + (states('sensor.dualr3_power_2') | float(0))) | round(2) }}"
+      state: "{{ ((states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0))) | round(2) }}"
       attributes:
-        power: "{{ ((states('sensor.dualr3_power_1') | float(0)) + (states('sensor.dualr3_power_2') | float(0))) }}"
-        current: "{{ ((states('sensor.dualr3_current_1') | float(0)) + (states('sensor.dualr3_current_2') | float(0))) }}"
-        switch_1_attributes: "{{ states.sensor.dualr3_power_1.attributes | default({}) }}"
-        switch_2_attributes: "{{ states.sensor.dualr3_power_2.attributes | default({}) }}"
+        power: "{{ ((states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0))) }}"
+        current: "{{ ((states('sensor.sonoff_10024024c4_current_1') | float(0)) + (states('sensor.sonoff_10024024c4_current_2') | float(0))) }}"
+        switch_1_attributes: "{{ states.sensor.sonoff_10024024c4_power_1.attributes | default({}) }}"
+        switch_2_attributes: "{{ states.sensor.sonoff_10024024c4_power_2.attributes | default({}) }}"
 
 # Template Light - Luce Scale
 light:
     - unique_id: luce_scale_switch
       name: Luce scale
       state: >-
-        {% set p1 = states('sensor.dualr3_power_1') %}
-        {% set p2 = states('sensor.dualr3_power_2') %}
-        {% if has_value('sensor.dualr3_power_1') or has_value('sensor.dualr3_power_2') %}
+        {% set p1 = states('sensor.sonoff_10024024c4_power_1') %}
+        {% set p2 = states('sensor.sonoff_10024024c4_power_2') %}
+        {% if has_value('sensor.sonoff_10024024c4_power_1') or has_value('sensor.sonoff_10024024c4_power_2') %}
           {{ (p1 | float(0) + p2 | float(0)) > 7 }}
         {% else %}
           {{ states('light.luce_scale_switch') == 'on' }}
         {% endif %}
       availability: >-
-        {{ has_value('sensor.dualr3_power_1') or has_value('sensor.dualr3_power_2') }}
+        {{ has_value('sensor.sonoff_10024024c4_power_1') or has_value('sensor.sonoff_10024024c4_power_2') }}
       turn_on:
         - condition: template
           value_template: >
-            {{ (states('sensor.dualr3_power_1') | float(0) +
-                states('sensor.dualr3_power_2') | float(0)) < 7 }}
+            {{ (states('sensor.sonoff_10024024c4_power_1') | float(0) + 
+                states('sensor.sonoff_10024024c4_power_2') | float(0)) < 7 }}
         - if:
             - condition: template
               value_template: "{{ states('input_text.scale_light_source') == '' }}"
@@ -43,64 +44,64 @@ light:
         - choose:
             - conditions:
                 - condition: state
-                  entity_id: switch.dualr3
+                  entity_id: switch.sonoff_10024024c4_1
                   state: "off"
                 - condition: state
-                  entity_id: switch.dualr3_2
+                  entity_id: switch.sonoff_10024024c4_2
                   state: "off"
               sequence:
                 - action: switch.turn_on
                   target:
-                    entity_id: switch.dualr3
+                    entity_id: switch.sonoff_10024024c4_1
 
             - conditions:
                 - condition: state
-                  entity_id: switch.dualr3
+                  entity_id: switch.sonoff_10024024c4_1
                   state: "off"
                 - condition: state
-                  entity_id: switch.dualr3_2
+                  entity_id: switch.sonoff_10024024c4_2
                   state: "on"
               sequence:
                 - action: switch.turn_off
                   target:
-                    entity_id: switch.dualr3_2
+                    entity_id: switch.sonoff_10024024c4_2
                 - delay: "0:00:00.300000"
                 - action: switch.turn_on
                   target:
-                    entity_id: switch.dualr3
+                    entity_id: switch.sonoff_10024024c4_1
 
             - conditions:
                 - condition: state
-                  entity_id: switch.dualr3
+                  entity_id: switch.sonoff_10024024c4_1
                   state: "on"
                 - condition: state
-                  entity_id: switch.dualr3_2
+                  entity_id: switch.sonoff_10024024c4_2
                   state: "on"
               sequence:
                 - action: switch.turn_off
                   target:
-                    entity_id: switch.dualr3_2
+                    entity_id: switch.sonoff_10024024c4_2
 
             - conditions:
                 - condition: state
-                  entity_id: switch.dualr3
+                  entity_id: switch.sonoff_10024024c4_1
                   state: "on"
                 - condition: state
-                  entity_id: switch.dualr3_2
+                  entity_id: switch.sonoff_10024024c4_2
                   state: "off"
               sequence:
                 - action: switch.turn_off
                   target:
-                    entity_id: switch.dualr3
+                    entity_id: switch.sonoff_10024024c4_1
                 - delay: "0:00:00.300000"
                 - action: switch.turn_on
                   target:
-                    entity_id: switch.dualr3_2
+                    entity_id: switch.sonoff_10024024c4_2
 
         - action: system_log.write
           data:
             level: info
-            message: "Luce scale Turn ON - Switch1: {{ states('switch.dualr3') }}, Switch2: {{ states('switch.dualr3_2') }}, Power: {{ (states('sensor.dualr3_power_1') | float(0)) + (states('sensor.dualr3_power_2') | float(0)) }}W"
+            message: "Luce scale Turn ON - Switch1: {{ states('switch.sonoff_10024024c4_1') }}, Switch2: {{ states('switch.sonoff_10024024c4_2') }}, Power: {{ (states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0)) }}W"
         - delay: "0:00:02"
         - action: input_text.set_value
           target:
@@ -111,8 +112,8 @@ light:
       turn_off:
         - condition: template
           value_template: >
-            {{ (states('sensor.dualr3_power_1') | float(0) +
-                states('sensor.dualr3_power_2') | float(0)) > 7 }}
+            {{ (states('sensor.sonoff_10024024c4_power_1') | float(0) + 
+                states('sensor.sonoff_10024024c4_power_2') | float(0)) > 7 }}
         - if:
             - condition: template
               value_template: "{{ states('input_text.scale_light_source') == '' }}"
@@ -125,68 +126,68 @@ light:
         - choose:
             - conditions:
                 - condition: state
-                  entity_id: switch.dualr3
+                  entity_id: switch.sonoff_10024024c4_1
                   state: "on"
                 - condition: state
-                  entity_id: switch.dualr3_2
+                  entity_id: switch.sonoff_10024024c4_2
                   state: "off"
               sequence:
                 - action: switch.turn_off
                   target:
-                    entity_id: switch.dualr3
+                    entity_id: switch.sonoff_10024024c4_1
                 - delay: "0:00:00.300000"
                 - action: switch.turn_on
                   target:
-                    entity_id: switch.dualr3_2
+                    entity_id: switch.sonoff_10024024c4_2
 
             - conditions:
                 - condition: state
-                  entity_id: switch.dualr3
+                  entity_id: switch.sonoff_10024024c4_1
                   state: "off"
                 - condition: state
-                  entity_id: switch.dualr3_2
+                  entity_id: switch.sonoff_10024024c4_2
                   state: "on"
               sequence:
                 - action: switch.turn_off
                   target:
-                    entity_id: switch.dualr3_2
+                    entity_id: switch.sonoff_10024024c4_2
                 - delay: "0:00:00.300000"
                 - action: switch.turn_on
                   target:
-                    entity_id: switch.dualr3
+                    entity_id: switch.sonoff_10024024c4_1
 
             - conditions:
                 - condition: state
-                  entity_id: switch.dualr3
+                  entity_id: switch.sonoff_10024024c4_1
                   state: "on"
                 - condition: state
-                  entity_id: switch.dualr3_2
+                  entity_id: switch.sonoff_10024024c4_2
                   state: "on"
               sequence:
                 - action: switch.turn_off
                   target:
-                    entity_id: switch.dualr3
+                    entity_id: switch.sonoff_10024024c4_1
 
             - conditions:
                 - condition: state
-                  entity_id: switch.dualr3
+                  entity_id: switch.sonoff_10024024c4_1
                   state: "off"
                 - condition: state
-                  entity_id: switch.dualr3_2
+                  entity_id: switch.sonoff_10024024c4_2
                   state: "off"
               sequence:
                 - action: switch.turn_on
                   target:
-                    entity_id: switch.dualr3
+                    entity_id: switch.sonoff_10024024c4_1
                 - delay: "0:00:00.300000"
                 - action: switch.turn_off
                   target:
-                    entity_id: switch.dualr3
+                    entity_id: switch.sonoff_10024024c4_1
 
         - action: system_log.write
           data:
             level: info
-            message: "Luce scale Turn OFF - Switch1: {{ states('switch.dualr3') }}, Switch2: {{ states('switch.dualr3_2') }}, Power: {{ (states('sensor.dualr3_power_1') | float(0)) + (states('sensor.dualr3_power_2') | float(0)) }}W"
+            message: "Luce scale Turn OFF - Switch1: {{ states('switch.sonoff_10024024c4_1') }}, Switch2: {{ states('switch.sonoff_10024024c4_2') }}, Power: {{ (states('sensor.sonoff_10024024c4_power_1') | float(0)) + (states('sensor.sonoff_10024024c4_power_2') | float(0)) }}W"
         - delay: "0:00:02"
         - action: input_text.set_value
           target:

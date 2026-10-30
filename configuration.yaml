@@ -474,6 +474,8 @@ logger:
     homeassistant.components.bluetooth.manager: error
     homeassistant.components.bluetooth.scanner: error
     custom_components.pyscript: warning
+    custom_components.sonoff: warning
+    custom_components.sonoff.core.ewelink.cloud: warning
 # ============================================================================
 # LOGBOOK & RECORDER
 # ============================================================================

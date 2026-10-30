@@ -2,5 +2,5 @@
     "input_number.ev_charge_2025_byd_min_soc_stop": 5.0,
     "input_number.ev_charge_2025_vehicle_limit_soc": 30.0,
     "input_number.ev_charge_2025_byd_max_discharge_power": 5.0,
-    "input_number.ev_charge_2025_manual_power_kw": 1.5
+    "input_number.ev_charge_2025_manual_power_kw": 2.0
 }
