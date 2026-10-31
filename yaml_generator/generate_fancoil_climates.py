@@ -77,6 +77,12 @@ CLIMATE_COMFORT_PER_ROOM_TEMPLATE_PATH = (
 TREND_SENSORS_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "fancoil_trend_sensors.j2")
 )
+PREDICTION_SENSOR_BLOCK_TEMPLATE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_prediction_sensor_block.j2")
+)
+PREDICTION_SENSOR_TEMPLATE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_prediction_sensor.j2")
+)
 WINDOW_ADVICE_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "fancoil_window_advice.j2")
 )
@@ -410,6 +416,16 @@ def generate_aggregated(template_path, output_file, vars_map):
         pieces.append(substitute_tags(template_text, local_ctx).strip())
     result = "\n".join(pieces).strip() + "\n"
     write_text_file(output_file, result)
+
+def generate_single(template_path, output_file, context):
+    """Render a template once with the given context (no per-room iteration) using Jinja2."""
+    logger.info(f"Generating single file from {template_path} -> {output_file}")
+    template_name = os.path.basename(template_path)
+    template = _jinja_env.get_template(template_name)
+    common_ctx = get_common_context(template_path)
+    final_ctx = {**context, **common_ctx}
+    rendered = template.render(**final_ctx)
+    write_text_file(output_file, rendered)
 
 def build_humidity_fallback_context(room_data):
     """Fase 4 - Build Jinja-ready strings for the humidity pilot/fallback template tags.
@@ -776,6 +792,15 @@ def main():
         "",
     )
 
+    # Trigger-based prediction sensors (per room, modern template format)
+    for key, context in vars_map.items():
+        local_ctx = {**context, **get_common_context(PREDICTION_SENSOR_TEMPLATE_PATH)}
+        template_text = read_template(PREDICTION_SENSOR_TEMPLATE_PATH)
+        rendered = substitute_tags(template_text, local_ctx).strip()
+        out_name = resolve_output_name(context, key, "_prediction")
+        out_path = os.path.join(TRIGGER_SENSORS_OUTPUT_DIR, out_name)
+        write_text_file(out_path, rendered + "\n")
+
     # Fase 5 - Per-room trend sensors (trend umidità)
     generate_from_template(
         TREND_SENSORS_TEMPLATE_PATH,
@@ -829,10 +854,12 @@ def main():
     )
 
     # Fase 7 - Per-room window notification automations
+    # Only generate for rooms with windows
+    window_vars_map = {k: v for k, v in vars_map.items() if v.get("has_window", True)}
     generate_from_template(
         WINDOW_NOTIFICATION_TEMPLATE_PATH,
         AUTOMATION_OUTPUT_DIR,
-        vars_map,
+        window_vars_map,
         "_window_notification",
     )
 
@@ -1077,6 +1104,22 @@ def main():
     # TH Persistence (Tuya sensors)
     master_lines.append("- !include managed_persistence/th_persistence.yaml")
     
+    # Additional persistence files (master, EV, PDC)
+    master_lines.append("- !include managed_persistence/master_persistence.yaml")
+    master_lines.append("- !include managed_persistence/ev_persistence.yaml")
+    master_lines.append("- !include managed_persistence/consumo_netto_pdc_persistence.yaml")
+    
+    # Prediction sensors (one file per room)
+    for key in vars_map.keys():
+        master_lines.append(f"- !include managed_trigger_sensors/{key}_prediction.yaml")
+    
+    # Manual advice sensors (one file per room)
+    for key in vars_map.keys():
+        master_lines.append(f"- !include managed_trigger_sensors/{key}_manual_advice.yaml")
+    
+    # Debounced advice sensors are in managed_binary_sensors/ (legacy format)
+    # Already included via binary_sensor: !include_dir_merge_list managed_binary_sensors/
+
     write_text_file("yaml_generator/fancoil_templates_master.yaml", "\n".join(master_lines))
 
     # Dashboard generation

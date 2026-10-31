@@ -9,7 +9,7 @@
       managed_by: generate_sensors.py
       area: cucina
     state: >
-      {% set battery = states('sensor.th1a_temperature_humidity_battery') %}
+      {% set battery = states('sensor.th1a_battery') %}
       {% if battery | is_number %}
         {{ battery | float < 20 }}
       {% else %}
@@ -24,7 +24,7 @@
       managed_by: generate_sensors.py
       area: camera_grande
     state: >
-      {% set battery = states('sensor.th2b_temperature_humidity_battery') %}
+      {% set battery = states('sensor.th2b_battery') %}
       {% if battery | is_number %}
         {{ battery | float < 20 }}
       {% else %}
@@ -39,7 +39,7 @@
       managed_by: generate_sensors.py
       area: camera
     state: >
-      {% set battery = states('sensor.th3c_temperature_humidity_battery') %}
+      {% set battery = states('sensor.th3c_battery') %}
       {% if battery | is_number %}
         {{ battery | float < 20 }}
       {% else %}
@@ -54,10 +54,9 @@
       managed_by: generate_sensors.py
       area: balcone
     state: >
-      {% set battery = states('sensor.th4d_temperature_humidity_battery') %}
+      {% set battery = states('sensor.th4d_battery') %}
       {% if battery | is_number %}
         {{ battery | float < 20 }}
       {% else %}
         {{ battery | lower in ['low', 'empty'] }}
       {% endif %}
-

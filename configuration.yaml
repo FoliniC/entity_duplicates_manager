@@ -455,7 +455,7 @@ logger:
     homeassistant.components.template: warning
     homeassistant.components.light: warning
     homeassistant.components.homeassistant: warning
-    custom_components.localtuya: info
+    custom_components.localtuya: warning
     custom_components.entity_duplicates_manager: info
     fancoil_system: error
     homeassistant.components.shell_command: error

@@ -35,7 +35,7 @@ views:
         - type: entity
           children:
           - sensor.potenza_consumata_attuale
-          entity_id: sensor.solarnet_power_battery_discharge
+          entity_id: sensor.locale_tecnico_solarnet_power_battery_discharge
           name: Batteria
         sort_group_by_parent: true
       - entities:
@@ -44,7 +44,7 @@ views:
           - sensor.prism_potenza
           - sensor.consumo_appartamento_template
           - sensor.consumo_impianto_nuovo
-          - sensor.solarnet_power_battery_charge
+          - sensor.locale_tecnico_solarnet_power_battery_charge
           - sensor.potenza_esportata_attuale
           entity_id: sensor.potenza_consumata_attuale
           name: Consumo
@@ -68,7 +68,7 @@ views:
           name: Impianto nuovo
         - type: entity
           children: []
-          entity_id: sensor.solarnet_power_battery_charge
+          entity_id: sensor.locale_tecnico_solarnet_power_battery_charge
           name: Batteria
         - type: entity
           children: []
@@ -104,7 +104,7 @@ views:
     - type: custom:power-flow-card-plus
       entities:
         battery:
-          entity: sensor.solarnet_power_battery
+          entity: sensor.locale_tecnico_solarnet_power_battery_discharge
           state_of_charge: sensor.byd_battery_box_premium_hv_state_of_charge
         grid:
           entity: sensor.potenza_prelevata_attuale
@@ -170,9 +170,9 @@ views:
       - entity: sensor.prism_potenza
       - entity: sensor.smart_meter_ts_100a_1_real_power
       - entity: sensor.wifi_digital_meter_2_induzione_wifi_digital_meter_2_induzione_power
-      - entity: sensor.solarnet_power_battery
-      - entity: sensor.solarnet_power_battery_charge
-      - entity: sensor.solarnet_power_battery_discharge
+      - entity: sensor.locale_tecnico_solarnet_power_battery_discharge
+      - entity: sensor.locale_tecnico_solarnet_power_battery_charge
+      - entity: sensor.locale_tecnico_solarnet_power_battery_discharge
       - entity: sensor.prism_potenza_kw
       title: Entità coinvolte
     column_span: 4
@@ -427,7 +427,7 @@ views:
     - entity: sensor.folini_carlo_power_ac
     - entity: sensor.solarnet_relative_self_consumption
     - entity: sensor.solarnet_relative_autonomy
-    - entity: sensor.solarnet_power_battery
+    - entity: sensor.locale_tecnico_solarnet_power_battery_discharge
     - entity: sensor.solarnet_power_load
     - entity: sensor.solarnet_power_grid
     - entity: sensor.potenza_consumata_attuale
@@ -595,7 +595,7 @@ views:
     - entity: sensor.alfa_potenza_attiva_prodotta_istantanea
     - entity: sensor.potenza_prelevata_attuale
     - entity: sensor.envoy_122134037538_current_power_production
-    - entity: sensor.solarnet_power_battery
+    - entity: sensor.locale_tecnico_solarnet_power_battery_discharge
     - entity: sensor.potenza_consumata_attuale
   - chart_type: bar
     period: day
@@ -935,7 +935,7 @@ views:
       type: line
       name: pdc
       color: blue
-    - entity: sensor.solarnet_power_battery
+    - entity: sensor.locale_tecnico_solarnet_power_battery_discharge
       type: line
       name: batteria
       color: cyan
@@ -1221,7 +1221,7 @@ views:
         }}'
     - source: batteria
       target: totale
-      value: '{{ states(''sensor.solarnet_power_battery'')|float(0) if states(''sensor.solarnet_power_battery'')|float(0)
+      value: '{{ states(''sensor.locale_tecnico_solarnet_power_battery_discharge'')|float(0) if states(''sensor.locale_tecnico_solarnet_power_battery_discharge'')|float(0)
         < 0 else 0 }}'
     - source: totale
       target: pdc

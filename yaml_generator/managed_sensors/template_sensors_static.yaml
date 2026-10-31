@@ -203,8 +203,8 @@
   state_class: measurement
   unit_of_measurement: "W"
   state: >-
-    {% set dis = states('sensor.solarnet_power_battery_discharge') %}
-    {% set batt = states('sensor.solarnet_power_battery') %}
+    {% set dis = states('sensor.locale_tecnico_solarnet_power_battery_discharge') %}
+    {% set batt = states('sensor.locale_tecnico_solarnet_power_battery') %}
     {% if dis not in ['unavailable', 'unknown', 'none', ''] %}
       {{ ([dis | float(0), 0] | max) | round(2) }}
     {% elif batt not in ['unavailable', 'unknown', 'none', ''] %}
@@ -219,8 +219,8 @@
   state_class: measurement
   unit_of_measurement: "W"
   state: >-
-    {% set car = states('sensor.solarnet_power_battery_charge') %}
-    {% set batt = states('sensor.solarnet_power_battery') %}
+    {% set car = states('sensor.locale_tecnico_solarnet_power_battery_charge') %}
+    {% set batt = states('sensor.locale_tecnico_solarnet_power_battery') %}
     {% if car not in ['unavailable', 'unknown', 'none', ''] %}
       {{ ([car | float(0), 0] | max) | round(2) }}
     {% elif batt not in ['unavailable', 'unknown', 'none', ''] %}

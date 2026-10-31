@@ -1,18 +1,18 @@
 trigger:
   - platform: state
     entity_id:
-      - sensor.th1a_temperature_humidity_temperature
-      - sensor.th1a_temperature_humidity_humidity
-      - sensor.th1a_temperature_humidity_battery
-      - sensor.th2b_temperature_humidity_temperature
-      - sensor.th2b_temperature_humidity_humidity
-      - sensor.th2b_temperature_humidity_battery
-      - sensor.th3c_temperature_humidity_temperature
-      - sensor.th3c_temperature_humidity_humidity
-      - sensor.th3c_temperature_humidity_battery_level
-      - sensor.th4d_temperature_humidity_temperature
-      - sensor.th4d_temperature_humidity_humidity
-      - sensor.th4d_temperature_humidity_battery_level
+      - sensor.th1a_temperature
+      - sensor.th1a_humidity
+      - sensor.th1a_battery
+      - sensor.th2b_temperature
+      - sensor.th2b_humidity
+      - sensor.th2b_battery
+      - sensor.th3c_temperature
+      - sensor.th3c_humidity
+      - sensor.th3c_battery
+      - sensor.th4d_temperature
+      - sensor.th4d_humidity
+      - sensor.th4d_battery
     to: ~
   - platform: homeassistant
     event: start
@@ -30,7 +30,7 @@ sensor:
       managed_by: generate_sensors.py
       area: cucina
     state: >
-      {% set sensor_id = 'sensor.th1a_temperature_humidity_temperature' %}
+      {% set sensor_id = 'sensor.th1a_temperature' %}
       {% set val = states(sensor_id) %}
       {% if val | is_number and val | float > -100 %}
         {{ val | float }}
@@ -48,7 +48,7 @@ sensor:
       managed_by: generate_sensors.py
       area: cucina
     state: >
-      {% set sensor_id = 'sensor.th1a_temperature_humidity_humidity' %}
+      {% set sensor_id = 'sensor.th1a_humidity' %}
       {% set val = states(sensor_id) %}
       {% if val | is_number and val | float > -100 %}
         {{ val | float }}
@@ -65,7 +65,7 @@ sensor:
       managed_by: generate_sensors.py
       area: cucina
     state: >
-      {% set sensor_id = 'sensor.th1a_temperature_humidity_battery' %}
+      {% set sensor_id = 'sensor.th1a_battery' %}
       {% set val = states(sensor_id) %}
       {% if val | is_number %}
         {{ val | float }}
@@ -83,7 +83,7 @@ sensor:
       managed_by: generate_sensors.py
       area: camera_grande
     state: >
-      {% set sensor_id = 'sensor.th2b_temperature_humidity_temperature' %}
+      {% set sensor_id = 'sensor.th2b_temperature' %}
       {% set val = states(sensor_id) %}
       {% if val | is_number and val | float > -100 %}
         {{ val | float }}
@@ -101,7 +101,7 @@ sensor:
       managed_by: generate_sensors.py
       area: camera_grande
     state: >
-      {% set sensor_id = 'sensor.th2b_temperature_humidity_humidity' %}
+      {% set sensor_id = 'sensor.th2b_humidity' %}
       {% set val = states(sensor_id) %}
       {% if val | is_number and val | float > -100 %}
         {{ val | float }}
@@ -118,7 +118,7 @@ sensor:
       managed_by: generate_sensors.py
       area: camera_grande
     state: >
-      {% set sensor_id = 'sensor.th2b_temperature_humidity_battery' %}
+      {% set sensor_id = 'sensor.th2b_battery' %}
       {% set val = states(sensor_id) %}
       {% if val | is_number %}
         {{ val | float }}
@@ -136,7 +136,7 @@ sensor:
       managed_by: generate_sensors.py
       area: camera
     state: >
-      {% set sensor_id = 'sensor.th3c_temperature_humidity_temperature' %}
+      {% set sensor_id = 'sensor.th3c_temperature' %}
       {% set val = states(sensor_id) %}
       {% if val | is_number and val | float > -100 %}
         {{ val | float }}
@@ -154,7 +154,7 @@ sensor:
       managed_by: generate_sensors.py
       area: camera
     state: >
-      {% set sensor_id = 'sensor.th3c_temperature_humidity_humidity' %}
+      {% set sensor_id = 'sensor.th3c_humidity' %}
       {% set val = states(sensor_id) %}
       {% if val | is_number and val | float > -100 %}
         {{ val | float }}
@@ -171,7 +171,7 @@ sensor:
       managed_by: generate_sensors.py
       area: camera
     state: >
-      {% set sensor_id = 'sensor.th3c_temperature_humidity_battery_level' %}
+      {% set sensor_id = 'sensor.th3c_battery' %}
       {% set val = states(sensor_id) %}
       {% if val | is_number %}
         {{ val | float }}
@@ -195,7 +195,7 @@ sensor:
       managed_by: generate_sensors.py
       area: balcone
     state: >
-      {% set sensor_id = 'sensor.th4d_temperature_humidity_temperature' %}
+      {% set sensor_id = 'sensor.th4d_temperature' %}
       {% set val = states(sensor_id) %}
       {% if val | is_number and val | float > -100 %}
         {{ val | float }}
@@ -213,7 +213,7 @@ sensor:
       managed_by: generate_sensors.py
       area: balcone
     state: >
-      {% set sensor_id = 'sensor.th4d_temperature_humidity_humidity' %}
+      {% set sensor_id = 'sensor.th4d_humidity' %}
       {% set val = states(sensor_id) %}
       {% if val | is_number and val | float > -100 %}
         {{ val | float }}
@@ -230,7 +230,7 @@ sensor:
       managed_by: generate_sensors.py
       area: balcone
     state: >
-      {% set sensor_id = 'sensor.th4d_temperature_humidity_battery_level' %}
+      {% set sensor_id = 'sensor.th4d_battery' %}
       {% set val = states(sensor_id) %}
       {% if val | is_number %}
         {{ val | float }}

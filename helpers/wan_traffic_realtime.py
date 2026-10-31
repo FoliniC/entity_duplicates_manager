@@ -6,7 +6,7 @@ import os
 ROUTER_IP = "192.168.0.3"  # Debian HA server (has USB tethering)
 # Path handling for both HA and local testing
 CONFIG_DIR = "/config" if os.path.exists("/config") else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SSH_KEY = os.path.join(CONFIG_DIR, ".ssh/host_key")  # Debian key (carlo user)
+SSH_KEY = os.path.join(CONFIG_DIR, ".ssh/ha_host_key")  # Debian key (carlo user) - ed25519 for unrestricted access
 SSH_USER = "carlo"
 CACHE_FILE = os.path.join(CONFIG_DIR, "temp/wan_traffic_realtime.json") if os.path.exists("/config") else os.path.join(os.path.dirname(CONFIG_DIR), "temp/wan_traffic_realtime.json")
 SSH_TIMEOUT = 6
@@ -58,6 +58,7 @@ def run_router_command(remote_command):
         "-o", f"ConnectTimeout={SSH_TIMEOUT}",
         "-o", "ServerAliveInterval=2",
         "-o", "ServerAliveCountMax=1",
+        "-o", "IdentitiesOnly=yes",
         SSH_USER + "@" + ROUTER_IP,
         remote_command,
     ]

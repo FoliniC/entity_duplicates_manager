@@ -17,8 +17,8 @@
   action:
     - condition: template
       value_template: >
-        {{ is_state('sensor.esito_ultimo_consiglio_finestra_%%id%%_validated', 'in_attesa')
-           and (as_timestamp(now()) - as_timestamp(states.sensor.esito_ultimo_consiglio_finestra_%%id%%_validated.last_changed)) > 900 }}
+        {{ is_state('sensor.esito_ultimo_consiglio_finestra_%%id%%_validated_v3', 'in_attesa')
+           and (as_timestamp(now()) - as_timestamp(states.sensor.esito_ultimo_consiglio_finestra_%%id%%_validated_v3.last_changed)) > 900 }}
     - service: homeassistant.update_entity
       target:
-        entity_id: sensor.esito_ultimo_consiglio_finestra_%%id%%_validated
+        entity_id: sensor.esito_ultimo_consiglio_finestra_%%id%%_validated_v3

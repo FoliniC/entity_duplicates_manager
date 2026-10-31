@@ -29,7 +29,7 @@
 
   # Temperatura attuale basata sulla sorgente selezionata
   current_temperature_template: >-
-    {% set val = states('sensor.fancoil_%%id%%_real_calculated') | float(-99) %}
+    {% set val = states('sensor.temperatura_%%id%%_reale_calcolata') | float(-99) %}
     {% if val == -99 %}
       {{ states('sensor.fancoil_%%id%%_temperature') | float(21.0) }}
     {% else %}

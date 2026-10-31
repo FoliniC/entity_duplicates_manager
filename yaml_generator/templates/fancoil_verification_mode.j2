@@ -30,7 +30,7 @@
 
   actions:
     - variables:
-        consiglio_ora: "{{ states('sensor.consiglio_finestra_%%id%%') }}"
+        consiglio_ora: "{{ state_attr('sensor.consiglio_finestra_%%id%%', 'candidato') | default(states('sensor.consiglio_finestra_%%id%%')) }}"
         finestra_dopo: "{{ trigger.to_state.state }}"
         finestra_prima: "{{ trigger.from_state.state }}"
         user_id: "{{ trigger.to_state.context.user_id }}"
@@ -259,7 +259,7 @@
                   {% if not prediction_window_still_open | bool(false) %}
                     finestra_chiusa_prima_del_termine
                   {% elif not prediction_valid | bool(false) %}
-                    dati_finali_non_disponibili
+                    finestra_chiusa_troppo_presto
                   {% elif prediction_ok | bool(false) %}
                     previsione_azzeccata
                   {% else %}
@@ -351,7 +351,7 @@
                   Temperatura prevista {{ predicted_temperature_snapshot }}°C, reale {{ actual_temperature }}°C (errore {{ temperature_error }}°C).
                   Nuovi fattori: umidita {{ new_prediction_factor_humidity }}, temperatura {{ new_prediction_factor_temperature }}, tempo {{ new_prediction_factor_time }}.
                   {% else %}
-                  Sessione non valida: {{ prediction_reason }}.
+                  Finestra aperta troppo brevemente: {{ prediction_reason }}.
                   {% endif %}
 
 - id: "window_verifica_reset_notif_%%id%%"

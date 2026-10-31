@@ -70,7 +70,7 @@ ssh_windows() {
 }
 
 ssh_debian() {
-  ssh -i /config/.ssh/host_key \
+  ssh -i /config/.ssh/ha_host_key \
     -o StrictHostKeyChecking=no \
     -o UserKnownHostsFile=/dev/null \
     -o LogLevel=QUIET \
@@ -78,6 +78,7 @@ ssh_debian() {
     -o ControlMaster=auto \
     -o ControlPersist=60s \
     -o ControlPath=/config/.ssh/cm/%C \
+    -o IdentitiesOnly=yes \
     carlo@192.168.0.3 "$@"
 }
 
@@ -391,6 +392,11 @@ activate_debian() {
 
   # Clear error marker on success
   rm -f "$ERROR_MARKER" 2>/dev/null || true
+
+  # Pulizia di sicurezza: un marker restore_windows rimasto da un restore
+  # precedente interrotto bloccherebbe run_status su "restoring" per sempre.
+  rm -f "$RESTORE_MARKER" 2>/dev/null || true
+
   log_line INFO "PRE-FLIGHT OK: Tethering USB rilevato su Debian -> $detect_out"
 
   if [[ "$MODE" == "intranet" ]]; then
@@ -716,6 +722,8 @@ case "$ACTION" in
     fi
     ;;
   activate)
+    # Pulizia preventiva: marker stale da restore precedenti bloccano run_status
+    rm -f "$RESTORE_MARKER" 2>/dev/null || true
     if [ "$IS_ROLLBACK" = "1" ]; then
       log_line INFO "[FAILSAFE_ROLLBACK] Esecuzione rollback automatico verso modalita $MODE (host: $HOST)"
     else
