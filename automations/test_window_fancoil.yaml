@@ -1,0 +1,10 @@
+- id: "test_window_fancoil_load"
+  alias: "Test Window Fancoil Load"
+  trigger:
+    - platform: homeassistant
+      event: start
+  action:
+    - service: log.write
+      data:
+        message: "Test automation loaded successfully"
+        level: info

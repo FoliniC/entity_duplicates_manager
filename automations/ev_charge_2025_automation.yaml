@@ -1,0 +1,10 @@
+- id: ev_charge_2025_control_v2
+  alias: "EV Charge 2025 Control"
+  triggers:
+    - trigger: time_pattern
+      minutes: "/1"
+  actions:
+    - service: system_log.write
+      data:
+        message: "EV Charge 2025 Control triggered at {{ now() }}"
+        level: info

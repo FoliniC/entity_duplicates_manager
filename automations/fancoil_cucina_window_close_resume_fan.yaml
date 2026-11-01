@@ -1,0 +1,90 @@
+- id: "wcfs_cucina_close_9bef82a8"
+  alias: "Fancoil Cucina: Resume fan when window closes"
+  description: "Resume fancoil fan speeds when window closes, with force-resume safety"
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.contact_cucina_contact_cucina
+      to: "off"
+      id: "window_closed"
+    - platform: time_pattern
+      minutes: "/5"
+      id: "periodic_check"
+    - platform: state
+      entity_id: binary_sensor.contact_cucina_contact_cucina
+      to: "unavailable"
+      for: "00:05:00"
+      id: "contact_unavailable"
+    - platform: template
+      value_template: >
+        {{ states('input_boolean.fancoil_cucina_fan_was_on') == 'on' and
+           states('input_datetime.fancoil_cucina_window_opened_at') != 'unknown' and
+           (as_timestamp(now()) - as_timestamp(states('input_datetime.fancoil_cucina_window_opened_at')) | int) > 1800 }}
+      id: "force_resume_timeout"
+  condition:
+    - condition: state
+      entity_id: input_boolean.fancoil_cucina_enabled
+      state: "on"
+    - condition: template
+      value_template: "{{ states('input_boolean.fancoil_cucina_fan_was_on') == 'on' }}"
+  variables:
+    contact_state: "{{ trigger.to_state.state if trigger.to_state is defined else states('binary_sensor.contact_cucina_contact_cucina') }}"
+    saved_speeds: "{{ states('input_text.fancoil_cucina_saved_fan_speeds') }}"
+  action:
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.id in ['window_closed', 'force_resume_timeout', 'contact_unavailable', 'periodic_check'] }}"
+          sequence:
+            - variables:
+                speeds: "{{ saved_speeds | from_json }}"
+            - choose:
+                - conditions:
+                    - condition: template
+                      value_template: "{{ speeds.main == 'on' }}"
+                  sequence:
+                    - service: switch.turn_on
+                      target:
+                        entity_id: switch.stox_fancoil_cucina_switch
+              default: []
+            - choose:
+                - conditions:
+                    - condition: template
+                      value_template: "{{ speeds.aux == 'on' }}"
+                  sequence:
+                    - service: switch.turn_on
+                      target:
+                        entity_id: switch.fancoil_cucina_switch_aux
+              default: []
+            - choose:
+                - conditions:
+                    - condition: template
+                      value_template: "{{ speeds.aux2 == 'on' }}"
+                  sequence:
+                    - service: switch.turn_on
+                      target:
+                        entity_id: switch.fancoil_cucina_switch_aux2
+              default: []
+            - choose:
+                - conditions:
+                    - condition: template
+                      value_template: "{{ speeds.aux3 == 'on' }}"
+                  sequence:
+                    - service: switch.turn_on
+                      target:
+                        entity_id: switch.fancoil_cucina_switch_aux3
+              default: []
+            - service: input_datetime.set_datetime
+              target:
+                entity_id: input_datetime.fancoil_cucina_last_main_on
+              data:
+                timestamp: "{{ now().timestamp() | int }}"
+            - service: input_boolean.turn_off
+              target:
+                entity_id: input_boolean.fancoil_cucina_fan_was_on
+            - service: input_text.set_value
+              target:
+                entity_id: input_text.fancoil_cucina_saved_fan_speeds
+              data:
+                value: '{"main": "off", "aux": "off", "aux2": "off", "aux3": "off"}'
+      default: []
+  mode: single

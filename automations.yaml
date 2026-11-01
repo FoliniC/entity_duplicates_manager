@@ -63,7 +63,7 @@
   conditions: []
   actions:
   - data:
-      title: "\U0001F6A8 Persona rilevata"
+      title: "🚨 Persona rilevata"
       message: "Persona rilevata dalla **Camera 1** alle {{ now().strftime('%H:%M:%S') }}\n        del {{ now().strftime('%d/%m/%Y') }}"
       notification_id: persona_camera1
     action: persistent_notification.create
@@ -84,7 +84,6 @@
     data:
       title: "Tuya Device Activity"
       message: "Tuya device BC:35:1E:FF:4A:B9 detected network activity at {{ now().strftime('%H:%M:%S') }}"
-  # Usare notify group per notifiche device-agnostic
   - action: notify.all_devices
     data:
       title: "Tuya Device Activity"
@@ -99,7 +98,6 @@
       value_template: '{{ value_json.type == "new" and value_json.label == "person" and value_json.camera == "locale_tecnico" }}'
   conditions: []
   actions:
-    # Usare notify group per notifiche device-agnostic
     - action: notify.all_devices
       data:
         title: "🚨 Persona rilevata - Locale Tecnico"

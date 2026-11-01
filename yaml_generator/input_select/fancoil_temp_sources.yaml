@@ -3,5 +3,4 @@ fancoil_cucina_temp_source:
   options:
     - "sensor.fancoil_cucina_temperature"
     - "sensor.th1a_temperature"
-    - "sensor.stox_fancoil_cucina"
   icon: mdi:thermometer-lines

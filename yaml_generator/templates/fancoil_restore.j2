@@ -14,7 +14,9 @@
           {% if "%%ref_sensor%%" != "" %}
             {% set defaults = defaults + ["%%ref_sensor%%"] %}
           {% endif %}
-          {% set defaults = defaults + ["sensor.stox_fancoil_%%id%%_temperature"] %}
+          {% if "%%knx_temp_sensor%%" != "" %}
+            {% set defaults = defaults + ["%%knx_temp_sensor%%"] %}
+          {% endif %}
           
           {% set all_opts = history.split(',') if (history not in ['unavailable', 'unknown', None] and history != "") else defaults %}
           

@@ -17,6 +17,9 @@ LOGGING_FILE = os.path.join(SCRIPT_DIR, "generator.log")
 CONFIG_PATH = os.path.join(SCRIPT_DIR, "fancoil_vars.yaml")
 GENERATOR_NAME = "yaml_generator/generate_fancoil_climates.py"
 
+# Feature flags
+GENERATE_RESET_STUCK_SESSION = False
+
 def get_common_context(template_path):
     """Return common metadata for file headers."""
     return {
@@ -120,6 +123,16 @@ AUTOMATION_RESET_STUCK_SESSION_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "fancoil_automation_reset_stuck_session.j2")
 )
 
+# Window-Fancoil control (stop fan on window open, resume on close)
+WINDOW_FANCOIL_CONTROL_TEMPLATE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_window_fancoil_control.j2")
+)
+
+# Platform sensors (derivative, etc.) - single file for all rooms
+PLATFORM_SENSORS_TEMPLATE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_platform_sensors.j2")
+)
+
 # External climate sensors (omega_esterno, T_dew esterno) con filtro outlier
 EXTERNAL_CLIMATE_SENSORS_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "external_climate_sensors.j2")
@@ -145,6 +158,7 @@ MASTER_CLIMATE_OUTPUT_FILE = (
 )
 DASHBOARD_OUTPUT_FILE = "ui/riscaldamento.yaml"
 DASHBOARD_BACKUP_FILE = "yaml_generator/generated_dashboards/generated_riscaldamento_dashboard.yaml"
+PLATFORM_SENSORS_OUTPUT_FILE = "yaml_generator/platform_sensors.yaml"
 # Setup logging
 os.makedirs(os.path.dirname(LOGGING_FILE), exist_ok=True)
 logging.basicConfig(
@@ -364,8 +378,10 @@ def generate_from_template(template_path, output_dir, vars_map, suffix):
                     f"sensor.fancoil_{room_id}_humidity",
                 )
                 local_ctx["TH_COHERENCE_BLOCK_SENSOR"] = temp_block + "\n\n" + hum_block
+                local_ctx["HAS_TH_COHERENCE"] = "true"
             else:
                 local_ctx["TH_COHERENCE_BLOCK_SENSOR"] = ""
+                local_ctx["HAS_TH_COHERENCE"] = "false"
 
             knx_sensor = local_ctx.get("knx_temp_sensor", "")
             if knx_sensor:
@@ -380,9 +396,11 @@ def generate_from_template(template_path, output_dir, vars_map, suffix):
                 )
                 local_ctx["KNX_COHERENCE_BLOCK"] = knx_block
                 local_ctx["KNX_COHERENCE_BLOCK_SENSOR"] = knx_block
+                local_ctx["HAS_KNX_COHERENCE"] = "true"
             else:
                 local_ctx["KNX_COHERENCE_BLOCK"] = ""
                 local_ctx["KNX_COHERENCE_BLOCK_SENSOR"] = ""
+                local_ctx["HAS_KNX_COHERENCE"] = "false"
         else:
             local_ctx["TH_COHERENCE_BLOCK"] = ""
             local_ctx["TH_COHERENCE_BLOCK_SENSOR"] = ""
@@ -482,7 +500,7 @@ def build_master_context(vars_map):
             f"'follow': 'input_boolean.fancoil_{room_id}_hvac_mode_follow_master'}}"
         )
         climate_entities_list.append(f"'climate.controllo_temperatura_{room_id}'")
-        room_sensor_ids.append(f"'sensor.stox_fancoil_{room_id}'")
+        room_sensor_ids.append(f"'sensor.temperatura_{room_id}_reale_calcolata'")
 
     rooms_array_str = "[" + ", ".join(rooms_array) + "]"
     climate_entities_list_str = "[" + ", ".join(climate_entities_list) + "]"
@@ -772,6 +790,15 @@ def main():
         "_pilot",
     )
 
+    # External omega sensor (omega_esterno) - per-room omega sensors come from climate_comfort_per_room.j2
+    external_ctx = {"external": {"id": "external", "friendly_name": "Esterno", "filename": "external_climate"}}
+    generate_from_template(
+        "yaml_generator/templates/fancoil_omega_external_sensor.j2",
+        SENSORS_OUTPUT_DIR,
+        external_ctx,
+        "",
+    )
+
     # Fase 4 - Per-room climate comfort (Omega+attr / T_dew / Comfort / Advice)
     # Generato aggregato da template (climate_comfort_per_room.j2): il blocco per
     # stanza esiste una sola volta, cosi aggiungere una stanza non richiede edit
@@ -780,16 +807,6 @@ def main():
         CLIMATE_COMFORT_PER_ROOM_TEMPLATE_PATH,
         CLIMATE_COMFORT_PER_ROOM_OUTPUT_FILE,
         vars_map,
-    )
-
-    # External climate sensors (omega_esterno, T_dew esterno) con filtro outlier
-    # Genera file singolo in managed_sensors/ (incluso via !include_dir_merge_list)
-    external_ctx = {"external": {"id": "external", "friendly_name": "Esterno", "filename": "external_climate"}}
-    generate_from_template(
-        EXTERNAL_CLIMATE_SENSORS_TEMPLATE_PATH,
-        SENSORS_OUTPUT_DIR,
-        external_ctx,
-        "",
     )
 
     # Trigger-based prediction sensors (per room, modern template format)
@@ -978,6 +995,19 @@ def main():
         "_manual_advice",
     )
 
+    # Window-Fancoil control: stop fan on window open, resume on close (only for rooms with window contact sensor)
+    window_control_vars = {k: v for k, v in vars_map.items() if v.get("has_window", True) and v.get("window_contact_sensor")}
+    for key, context in window_control_vars.items():
+        local_ctx = dict(context)
+        room_id = local_ctx.get("id", key)
+        local_ctx["WINDOW_CONTACT_SENSOR"] = local_ctx.get("window_contact_sensor", "")
+        generate_from_template(
+            WINDOW_FANCOIL_CONTROL_TEMPLATE_PATH,
+            AUTOMATION_OUTPUT_DIR,
+            {key: local_ctx},
+            "_window_fancoil_control",
+        )
+
     # Filter rooms with windows for new templates (exclude corridoio)
     vars_map_with_windows = {k: v for k, v in vars_map.items() if v.get("has_window", True)}
 
@@ -1006,12 +1036,13 @@ def main():
     )
 
     # Nuovi: Automazione reset sessioni bloccate (Layer 2 fix)
-    generate_from_template(
-        AUTOMATION_RESET_STUCK_SESSION_TEMPLATE_PATH,
-        AUTOMATION_OUTPUT_DIR,
-        vars_map_with_windows,
-        "_reset_stuck_session",
-    )
+    if GENERATE_RESET_STUCK_SESSION:
+        generate_from_template(
+            AUTOMATION_RESET_STUCK_SESSION_TEMPLATE_PATH,
+            AUTOMATION_OUTPUT_DIR,
+            vars_map_with_windows,
+            "_reset_stuck_session",
+        )
 
     # Aggregated helpers
     # Input booleans - use all rooms; template handles window_contact_sensor condition
@@ -1050,6 +1081,25 @@ def main():
         vars_map,
         extra_context=None,
     )
+    # Window-Fancoil control helpers (input_text per saved speeds + input_datetime per timestamp + input_boolean per flag)
+    generate_from_template(
+        "yaml_generator/templates/fancoil_window_fancoil_helpers_input_text.j2",
+        "yaml_generator/input_text",
+        {k: v for k, v in vars_map.items() if v.get("has_window", True) and v.get("window_contact_sensor")},
+        "_window_fancoil_helpers",
+    )
+    generate_from_template(
+        "yaml_generator/templates/fancoil_window_fancoil_helpers_input_datetime.j2",
+        "yaml_generator/input_datetime",
+        {k: v for k, v in vars_map.items() if v.get("has_window", True) and v.get("window_contact_sensor")},
+        "_window_fancoil_helpers",
+    )
+    generate_from_template(
+        "yaml_generator/templates/fancoil_window_fancoil_helpers_input_boolean.j2",
+        "yaml_generator/input_boolean",
+        {k: v for k, v in vars_map.items() if v.get("has_window", True) and v.get("window_contact_sensor")},
+        "_window_fancoil_helpers",
+    )
     # Master climate (single file)
     master_ctx = build_master_context(vars_map)
     master_template = read_template(MASTER_CLIMATE_TEMPLATE_PATH)
@@ -1067,6 +1117,14 @@ def main():
         "_persistence",
     )
 
+    # Window advice persistence (save/restore state across HA restarts)
+    generate_from_template(
+        "yaml_generator/templates/fancoil_window_advice_persistence.j2",
+        TRIGGER_SENSORS_OUTPUT_DIR,  # trigger-based, so goes to managed_trigger_sensors
+        {k: v for k, v in vars_map.items() if v.get("has_window", True)},
+        "_window_advice_persistence",
+    )
+
     # Coherence sensors
     generate_from_template(
         "yaml_generator/templates/fancoil_coherence_sensors.j2",
@@ -1080,6 +1138,15 @@ def main():
         vars_map,
         "_coherence_error",
     )
+
+    # Platform sensors (derivative) - single file for all rooms
+    # This uses Jinja2 template with loop over vars_map
+    logger.info(f"Generating platform sensors -> {PLATFORM_SENSORS_OUTPUT_FILE}")
+    platform_template = read_template(PLATFORM_SENSORS_TEMPLATE_PATH)
+    common_platform_ctx = get_common_context(PLATFORM_SENSORS_TEMPLATE_PATH)
+    platform_template_obj = _jinja_env.from_string(platform_template)
+    platform_rendered = platform_template_obj.render(vars_map=vars_map, **common_platform_ctx)
+    write_text_file(PLATFORM_SENSORS_OUTPUT_FILE, platform_rendered.strip() + "\n")
 
     # Generate master include file for Home Assistant
     master_lines = [
@@ -1098,6 +1165,8 @@ def main():
         master_lines.append(f"- !include managed_trigger_sensors/{key}_window_logger.yaml")
     for key in window_rooms:
         master_lines.append(f"- !include managed_trigger_sensors/{key}_window_efficiency.yaml")
+    for key in window_rooms:
+        master_lines.append(f"- !include managed_trigger_sensors/{key}_window_advice_persistence.yaml")
     for key in vars_map.keys():
         master_lines.append(f"- !include managed_persistence/{key}_persistence.yaml")
     

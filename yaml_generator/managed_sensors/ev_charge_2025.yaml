@@ -7,9 +7,9 @@
     {% set unit_sm = state_attr('sensor.smart_meter_ts_100a_1_potenza_reale', 'unit_of_measurement') %}
     {% set grid_p_w = (smart_meter * 1000) if unit_sm == 'kW' else smart_meter %}
     
-    {% set prism_p = states('sensor.prism_potenza_assorbita') | float(0) %}
-    {% set soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) %}
-    {% set voltage = states('sensor.folini_carlo_voltage_ac') | float(230) | round(1) %}
+    {% set prism_p = states('sensor.prism_potenza') | float(0) %}
+    {% set soc = states('sensor.locale_tecnico_byd_battery_box_premium_hv_state_of_charge') | float(0) %}
+    {% set voltage = states('sensor.prism_tensione_attuale') | float(230) | round(1) %}
     {% set b_discharge = states('sensor.solarnet_power_battery_discharge') | float(0) %}
     {% set b_charge = states('sensor.solarnet_power_battery_charge') | float(0) %}
     
@@ -99,7 +99,7 @@
   unique_id: ev_charge_2025_power_from_solar
   unit_of_measurement: "W"
   state: >
-    {% set prism = states('sensor.prism_potenza_assorbita') | float(0) %}
+    {% set prism = states('sensor.prism_potenza') | float(0) %}
     {% set smart_meter = states('sensor.smart_meter_ts_100a_1_potenza_reale') | float(0) %}
     {% set battery = states('sensor.solarnet_power_battery') | float(0) %}
     {% set solar_avail = [0, prism - smart_meter - (battery if battery > 0 else 0)] | max %}
@@ -109,7 +109,7 @@
   unique_id: ev_charge_2025_power_from_battery
   unit_of_measurement: "W"
   state: >
-    {% set prism = states('sensor.prism_potenza_assorbita') | float(0) %}
+    {% set prism = states('sensor.prism_potenza') | float(0) %}
     {% set solar_used = states('sensor.ev_charge_2025_power_from_solar') | float(0) %}
     {% set battery = states('sensor.solarnet_power_battery') | float(0) %}
     {% set battery_used = [0, battery] | max %}
@@ -119,7 +119,7 @@
   unique_id: ev_charge_2025_power_from_grid
   unit_of_measurement: "W"
   state: >
-    {% set prism = states('sensor.prism_potenza_assorbita') | float(0) %}
+    {% set prism = states('sensor.prism_potenza') | float(0) %}
     {% set solar_used = states('sensor.ev_charge_2025_power_from_solar') | float(0) %}
     {% set battery_used = states('sensor.ev_charge_2025_power_from_battery') | float(0) %}
     {{ [0, prism - solar_used - battery_used] | max | round(0) }}

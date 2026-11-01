@@ -1,0 +1,9 @@
+- id: test_automation_123
+  alias: "Test Automation 123"
+  trigger:
+    - platform: time_pattern
+      minutes: "/1"
+  action:
+    - service: system_log.write
+      data:
+        message: "Test automation triggered"

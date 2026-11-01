@@ -32,11 +32,11 @@
         smart_meter: "{{ states('sensor.smart_meter_ts_100a_1_potenza_reale') | float(0) }}"
         unit_sm: "{{ state_attr('sensor.smart_meter_ts_100a_1_potenza_reale', 'unit_of_measurement') }}"
         grid_p_w: "{{ (smart_meter * 1000) if unit_sm == 'kW' else smart_meter }}"
-        prism_p: "{{ states('sensor.prism_potenza_assorbita') | float(0) }}"
+        prism_p: "{{ states('sensor.prism_potenza') | float(0) }}"
         b_discharge: "{{ states('sensor.solarnet_power_battery_discharge') | float(0) }}"
         b_charge: "{{ states('sensor.solarnet_power_battery_charge') | float(0) }}"
-        byd_soc: "{{ states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) }}"
-        voltage: "{{ states('sensor.folini_carlo_voltage_ac') | float(230) }}"
+        byd_soc: "{{ states('sensor.locale_tecnico_byd_battery_box_premium_hv_state_of_charge') | float(0) }}"
+        voltage: "{{ states('sensor.prism_tensione_attuale') | float(230) }}"
         
         # 2. INPUT UTENTE
         is_active: "{{ is_state('input_boolean.ev_charge_2025_charging_active', 'on') }}"
@@ -56,7 +56,7 @@
         p_inv: "{{ states('input_number.ev_charge_2025_byd_inversion_soc') | float(30) }}"
         p_max_d: "{{ states('input_number.ev_charge_2025_byd_max_discharge_soc') | float(90) }}"
         p_min_stop: "{{ states('input_number.ev_charge_2025_byd_min_soc_stop') | float(20) }}"
-        byd_soc_float: "{{ states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(-1) }}"
+        byd_soc_float: "{{ states('sensor.locale_tecnico_byd_battery_box_premium_hv_state_of_charge') | float(-1) }}"
         w_max_c: "{{ states('input_number.ev_charge_2025_byd_max_charge_power') | float(5) * 1000 }}"
         w_max_d: "{{ states('input_number.ev_charge_2025_byd_max_discharge_power') | float(5) * 1000 }}"
         w_max_grid: "{{ states('input_number.ev_charge_2025_grid_max_power') | float(6) * 1000 }}"

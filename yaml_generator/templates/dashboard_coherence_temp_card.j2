@@ -1,14 +1,18 @@
               - type: custom:mushroom-template-card
                 primary: "%%friendly_name%%: {{ states('sensor.fancoil_%%id%%_sensors_coherence_status') }}"
                 secondary: >
-                  {% set t_th_id = 'sensor.fancoil_%%id%%_temp_delta_th_internal' %}
-                  {% set t_knx_id = 'sensor.fancoil_%%id%%_temp_delta_knx_th' %}
-                  {% set th = states(t_th_id) %}
-                  {% set knx = states(t_knx_id) %}
-                  {% set th_change = state_attr(t_th_id, 'delta_change') %}
-                  {% set knx_change = state_attr(t_knx_id, 'delta_change') %}
-                  TH-Fancoil: {{ th if th not in ['unknown','unavailable'] else 'N/A' }}{{ '°C' if th not in ['unknown','unavailable'] else '' }} | var={{ th_change if th_change is not none else 'N/A' }}
-                  KNX-Ref: {{ knx if knx not in ['unknown','unavailable'] else 'N/A' }}{{ '°C' if knx not in ['unknown','unavailable'] else '' }} | var={{ knx_change if knx_change is not none else 'N/A' }}
+                  {% if th_id %}
+                    {% set t_th_id = 'sensor.fancoil_%%id%%_temp_delta_th_vs_internal' %}
+                    {% set th = states(t_th_id) %}
+                    {% set th_change = state_attr(t_th_id, 'delta_change') %}
+                    TH-Fancoil: {{ th if th not in ['unknown','unavailable'] else 'N/A' }}{{ '°C' if th not in ['unknown','unavailable'] else '' }} | var={{ th_change if th_change is not none else 'N/A' }}
+                  {% endif %}
+                  {% if knx_temp_sensor %}
+                    {% set t_knx_id = 'sensor.fancoil_%%id%%_temp_delta_knx_vs_ref' %}
+                    {% set knx = states(t_knx_id) %}
+                    {% set knx_change = state_attr(t_knx_id, 'delta_change') %}
+                    {% if th_id %}, {% endif %}KNX-Ref: {{ knx if knx not in ['unknown','unavailable'] else 'N/A' }}{{ '°C' if knx not in ['unknown','unavailable'] else '' }} | var={{ knx_change if knx_change is not none else 'N/A' }}
+                  {% endif %}
                 entity: binary_sensor.fancoil_%%id%%_sensors_coherence_error
                 icon: mdi:thermometer-alert
                 icon_color: >

@@ -13,6 +13,7 @@ ev_charge_2025_target_soc:
   step: 1
   unit_of_measurement: "%"
   mode: slider
+  initial: 80
 
 ev_charge_2025_vehicle_limit_soc:
   name: "Obiettivo Carica"
@@ -21,6 +22,7 @@ ev_charge_2025_vehicle_limit_soc:
   step: 5
   unit_of_measurement: "%"
   mode: slider
+  initial: 80
 
 ev_charge_2025_cronostar_power_target:
   name: "Target Cronostar (kW)"

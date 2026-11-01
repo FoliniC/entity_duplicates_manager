@@ -29,7 +29,7 @@
                 icon: mdi:thermometer-lines
               - entity: input_text.fancoil_%%id%%_add_temp_entity
                 name: Aggiungi/Cambia Sensore (ID)
-                placeholder: "es: sensor.stanza_th"
+                placeholder: "es: sensor.temperatura_xyz"
               - entity: sensor.temperatura_%%id%%_reale_calcolata
                 name: Temperatura Letta
                 icon: mdi:thermometer-check
@@ -52,8 +52,6 @@
               - entity: switch.fancoil_%%id%%_switch_3
                 name: Velocità 3 (High)
                 icon: mdi:fan-speed-3
-              - entity: sensor.fancoil_%%id%%_status_comunicazione
-                name: Diagnostica Hardware
 
           - type: entities
             title: Configurazione Automazione

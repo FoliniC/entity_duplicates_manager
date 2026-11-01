@@ -14,7 +14,9 @@
           {% if "sensor.fancoil_bagno_temperature" != "" %}
             {% set defaults = defaults + ["sensor.fancoil_bagno_temperature"] %}
           {% endif %}
-          {% set defaults = defaults + ["sensor.stox_fancoil_bagno_temperature"] %}
+          {% if "sensor.temperatura_bagno" != "" %}
+            {% set defaults = defaults + ["sensor.temperatura_bagno"] %}
+          {% endif %}
 
           {% set all_opts = history.split(',') if (history not in ['unavailable', 'unknown', None] and history != "") else defaults %}
 

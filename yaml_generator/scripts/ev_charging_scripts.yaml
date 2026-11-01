@@ -299,9 +299,9 @@ test_charging_system:
     - variables:
         prism_ok: "{{ states('sensor.prism_stato') not in ['unknown', 'unavailable'] }}"
         solar_ok: "{{ states('sensor.envoy_122134037538_current_power_production') not in ['unknown', 'unavailable'] }}"
-        battery_ok: "{{ states('sensor.byd_battery_box_premium_hv_state_of_charge') not in ['unknown', 'unavailable'] }}"
+        battery_ok: "{{ states('sensor.locale_tecnico_byd_battery_box_premium_hv_state_of_charge') not in ['unknown', 'unavailable'] }}"
         vehicle_ok: "{{ states('sensor.selected_vehicle_soc') not in ['unknown', 'unavailable'] }}"
-        voltage_ok: "{{ states('sensor.folini_carlo_voltage_ac') | float(0) > 200 }}"
+        voltage_ok: "{{ states('sensor.prism_tensione_attuale') | float(0) > 200 }}"
 
     - action: notify.persistent_notification
       data:
@@ -313,7 +313,7 @@ test_charging_system:
           Produzione Solare: {{ '✅' if solar_ok else '❌' }}
           Batteria Casa: {{ '✅' if battery_ok else '❌' }}
           Veicolo {{ states('input_select.selected_vehicle') }}: {{ '✅' if vehicle_ok else '❌' }}
-          Tensione Rete: {{ '✅' if voltage_ok else '❌' }} ({{ states('sensor.folini_carlo_voltage_ac') }}V)
+          Tensione Rete: {{ '✅' if voltage_ok else '❌' }} ({{ states('sensor.prism_tensione_attuale') }}V)
 
           **Automazioni:**
           Manuale: {{ states('automation.ev_charging_manual_mode_control') }}

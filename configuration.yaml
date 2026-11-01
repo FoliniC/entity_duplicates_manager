@@ -300,6 +300,45 @@ sensor:
         window_size: "00:00:10"
         precision: 1
 
+  # Derivative sensors for absolute humidity rate of change (ω g/kg per min)
+  # Più robusto della derivata RH: non dipende dalla temperatura
+  # time_window: 3 min, serve 2 campioni consecutivi sopra soglia per confermare
+  - platform: derivative
+    source: sensor.omega_cucina
+    name: "Omega Derivata Cucina"
+    unique_id: omega_derivata_cucina
+    unit_time: min
+    round: 3
+    time_window: "00:03:00"
+  - platform: derivative
+    source: sensor.omega_camera_grande
+    name: "Omega Derivata Camera grande"
+    unique_id: omega_derivata_camera_grande
+    unit_time: min
+    round: 3
+    time_window: "00:03:00"
+  - platform: derivative
+    source: sensor.omega_camera
+    name: "Omega Derivata Camera"
+    unique_id: omega_derivata_camera
+    unit_time: min
+    round: 3
+    time_window: "00:03:00"
+  - platform: derivative
+    source: sensor.omega_bagno
+    name: "Omega Derivata Bagno"
+    unique_id: omega_derivata_bagno
+    unit_time: min
+    round: 3
+    time_window: "00:03:00"
+  - platform: derivative
+    source: sensor.omega_sala
+    name: "Omega Derivata Sala"
+    unique_id: omega_derivata_sala
+    unit_time: min
+    round: 3
+    time_window: "00:03:00"
+
   # Bitcoin Investment Tracker
 
 # ============================================================================

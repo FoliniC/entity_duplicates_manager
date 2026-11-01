@@ -80,7 +80,7 @@
   state_class: measurement
   device_class: power
   state: >
-    {% set soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) %}
+    {% set soc = states('sensor.locale_tecnico_byd_battery_box_premium_hv_state_of_charge') | float(0) %}
     {% set power_production = states('sensor.envoy_122134037538_current_power_production') | float(0) %}
     {% set consumo_pdc = states('sensor.smart_meter_2026_a_pdc_power_a') | float(50) %}
     {% set consumo_appartamento = states('sensor.consumo_appartamento_template') | float(100) %}
@@ -107,7 +107,7 @@
   state_class: measurement
   device_class: power
   state: >
-    {% set soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) %}
+    {% set soc = states('sensor.locale_tecnico_byd_battery_box_premium_hv_state_of_charge') | float(0) %}
     {{ (((30 - soc) / 30 * -4500) if soc < 30 else ((soc - 30) / 70 * 4500) if soc <= 100 else 0) | round(0) }}
 
 - name: "Battery Power Discharging"
@@ -116,7 +116,7 @@
   state_class: measurement
   device_class: power
   state: >
-    {% set soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) %}
+    {% set soc = states('sensor.locale_tecnico_byd_battery_box_premium_hv_state_of_charge') | float(0) %}
     {% set w_battery = ((30 - soc) / 30 * -4500) if soc < 30 else ((soc - 30) / 70 * 4500) if soc <= 100 else 0 %}
     {{ [0, w_battery] | max | round(0) }}
 
@@ -126,7 +126,7 @@
   state_class: measurement
   device_class: power
   state: >
-    {% set soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) %}
+    {% set soc = states('sensor.locale_tecnico_byd_battery_box_premium_hv_state_of_charge') | float(0) %}
     {% set w_battery = ((30 - soc) / 30 * -4500) if soc < 30 else ((soc - 30) / 70 * 4500) if soc <= 100 else 0 %}
     {{ [0, -w_battery] | max | round(0) }}
 
@@ -148,7 +148,7 @@
 - name: "Battery Contribution Explanation"
   unique_id: battery_contribution_explanation
   state: >
-    {% set soc = states('sensor.byd_battery_box_premium_hv_state_of_charge') | float(0) %}
+    {% set soc = states('sensor.locale_tecnico_byd_battery_box_premium_hv_state_of_charge') | float(0) %}
     {% set w_battery = (((30 - soc) / 30 * -4500) if soc < 30 else ((soc - 30) / 70 * 4500) if soc <= 100 else 0) | round(0) %}
     {% set message = '' %}
     {% if w_battery < 0 %}

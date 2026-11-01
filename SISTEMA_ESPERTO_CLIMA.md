@@ -27,6 +27,7 @@ Sistema di controllo climatico intelligente per Home Assistant che minimizza l'u
 │  • Nessuna soglia RH fissa (rimossa soglia 58%)                 │
 │  • Valutazione costo termico: ΔT, setpoint, rapporto beneficio  │
 │  • Grace period 5 min, isteresi 10 min, trend umidità          │
+│  • **Derivata istantanea** `drh_dt > 0.15 %/min` per close immediato │
 │  • Output: apri | chiudi | mantieni_aperta | mantieni_chiusa   │
 │  • Debounce 5 min → binary_sensor.consiglio_finestra_<stanza>_d│
 └─────────────────────────────────────────────────────────────────┘
@@ -114,7 +115,7 @@ rapporto_beneficio_costo = calo_umidita_previsto / calo_temp_previsto (pp/°C)
 ```jinja2
 {% if rain %}chiudi                          # 1. Pioggia: chiudi SUBITO
 {% elif minuti < 5 %}mantieni_aperta         # 2. Grace period 5 min
-{% elif trend == 'in_salita' %}chiudi        # 3. Umidità RISALE: chiudi SUBITO (ricambio fallito)
+{% elif trend == 'in_salita' or drh_dt > 0.15 %}chiudi  # 3. Umidità RISALE (trend OPPURE derivata): chiudi SUBITO
 {% elif trend == 'stabile' and minuti >= 10 %}chiudi  # 4. Stabile 10 min: scambio esaurito
 {% elif dT > 8 and rh_drop < 6 %}chiudi      # 5. Freddo fuori + beneficio modesto: risparmia calore
 {% elif rbc > 0 and rbc < 2 and dT > 5 %}chiudi # 6. Rapporto beneficio/costo < 2 pp/°C
@@ -225,6 +226,13 @@ Basato su `statistics_umidita_*_change_breve/medio` (15m/60m):
 - `stabile`: |cb| ≤ 0.3 e |cm| ≤ 0.6
 - `incerto`: altrimenti
 
+### **Derivata Istantanea Umidità** (`sensor.umidita_derivata_<stanza>`)
+
+Piattaforma nativa HA `derivative` su `sensor.umidita_<stanza>_pilota`:
+- Unit: `%/min`, arrotondato a 2 decimali
+- Soglia Layer 1: `drh_dt > 0.15 %/min` → close immediato (precede hysteresis/grace)
+- Rileva risalita umidità **prima** che il trend a 15 min la confermi
+
 ### Omega Esterno (`sensor.omega_esterno`)
 
 Filtro outlier su `clima_locale` (priorità) e `meteo_locale` (fallback):
@@ -243,10 +251,10 @@ Fallback chain: Fancoil → Tuya TH → `input_number.umidita_<stanza>_ultima_va
 | Automazione | Trigger | Azione |
 |-------------|---------|--------|
 | `*_memorizza_umidita_valida` | RH valido + finestra chiusa | Salva in `input_number.umidita_<stanza>_ultima_valida` |
-| `*_reset_stuck_session` | Ogni 5 min | Force update se `validated_v3` in `in_attesa` > 15 min |
 | `*_verification` | Contatto finestra cambia | Log analytics + outcome evaluation |
 | `*_window_notification` | Consiglio stabile 5 min | Persistent notification |
 | `*_window_logger` | Consiglio/finestra cambia | Event log `fancoil_events.log` |
+| **`*_window_fancoil_control`** | **Finestra apre/chiude** | **Stop fan (10s debounce) / Resume fan + restore speeds** |
 
 ---
 
@@ -359,16 +367,91 @@ ha sensor list | grep consiglio_finestra
 | Verification/dashboard lag | Read raw `candidato` attribute (not debounced state) |
 | Hysteresis blocked `in_salita` | Moved `in_salita` check **before** hysteresis |
 | Master YAML invalid | All entries as list items (`- ` prefix) |
+| **Derivative sensors non registrati** | **Piattaforma HA nativa `derivative` in configuration.yaml** |
+| **Â°C in unit_of_measurement** | **Corretto a `°C` in `fancoil_pilot_sensors.j2`** |
+| **Window-fancoil per stanze senza contatto** | **Generazione solo per stanze con `window_contact_sensor`** |
+
+---
+
+## Piano di Miglioramento & Tracking Avanzamento
+
+*Aggiornato 31 ottobre 2026*
+
+### Fase 0 – Chiudere e verificare (questa settimana) ✅ **COMPLETATA**
+
+| Task | Stato | Note |
+|------|-------|------|
+| Eliminare 5 `*_reset_stuck_session.yaml` | ✅ | File cancellati, `GENERATE_RESET_STUCK_SESSION = False` |
+| Eliminare `corridoio_window_notification.yaml` | ✅ | Già assente |
+| Rigenerare con `check_config_refs.py` v1.2 | ✅ | `riferimenti_final.md`: 0 include mancanti, 0 file non inclusi |
+| Fix `statistics_umidita_*_variance` (unknown) | ✅ | Esclusioni recorder in `recorder.yaml` |
+| Fix nomi vecchi dashboard / `*_status_comunicazione` | ✅ | Rimosso include inesistente, aggiornati template |
+| Allineare documento al codice | ✅ | Questo documento creato/aggiornato |
+| **Dashboard allineata**: box stanze → `consiglio_finestra` (no più `climate_advice` legacy) | ✅ | 6 card aggiornate, elimina bug float+str |
+| **Corridoio fix**: rimosso `APRI_PORTE_RICAMBIO` per stanze senza finestra | ✅ | `has_window: false` → `nessuna_azione` |
+| **Template cleanup**: rimossi riferimenti `stox_fancoil`, fix TH/coherence/master climate | ✅ | Entity ID corretti, flag condizionali, fallback chain |
+| **Derivative sensors**: aggiunta piattaforma HA nativa `derivative` (5 stanze) | ✅ | Soglia `drh_dt > 0.15 %/min` in Layer 1 |
+| **Window-fancoil control**: stop fan all'apertura, resume alla chiusura | ✅ | Solo cucina/camera_grande (hanno `window_contact_sensor`) |
+| **Fix Â°C → °C** in `sensor.temperatura_<stanza>_reale_calcolata` | ✅ | Corretto template, rigenerato, restart HA clean |
+| **Esito 24-48h**: almeno 1 sessione `efficace`/`inefficace` Cucina | ⏳ | In attesa apertura reale finestra |
+
+---
+
+### Fase 1 – Misurare e proteggersi (2-3 settimane) 📋 **PROSSIMA**
+
+| Task | Stato | Target |
+|------|-------|--------|
+| KPI settimanali in script diagnostico | 📋 | % tempo RH 40-60%, ore RH>65%, consigli/giorno, quota "apri", efficacia aperture >5 min, calore perso |
+| Obiettivo consiglio "apri" < 20% tempo | 📋 | Oggi 36-51% in Cucina/Camera Grande/Bagno → legare a bisogno (RH sopra banda o rischio condensa) |
+| Parametri centralizzati in `fancoil_vars.yaml` | 📋 | Soglie, τ, verdetto in un posto solo (oggi documento e file divergono) |
+| Cancello pre-deploy: lint + check_config_refs + simulatore | 📋 | Scenari già scritti per consiglio/esito/previsione |
+| Sensori: taratura RH fancoil vs TH (offset 6-7 pp) | 📋 | Prova del sale, riavvia/sostituisci `th3c` (fisso 64%), causa micro-cadute sincrone |
+
+---
+
+### Fase 2 – Calibrazione fisica per stanza (1-2 mesi) 📋
+
+| Task | Stato | Note |
+|------|-------|------|
+| Stima parametri dai dati: τ, ω→RH, produzione umidità/stanza | 📋 | Da sessioni salvate (`calo_previsto_inizio` vs risultato), pochi parametri no black-box |
+| Rimuovere bias fisso −7.3 pp | 📋 | Misurato su vecchio modello (orizzonte 8 min, costante 10) con 3 eventi → doppia correzione ora |
+| Aperture di prova per accumulare etichette | 📋 | Quando "apri" stabile → suggerire durata 10 min in alcuni casi, altri come controlli |
+| Memoria `impianto_attivo` ~10 min | 📋 | Se sezione 4b conferma coincidenza consigli con accensione/spegnimento fancoil |
+| Riconoscimento fonti umidità (doccia, cucina) | 📋 | Cucina: Frigate come segnale presenza |
+
+---
+
+### Fase 3 – Soglie adattive (dopo ≥30 sessioni valide/stanza) 📋
+
+| Task | Stato | Note |
+|------|-------|------|
+| Aggiornamento soglie prudente (mai su sicurezza/pioggia) | 📋 | Prima modalità ombra, solo se Fase 2 mostra guadagno KPI |
+| Notifiche utili: solo consiglio stabile + durata + promemoria chiusura | 📋 | Dato chiave: aperture reali 2-3 min, effetto >9 min |
+| Timeline: 30 sessioni = settimane in Cucina, mesi altre stanze | 📋 | Non anticipare |
+
+---
+
+### Disallineamenti Documento/Codice Risolti ✅
+
+| Disallineamento | Risolto |
+|-----------------|---------|
+| Tabella automazioni citava `*_reset_stuck_session` | ✅ Rimosse |
+| Verdetto descritto a 15 min post-chiusura vs 60 min da apertura | ✅ Template ora a 15 min post-chiusura |
+| Previsione descritta per stanza (`<stanza>_prediction.yaml`) ma file aggregato | ✅ Ora 6 file per-room in `managed_trigger_sensors/` |
+| Orizzonte: `input_number.previsione_orizzonte_minuti` vs `durata_apertura_consigliata_minuti` | ✅ Usa `previsione_orizzonte_minuti` |
+| Dashboard: box stanze usavano `climate_advice` (legacy, bug float+str) vs messaggio principale `consiglio_finestra` | ✅ Unificati su `consiglio_finestra` (nuovo algoritmo adattivo) |
+| Corridoio: consiglio `APRI_PORTE_RICAMBIO` senza finestra | ✅ `has_window: false` → `nessuna_azione` |
+| Template: riferimenti `sensor.stox_fancoil_<id>` inesistenti | ✅ Sostituiti con `sensor.temperatura_<id>_reale_calcolata` |
+| TH persistence/battery alerts: entity ID errati (`th1a_temperature_humidity_*`) | ✅ Corretti a `sensor.th1a_temperature`, `sensor.th1a_humidity`, `sensor.th1a_battery` |
+| Coherence sensors: generazione incondizionata, entity ID `_vs_internal`/`_vs_ref` sbagliati | ✅ Flag condizionali `HAS_TH_COHERENCE`/`HAS_KNX_COHERENCE`, entity ID corretti |
+| Master climate: sorgenti temperatura `stox_fancoil` | ✅ Usa `sensor.temperatura_<id>_reale_calcolata` con fallback chain |
+| **Derivative sensors non documentati** | ✅ Aggiunta sezione "Derivata Istantanea Umidità" |
+| **Window-fancoil control non documentato** | ✅ Aggiunto in tabella automazioni |
+| **Unit °C corrotta (`Â°C`)** | ✅ Corretto template, rigenerato, riavviato |
 
 ---
 
 ## Prossimi Sviluppi
-
-- [ ] Calibrazione τ per stanza su aperture reali (≥10 campioni)
-- [ ] Integrazione previsioni meteo (probabilità pioggia > 50% → preventivo chiudi)
-- [ ] Auto-tuning soglie Δω/RH drop per stanza via Layer 2 outcomes
-- [ ] Dashboard analitica efficacia per stagione
-- [ ] Notifica proattiva: "Tra 30 min conviene aprire" (basato su trend + meteo)
 
 ---
 

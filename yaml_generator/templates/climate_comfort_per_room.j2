@@ -56,7 +56,7 @@
       {% set internal = 'sensor.fancoil_%%id%%_temperature' %}
       {% set internal_val = states(internal) | float(-99) %}
       {% set ns = namespace(dev='') %}
-      {% if source in [internal, 'sensor.stox_fancoil_%%id%%_temperature', 'Fancoil Internal'] %}
+      {% if source in [internal, 'Fancoil Internal'] %}
         {% set ns.dev = internal %}
       {% else %}
         {% set v = states(source) | float(-99) %}
@@ -67,7 +67,7 @@
       {% set source = states('input_select.fancoil_%%id%%_temp_source') %}
       {% set internal = 'sensor.fancoil_%%id%%_temperature' %}
       {% set internal_val = states(internal) | float(-99) %}
-      {% if source in [internal, 'sensor.stox_fancoil_%%id%%_temperature', 'Fancoil Internal'] %}
+      {% if source in [internal, 'Fancoil Internal'] %}
         {{ internal_val if internal_val not in [-99, 0.0] else 'unavailable' }}
       {% else %}
         {% set v = states(source) | float(-99) %}

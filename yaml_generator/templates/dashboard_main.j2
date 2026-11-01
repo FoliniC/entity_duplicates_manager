@@ -588,12 +588,12 @@ views:
           - type: custom:mushroom-template-card
             primary: >-
               {% set advs = [
-                state_attr('sensor.consiglio_finestra_cucina', 'candidato') | default(states('sensor.consiglio_finestra_cucina')),
-                state_attr('sensor.consiglio_finestra_camera_grande', 'candidato') | default(states('sensor.consiglio_finestra_camera_grande')),
-                state_attr('sensor.consiglio_finestra_camera', 'candidato') | default(states('sensor.consiglio_finestra_camera')),
-                state_attr('sensor.consiglio_finestra_corridoio', 'candidato') | default(states('sensor.consiglio_finestra_corridoio')),
-                state_attr('sensor.consiglio_finestra_bagno', 'candidato') | default(states('sensor.consiglio_finestra_bagno')),
-                state_attr('sensor.consiglio_finestra_sala', 'candidato') | default(states('sensor.consiglio_finestra_sala'))
+                state_attr('sensor.consiglio_finestra_cucina', 'azione_raw') | default(states('sensor.consiglio_finestra_cucina')),
+                state_attr('sensor.consiglio_finestra_camera_grande', 'azione_raw') | default(states('sensor.consiglio_finestra_camera_grande')),
+                state_attr('sensor.consiglio_finestra_camera', 'azione_raw') | default(states('sensor.consiglio_finestra_camera')),
+                state_attr('sensor.consiglio_finestra_corridoio', 'azione_raw') | default(states('sensor.consiglio_finestra_corridoio')),
+                state_attr('sensor.consiglio_finestra_bagno', 'azione_raw') | default(states('sensor.consiglio_finestra_bagno')),
+                state_attr('sensor.consiglio_finestra_sala', 'azione_raw') | default(states('sensor.consiglio_finestra_sala'))
               ] %}
               {% set active_advs = advs | select('in', ['apri', 'apri_se_riparata', 'chiudi', 'apri_porte_ricambio', 'chiudi_porte']) | list %}
               {% if active_advs | length > 0 %}
@@ -603,12 +603,12 @@ views:
               {% endif %}
             secondary: >-
               {% set rooms = [
-                ('Cucina', state_attr('sensor.consiglio_finestra_cucina', 'candidato') | default(states('sensor.consiglio_finestra_cucina'))),
-                ('Camera Grande', state_attr('sensor.consiglio_finestra_camera_grande', 'candidato') | default(states('sensor.consiglio_finestra_camera_grande'))),
-                ('Camera', state_attr('sensor.consiglio_finestra_camera', 'candidato') | default(states('sensor.consiglio_finestra_camera'))),
-                ('Corridoio', state_attr('sensor.consiglio_finestra_corridoio', 'candidato') | default(states('sensor.consiglio_finestra_corridoio'))),
-                ('Bagno', state_attr('sensor.consiglio_finestra_bagno', 'candidato') | default(states('sensor.consiglio_finestra_bagno'))),
-                ('Sala', state_attr('sensor.consiglio_finestra_sala', 'candidato') | default(states('sensor.consiglio_finestra_sala')))
+                ('Cucina', state_attr('sensor.consiglio_finestra_cucina', 'azione_raw') | default(states('sensor.consiglio_finestra_cucina'))),
+                ('Camera Grande', state_attr('sensor.consiglio_finestra_camera_grande', 'azione_raw') | default(states('sensor.consiglio_finestra_camera_grande'))),
+                ('Camera', state_attr('sensor.consiglio_finestra_camera', 'azione_raw') | default(states('sensor.consiglio_finestra_camera'))),
+                ('Corridoio', state_attr('sensor.consiglio_finestra_corridoio', 'azione_raw') | default(states('sensor.consiglio_finestra_corridoio'))),
+                ('Bagno', state_attr('sensor.consiglio_finestra_bagno', 'azione_raw') | default(states('sensor.consiglio_finestra_bagno'))),
+                ('Sala', state_attr('sensor.consiglio_finestra_sala', 'azione_raw') | default(states('sensor.consiglio_finestra_sala')))
               ] %}
               {% set active = rooms | selectattr(1, 'in', ['apri', 'apri_se_riparata', 'chiudi', 'apri_porte_ricambio', 'chiudi_porte']) | list %}
               {% if active | length > 0 %}
@@ -622,12 +622,12 @@ views:
               {% endif %}
             icon: >-
               {% set advs = [
-                state_attr('sensor.consiglio_finestra_cucina', 'candidato') | default(states('sensor.consiglio_finestra_cucina')),
-                state_attr('sensor.consiglio_finestra_camera_grande', 'candidato') | default(states('sensor.consiglio_finestra_camera_grande')),
-                state_attr('sensor.consiglio_finestra_camera', 'candidato') | default(states('sensor.consiglio_finestra_camera')),
-                state_attr('sensor.consiglio_finestra_corridoio', 'candidato') | default(states('sensor.consiglio_finestra_corridoio')),
-                state_attr('sensor.consiglio_finestra_bagno', 'candidato') | default(states('sensor.consiglio_finestra_bagno')),
-                state_attr('sensor.consiglio_finestra_sala', 'candidato') | default(states('sensor.consiglio_finestra_sala'))
+                state_attr('sensor.consiglio_finestra_cucina', 'azione_raw') | default(states('sensor.consiglio_finestra_cucina')),
+                state_attr('sensor.consiglio_finestra_camera_grande', 'azione_raw') | default(states('sensor.consiglio_finestra_camera_grande')),
+                state_attr('sensor.consiglio_finestra_camera', 'azione_raw') | default(states('sensor.consiglio_finestra_camera')),
+                state_attr('sensor.consiglio_finestra_corridoio', 'azione_raw') | default(states('sensor.consiglio_finestra_corridoio')),
+                state_attr('sensor.consiglio_finestra_bagno', 'azione_raw') | default(states('sensor.consiglio_finestra_bagno')),
+                state_attr('sensor.consiglio_finestra_sala', 'azione_raw') | default(states('sensor.consiglio_finestra_sala'))
               ] %}
               {% set active_advs = advs | select('in', ['apri', 'apri_se_riparata', 'chiudi', 'apri_porte_ricambio', 'chiudi_porte']) | list %}
               {% if active_advs | length > 0 %}
@@ -637,12 +637,12 @@ views:
               {% endif %}
             icon_color: >-
               {% set advs = [
-                state_attr('sensor.consiglio_finestra_cucina', 'candidato') | default(states('sensor.consiglio_finestra_cucina')),
-                state_attr('sensor.consiglio_finestra_camera_grande', 'candidato') | default(states('sensor.consiglio_finestra_camera_grande')),
-                state_attr('sensor.consiglio_finestra_camera', 'candidato') | default(states('sensor.consiglio_finestra_camera')),
-                state_attr('sensor.consiglio_finestra_corridoio', 'candidato') | default(states('sensor.consiglio_finestra_corridoio')),
-                state_attr('sensor.consiglio_finestra_bagno', 'candidato') | default(states('sensor.consiglio_finestra_bagno')),
-                state_attr('sensor.consiglio_finestra_sala', 'candidato') | default(states('sensor.consiglio_finestra_sala'))
+                state_attr('sensor.consiglio_finestra_cucina', 'azione_raw') | default(states('sensor.consiglio_finestra_cucina')),
+                state_attr('sensor.consiglio_finestra_camera_grande', 'azione_raw') | default(states('sensor.consiglio_finestra_camera_grande')),
+                state_attr('sensor.consiglio_finestra_camera', 'azione_raw') | default(states('sensor.consiglio_finestra_camera')),
+                state_attr('sensor.consiglio_finestra_corridoio', 'azione_raw') | default(states('sensor.consiglio_finestra_corridoio')),
+                state_attr('sensor.consiglio_finestra_bagno', 'azione_raw') | default(states('sensor.consiglio_finestra_bagno')),
+                state_attr('sensor.consiglio_finestra_sala', 'azione_raw') | default(states('sensor.consiglio_finestra_sala'))
               ] %}
               {% set active_advs = advs | select('in', ['apri', 'apri_se_riparata', 'chiudi', 'apri_porte_ricambio', 'chiudi_porte']) | list %}
               {% if active_advs | length > 0 %}
@@ -654,12 +654,12 @@ views:
               style: |
                 ha-card {
                   {% set advs = [
-                    states('sensor.consiglio_finestra_cucina'),
-                    states('sensor.consiglio_finestra_camera_grande'),
-                    states('sensor.consiglio_finestra_camera'),
-                    states('sensor.consiglio_finestra_corridoio'),
-                    states('sensor.consiglio_finestra_bagno'),
-                    states('sensor.consiglio_finestra_sala')
+                    state_attr('sensor.consiglio_finestra_cucina', 'azione_raw') | default(states('sensor.consiglio_finestra_cucina')),
+                    state_attr('sensor.consiglio_finestra_camera_grande', 'azione_raw') | default(states('sensor.consiglio_finestra_camera_grande')),
+                    state_attr('sensor.consiglio_finestra_camera', 'azione_raw') | default(states('sensor.consiglio_finestra_camera')),
+                    state_attr('sensor.consiglio_finestra_corridoio', 'azione_raw') | default(states('sensor.consiglio_finestra_corridoio')),
+                    state_attr('sensor.consiglio_finestra_bagno', 'azione_raw') | default(states('sensor.consiglio_finestra_bagno')),
+                    state_attr('sensor.consiglio_finestra_sala', 'azione_raw') | default(states('sensor.consiglio_finestra_sala'))
                   ] %}
                   {% set active_advs = advs | select('in', ['apri', 'apri_se_riparata', 'chiudi', 'apri_porte_ricambio', 'chiudi_porte']) | list %}
                   {% if active_advs | length > 0 %}
@@ -956,8 +956,8 @@ views:
                         action: more-info
                       card_mod: *row_style
                     - type: custom:mushroom-template-card
-                      primary: "💡 Consiglio Climatico {{ states('sensor.climate_advice_cucina') }}"
-                      entity: sensor.climate_advice_cucina
+                      primary: "💡 Consiglio Climatico {{ states('sensor.consiglio_finestra_cucina') }}"
+                      entity: sensor.consiglio_finestra_cucina
                       tap_action:
                         action: more-info
                       card_mod: *row_style
@@ -1093,8 +1093,8 @@ views:
                         action: more-info
                       card_mod: *row_style
                     - type: custom:mushroom-template-card
-                      primary: "💡 Consiglio Climatico {{ states('sensor.climate_advice_camera_grande') }}"
-                      entity: sensor.climate_advice_camera_grande
+                      primary: "💡 Consiglio Climatico {{ states('sensor.consiglio_finestra_camera_grande') }}"
+                      entity: sensor.consiglio_finestra_camera_grande
                       tap_action:
                         action: more-info
                       card_mod: *row_style
@@ -1249,8 +1249,8 @@ views:
                         action: more-info
                       card_mod: *row_style
                     - type: custom:mushroom-template-card
-                      primary: "💡 Consiglio Climatico {{ states('sensor.climate_advice_camera') }}"
-                      entity: sensor.climate_advice_camera
+                      primary: "💡 Consiglio Climatico {{ states('sensor.consiglio_finestra_camera') }}"
+                      entity: sensor.consiglio_finestra_camera
                       tap_action:
                         action: more-info
                       card_mod: *row_style
@@ -1343,8 +1343,8 @@ views:
                         action: more-info
                       card_mod: *row_style
                     - type: custom:mushroom-template-card
-                      primary: "💡 Consiglio Climatico {{ states('sensor.climate_advice_corridoio') }}"
-                      entity: sensor.climate_advice_corridoio
+                      primary: "💡 Consiglio Climatico {{ states('sensor.consiglio_finestra_corridoio') }}"
+                      entity: sensor.consiglio_finestra_corridoio
                       tap_action:
                         action: more-info
                       card_mod: *row_style
@@ -1487,8 +1487,8 @@ views:
                         action: more-info
                       card_mod: *row_style
                     - type: custom:mushroom-template-card
-                      primary: "💡 Consiglio Climatico {{ states('sensor.climate_advice_bagno') }}"
-                      entity: sensor.climate_advice_bagno
+                      primary: "💡 Consiglio Climatico {{ states('sensor.consiglio_finestra_bagno') }}"
+                      entity: sensor.consiglio_finestra_bagno
                       tap_action:
                         action: more-info
                       card_mod: *row_style
@@ -1625,8 +1625,8 @@ views:
                         action: more-info
                       card_mod: *row_style
                     - type: custom:mushroom-template-card
-                      primary: "💡 Consiglio Climatico {{ states('sensor.climate_advice_sala') }}"
-                      entity: sensor.climate_advice_sala
+                      primary: "💡 Consiglio Climatico {{ states('sensor.consiglio_finestra_sala') }}"
+                      entity: sensor.consiglio_finestra_sala
                       tap_action:
                         action: more-info
                       card_mod: *row_style

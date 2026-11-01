@@ -1,2 +1,0 @@
-automation generated: !include_dir_merge_list automations/generated_automations/
-automation fancoil: !include_dir_merge_list automations/fancoil_generated_automations/

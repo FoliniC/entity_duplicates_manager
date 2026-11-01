@@ -14,8 +14,8 @@ sensor:
     unique_id: finestra_%%id%%_logger
     variables:
       window_contact_sensor: %%WINDOW_CONTACT_SENSOR%%
-    state: >
-      {% if window_contact_sensor %}
+    state: >-
+      {% if window_contact_sensor and states(window_contact_sensor) in ['on', 'off'] %}
         {% set finestra = is_state(window_contact_sensor, 'on') %}
       {% else %}
         {% set finestra = is_state('input_boolean.finestra_%%id%%_aperta', 'on') %}
@@ -29,7 +29,7 @@ sensor:
       {{ 'aperta' if finestra else 'chiusa' }} | {{ consiglio }} | RH={{ rh }}% | Δω={{ delta_omega }} | trend={{ trend }}
     attributes:
       finestra_aperta: >-
-        {% if window_contact_sensor %}
+        {% if window_contact_sensor and states(window_contact_sensor) in ['on', 'off'] %}
           {{ is_state(window_contact_sensor, 'on') }}
         {% else %}
           {{ is_state('input_boolean.finestra_%%id%%_aperta', 'on') }}
@@ -47,7 +47,7 @@ sensor:
       predicted_temperature: "{{ state_attr('sensor.previsione_finestra_%%id%%', 'predicted_temperature') | default('') }}"
       prediction_external_source: "{{ state_attr('sensor.previsione_finestra_%%id%%', 'external_source') | default('') }}"
       fancoil_attivo: "{{ is_state('switch.fancoil_%%id%%_switch_1', 'on') or is_state('switch.fancoil_%%id%%_switch_2', 'on') or is_state('switch.fancoil_%%id%%_switch_3', 'on') or is_state('switch.fancoil_%%id%%_switch_4', 'on') }}"
-    availability: >
+    availability: >-
       {% if window_contact_sensor %}
         {{ has_value(window_contact_sensor) and has_value('sensor.consiglio_finestra_%%id%%') }}
       {% else %}

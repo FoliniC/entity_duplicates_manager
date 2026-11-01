@@ -1,0 +1,10 @@
+- id: "test_ev_charge_new"
+  alias: "Test EV Charge New"
+  trigger:
+    - platform: time_pattern
+      minutes: "/1"
+  action:
+    - service: system_log.write
+      data:
+        message: "Test EV Charge New triggered at {{ now() }}"
+        level: info
