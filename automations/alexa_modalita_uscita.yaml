@@ -68,17 +68,21 @@
             - service: media_player.media_stop
               target:
                 entity_id: media_player.echo_dot_di_carlo
-        # alexa_devices - SEMPRE invia "ferma" (non controlla stato, non fa male se non suona)
+        # alexa_media per cucina (ex alexa_devices) - usa play_media custom
         - conditions: []
           sequence:
-            - service: alexa_devices.send_text_command
+            - service: media_player.play_media
+              target:
+                entity_id: media_player.2o_echo_dot_di_carlo
               data:
-                device_id: "9f7fa85d1597bcdd4948d75d1524dad8"
-                text_command: "ferma"
-            - service: alexa_devices.send_text_command
+                media_content_id: "ferma"
+                media_content_type: "custom"
+            - service: media_player.play_media
+              target:
+                entity_id: media_player.echo_dot_di_carlo
               data:
-                device_id: "e029aab2768927141cbfaf737132ed29"
-                text_command: "ferma"
+                media_content_id: "ferma"
+                media_content_type: "custom"
     # 4. Accendi luci scale (per percorso uscita)
     - service: light.turn_on
       target:

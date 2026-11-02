@@ -2097,19 +2097,19 @@ fancoil_%%id%%_logging_follow_master:
 # setpoint locale (usato solo quando non segue il master)
 fancoil_%%id%%_setpoint:
   name: "%%friendly_name%%: setpoint locale"
+  initial: 21.0
   min: -5
   max: 35
   step: 0.1
   unit_of_measurement: "°C"
 
-# offset applicato quando segue il master
 fancoil_%%id%%_sp_offset:
   name: "%%friendly_name%%: offset setpoint"
-  min: -5
-  max: 5
+  initial: 0.0
+  min: -10
+  max: 10
   step: 0.1
   unit_of_measurement: "°C"
-
 
 # --- File: ./templates/fancoil_room_input_selects.j2 ---
 # yaml_generator/templates/fancoil_room_input_selects.j2  

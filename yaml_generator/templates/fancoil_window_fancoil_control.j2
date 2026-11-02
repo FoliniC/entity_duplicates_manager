@@ -80,6 +80,7 @@
   alias: "Fancoil %%friendly_name%%: Resume fan when window closes"
   initial_state: true
   mode: single
+  max_exceeded: silent
   description: "Quando la finestra viene chiusa, riabilita il fancoil e ripristina velocità salvate"
   triggers:
     - trigger: state
@@ -98,6 +99,16 @@
     - condition: state
       entity_id: input_boolean.fancoil_%%id%%_enabled
       state: "on"
+    # CORREZIONE: senza queste due condizioni il trigger time_pattern (ogni 5 min) eseguiva tutta la ripresa
+    # anche con la finestra ancora aperta (fan riacceso dopo 5 min) e anche senza alcuna apertura (main riacceso
+    # e 2 eventi di log ogni 5 minuti: il listener e' tra i maggiori scrittori del recorder).
+    - condition: state
+      entity_id: input_boolean.fancoil_%%id%%_fan_was_on
+      state: "on"
+    - condition: template
+      value_template: >-
+        {{ states('%%WINDOW_CONTACT_SENSOR%%') != 'on'
+           or (now().timestamp() - (state_attr('input_datetime.fancoil_%%id%%_window_opened_at', 'timestamp') | float(0))) > 1800 }}
   actions:
     - variables:
         system_enabled: >-
@@ -114,7 +125,7 @@
         force_resume: >-
           {{ contact_state == 'unavailable' or max_duration_exceeded }}
         fan_was_on: "{{ is_state('input_boolean.fancoil_%%id%%_fan_was_on', 'on') }}"
-        saved_speeds: "{{ states('input_text.fancoil_%%id%%_saved_fan_speeds') | from_json }}"
+        saved_speeds: "{{ states('input_text.fancoil_%%id%%_saved_fan_speeds') | from_json({}) }}"
     - event: fancoil_log_event
       event_data:
         level: info
@@ -142,7 +153,7 @@
                 for_each: "{{ range(1, 5) }}"
                 sequence:
                   - variables:
-                      speed_on: "{{ saved_speeds[item|string] | int(0) == 1 }}"
+                      speed_on: "{{ saved_speeds.get(item|string, 0) | int(0) == 1 }}"
                   - if:
                       - condition: template
                         value_template: "{{ speed_on }}"

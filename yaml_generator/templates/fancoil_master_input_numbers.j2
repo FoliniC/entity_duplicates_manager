@@ -33,6 +33,7 @@ profile_delta_eco_cool:
 # Fancoil Fan Distance Parameters
 fan_distance_stop:
   name: Fancoil Distanza STOP (Diff)
+  initial: -0.3
   min: -10
   max: 10
   step: 0.1
@@ -40,6 +41,7 @@ fan_distance_stop:
 
 fan_distance_idle:
   name: Fancoil Distanza IDLE (Diff)
+  initial: 0.3
   min: -10
   max: 10
   step: 0.1
@@ -47,6 +49,7 @@ fan_distance_idle:
 
 fan_distance_low:
   name: Fancoil Distanza LOW (Diff)
+  initial: 0.5
   min: -10
   max: 10
   step: 0.1
@@ -54,6 +57,7 @@ fan_distance_low:
 
 fan_distance_medium:
   name: Fancoil Distanza MEDIUM (Diff)
+  initial: 1.2
   min: -10
   max: 10
   step: 0.1
@@ -61,6 +65,7 @@ fan_distance_medium:
 
 fan_distance_high:
   name: Fancoil Distanza HIGH (Diff)
+  initial: 2.0
   min: -10
   max: 10
   step: 0.1
@@ -68,11 +73,12 @@ fan_distance_high:
 
 fan_distance_resume:
   name: Fancoil Distanza RESUME (Diff)
+  initial: 0.5
   min: -10
   max: 10
   step: 0.1
   unit_of_measurement: "°C"
-
+  
 fancoil_resume_delay_minutes:
   name: Fancoil Ritardo Ripresa (Minuti)
   min: 0

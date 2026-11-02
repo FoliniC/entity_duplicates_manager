@@ -44,6 +44,7 @@ class TuyaEventProcessor:
         self.entry = entry
         self._pending_polls: dict[str, asyncio.Task] = {}
         self._last_poll_time: dict[str, float] = {}
+        self._catchup_polls: dict[str, asyncio.Task] = {}
         self._unsub_dispatcher = None
 
     @callback
@@ -62,25 +63,60 @@ class TuyaEventProcessor:
             _LOGGER.debug("Cloud polling disabled for %s", device_id)
             return
 
-        # Check if a poll is already scheduled for this device
+        delay = self._get_delay(device_id)
+
+        # If a poll is already in progress, schedule a catch-up poll after it completes
+        # so sequential actions (e.g., immediate close after open) are never lost.
         if device_id in self._pending_polls:
-            _LOGGER.debug("Poll already pending for %s — skipping duplicate trigger", device_id)
+            if device_id not in self._catchup_polls:
+                _LOGGER.info(
+                    "Poll in progress for %s — scheduling catch-up poll in %ss for event %s",
+                    device_id, delay + 2, event_type
+                )
+                self._catchup_polls[device_id] = asyncio.create_task(
+                    self._catchup_poll_wrapper(device_id, delay + 2)
+                )
+            else:
+                _LOGGER.debug("Catch-up poll already queued for %s", device_id)
             return
 
         # Check cooldown since last completed poll
         cooldown = self._get_cooldown(device_id)
         last_poll = self._last_poll_time.get(device_id, 0)
-        if time.time() - last_poll < cooldown:
-            _LOGGER.debug("Skipping cloud poll for %s (cooldown active)", device_id)
+        time_since_last = time.time() - last_poll
+        if time_since_last < cooldown:
+            wait_remaining = max(1.0, cooldown - time_since_last)
+            if device_id not in self._catchup_polls:
+                _LOGGER.info(
+                    "Cooldown active for %s (%.1fs remaining) — scheduling queued poll in %.1fs for event %s",
+                    device_id, wait_remaining, wait_remaining, event_type
+                )
+                self._catchup_polls[device_id] = asyncio.create_task(
+                    self._catchup_poll_wrapper(device_id, wait_remaining)
+                )
             return
 
-        # Get delay (give device a few seconds to finish uploading to cloud)
-        delay = self._get_delay(device_id)
         _LOGGER.info("Network activity detected for %s (%s) — scheduling cloud poll in %ss", device_id, event_type, delay)
         
         # Schedule delayed cloud poll
         task = asyncio.create_task(self._delayed_poll_wrapper(device_id, delay))
         self._pending_polls[device_id] = task
+
+    async def _catchup_poll_wrapper(self, device_id: str, delay: float) -> None:
+        """Run catch-up poll once pending poll and delay finish."""
+        try:
+            await asyncio.sleep(delay)
+            # Wait if current pending poll is still running
+            while device_id in self._pending_polls:
+                await asyncio.sleep(0.5)
+            _LOGGER.info("Executing catch-up cloud poll for %s", device_id)
+            await self._poll_and_update(device_id)
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            _LOGGER.error("Error in catch-up poll for %s: %s", device_id, e)
+        finally:
+            self._catchup_polls.pop(device_id, None)
 
     def _get_delay(self, device_id: str) -> int:
         """Get polling delay for device."""
@@ -106,6 +142,9 @@ class TuyaEventProcessor:
         for task in self._pending_polls.values():
             task.cancel()
         self._pending_polls.clear()
+        for task in self._catchup_polls.values():
+            task.cancel()
+        self._catchup_polls.clear()
         _LOGGER.debug("Event processor stopped")
 
     def _get_cooldown(self, device_id: str) -> int:

@@ -48,6 +48,7 @@ class TuyaNetworkWatcher:
         hass: HomeAssistant,
         device_macs: dict[str, str],  # device_id -> mac
         callback: Callable[[NetworkEvent], None],
+        watchdog=None,  # Optional TuyaNetworkWatchdog for health monitoring
     ):
         """Initialize the network watcher.
         
@@ -55,6 +56,7 @@ class TuyaNetworkWatcher:
             hass: Home Assistant instance
             device_macs: Mapping of device_id -> MAC address for cloud-only devices
             callback: Async callback to handle detected network events
+            watchdog: Optional TuyaNetworkWatchdog instance for health monitoring
         """
         self.hass = hass
         self._device_macs = device_macs  # device_id -> mac
@@ -66,6 +68,7 @@ class TuyaNetworkWatcher:
             self._mac_to_device_id[clean_mac] = dev_id
             self._mac_to_device_id[colon_mac] = dev_id
         self._callback = callback
+        self._watchdog = watchdog
         self._process: Optional[asyncio.subprocess.Process] = None
         self._running = False
         self._tcpdump_task: Optional[asyncio.Task] = None
@@ -73,27 +76,13 @@ class TuyaNetworkWatcher:
     def _build_bpf_filter(self) -> str:
         """Build BPF filter for tcpdump to capture traffic from/to registered MACs.
         
-        For the specific device BC:35:1E:FF:4A:B9, capture ALL traffic (all ports/protocols).
-        For other devices, use the standard Tuya cloud filtering.
+        Capture ALL traffic for all registered cloud-only sleepy devices so that
+        any wakeup (ARP, DHCP, DNS, TLS) is immediately intercepted without packet drops.
         """
         if not self._device_macs:
             return "ether host 00:00:00:00:00:00"  # match nothing
-        
-        # For BC:35:1E:FF:4A:B9, capture all traffic
-        # For all other devices, use Tuya cloud filtering
-        filter_parts = []
-        
-        for mac in self._device_macs.values():
-            mac_normalized = mac.lower()
-            if mac_normalized == "bc:35:1e:ff:4a:b9":
-                # Special case: capture ALL traffic for this device - no port restrictions
-                filter_parts.append(f"(ether host {mac})")
-            else:
-                # Standard Tuya filtering for other devices
-                port_filter = " or ".join(f"port {port}" for port in self.TUYA_CLOUD_PORTS)
-                other_ports = "udp port 6667 or udp port 6666 or udp port 5353 or udp port 1900 or udp port 123 or arp"
-                filter_parts.append(f"(ether host {mac} and ({port_filter} or {other_ports}))")
-        
+
+        filter_parts = [f"(ether host {mac})" for mac in self._device_macs.values()]
         return " or ".join(filter_parts)
 
     @staticmethod
@@ -301,6 +290,9 @@ class TuyaNetworkWatcher:
                 # Parse the packet
                 event = self._parse_packet(line)
                 if event:
+                    # Record packet for watchdog health monitoring
+                    if self._watchdog:
+                        self._watchdog.record_packet()
                     res = self._callback(event)
                     if asyncio.iscoroutine(res):
                         await res
@@ -428,8 +420,9 @@ async def create_network_watcher(
     hass: HomeAssistant,
     device_macs: dict[str, str],
     callback: Callable[[NetworkEvent], None],
+    watchdog=None,
 ) -> TuyaNetworkWatcher:
     """Factory function to create and start a network watcher."""
-    watcher = TuyaNetworkWatcher(hass, device_macs, callback)
+    watcher = TuyaNetworkWatcher(hass, device_macs, callback, watchdog)
     await watcher.start()
     return watcher

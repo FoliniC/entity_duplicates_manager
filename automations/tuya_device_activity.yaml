@@ -1,0 +1,21 @@
+- id: "tuya_device_activity"
+  alias: "Tuya Device Activity Detection"
+  description: "Detects when the Tuya device BC:35:1E:FF:4A:B9 sends network packets"
+  triggers:
+    - webhook_id: tuya_activity
+      allowed_methods:
+        - POST
+        - GET
+      local_only: true
+      trigger: webhook
+  conditions: []
+  actions:
+    - service: persistent_notification.create
+      data:
+        title: "Tuya Device Activity"
+        message: "Tuya device BC:35:1E:FF:4A:B9 detected network activity at {{ now().strftime('%H:%M:%S') }}"
+    - action: notify.all_devices
+      data:
+        title: "Tuya Device Activity"
+        message: "Tuya device BC:35:1E:FF:4A:B9 detected network activity"
+  mode: single

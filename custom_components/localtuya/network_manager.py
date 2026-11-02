@@ -7,7 +7,8 @@ from typing import Callable, Optional
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
 
-from .network_watcher import TuyaNetworkWatcher, NetworkEvent
+from .network_watcher import TuyaNetworkWatcher, NetworkEvent, create_network_watcher
+from .network_watchdog import TuyaNetworkWatchdog, async_setup_network_watchdog
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -31,6 +32,7 @@ class TuyaNetworkManager:
         self.coordinator = coordinator
         self._config_entry = config_entry
         self._watcher = None
+        self._watchdog = None
         self._device_macs: dict[str, str] = {}  # device_id -> mac
         self._unsub_dispatcher = None
 
@@ -40,13 +42,17 @@ class TuyaNetworkManager:
         await self._register_cloud_only_devices()
         
         if self._device_macs:
-            from .network_watcher import create_network_watcher
-
+            # Create watchdog first so it can be passed to the watcher
+            self._watchdog = await async_setup_network_watchdog(
+                self.hass, self, self._send_notification
+            )
+            
             try:
                 self._watcher = await create_network_watcher(
                     self.hass,
                     self._device_macs,
                     self._handle_network_event,
+                    self._watchdog,
                 )
             except FileNotFoundError as err:
                 self._watcher = None
@@ -62,8 +68,21 @@ class TuyaNetworkManager:
                     "Network manager started with %d cloud-only devices",
                     len(self._device_macs),
                 )
+                
+                # Start watchdog
+                self._watchdog = await async_setup_network_watchdog(
+                    self.hass, self, self._send_notification
+                )
         else:
             _LOGGER.info("No cloud-only devices to monitor")
+
+    async def _send_notification(self, title: str, message: str) -> None:
+        """Send notification via HA persistent notification."""
+        try:
+            from homeassistant.components.persistent_notification import async_create
+            async_create(self.hass, message, title, "tuya_network_watchdog")
+        except Exception as e:
+            _LOGGER.error("Failed to send watchdog notification: %s", e)
 
     async def _register_cloud_only_devices(self) -> None:
         """Register cloud-only devices from config entry."""
@@ -119,12 +138,12 @@ class TuyaNetworkManager:
         if self._watcher:
             await self._watcher.stop()
         
-        from .network_watcher import create_network_watcher
         try:
             self._watcher = await create_network_watcher(
                 self.hass,
                 self._device_macs,
                 self._handle_network_event,
+                self._watchdog,
             )
         except OSError as err:
             self._watcher = None
@@ -148,6 +167,7 @@ class TuyaNetworkManager:
                     self.hass,
                     self._device_macs,
                     self._handle_network_event,
+                    self._watchdog,
                 )
             except OSError as err:
                 self._watcher = None
@@ -157,6 +177,10 @@ class TuyaNetworkManager:
 
     async def async_stop(self) -> None:
         """Stop the network manager."""
+        if self._watchdog:
+            await self._watchdog.async_stop()
+            self._watchdog = None
+            
         if self._watcher:
             await self._watcher.stop()
             self._watcher = None
@@ -167,6 +191,12 @@ class TuyaNetworkManager:
     def get_monitored_devices(self) -> dict[str, str]:
         """Get currently monitored devices."""
         return self._device_macs.copy()
+
+    def get_watchdog_health(self) -> dict:
+        """Get watchdog health status for diagnostics."""
+        if self._watchdog:
+            return self._watchdog.get_health_status()
+        return {"watchdog_running": False}
 
 
 async def async_setup_network_manager(hass, coordinator, config_entry):

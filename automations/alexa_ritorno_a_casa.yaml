@@ -24,11 +24,12 @@
       target:
         entity_id: light.luce_scale
     # 5. Esegui logica entrata (bentornato, luci se buio, radio m2o)
-    - service: notify.send_message
+    - service: media_player.play_media
       target:
-        entity_id: notify.cucina_speak
+        entity_id: media_player.2o_echo_dot_di_carlo
       data:
-        message: "Bentornato Carlo!"
+        media_content_id: "Bentornato Carlo!"
+        media_content_type: "custom"
     # 6. Se buio (illuminance < 50 lx), accendi luce bancone
     - choose:
         - conditions:
@@ -47,7 +48,7 @@
       data:
         entity_id: script.alexa_play_music_with_volume_check
         variables:
-          media_player: media_player.cucina
+          media_player: media_player.2o_echo_dot_di_carlo
           radio_script: script.alexa_radio_m2o_custom
     # 8. Log conferma
     - service: system_log.write

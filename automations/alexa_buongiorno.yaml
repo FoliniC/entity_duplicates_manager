@@ -10,17 +10,18 @@
       data:
         level: info
         message: "Alexa Buongiorno: avvio sequenza mattutina"
-    # 2. Messaggio di benvenuto su Alexa Cucina (alexa_devices)
-    - service: notify.send_message
+    # 2. Messaggio di benvenuto su Alexa Cucina (alexa_media play_media custom)
+    - service: media_player.play_media
       target:
-        entity_id: notify.cucina_speak
+        entity_id: media_player.2o_echo_dot_di_carlo
       data:
-        message: "Buongiorno Carlo! Spero che tu abbia passato una splendida notte. Tutto è pronto in casa per iniziare la giornata."
+        media_content_id: "Buongiorno Carlo! Spero che tu abbia passato una splendida notte. Tutto è pronto in casa per iniziare la giornata."
+        media_content_type: "custom"
     # 3. Apertura tapparella camera grande
     - service: cover.open_cover
       target:
         entity_id: cover.camera_grande_tapparella_knx
-    # 4. Attiva radio m2o tramite Alexa (alexa_devices) con controllo volume
+    # 4. Attiva radio m2o tramite Alexa (alexa_media) con controllo volume
     - service: system_log.write
       data:
         level: info
@@ -29,7 +30,7 @@
       data:
         entity_id: script.alexa_play_music_with_volume_check
         variables:
-          media_player: media_player.cucina
+          media_player: media_player.2o_echo_dot_di_carlo
           radio_script: script.alexa_radio_m2o_custom
     # 5. Attendi 5 secondi
     - delay: "00:00:05"

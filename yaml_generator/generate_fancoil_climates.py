@@ -410,6 +410,8 @@ def generate_from_template(template_path, output_dir, vars_map, suffix):
         # Add TH humidity sensor and external humidity sensor for cross-validation
         local_ctx["TH_HUMIDITY_SENSOR"] = local_ctx.get("th_humidity_sensor", "")
         local_ctx["EXTERNAL_HUMIDITY_SENSOR"] = local_ctx.get("external_humidity_sensor", "sensor.meteo_castionetto_umidita")
+        # Window contact sensor for stop_condition and window-related logic
+        local_ctx["WINDOW_CONTACT_SENSOR"] = local_ctx.get("window_contact_sensor", "")
         
         # Render
         final_ctx = {**local_ctx, **common_ctx}

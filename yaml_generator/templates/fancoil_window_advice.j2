@@ -142,6 +142,9 @@ sensor:
         {% set delta_min_mantenimento = 1.0 if not system_active else 1.5 %}
         {% set calo_min_apertura = 4.0 if not system_active else 5.0 %}
         {% set calo_min_mantenimento = 2.0 %}
+        {% set rh_need_on = 58.0 %}
+        {% set rh_need_off = 52.0 %}
+        {% set need = rh >= rh_need_on or (azione_raw_prec in ['apri', 'mantieni_aperta'] and rh >= rh_need_off) %}
         
         {% if not valid %}incerto
         {% elif not has_win %}
@@ -174,10 +177,10 @@ sensor:
           {%- else %}chiudi{% endif %}
         {% else %}
           {%- if rain %}
-            {%- if delta >= delta_min_apertura and rh_drop >= calo_min_apertura %}apri_se_riparata
+            {%- if need and delta >= delta_min_apertura and rh_drop >= calo_min_apertura %}apri_se_riparata
             {%- else %}mantieni_chiusa{% endif %}
           {%- elif system_active and delta >= delta_min_apertura and rh_drop >= calo_min_apertura %}apri
-          {%- elif not system_active and delta >= delta_min_apertura and rh_drop >= calo_min_apertura %}apri
+          {%- elif not system_active and need and delta >= delta_min_apertura and rh_drop >= calo_min_apertura %}apri
           {%- elif delta < 0.2 %}mantieni_chiusa
           {%- else %}nessuna_azione{% endif %}
         {% endif %}

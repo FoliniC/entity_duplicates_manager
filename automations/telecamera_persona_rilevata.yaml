@@ -1,0 +1,18 @@
+- id: "1783200935292"
+  alias: "Telecamera - Persona rilevata"
+  description: "Notifica persistente quando Agent DVR rileva una persona"
+  triggers:
+    - webhook_id: movimento_camera1
+      allowed_methods:
+        - POST
+        - GET
+      local_only: true
+      trigger: webhook
+  conditions: []
+  actions:
+    - data:
+        title: "🚨 Persona rilevata"
+        message: "Persona rilevata dalla **Camera 1** alle {{ now().strftime('%H:%M:%S') }}\n        del {{ now().strftime('%d/%m/%Y') }}"
+        notification_id: persona_camera1
+      action: persistent_notification.create
+  mode: single

@@ -109,8 +109,8 @@ alexa_play_music_with_volume_check:
   description: "Controlla il volume prima di avviare la musica; se > 20% lo abbassa"
   fields:
     media_player:
-      description: "Entity ID del media_player (es. media_player.cucina)"
-      example: "media_player.cucina"
+      description: "Entity ID del media_player (es. media_player.2o_echo_dot_di_carlo)"
+      example: "media_player.2o_echo_dot_di_carlo"
     radio_script:
       description: "Script radio da eseguire dopo il controllo volume"
       example: "script.alexa_radio_m2o_custom"

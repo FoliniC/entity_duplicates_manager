@@ -13,10 +13,12 @@ script:
         data:
           level: info
           message: "Alexa comando testuale: {{ states('input_text.alexa_custom_command') }}"
-      - action: alexa_devices.send_text_command
+      - action: media_player.play_media
+        target:
+          entity_id: media_player.2o_echo_dot_di_carlo
         data:
-          device_id: "9f7fa85d1597bcdd4948d75d1524dad8"
-          text_command: "{{ states('input_text.alexa_custom_command') }}"
+          media_content_id: "{{ states('input_text.alexa_custom_command') }}"
+          media_content_type: "custom"
       - action: input_text.set_value
         target:
           entity_id: input_text.alexa_custom_command
@@ -30,10 +32,12 @@ script:
         data:
           level: info
           message: "Alexa comando testuale: radio m2o"
-      - action: alexa_devices.send_text_command
+      - action: media_player.play_media
+        target:
+          entity_id: media_player.2o_echo_dot_di_carlo
         data:
-          device_id: "9f7fa85d1597bcdd4948d75d1524dad8"
-          text_command: "radio m2o"
+          media_content_id: "radio m2o"
+          media_content_type: "custom"
 
   alexa_radio_m2o_tunein:
     alias: "Alexa: Accendi radio m2o (TuneIn)"
@@ -48,7 +52,7 @@ script:
       # che è il metodo garantito e documentato da Home Assistant.
       - action: media_player.play_media
         target:
-          entity_id: media_player.alexa_echo_dots
+          entity_id: media_player.2o_echo_dot_di_carlo
         data:
           media_content_id: "radio m2o"
           media_content_type: "TUNEIN"
@@ -60,10 +64,12 @@ script:
         data:
           level: info
           message: "Alexa comando testuale: attiva un timer da 9 minuti"
-      - action: alexa_devices.send_text_command
+      - action: media_player.play_media
+        target:
+          entity_id: media_player.2o_echo_dot_di_carlo
         data:
-          device_id: "9f7fa85d1597bcdd4948d75d1524dad8"
-          text_command: "attiva un timer da 9 minuti"
+          media_content_id: "attiva un timer da 9 minuti"
+          media_content_type: "custom"
 
   alexa_stop:
     alias: "Alexa: Stop"
@@ -72,14 +78,18 @@ script:
         data:
           level: info
           message: "Alexa Stop: interrompi riproduzione"
-      - action: alexa_devices.send_text_command
+      - action: media_player.play_media
+        target:
+          entity_id: media_player.2o_echo_dot_di_carlo
         data:
-          device_id: "9f7fa85d1597bcdd4948d75d1524dad8"
-          text_command: "ferma"
-      - action: alexa_devices.send_text_command
+          media_content_id: "ferma"
+          media_content_type: "custom"
+      - action: media_player.play_media
+        target:
+          entity_id: media_player.echo_dot_di_carlo
         data:
-          device_id: "e029aab2768927141cbfaf737132ed29"
-          text_command: "ferma"
+          media_content_id: "ferma"
+          media_content_type: "custom"
       - action: media_player.media_stop
         target:
           entity_id: media_player.2o_echo_dot_di_carlo

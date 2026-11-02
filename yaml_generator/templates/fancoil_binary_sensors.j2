@@ -11,6 +11,7 @@
     {% set circuit_temp = states('sensor.temperatura_circuito_riscaldamento') | float(0) %}
     {% set circuit_threshold_heat = states('input_number.circuit_temp_threshold_heat') | float(30) %}
     {% set circuit_threshold_cool = states('input_number.circuit_temp_threshold_cool') | float(20) %}
+    {% set window_open = states('%%WINDOW_CONTACT_SENSOR%%') == 'on' %}
 
     {% set stop_by_diff = (hvac_temp_mode != 'off' and diff <= soglia_stop) %}
     {% set stop_by_circuit_temp = false %}
@@ -21,4 +22,4 @@
       {% set stop_by_circuit_temp = true %}
     {% endif %}
 
-    {{ stop_by_diff or stop_by_circuit_temp }}
+    {{ stop_by_diff or stop_by_circuit_temp or window_open }}
