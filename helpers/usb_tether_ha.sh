@@ -144,10 +144,10 @@ run_status() {
       fi
       if (( rc == 0 )); then
         line="$(printf '%s\n' "$out" | tr -d '\r' | awk '/^\{.*\}$/ { last=$0 } END { print last }')"
-        if [[ -n "$line" ]] && [[ "$line" == *'"state":"idle"'* || "$line" == *'"state":"active"'* ]]; then
-          # Current status is healthy - clear stale error marker
+        if [[ -n "$line" ]] && [[ "$line" == *'"state":"active"'* ]]; then
+          # Current status is active - clear stale error marker
           rm -f "$ERROR_MARKER" 2>/dev/null || true
-          log_line INFO "Cleared stale error marker: current tethering state is healthy"
+          log_line INFO "Cleared stale error marker: current tethering state is active"
           printf '%s\n' "$line"
           return 0
         fi
@@ -261,8 +261,8 @@ activate_windows() {
   detect_line=$(extract_phone_detection "$detect_out")
   if (( detect_rc != 0 )) || [[ -z "$detect_line" ]]; then
     log_line ERROR "PRE-FLIGHT FALLITO: Nessun tethering USB rilevato su Windows. Output: $detect_out"
-    # Write error marker for sensor to pick up
-    printf '%s\n%s\n' "Tethering USB non disponibile su Windows: collega il telefono e attiva il tethering USB prima di procedere" "$(date '+%Y-%m-%d %H:%M:%S')" > "$ERROR_MARKER"
+    rm -f /config/.usb_tether_mode 2>/dev/null || true
+    rm -f "$ERROR_MARKER" 2>/dev/null || true
     json_error "Tethering USB non disponibile su Windows: collega il telefono e attiva il tethering USB prima di procedere"
     return 0
   fi
@@ -270,6 +270,14 @@ activate_windows() {
   rm -f "$ERROR_MARKER" 2>/dev/null || true
   log_line INFO "PRE-FLIGHT OK: Tethering USB rilevato su Windows -> $detect_line"
   
+  # Salva la modalita' per router_check
+  echo "$MODE" > /config/.usb_tether_mode 2>/dev/null || true
+
+  # Avvia watchdog solo ORA che il preflight ha avuto successo
+  if [ "$IS_ROLLBACK" != "1" ]; then
+    nohup /config/helpers/failsafe_watchdog.sh "normale" "$HOST" 60 >/dev/null 2>&1 &
+  fi
+
   # Pulizia di sicurezza: un marker rimasto da un restore precedente
   # interrotto bloccherebbe run_status su "restoring" per sempre.
   rm -f "$RESTORE_MARKER" 2>/dev/null || true
@@ -358,14 +366,23 @@ activate_debian() {
   local out rc
 
   # PRE-FLIGHT CHECK: Verifica che il tethering USB sia disponibile su Debian
-  # Prima di tentare l'attivazione (specialmente per intranet che gira in background)
-  local detect_out
-  detect_out="$(ssh_debian "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh detect" 2>&1)"
-  local detect_rc=$?
+  # Riprova fino a 3s per consentire al sistema di stabilizzare carrier e DHCP se appena collegato
+  local detect_out="" detect_rc=1
+  for attempt in $(seq 1 3); do
+    detect_out="$(ssh_debian "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh detect" 2>&1)"
+    detect_rc=$?
+    if (( detect_rc == 0 )) && [[ -n "$detect_out" ]]; then
+      break
+    fi
+    sleep 1
+  done
+
   if (( detect_rc != 0 )) || [[ -z "$detect_out" ]]; then
-    log_line ERROR "PRE-FLIGHT FALLITO: Nessun tethering USB rilevato su Debian. Output: $detect_out"
-    # Write error marker for sensor to pick up
-    printf '%s\n%s\n' "Tethering USB non disponibile su Debian: collega il telefono e attiva il tethering USB prima di procedere" "$(date '+%Y-%m-%d %H:%M:%S')" > "$ERROR_MARKER"
+    log_line ERROR "PRE-FLIGHT FALLITO: Nessun tethering USB rilevato su Debian dopo 3s. Output: $detect_out"
+    # Interrompi eventuale watchdog per evitare falsi positivi
+    pkill -f failsafe_watchdog.sh >/dev/null 2>&1 || true
+    rm -f /config/.usb_tether_mode 2>/dev/null || true
+    rm -f "$ERROR_MARKER" 2>/dev/null || true
     json_error "Tethering USB non disponibile su Debian: collega il telefono e attiva il tethering USB prima di procedere"
     return 0
   fi
@@ -376,15 +393,14 @@ activate_debian() {
   detect_gw=$(echo "$detect_out" | cut -d'|' -f2)
 
   # PRE-FLIGHT INTERNET: Verifica connettività internet REALE sull'interfaccia rilevata
-  # (simile a usb_tether_preflight.sh per il router). Senza questo, un'interfaccia
-  # con IP/gateway reachable ma senza NAT mobile funzionante passerebbe il preflight
-  # e l'intranet attiverebbe, lasciando la LAN senza internet (watchdog -> rollback).
   log_line INFO "PRE-FLIGHT INTERNET: verifica connettività via $detect_iface (GW=$detect_gw)..."
   local inet_test
   inet_test="$(ssh_debian "ping -c 2 -W 3 -I $detect_iface 8.8.8.8 >/dev/null 2>&1 || ping -c 2 -W 3 -I $detect_iface 1.1.1.1 >/dev/null 2>&1; echo \$?" 2>&1)"
   if [[ "$inet_test" != "0" ]]; then
     log_line ERROR "PRE-FLIGHT FALLITO: Internet non raggiungibile via $detect_iface (GW=$detect_gw). Tethering attivo ma NAT mobile non instrada verso internet."
-    printf '%s\n%s\n' "Internet non raggiungibile via $detect_iface (GW=$detect_gw): tethering USB attivo ma NAT mobile non funziona" "$(date '+%Y-%m-%d %H:%M:%S')" > "$ERROR_MARKER"
+    pkill -f failsafe_watchdog.sh >/dev/null 2>&1 || true
+    rm -f /config/.usb_tether_mode 2>/dev/null || true
+    rm -f "$ERROR_MARKER" 2>/dev/null || true
     json_error "Internet non raggiungibile via $detect_iface (GW=$detect_gw): tethering USB attivo ma NAT mobile non instrada verso internet"
     return 0
   fi
@@ -392,31 +408,32 @@ activate_debian() {
 
   # Clear error marker on success
   rm -f "$ERROR_MARKER" 2>/dev/null || true
-
-  # Pulizia di sicurezza: un marker restore_windows rimasto da un restore
-  # precedente interrotto bloccherebbe run_status su "restoring" per sempre.
   rm -f "$RESTORE_MARKER" 2>/dev/null || true
 
   log_line INFO "PRE-FLIGHT OK: Tethering USB rilevato su Debian -> $detect_out"
 
+  # Salva la modalita' per router_check
+  echo "$MODE" > /config/.usb_tether_mode 2>/dev/null || true
+
+  # Avvia watchdog solo ORA che il preflight ha avuto successo
+  if [ "$IS_ROLLBACK" != "1" ]; then
+    nohup /config/helpers/failsafe_watchdog.sh "normale" "$HOST" 60 >/dev/null 2>&1 &
+  fi
+
   if [[ "$MODE" == "intranet" ]]; then
     out="$(ssh_debian "nohup setsid sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh activate $DURATION intranet >/dev/null 2>&1 &" 2>&1)"
   else
-    # NOTA: niente "&" qui - "$(cmd &)" non stacca davvero il processo (la
-    # subshell di command substitution termina comunque appena lanciato il
-    # job, quindi non lo aspetta) e rende $? del tutto inaffidabile: rc
-    # sarebbe sempre ~0 anche se ssh_debian fallisse, nascondendo gli errori.
-    # usb_tether.sh in modalita' server ritorna comunque in fretta (il
-    # watchdog lo stacca lui internamente), quindi va bene sincrono.
     out="$(ssh_debian "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh activate $DURATION server" 2>&1)"
   fi
   rc=$?
   log_line INFO "EXEC Debian activate $MODE rc=$rc | $(printf '%s' "$out" | tail -c 500)"
   if (( rc != 0 )); then
+    pkill -f failsafe_watchdog.sh >/dev/null 2>&1 || true
     json_error "activate Debian fallito rc=$rc"
     return 0
   fi
   printf '{"state":"activating","mode":"%s","message":"Attivazione in corso..."}\n' "$MODE"
+  return 0
 }
 
 restore_windows() {
@@ -724,16 +741,12 @@ case "$ACTION" in
   activate)
     # Pulizia preventiva: marker stale da restore precedenti bloccano run_status
     rm -f "$RESTORE_MARKER" 2>/dev/null || true
+    pkill -f failsafe_watchdog.sh >/dev/null 2>&1 || true
     if [ "$IS_ROLLBACK" = "1" ]; then
       log_line INFO "[FAILSAFE_ROLLBACK] Esecuzione rollback automatico verso modalita $MODE (host: $HOST)"
     else
-      pkill -f failsafe_watchdog.sh >/dev/null 2>&1 || true
       log_line INFO "[USER_ACTION] PREMUTO BOTTONE: Attivazione modalita $MODE (host: $HOST, max_durata: ${DURATION}m)"
-      nohup /config/helpers/failsafe_watchdog.sh "normale" "$HOST" 60 >/dev/null 2>&1 &
     fi
-    # Salva la modalita' corrente per il sensore router_check (deve sapere se
-    # siamo in intranet per segnalare correttamente usb0 come bug o come OK).
-    echo "$MODE" > /config/.usb_tether_mode 2>/dev/null || true
     if [[ "$HOST" == *"Windows"* ]]; then
       activate_windows
     else

@@ -66,6 +66,37 @@ EXCLUDE_RE='^(lo|docker[0-9]*|br-[a-f0-9]+|veth[a-f0-9]+(@.*)?|zt[a-z0-9]+|tun[0
 now_epoch() { date +%s; }
 now_iso()   { date '+%Y-%m-%d %H:%M:%S'; }
 
+# Assicura che l'interfaccia LAN (enp2s0) sia UP e configurata se c'è carrier fisico
+ensure_lan_if() {
+    local carrier
+    carrier=$(cat "/sys/class/net/$LAN_IF/carrier" 2>/dev/null || echo "0")
+    if [ "$carrier" = "1" ]; then
+        if ! ip -4 addr show dev "$LAN_IF" 2>/dev/null | grep -q '192.168.0.3'; then
+            echo "$(date '+%Y-%m-%d %H:%M:%S') [AUTO-HEAL] $LAN_IF ha carrier fisico ma manca IP 192.168.0.3 - forzo riattivazione NM" >> /home/carlo/docker/homeassistant/config/logs/usb_tether/usb_tether_events.log 2>/dev/null
+            nmcli connection up "$LAN_IF" >/dev/null 2>&1 || ip link set "$LAN_IF" up 2>/dev/null || true
+        fi
+    fi
+}
+
+cmd_install_dispatcher() {
+    local disp_file="/etc/NetworkManager/dispatcher.d/99-enp2s0-reconnect"
+    cat << 'EOF' > "$disp_file"
+#!/bin/bash
+# 99-enp2s0-reconnect - Riconnessione automatica enp2s0 su carrier
+IFACE="$1"
+ACTION="$2"
+[ "$IFACE" = "enp2s0" ] || exit 0
+[[ "$ACTION" =~ ^(down|pre-down)$ ]] || exit 0
+sleep 3
+carrier=$(cat /sys/class/net/enp2s0/carrier 2>/dev/null)
+if [ "$carrier" = "1" ]; then
+    nmcli connection up enp2s0 >/dev/null 2>&1 || true
+fi
+EOF
+    chmod 755 "$disp_file"
+    echo "Dispatcher $disp_file installato con successo."
+}
+
 # Escapa una stringa per JSON (limitato ma sufficiente per i nostri dati).
 json_escape() {
     local s="$1"
@@ -675,15 +706,13 @@ cmd_activate() {
         graceful_end_async "$LOCAL_TABLE_ACTIVATE" 0x1 "$LOCAL_DRAIN_CEILING"
     fi
 
-    # Se modalita' intranet, disabilita SUBITO la WAN router: il router ha
-    # una propria protezione indipendente (router_graceful_*, dentro
-    # router_wan_down) per il device configurato in PROTECTED_DEVICE_IP -
-    # non serve piu' aspettare il drenaggio locale del server per farlo.
+    # Se modalita' intranet, disabilita SUBITO la WAN router e inietta l'anchor verso Debian
     local intranet_mode="false"
     if [ "$mode" = "intranet" ]; then
         intranet_mode="true"
         router_wan_down
-        echo "Modalita' INTRANET: WAN router disattivata (protezione flussi lato router attiva)."
+        router_add_fallback_route || echo "WARN: aggiunta anchor intranet fallita." >&2
+        echo "Modalita' INTRANET: WAN router disattivata e anchor intranet ($ROUTER_ROUTE_METRIC) applicato."
     fi
 
     # Salva stato (include la modalita' per ripristino corretto).
@@ -797,7 +826,8 @@ cmd_rndis_activate() {
 
     if [ "$mode_valid" = "intranet" ]; then
         router_wan_down
-        echo "Modalita' INTRANET: WAN router disattivata (protezione flussi lato router attiva)."
+        router_add_fallback_route || echo "WARN: aggiunta anchor intranet fallita." >&2
+        echo "Modalita' INTRANET: WAN router disattivata e anchor intranet ($ROUTER_ROUTE_METRIC) applicato."
     fi
 
     local now expire
@@ -962,20 +992,65 @@ cmd_restore() {
 }
 
 # --- _watch (interno) -------------------------------------------------------
-# Loop del watcher: aspetta expire_at poi restore. Esce se restore esterno.
+# Loop del watcher: aspetta expire_at poi restore. Monitora enp2s0 e connettività tethering.
 cmd_watch() {
     local expire="$1"
+    local fail_count=0
+    local log_file="/home/carlo/docker/homeassistant/config/logs/usb_tether/usb_tether_events.log"
+
     # Poll ogni 15s: se scaduto, restore; se lo stato e' sparito, esci.
     while true; do
         local now
         now=$(now_epoch)
         if [ "$now" -ge "$expire" ]; then
+            echo "$(date '+%Y-%m-%d %H:%M:%S') [WATCHER] Timer scaduto ($now >= $expire): avvio restore" >> "$log_file" 2>/dev/null
             cmd_restore >/dev/null 2>&1
             exit 0
         fi
         # Se lo stato e' stato rimosso da un restore manuale, esci silenziosamente.
         [ -f "$STATE_FILE" ] || exit 0
-        sleep 15
+
+        # Riconnessione automatica LAN se link fisico presente
+        ensure_lan_if
+
+        # Se in modalità intranet, verifica che il tethering Debian sia ancora attivo e funzionante
+        local cur_mode cur_phone_if
+        cur_mode=$(grep -E '^mode=' "$STATE_FILE" 2>/dev/null | cut -d= -f2-)
+        cur_phone_if=$(grep -E '^phone_if=' "$STATE_FILE" 2>/dev/null | cut -d= -f2-)
+        if [ "$cur_mode" = "intranet" ]; then
+            local iface_exists=false phone_alive=false
+            if [ -n "$cur_phone_if" ] && ip link show dev "$cur_phone_if" >/dev/null 2>&1; then
+                iface_exists=true
+                if ip -4 addr show dev "$cur_phone_if" 2>/dev/null | grep -q 'inet '; then
+                    if ping -c 1 -W 2 -I "$cur_phone_if" 1.1.1.1 >/dev/null 2>&1 || ping -c 1 -W 2 -I "$cur_phone_if" 8.8.8.8 >/dev/null 2>&1; then
+                        phone_alive=true
+                    fi
+                fi
+            fi
+
+            if ! $phone_alive; then
+                fail_count=$((fail_count + 1))
+                if ! $iface_exists; then
+                    echo "$(date '+%Y-%m-%d %H:%M:%S') [WATCHER] Cavo/interfaccia USB Debian ($cur_phone_if) SCOLLEGATA fisicamente ($fail_count/2)" >> "$log_file" 2>/dev/null
+                    if [ "$fail_count" -ge 2 ]; then
+                        echo "$(date '+%Y-%m-%d %H:%M:%S') [WATCHER] Cavo USB staccato confermato: avvio AUTO-RESTORE immediato a Normale" >> "$log_file" 2>/dev/null
+                        cmd_restore >/dev/null 2>&1
+                        exit 0
+                    fi
+                else
+                    echo "$(date '+%Y-%m-%d %H:%M:%S') [WATCHER] Tethering USB Debian ($cur_phone_if) presente ma senza Internet ($fail_count/3)" >> "$log_file" 2>/dev/null
+                    if [ "$fail_count" -ge 3 ]; then
+                        echo "$(date '+%Y-%m-%d %H:%M:%S') [WATCHER] Internet assente su tethering per 30s: avvio AUTO-RESTORE a Normale" >> "$log_file" 2>/dev/null
+                        cmd_restore >/dev/null 2>&1
+                        exit 0
+                    fi
+                fi
+            else
+                fail_count=0
+            fi
+        fi
+
+        sleep 10
     done
 }
 
@@ -1015,6 +1090,9 @@ cmd_status() {
     local now
     now=$(now_epoch)
 
+    # Riconnessione automatica LAN enp2s0 se link fisico presente
+    ensure_lan_if
+
     # === MISURAZIONE DIRETTA DEI DEVICE (realtà, NON STATE_FILE) =============
     # 1. Telefono su Debian? (interfaccia enx attiva con IPv4)
     local debian_phone_if=""
@@ -1037,6 +1115,7 @@ cmd_status() {
             # Normale: il router esce dal tethering USB del Note 11 sul router.
             state="idle"; mode="server"
             message="Normale: router su WAN Note 11 (usb0)"
+            rm -f "/run/usb_tether_intranet_stale_since" 2>/dev/null || true
         elif [[ "$router_route" == *"192.168.0.3"* ]]; then
             # Anchor Intranet presente sul router.
             if [[ -n "$debian_phone_if" ]]; then
@@ -1044,11 +1123,27 @@ cmd_status() {
                 state="active"; mode="intranet"; phone_if="$debian_phone_if"
                 phone_gw=$(ip -4 addr show dev "$debian_phone_if" 2>/dev/null | grep -oE 'inet [0-9.]+' | awk '{print $2}')
                 message="Attivo via ${debian_phone_if} (intranet: LAN via Debian)"
+                rm -f "/run/usb_tether_intranet_stale_since" 2>/dev/null || true
             else
                 # Anchor Intranet presente ma telefono su Debian ASSENTE: STALE.
                 # Realtà: il tethering è morto. Segnala errore ma usa dati diretti.
                 state="error"; mode="intranet"
                 message="Anchor Intranet presente ma telefono su Debian assente: eseguire restore o riattivare il tethering USB."
+
+                # AUTO-HEAL: se questa condizione persiste da oltre 45s,
+                # avvia restore automatico a Normale per sbloccare la rete locale
+                local stale_file="/run/usb_tether_intranet_stale_since"
+                if [ ! -f "$stale_file" ]; then
+                    echo "$now" > "$stale_file"
+                else
+                    local stale_since
+                    stale_since=$(cat "$stale_file" 2>/dev/null)
+                    if [ -n "$stale_since" ] && [ $((now - stale_since)) -ge 45 ]; then
+                        echo "$(date '+%Y-%m-%d %H:%M:%S') [AUTO-HEAL] Anchor Intranet orfano rilevato da oltre 45s: avvio restore automatico a Normale" >> /home/carlo/docker/homeassistant/config/logs/usb_tether/usb_tether_events.log 2>/dev/null
+                        rm -f "$stale_file"
+                        setsid bash "$0" restore >/dev/null 2>&1 < /dev/null &
+                    fi
+                fi
             fi
         elif [[ -z "$router_route" ]]; then
             # Router senza default route: potrebbe essere in transizione intranet (wan down, anchor non ancora aggiunto).
@@ -1340,8 +1435,10 @@ case "${1:-status}" in
     _watch)      shift; cmd_watch "$@" ;;
     _drain)      shift; cmd_drain "$@" ;;
     reset)       cmd_reset "$@" ;;
+    install_dispatcher) cmd_install_dispatcher ;;
+    ensure_lan)  ensure_lan_if ;;
     *)
-        echo "Uso: $0 {detect|activate [max_min] [intranet|server]|rndis_activate [max_min] [intranet|server]|setup_alias|restore|renat|status|diagnose|force_activate|reset}" >&2
+        echo "Uso: $0 {detect|activate [max_min] [intranet|server]|rndis_activate [max_min] [intranet|server]|setup_alias|restore|renat|status|diagnose|force_activate|reset|install_dispatcher|ensure_lan}" >&2
         exit 64
         ;;
 esac

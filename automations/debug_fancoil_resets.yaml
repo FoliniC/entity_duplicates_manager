@@ -1,7 +1,7 @@
 - id: debug_fancoil_system_state_changes
   alias: "Debug: Log State Changes for Fancoil System"
-  mode: queued
-  max: 20
+  mode: parallel
+  max: 10
   trigger:
     - platform: state
       entity_id:
@@ -17,14 +17,18 @@
         - climate.controllo_temperatura_cucina
         - switch.luce_balcone_switch_1
         - light.luce_balcone_switch_1
+  condition:
+    - condition: template
+      value_template: >-
+        {{ trigger.from_state is not none and trigger.to_state is not none and trigger.from_state.state != trigger.to_state.state }}
   action:
     - variables:
         debug_entity: "{{ trigger.entity_id }}"
         from_state: "{{ trigger.from_state.state if trigger.from_state is not none else 'None' }}"
         to_state: "{{ trigger.to_state.state if trigger.to_state is not none else 'None' }}"
         context_id: "{{ trigger.to_state.context.id if trigger.to_state is not none else 'None' }}"
-        context_user_id: "{{ trigger.to_state.context.user_id if trigger.to_state.context.user_id is not none else 'None' }}"
-        context_parent_id: "{{ trigger.to_state.context.parent_id if trigger.to_state.context.parent_id is not none else 'None' }}"
+        context_user_id: "{{ trigger.to_state.context.user_id if trigger.to_state is not none else 'None' }}"
+        context_parent_id: "{{ trigger.to_state.context.parent_id if trigger.to_state is not none else 'None' }}"
         origin: >-
           {% set uid = trigger.to_state.context.user_id if trigger.to_state is not none else none %}
           {% set pid = trigger.to_state.context.parent_id if trigger.to_state is not none else none %}
@@ -58,45 +62,28 @@
           Origin={{ origin | trim }}. Context={{ context_id }}. User={{ context_user_id }}.
           Parent={{ context_parent_id }}. FromChanged={{ from_last_changed }}.
           ToChanged={{ to_last_changed }}. Snapshot={{ snapshot }}
-    - delay: "00:00:05"
-    - variables:
-        snapshot_after_5s: >-
-          deum={{ states('input_boolean.fancoil_deumidificazione') }};
-          pdc={{ states('switch.attiva_pdc') }};
-          pompa={{ states('switch.attiva_pompa_circolazione') }};
-          fancoil={{ states('switch.attiva_fancoil') }};
-          circuito_invalid={{ states('binary_sensor.fancoil_circuit_temp_invalid') }};
-          distacco={{ states('binary_sensor.distacco_rete_allarme_attivo') }};
-          schedule={{ states('schedule.riscaldamento') }};
-          t_circuito={{ states('sensor.temperatura_circuito_riscaldamento') }};
-          cucina={{ states('climate.controllo_temperatura_cucina') }}/fan={{ state_attr('climate.controllo_temperatura_cucina','fan_mode') }};
-          cucina_sw=[{{ states('switch.fancoil_cucina_switch_1') }},{{ states('switch.fancoil_cucina_switch_2') }},{{ states('switch.fancoil_cucina_switch_3') }},{{ states('switch.fancoil_cucina_switch_4') }}];
-          cucina_main={{ states('switch.stox_fancoil_cucina_switch') }}
-    - event: fancoil_log_event
-      event_data:
-        level: WARNING
-        message: >-
-          [DEBUG_RESET_AFTER_5S] Entity={{ debug_entity }} expected={{ to_state }}
-          current={{ states(debug_entity) }} stable={{ states(debug_entity) == to_state }}.
-          Snapshot={{ snapshot_after_5s }}
 
 - id: debug_balcone_light_state_changes
   alias: "Debug: Log Balcony Light State Changes"
-  mode: queued
-  max: 20
+  mode: parallel
+  max: 10
   trigger:
     - platform: state
       entity_id:
         - switch.luce_balcone_switch_1
         - light.luce_balcone_switch_1
+  condition:
+    - condition: template
+      value_template: >-
+        {{ trigger.from_state is not none and trigger.to_state is not none and trigger.from_state.state != trigger.to_state.state }}
   action:
     - variables:
         debug_entity: "{{ trigger.entity_id }}"
         from_state: "{{ trigger.from_state.state if trigger.from_state is not none else 'None' }}"
         to_state: "{{ trigger.to_state.state if trigger.to_state is not none else 'None' }}"
         context_id: "{{ trigger.to_state.context.id if trigger.to_state is not none else 'None' }}"
-        context_user_id: "{{ trigger.to_state.context.user_id if trigger.to_state.context.user_id is not none else 'None' }}"
-        context_parent_id: "{{ trigger.to_state.context.parent_id if trigger.to_state.context.parent_id is not none else 'None' }}"
+        context_user_id: "{{ trigger.to_state.context.user_id if trigger.to_state is not none else 'None' }}"
+        context_parent_id: "{{ trigger.to_state.context.parent_id if trigger.to_state is not none else 'None' }}"
         origin: >-
           {% set uid = trigger.to_state.context.user_id if trigger.to_state is not none else none %}
           {% set pid = trigger.to_state.context.parent_id if trigger.to_state is not none else none %}
@@ -122,25 +109,11 @@
           Origin={{ origin | trim }}. Context={{ context_id }}. User={{ context_user_id }}.
           Parent={{ context_parent_id }}. FromChanged={{ from_last_changed }}.
           ToChanged={{ to_last_changed }}. Snapshot={{ snapshot }}
-    - delay: "00:00:05"
-    - variables:
-        snapshot_after_5s: >-
-          power={{ states('sensor.luce_balcone_switch_1_power') }};
-          voltage={{ states('sensor.luce_balcone_switch_1_voltage') }};
-          current={{ states('sensor.luce_balcone_switch_1_current') }};
-          load_power={{ states('sensor.luce_balcone_switch_1_load_power') }}
-    - event: fancoil_log_event
-      event_data:
-        level: WARNING
-        message: >-
-          [DEBUG_BALCONE_AFTER_5S] Entity={{ debug_entity }} expected={{ to_state }}
-          current={{ states(debug_entity) }} stable={{ states(debug_entity) == to_state }}.
-          Snapshot={{ snapshot_after_5s }}
 
 - id: debug_fancoil_service_calls
   alias: "Debug: Log Service Calls for Fancoil System"
-  mode: queued
-  max: 30
+  mode: parallel
+  max: 10
   trigger:
     - platform: event
       event_type: call_service
@@ -212,19 +185,3 @@
           matched={{ matched_entities | trim }} context={{ service_context_id }}
           user={{ service_user_id }} parent={{ service_parent_id }}
           data={{ event_data_text }} snapshot={{ snapshot }}
-    - delay: "00:00:05"
-    - variables:
-        snapshot_after_5s: >-
-          deum={{ states('input_boolean.fancoil_deumidificazione') }};
-          pdc={{ states('switch.attiva_pdc') }};
-          pompa={{ states('switch.attiva_pompa_circolazione') }};
-          fancoil={{ states('switch.attiva_fancoil') }};
-          cucina={{ states('climate.controllo_temperatura_cucina') }}/fan={{ state_attr('climate.controllo_temperatura_cucina','fan_mode') }};
-          cucina_sw=[{{ states('switch.fancoil_cucina_switch_1') }},{{ states('switch.fancoil_cucina_switch_2') }},{{ states('switch.fancoil_cucina_switch_3') }},{{ states('switch.fancoil_cucina_switch_4') }}];
-          cucina_main={{ states('switch.stox_fancoil_cucina_switch') }}
-    - event: fancoil_log_event
-      event_data:
-        level: WARNING
-        message: >-
-          [DEBUG_SERVICE_CALL_AFTER_5S] Service={{ service_domain }}.{{ service_name }}
-          matched={{ matched_entities | trim }} snapshot={{ snapshot_after_5s }}

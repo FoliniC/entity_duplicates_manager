@@ -3,24 +3,23 @@
 # Generated at: %%generation_time%%
 
 # Fancoil Window Control: Stop fan when window opens, resume when closes
+# - Supporta sia sensore fisico (se presente) che interruttore manuale input_boolean
 # - Salva velocità fan in input_text (JSON) persistente per sopravvivere a riavvio
 # - Non salva se fan già spento (evita sovrascrivere con "spento")
-# - Ripristina dopo timeout massimo (30 min) o se contatto unavailable
+# - Ripristina dopo timeout massimo (30 min) o chiusura finestra
 - id: "fancoil_%%id%%_window_open_stop_fan"
   alias: "Fancoil %%friendly_name%%: Stop fan when window opens"
   initial_state: true
   mode: single
-  description: "Quando la finestra viene aperta, spegne le ventole del fancoil per evitare sprechi energetici"
+  description: "Quando la finestra viene aperta (sensore fisico o manuale), spegne le ventole del fancoil per evitare sprechi energetici"
   triggers:
-    - trigger: state
-      entity_id: %%WINDOW_CONTACT_SENSOR%%
-      to: "on"
-      for: "00:00:10"  # Debounce 10 secondi per evitare falsi positivi
+%%WINDOW_OPEN_TRIGGERS%%
   conditions:
     - condition: state
       entity_id: input_boolean.fancoil_%%id%%_enabled
       state: "on"
   actions:
+%%SYNC_TO_INPUT_BOOLEAN%%
     - variables:
         fan_was_on: >-
           {{ is_state('switch.fancoil_%%id%%_switch_1','on') or
@@ -83,15 +82,7 @@
   max_exceeded: silent
   description: "Quando la finestra viene chiusa, riabilita il fancoil e ripristina velocità salvate"
   triggers:
-    - trigger: state
-      entity_id: %%WINDOW_CONTACT_SENSOR%%
-      to: "off"
-      for: "00:00:05"  # Debounce 5 secondi
-    # Trigger di sicurezza: se contatto unavailable per >5 min, forza ripresa
-    - trigger: state
-      entity_id: %%WINDOW_CONTACT_SENSOR%%
-      to: "unavailable"
-      for: "00:05:00"
+%%WINDOW_CLOSE_TRIGGERS%%
     # Trigger di sicurezza: timeout massimo 30 min finestra aperta
     - trigger: time_pattern
       minutes: "/5"
@@ -99,16 +90,15 @@
     - condition: state
       entity_id: input_boolean.fancoil_%%id%%_enabled
       state: "on"
-    # CORREZIONE: senza queste due condizioni il trigger time_pattern (ogni 5 min) eseguiva tutta la ripresa
-    # anche con la finestra ancora aperta (fan riacceso dopo 5 min) e anche senza alcuna apertura (main riacceso
-    # e 2 eventi di log ogni 5 minuti: il listener e' tra i maggiori scrittori del recorder).
     - condition: state
       entity_id: input_boolean.fancoil_%%id%%_fan_was_on
       state: "on"
     - condition: template
       value_template: >-
-        {{ states('%%WINDOW_CONTACT_SENSOR%%') != 'on'
-           or (now().timestamp() - (state_attr('input_datetime.fancoil_%%id%%_window_opened_at', 'timestamp') | float(0))) > 1800 }}
+        {% set is_closed = %%WINDOW_CLOSED_CHECK%% %}
+        {% set window_opened_at = state_attr('input_datetime.fancoil_%%id%%_window_opened_at', 'timestamp') | float(0) %}
+        {% set timeout = (now().timestamp() - window_opened_at) > 1800 if window_opened_at > 0 else false %}
+        {{ is_closed or timeout }}
   actions:
     - variables:
         system_enabled: >-
@@ -119,13 +109,22 @@
         stop_condition: "{{ is_state('binary_sensor.fancoil_%%id%%_stop_condition', 'on') }}"
         deumidificazione: "{{ is_state('input_boolean.fancoil_deumidificazione', 'on') }}"
         main_available: "{{ states('switch.stox_fancoil_%%id%%_switch') not in ['unavailable','unknown'] }}"
-        contact_state: "{{ states('%%WINDOW_CONTACT_SENSOR%%') }}"
+        contact_state: "{{ %%WINDOW_CONTACT_STATE_VAR%% }}"
         window_opened_at: "{{ state_attr('input_datetime.fancoil_%%id%%_window_opened_at', 'timestamp') | float(0) }}"
         max_duration_exceeded: "{{ (now().timestamp() - window_opened_at) > 1800 if window_opened_at > 0 else false }}"
         force_resume: >-
           {{ contact_state == 'unavailable' or max_duration_exceeded }}
         fan_was_on: "{{ is_state('input_boolean.fancoil_%%id%%_fan_was_on', 'on') }}"
         saved_speeds: "{{ states('input_text.fancoil_%%id%%_saved_fan_speeds') | from_json({}) }}"
+    # Se chiusa o timeout, sincronizza l'input_boolean su OFF se era rimasto ON
+    - if:
+        - condition: template
+          value_template: >-
+            {{ is_state('input_boolean.finestra_%%id%%_aperta', 'on') and (force_resume or %%WINDOW_CLOSED_CHECK%%) }}
+      then:
+        - action: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.finestra_%%id%%_aperta
     - event: fancoil_log_event
       event_data:
         level: info
@@ -150,7 +149,11 @@
               value_template: "{{ fan_was_on }}"
           then:
             - repeat:
-                for_each: "{{ range(1, 5) }}"
+                for_each:
+                  - 1
+                  - 2
+                  - 3
+                  - 4
                 sequence:
                   - variables:
                       speed_on: "{{ saved_speeds.get(item|string, 0) | int(0) == 1 }}"

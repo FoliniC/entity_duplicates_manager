@@ -242,6 +242,11 @@ usb_tether_normale:
   icon: mdi:router-wireless
   mode: single
   sequence:
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.usb_tether_mode
+      data:
+        option: "Normale"
     - action: input_text.set_value
       target:
         entity_id: input_text.usb_tether_status_message
@@ -253,16 +258,27 @@ usb_tether_normale:
         level: INFO
         message: "AVVIO: Ripristino routing normale (host: {{ states('input_select.usb_tether_host') }})"
     - action: shell_command.usb_tether_restore
+      continue_on_error: true
     - delay: "00:00:03"
     - action: homeassistant.update_entity
       target:
         entity_id: sensor.usb_tether_status
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.usb_tether_status_message
+      data:
+        value: ""
 
 usb_tether_reset:
   alias: "Tethering: Reset di emergenza"
   icon: mdi:alert-octagon
   mode: single
   sequence:
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.usb_tether_mode
+      data:
+        option: "Normale"
     - action: input_text.set_value
       target:
         entity_id: input_text.usb_tether_status_message
@@ -274,6 +290,7 @@ usb_tether_reset:
         level: WARN
         message: "AVVIO: 🔴 Reset di emergenza premuto. Interruzione watchdog e ripristino forzato rete normale."
     - action: shell_command.usb_tether_reset
+      continue_on_error: true
     - delay: "00:00:03"
     - action: homeassistant.update_entity
       target:
@@ -289,98 +306,209 @@ usb_tether_server:
   icon: mdi:server
   mode: single
   sequence:
-    - action: input_select.select_option
-      target:
-        entity_id: input_select.usb_tether_mode
-      data:
-        option: "Server"
     - action: input_text.set_value
       target:
         entity_id: input_text.usb_tether_status_message
       data:
-        value: "attivazione modalita' server in corso..."
+        value: "Verifica e attivazione modalità Server in corso..."
     - event: halog2026_write_event
       event_data:
         subsystem: usb_tether
         level: INFO
-        message: "AVVIO: Attivazione modalità Server (host: {{ states('input_select.usb_tether_host') }})"
+        message: "TENTATIVO: Richiesta attivazione modalità Server (host: {{ states('input_select.usb_tether_host') }})"
     - action: shell_command.usb_tether_activate
-    - delay: "00:00:03"
-    - action: homeassistant.update_entity
-      target:
-        entity_id: sensor.usb_tether_status
-    - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') }}"
-      timeout: "00:02:00"
-    - if:
-        - condition: not
-          conditions:
-            - condition: state
-              entity_id: sensor.usb_tether_status
-              state: "active"
-      then:
-        - action: input_text.set_value
-          entity_id: input_text.usb_tether_status_message
+      response_variable: activate_result
+      continue_on_error: true
+    - choose:
+        # Pre-flight o comando fallito: abort immediato! Nessuna attesa di 2 minuti.
+        - conditions:
+            - condition: template
+              value_template: "{{ activate_result is not defined or activate_result.returncode != 0 }}"
+          sequence:
+            - action: input_select.select_option
+              target:
+                entity_id: input_select.usb_tether_mode
+              data:
+                option: "Normale"
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.usb_tether_status_message
+              data:
+                value: "Pre-flight fallito: nessun tethering USB rilevato. Modalità Normale mantenuta."
+            - event: halog2026_write_event
+              event_data:
+                subsystem: usb_tether
+                level: WARN
+                message: "PRE-FLIGHT FALLITO: Attivazione Server abortita. Modalità Normale mantenuta."
+            - action: persistent_notification.create
+              data:
+                title: "⚠️ Attivazione Server Annullata"
+                message: >-
+                  Pre-flight check fallito: nessun tethering USB rilevato su {{ states('input_select.usb_tether_host') }} (o connessione internet assente).
+                  La modalità Normale rimane attiva.
+            - action: homeassistant.update_entity
+              target:
+                entity_id: sensor.usb_tether_status
+      default:
+        # Pre-flight superato: attiva modalità Server e attendi conferma reale
+        - action: input_select.select_option
+          target:
+            entity_id: input_select.usb_tether_mode
           data:
-            value: "ERRORE: tethering server non attivato - controlla log"
+            option: "Server"
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.usb_tether_status_message
+          data:
+            value: "attivazione modalita' server in corso..."
         - event: halog2026_write_event
           event_data:
             subsystem: usb_tether
-            level: ERROR
-            message: "ERRORE: Attivazione Server fallita"
-      else:
-        - action: input_text.set_value
-          entity_id: input_text.usb_tether_status_message
-          data:
-            value: ""
+            level: INFO
+            message: "AVVIO: Attivazione modalità Server (host: {{ states('input_select.usb_tether_host') }})"
+        - delay: "00:00:03"
+        - action: homeassistant.update_entity
+          target:
+            entity_id: sensor.usb_tether_status
+        - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') or is_state('sensor.usb_tether_status', 'error') }}"
+          timeout: "00:00:20"
+        - choose:
+            - conditions:
+                - condition: state
+                  entity_id: sensor.usb_tether_status
+                  state: "active"
+              sequence:
+                - action: input_text.set_value
+                  target:
+                    entity_id: input_text.usb_tether_status_message
+                  data:
+                    value: ""
+          default:
+            - action: script.usb_tether_normale
+            - action: input_select.select_option
+              target:
+                entity_id: input_select.usb_tether_mode
+              data:
+                option: "Normale"
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.usb_tether_status_message
+              data:
+                value: "ERRORE: tethering server non attivato entro 20s. Ripristinato Normale."
+            - event: halog2026_write_event
+              event_data:
+                subsystem: usb_tether
+                level: ERROR
+                message: "ERRORE: Attivazione Server non confermata entro 20s. Eseguito rollback a Normale."
+            - action: persistent_notification.create
+              data:
+                title: "⚠️ Attivazione Server Fallita"
+                message: "Tethering server non confermato attivo entro 20s. Routing normale ripristinato automaticamente."
 
 usb_tether_intranet:
   alias: "Tethering: modalita intranet"
   icon: mdi:wan
   mode: single
   sequence:
-    - action: input_select.select_option
-      target:
-        entity_id: input_select.usb_tether_mode
-      data:
-        option: "Intranet"
     - action: input_text.set_value
       target:
         entity_id: input_text.usb_tether_status_message
       data:
-        value: "attivazione modalita' intranet in corso..."
+        value: "Verifica e attivazione modalità Intranet in corso..."
     - event: halog2026_write_event
       event_data:
         subsystem: usb_tether
         level: INFO
-        message: "AVVIO: Attivazione modalità Intranet (host: {{ states('input_select.usb_tether_host') }})"
+        message: "TENTATIVO: Richiesta attivazione modalità Intranet (host: {{ states('input_select.usb_tether_host') }})"
     - action: shell_command.usb_tether_activate_intranet
-    - delay: "00:00:08"
-    - action: homeassistant.update_entity
-      target:
-        entity_id: sensor.usb_tether_status
-    - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') }}"
-      timeout: "00:02:00"
-    - if:
-        - condition: not
-          conditions:
-            - condition: state
-              entity_id: sensor.usb_tether_status
-              state: "active"
-      then:
-        - action: input_text.set_value
-          entity_id: input_text.usb_tether_status_message
+      response_variable: activate_result
+      continue_on_error: true
+    - choose:
+        # Pre-flight o comando fallito: abort immediato! Nessuna attesa di 2 minuti.
+        - conditions:
+            - condition: template
+              value_template: "{{ activate_result is not defined or activate_result.returncode != 0 }}"
+          sequence:
+            - action: input_select.select_option
+              target:
+                entity_id: input_select.usb_tether_mode
+              data:
+                option: "Normale"
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.usb_tether_status_message
+              data:
+                value: "Pre-flight fallito: nessun tethering USB rilevato. Modalità Normale mantenuta."
+            - event: halog2026_write_event
+              event_data:
+                subsystem: usb_tether
+                level: WARN
+                message: "PRE-FLIGHT FALLITO: Attivazione Intranet abortita. Modalità Normale mantenuta."
+            - action: persistent_notification.create
+              data:
+                title: "⚠️ Attivazione Intranet Annullata"
+                message: >-
+                  Pre-flight check fallito: nessun tethering USB rilevato su {{ states('input_select.usb_tether_host') }} (o connessione internet assente).
+                  La modalità Normale rimane attiva.
+            - action: homeassistant.update_entity
+              target:
+                entity_id: sensor.usb_tether_status
+      default:
+        # Pre-flight superato: attiva modalità Intranet e attendi conferma reale
+        - action: input_select.select_option
+          target:
+            entity_id: input_select.usb_tether_mode
           data:
-            value: "ERRORE: intranet non attivata - controlla log"
+            option: "Intranet"
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.usb_tether_status_message
+          data:
+            value: "attivazione modalita' intranet in corso..."
         - event: halog2026_write_event
           event_data:
             subsystem: usb_tether
-            level: ERROR
-            message: "ERRORE: Attivazione Intranet fallita"
-      else:
-        - action: input_text.set_value
-          entity_id: input_text.usb_tether_status_message
-          data:
-            value: ""
+            level: INFO
+            message: "AVVIO: Attivazione modalità Intranet (host: {{ states('input_select.usb_tether_host') }})"
+        - delay: "00:00:04"
+        - action: homeassistant.update_entity
+          target:
+            entity_id: sensor.usb_tether_status
+        - wait_template: "{{ is_state('sensor.usb_tether_status', 'active') or is_state('sensor.usb_tether_status', 'error') }}"
+          timeout: "00:00:20"
+        - choose:
+            - conditions:
+                - condition: state
+                  entity_id: sensor.usb_tether_status
+                  state: "active"
+              sequence:
+                - action: input_text.set_value
+                  target:
+                    entity_id: input_text.usb_tether_status_message
+                  data:
+                    value: ""
+          default:
+            # Fallback automatico se non confermata attiva entro 20s
+            - action: script.usb_tether_normale
+            - action: input_select.select_option
+              target:
+                entity_id: input_select.usb_tether_mode
+              data:
+                option: "Normale"
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.usb_tether_status_message
+              data:
+                value: "ERRORE: Intranet non attiva entro 20s. Ripristinata modalità Normale."
+            - event: halog2026_write_event
+              event_data:
+                subsystem: usb_tether
+                level: ERROR
+                message: "ERRORE: Intranet non confermata attiva entro 20s. Eseguito rollback a Normale."
+            - action: persistent_notification.create
+              data:
+                title: "⚠️ Attivazione Intranet Fallita"
+                message: "Intranet non confermata attiva entro 20s. Routing normale ripristinato automaticamente."
 
 usb_tether_riattiva_router:
   alias: "Tethering: Riattiva Router (ADB)"

@@ -53,10 +53,11 @@ sensor:
         {% set rh_ok = rh_now is not none and 5 <= rh_now <= 100 %}
         {% set we_now = states('sensor.omega_esterno') | float(none) %}
         {% set t_now = states('sensor.temperatura_%%id%%_reale_calcolata') | float(none) %}
-        {% set keys = ['sessione_attiva', 'consiglio_valutato', 'tipo_azione', 'ora_inizio_valutazione', 'inizio_ts', 'chiusa_ts',
+        {% if t_now is none %}{% set t_now = states('sensor.fancoil_%%id%%_temperature') | float(none) %}{% endif %}
+        {% set keys = ['sessione_attiva', 'consiglio_valutato', 'tipo_azione', 'ora_inizio_valutazione', 'ora_chiusura', 'inizio_ts', 'chiusa_ts',
                        'durata_apertura_min', 'n_riaperture', 'umidita_inizio', 'omega_inizio', 'temperatura_inizio',
                        'omega_esterno_inizio', 'calo_previsto_inizio', 'impianto_attivo_inizio',
-                       'umidita_15m', 'umidita_30m', 'umidita_60m', 'omega_15m', 'omega_30m', 'omega_60m', 'omega_post', 'umidita_post', 'motivo'] %}
+                       'umidita_15m', 'umidita_30m', 'umidita_60m', 'omega_15m', 'omega_30m', 'omega_60m', 'omega_post', 'umidita_post', 'temperatura_post', 'motivo'] %}
         {% set ns = namespace(o={}, st=prev_state) %}
         {% for k in keys %}{% set ns.o = dict(ns.o, **{k: pa(k) | trim}) %}{% endfor %}
         {% if ns.st in ['unknown', 'unavailable', 'none', ''] %}{% set ns.st = 'in_attesa' %}{% endif %}
@@ -95,7 +96,7 @@ sensor:
           {% set elapsed = (now_ts - t0) / 60 %}
           {% if ev_close and ns.o.chiusa_ts | string == '' %}
             {% set dur = elapsed %}
-            {% set ns.o = dict(ns.o, chiusa_ts=now_ts, durata_apertura_min=dur | round(1)) %}
+            {% set ns.o = dict(ns.o, chiusa_ts=now_ts, ora_chiusura=now().strftime('%Y-%m-%d %H:%M:%S'), durata_apertura_min=dur | round(1)) %}
             {% if dur < durata_min_valida %}
               {% set ns.st = 'non_valutabile' %}
               {% set ns.o = dict(ns.o, sessione_attiva=false,
@@ -117,10 +118,11 @@ sensor:
               {% if post_close >= post_chiusura_min and w_ok and rh_ok %}
                 {% set dw = w_now - (ns.o.omega_inizio | float(0)) %}
                 {% set dr = rh_now - (ns.o.umidita_inizio | float(0)) %}
+                {% set dt = (t_now - (ns.o.temperatura_inizio | float(0))) if t_now is not none and ns.o.temperatura_inizio != '' else none %}
                 {% set ok = dw <= soglia_domega %}
                 {% set ns.st = 'efficace' if ok else 'inefficace' %}
-                {% set ns.o = dict(ns.o, sessione_attiva=false, omega_post=w_now | round(2), umidita_post=rh_now | round(1),
-                     motivo='Apertura di ' ~ (ns.o.durata_apertura_min | string) ~ ' min: omega da ' ~ ns.o.omega_inizio ~ ' a ' ~ (w_now | round(2)) ~ ' g/kg a ' ~ post_chiusura_min ~ ' min dalla chiusura (variazione ' ~ (dw | round(2)) ~ ', soglia ' ~ soglia_domega ~ '); RH ' ~ (dr | round(1)) ~ ' punti. ' ~ ('Efficace.' if ok else 'Inefficace.')) %}
+                {% set ns.o = dict(ns.o, sessione_attiva=false, omega_post=w_now | round(2), umidita_post=rh_now | round(1), temperatura_post=(t_now | round(1)) if t_now is not none else '',
+                     motivo='Apertura di ' ~ (ns.o.durata_apertura_min | string) ~ ' min: omega da ' ~ ns.o.omega_inizio ~ ' a ' ~ (w_now | round(2)) ~ ' g/kg a ' ~ post_chiusura_min ~ ' min dalla chiusura (variazione ' ~ (dw | round(2)) ~ ', soglia ' ~ soglia_domega ~ '); RH ' ~ (dr | round(1)) ~ ' punti' ~ ('; Temp ' ~ (dt | round(1)) ~ '°C' if dt is not none else '') ~ '. ' ~ ('Efficace.' if ok else 'Inefficace.')) %}
               {% elif post_close >= post_chiusura_min + 15 %}
                 {% set ns.st = 'non_valutabile' %}
                 {% set ns.o = dict(ns.o, sessione_attiva=false, motivo='Dati sensori non disponibili dopo la chiusura.') %}
@@ -198,8 +200,16 @@ sensor:
         {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('omega_post', '') }}
       umidita_post: >-
         {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('umidita_post', '') }}
+      temperatura_post: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('temperatura_post', '') }}
+      ora_chiusura: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{{ nx.get('ora_chiusura', '') }}
       delta_omega_post: >-
         {% set nx = nxt if nxt is mapping else nxt | from_json %}{% set a = nx.get('omega_post', '') %}{% set b = nx.get('omega_inizio', '') %}{{ ((a | float(0)) - (b | float(0))) | round(2) if a != '' and b != '' else '' }}
+      delta_umidita_post: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{% set a = nx.get('umidita_post', '') %}{% set b = nx.get('umidita_inizio', '') %}{{ ((a | float(0)) - (b | float(0))) | round(1) if a != '' and b != '' else '' }}
+      delta_temperatura_post: >-
+        {% set nx = nxt if nxt is mapping else nxt | from_json %}{% set a = nx.get('temperatura_post', '') %}{% set b = nx.get('temperatura_inizio', '') %}{{ ((a | float(0)) - (b | float(0))) | round(1) if a != '' and b != '' else '' }}
       template_version: "v3_2_verdetto_post_chiusura_20261031"
       parametri: >-
         soglia_domega={{ soglia_domega }} g/kg; durata_min_valida={{ durata_min_valida }} min; verdetto={{ post_chiusura_min }} min dopo la chiusura

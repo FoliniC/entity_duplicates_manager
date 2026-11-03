@@ -587,6 +587,153 @@ views:
         cards:
           - type: custom:mushroom-template-card
             primary: >-
+              {% set distacco = is_state('binary_sensor.distacco_rete_allarme_attivo', 'on') %}
+              {% set pdc = is_state('switch.attiva_pdc', 'on') %}
+              {% set fancoil = is_state('switch.attiva_fancoil', 'on') %}
+              {% set pompa = is_state('switch.attiva_pompa_circolazione', 'on') %}
+              {% set schedule = is_state('schedule.riscaldamento', 'on') %}
+              {% set t_circ = states('sensor.temperatura_circuito_riscaldamento') | float(0) %}
+              {% set soglia_circ = states('input_number.circuit_temp_threshold_heat') | float(30) %}
+              {% set circ_ok = t_circ >= soglia_circ %}
+              {% set win_rooms = [] %}
+              {% if is_state('input_boolean.finestra_cucina_aperta','on') or is_state('binary_sensor.contact_cucina_contact_cucina','on') %}{% set win_rooms = win_rooms + ['Cucina'] %}{% endif %}
+              {% if is_state('input_boolean.finestra_camera_grande_aperta','on') or is_state('binary_sensor.finestra_camera_grande_finestra_camera_grande','on') %}{% set win_rooms = win_rooms + ['Camera grande'] %}{% endif %}
+              {% if is_state('input_boolean.finestra_camera_aperta','on') %}{% set win_rooms = win_rooms + ['Camera'] %}{% endif %}
+              {% if is_state('input_boolean.finestra_bagno_aperta','on') %}{% set win_rooms = win_rooms + ['Bagno'] %}{% endif %}
+              {% if is_state('input_boolean.finestra_sala_aperta','on') %}{% set win_rooms = win_rooms + ['Sala'] %}{% endif %}
+              {% if distacco %}
+                🚨 Protezione Distacco Rete ATTIVA
+              {% elif not pdc %}
+                ⚠️ Pompa di Calore (PDC) SPENTA
+              {% elif not fancoil %}
+                🔴 Impianto Fancoil DISATTIVATO
+              {% elif not pompa %}
+                ⚠️ Pompa Circolazione SPENTA
+              {% elif not schedule %}
+                ⏸️ Riscaldamento Fuori Orario (Schedule OFF)
+              {% elif pdc and pompa and not circ_ok %}
+                ⏳ In Attesa Temperatura Circuito ({{ t_circ | round(1) }}°C < {{ soglia_circ | round(0) }}°C)
+              {% elif win_rooms | length > 0 %}
+                🪟 Ventilazione Bloccata per Finestre Aperte ({{ win_rooms | join(', ') }})
+              {% else %}
+                🟢 Climatizzazione Regolare (PDC e Fancoil Attivi)
+              {% endif %}
+            secondary: >-
+              {% set distacco = is_state('binary_sensor.distacco_rete_allarme_attivo', 'on') %}
+              {% set pdc = is_state('switch.attiva_pdc', 'on') %}
+              {% set fancoil = is_state('switch.attiva_fancoil', 'on') %}
+              {% set pompa = is_state('switch.attiva_pompa_circolazione', 'on') %}
+              {% set schedule = is_state('schedule.riscaldamento', 'on') %}
+              {% set t_circ = states('sensor.temperatura_circuito_riscaldamento') | float(0) %}
+              {% set soglia_circ = states('input_number.circuit_temp_threshold_heat') | float(30) %}
+              {% set circ_ok = t_circ >= soglia_circ %}
+              {% set win_rooms = [] %}
+              {% if is_state('input_boolean.finestra_cucina_aperta','on') or is_state('binary_sensor.contact_cucina_contact_cucina','on') %}{% set win_rooms = win_rooms + ['Cucina'] %}{% endif %}
+              {% if is_state('input_boolean.finestra_camera_grande_aperta','on') or is_state('binary_sensor.finestra_camera_grande_finestra_camera_grande','on') %}{% set win_rooms = win_rooms + ['Camera grande'] %}{% endif %}
+              {% if is_state('input_boolean.finestra_camera_aperta','on') %}{% set win_rooms = win_rooms + ['Camera'] %}{% endif %}
+              {% if is_state('input_boolean.finestra_bagno_aperta','on') %}{% set win_rooms = win_rooms + ['Bagno'] %}{% endif %}
+              {% if is_state('input_boolean.finestra_sala_aperta','on') %}{% set win_rooms = win_rooms + ['Sala'] %}{% endif %}
+              {% set motivi = [] %}
+              {% if distacco %}
+                {% set motivi = motivi + ['Sovraccarico contatore Alfa: tempo residuo ' ~ states('sensor.alfa_new_disconnect_timer') ~ 's. Carichi sganciati.'] %}
+              {% endif %}
+              {% if not pdc %}
+                {% set txt_distacco = states('input_text.distacco_rete_ultimo_intervento') %}
+                {% if txt_distacco and txt_distacco != '' %}
+                  {% set motivi = motivi + ['switch.attiva_pdc è OFF. Ultimo intervento distacco: ' ~ txt_distacco] %}
+                {% else %}
+                  {% set motivi = motivi + ['switch.attiva_pdc è OFF (PDC non alimentata)'] %}
+                {% endif %}
+              {% endif %}
+              {% if not fancoil %}
+                {% set motivi = motivi + ['switch.attiva_fancoil è OFF (interruttore generale disattivato)'] %}
+              {% endif %}
+              {% if not pompa %}
+                {% set motivi = motivi + ['switch.attiva_pompa_circolazione è OFF'] %}
+              {% endif %}
+              {% if not schedule %}
+                {% set motivi = motivi + ['Fascia oraria non attiva su schedule.riscaldamento'] %}
+              {% endif %}
+              {% if pdc and pompa and not circ_ok %}
+                {% set motivi = motivi + ['Acqua nel circuito a ' ~ (t_circ | round(1)) ~ '°C (soglia avvio: ' ~ (soglia_circ | round(1)) ~ '°C)'] %}
+              {% endif %}
+              {% if win_rooms | length > 0 %}
+                {% set motivi = motivi + ['Fancoil spenti per finestra aperta in: ' ~ (win_rooms | join(', '))] %}
+              {% endif %}
+              {% if motivi | length > 0 %}
+                Motivo spegnimento: {{ motivi | join(' | ') }}
+              {% else %}
+                Circuito a {{ t_circ | round(1) }}°C. Tutte le condizioni di funzionamento sono soddisfatte.
+              {% endif %}
+            icon: >-
+              {% set distacco = is_state('binary_sensor.distacco_rete_allarme_attivo', 'on') %}
+              {% set pdc = is_state('switch.attiva_pdc', 'on') %}
+              {% set fancoil = is_state('switch.attiva_fancoil', 'on') %}
+              {% set pompa = is_state('switch.attiva_pompa_circolazione', 'on') %}
+              {% set schedule = is_state('schedule.riscaldamento', 'on') %}
+              {% set t_circ = states('sensor.temperatura_circuito_riscaldamento') | float(0) %}
+              {% set soglia_circ = states('input_number.circuit_temp_threshold_heat') | float(30) %}
+              {% set circ_ok = t_circ >= soglia_circ %}
+              {% set win_open = is_state('input_boolean.finestra_cucina_aperta','on') or is_state('binary_sensor.contact_cucina_contact_cucina','on') or is_state('input_boolean.finestra_camera_grande_aperta','on') or is_state('binary_sensor.finestra_camera_grande_finestra_camera_grande','on') or is_state('input_boolean.finestra_camera_aperta','on') or is_state('input_boolean.finestra_bagno_aperta','on') or is_state('input_boolean.finestra_sala_aperta','on') %}
+              {% if distacco %}
+                mdi:transmission-tower-off
+              {% elif not pdc %}
+                mdi:heat-pump-outline
+              {% elif not fancoil %}
+                mdi:fan-off
+              {% elif not pompa %}
+                mdi:pump-off
+              {% elif not schedule %}
+                mdi:clock-alert-outline
+              {% elif pdc and pompa and not circ_ok %}
+                mdi:water-boiler-alert
+              {% elif win_open %}
+                mdi:window-open-variant
+              {% else %}
+                mdi:check-decagram
+              {% endif %}
+            icon_color: >-
+              {% set distacco = is_state('binary_sensor.distacco_rete_allarme_attivo', 'on') %}
+              {% set pdc = is_state('switch.attiva_pdc', 'on') %}
+              {% set fancoil = is_state('switch.attiva_fancoil', 'on') %}
+              {% set pompa = is_state('switch.attiva_pompa_circolazione', 'on') %}
+              {% set schedule = is_state('schedule.riscaldamento', 'on') %}
+              {% set t_circ = states('sensor.temperatura_circuito_riscaldamento') | float(0) %}
+              {% set soglia_circ = states('input_number.circuit_temp_threshold_heat') | float(30) %}
+              {% set circ_ok = t_circ >= soglia_circ %}
+              {% set win_open = is_state('input_boolean.finestra_cucina_aperta','on') or is_state('binary_sensor.contact_cucina_contact_cucina','on') or is_state('input_boolean.finestra_camera_grande_aperta','on') or is_state('binary_sensor.finestra_camera_grande_finestra_camera_grande','on') or is_state('input_boolean.finestra_camera_aperta','on') or is_state('input_boolean.finestra_bagno_aperta','on') or is_state('input_boolean.finestra_sala_aperta','on') %}
+              {% if distacco or not pdc or not fancoil %}
+                red
+              {% elif not pompa or not schedule or (pdc and pompa and not circ_ok) or win_open %}
+                orange
+              {% else %}
+                green
+              {% endif %}
+            card_mod:
+              style: |
+                ha-card {
+                  {% set distacco = is_state('binary_sensor.distacco_rete_allarme_attivo', 'on') %}
+                  {% set pdc = is_state('switch.attiva_pdc', 'on') %}
+                  {% set fancoil = is_state('switch.attiva_fancoil', 'on') %}
+                  {% set pompa = is_state('switch.attiva_pompa_circolazione', 'on') %}
+                  {% set schedule = is_state('schedule.riscaldamento', 'on') %}
+                  {% set t_circ = states('sensor.temperatura_circuito_riscaldamento') | float(0) %}
+                  {% set soglia_circ = states('input_number.circuit_temp_threshold_heat') | float(30) %}
+                  {% set circ_ok = t_circ >= soglia_circ %}
+                  {% set win_open = is_state('input_boolean.finestra_cucina_aperta','on') or is_state('binary_sensor.contact_cucina_contact_cucina','on') or is_state('input_boolean.finestra_camera_grande_aperta','on') or is_state('binary_sensor.finestra_camera_grande_finestra_camera_grande','on') or is_state('input_boolean.finestra_camera_aperta','on') or is_state('input_boolean.finestra_bagno_aperta','on') or is_state('input_boolean.finestra_sala_aperta','on') %}
+                  {% if distacco or not pdc or not fancoil %}
+                    border: 2px solid var(--error-color) !important;
+                    background: rgba(var(--rgb-error-color), 0.12) !important;
+                  {% elif not pompa or not schedule or (pdc and pompa and not circ_ok) or win_open %}
+                    border: 2px solid var(--warning-color) !important;
+                    background: rgba(var(--rgb-warning-color), 0.12) !important;
+                  {% else %}
+                    border: 2px solid var(--success-color) !important;
+                    background: rgba(var(--rgb-success-color), 0.1) !important;
+                  {% endif %}
+                }
+          - type: custom:mushroom-template-card
+            primary: >-
               {% set advs = [
                 state_attr('sensor.consiglio_finestra_cucina', 'azione_raw') | default(states('sensor.consiglio_finestra_cucina')),
                 state_attr('sensor.consiglio_finestra_camera_grande', 'azione_raw') | default(states('sensor.consiglio_finestra_camera_grande')),

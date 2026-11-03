@@ -1,0 +1,241 @@
+# Mijia Calibration Statistics for Camera Grande Fancoil Sensors
+# Computes rolling average offsets between Mijia reference and Fancoil internal sensors
+# Place in /config/packages/ to be auto-loaded via !include_dir_named packages
+#
+# ---------------------------------------------------------------------------
+# CALIBRATION START: 2026-11-02 15:29 (Mijia moved to Camera Grande)
+# Mijia sensor: sensor.temperature_humidity_sensor_3116 (LYWSD03MMC, MAC A4:C1:38:26:31:16)
+# Fancoil sensors: sensor.fancoil_camera_grande_temperature / sensor.fancoil_camera_grande_humidity
+# Proxy: M5 Atom Echo BT Proxy (ESPHome) - local pairing, no cloud
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Template Sensors: Instantaneous Offsets (Mijia - Fancoil)
+# ---------------------------------------------------------------------------
+template:
+  - sensor:
+      - name: "Camera Grande Calibrazione Temp Offset (Instantaneo)"
+        unique_id: fancoil_camera_grande_cal_temp_offset_instant
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        icon: mdi:thermometer-check
+        state: >-
+          {% set mijia = states('sensor.temperature_humidity_sensor_3116_temperature') | float(none) %}
+          {% set fancoil = states('sensor.fancoil_camera_grande_temperature') | float(none) %}
+          {% if mijia is not none and fancoil is not none %}
+            {{ (mijia - fancoil) | round(2) }}
+          {% else %}
+            unknown
+          {% endif %}
+        availability: >-
+          {{ states('sensor.temperature_humidity_sensor_3116_temperature') not in ['unavailable', 'unknown', 'none', ''] and
+             states('sensor.fancoil_camera_grande_temperature') not in ['unavailable', 'unknown', 'none', ''] }}
+
+      - name: "Camera Grande Calibrazione Umidità Offset (Instantaneo)"
+        unique_id: fancoil_camera_grande_cal_hum_offset_instant
+        unit_of_measurement: "%"
+        device_class: humidity
+        state_class: measurement
+        icon: mdi:water-percent
+        state: >-
+          {% set mijia = states('sensor.temperature_humidity_sensor_3116_humidity') | float(none) %}
+          {% set fancoil = states('sensor.fancoil_camera_grande_humidity') | float(none) %}
+          {% if mijia is not none and fancoil is not none %}
+            {{ (mijia - fancoil) | round(1) }}
+          {% else %}
+            unknown
+          {% endif %}
+        availability: >-
+          {{ states('sensor.temperature_humidity_sensor_3116_humidity') not in ['unavailable', 'unknown', 'none', ''] and
+             states('sensor.fancoil_camera_grande_humidity') not in ['unavailable', 'unknown', 'none', ''] }}
+
+      # ---------------------------------------------------------------------------
+      # Summary Sensor - Current Calibration Status
+      # ---------------------------------------------------------------------------
+      - name: "Camera Grande Calibrazione Riepilogo"
+        unique_id: fancoil_camera_grande_calibration_summary
+        icon: mdi:clipboard-check
+        state: >-
+          {% set temp_off = states('sensor.statistiche_camera_grande_calibrazione_temp_offset_24h') | float(none) %}
+          {% set hum_off = states('sensor.statistiche_camera_grande_calibrazione_umidita_offset_24h') | float(none) %}
+          {% if temp_off is not none and hum_off is not none %}
+            OK
+          {% else %}
+            RACCOLTA_DATI
+          {% endif %}
+        attributes:
+          temp_offset_24h: "{{ states('sensor.statistiche_camera_grande_calibrazione_temp_offset_24h') }}"
+          hum_offset_24h: "{{ states('sensor.statistiche_camera_grande_calibrazione_umidita_offset_24h') }}"
+          temp_count_24h: "{{ states('sensor.statistiche_camera_grande_calibrazione_temp_count_24h') }}"
+          hum_count_24h: "{{ states('sensor.statistiche_camera_grande_calibrazione_umidita_count_24h') }}"
+          temp_change_24h: "{{ states('sensor.statistiche_camera_grande_calibrazione_temp_change_24h') }}"
+          hum_change_24h: "{{ states('sensor.statistiche_camera_grande_calibrazione_umidita_change_24h') }}"
+          temp_offset_7d: "{{ states('sensor.statistiche_camera_grande_calibrazione_temp_offset_7d') }}"
+          hum_offset_7d: "{{ states('sensor.statistiche_camera_grande_calibrazione_umidita_offset_7d') }}"
+          last_update: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+          recommendation: >-
+            {% set temp_off = states('sensor.statistiche_camera_grande_calibrazione_temp_offset_24h') | float(none) %}
+            {% set hum_off = states('sensor.statistiche_camera_grande_calibrazione_umidita_offset_24h') | float(none) %}
+            {% set temp_change = states('sensor.statistiche_camera_grande_calibrazione_temp_change_24h') | float(none) %}
+            {% set hum_change = states('sensor.statistiche_camera_grande_calibrazione_umidita_change_24h') | float(none) %}
+            {% set temp_cnt = states('sensor.statistiche_camera_grande_calibrazione_temp_count_24h') | int(none) %}
+            {% if temp_off is not none and hum_off is not none and temp_cnt > 50 %}
+              Offset T: {{ temp_off | round(2) }}°C, Offset RH: {{ hum_off | round(1) }}%.
+              {% if temp_change is not none and temp_change | abs < 0.5 and hum_change is not none and hum_change | abs < 5 %}
+                Dati stabili - pronto per applicazione calibrazione.
+              {% else %}
+                Variabilità rilevata (change T: {{ temp_change | round(2) }}°C, change RH: {{ hum_change | round(1) }}%) - attendere più dati.
+              {% endif %}
+            {% else %}
+              Raccolta dati in corso... ({{ temp_cnt }} campioni T)
+            {% endif %}
+
+      # ---------------------------------------------------------------------------
+      # Sensori Calibrati (Template) - Valori Corretti (Formula + Offset 24h)
+      # ---------------------------------------------------------------------------
+      - name: "Camera Grande Temperatura Calibrata"
+        unique_id: fancoil_camera_grande_temp_calibrated
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        icon: mdi:thermometer-check
+        state: >-
+          {% set Tf = states('sensor.fancoil_camera_grande_temperature') | float(none) %}
+          {% if Tf is none %}
+            unknown
+          {% else %}
+            {% set offset = states('sensor.statistiche_camera_grande_calibrazione_temp_offset_24h') | float(0) %}
+            {% if Tf <= 24.5 %}
+              {{ (Tf + offset) | round(1) }}
+            {% else %}
+              {% set delta = Tf - 24.5 %}
+              {% set corr = 0.042 * delta * delta - 0.15 * delta %}
+              {{ (Tf + corr + offset) | round(1) }}
+            {% endif %}
+          {% endif %}
+        availability: >-
+          {{ states('sensor.fancoil_camera_grande_temperature') not in ['unavailable', 'unknown', 'none', ''] }}
+
+      - name: "Camera Grande Umidità Calibrata"
+        unique_id: fancoil_camera_grande_hum_calibrated
+        unit_of_measurement: "%"
+        device_class: humidity
+        state_class: measurement
+        icon: mdi:water-percent
+        state: >-
+          {% set RHf = states('sensor.fancoil_camera_grande_humidity') | float(none) %}
+          {% set Tf = states('sensor.fancoil_camera_grande_temperature') | float(none) %}
+          {% if RHf is none or Tf is none %}
+            unknown
+          {% else %}
+            {% set offset = states('sensor.statistiche_camera_grande_calibrazione_umidita_offset_24h') | float(0) %}
+            {% if RHf >= 60 %}
+              {{ (RHf + offset) | round(0) }}
+            {% else %}
+              {% set corr = 0.45 * (60 - RHf) %}
+              {% set temp_factor = 1 + 0.02 * [0, Tf - 24] | max %}
+              {{ (RHf + corr * temp_factor + offset) | round(0) }}
+            {% endif %}
+          {% endif %}
+        availability: >-
+          {{ states('sensor.fancoil_camera_grande_humidity') not in ['unavailable', 'unknown', 'none', ''] and
+             states('sensor.fancoil_camera_grande_temperature') not in ['unavailable', 'unknown', 'none', ''] }}
+
+# ---------------------------------------------------------------------------
+# Statistics Sensors for Rolling Averages (using HA Statistics integration)
+# Only 'mean', 'median', 'change', 'count', 'total' are supported
+# ---------------------------------------------------------------------------
+sensor:
+  - platform: statistics
+    name: "Statistiche Camera Grande Calibrazione Temp Offset 1h"
+    unique_id: statistics_fancoil_camera_grande_cal_temp_offset_1h
+    entity_id: sensor.camera_grande_calibrazione_temp_offset_instantaneo
+    state_characteristic: mean
+    max_age:
+      hours: 1
+    sampling_size: 120
+
+  - platform: statistics
+    name: "Statistiche Camera Grande Calibrazione Temp Offset 24h"
+    unique_id: statistics_fancoil_camera_grande_cal_temp_offset_24h
+    entity_id: sensor.camera_grande_calibrazione_temp_offset_instantaneo
+    state_characteristic: mean
+    max_age:
+      hours: 24
+    sampling_size: 288
+
+  - platform: statistics
+    name: "Statistiche Camera Grande Calibrazione Temp Offset 7d"
+    unique_id: statistics_fancoil_camera_grande_cal_temp_offset_7d
+    entity_id: sensor.camera_grande_calibrazione_temp_offset_instantaneo
+    state_characteristic: mean
+    max_age:
+      days: 7
+    sampling_size: 2016
+
+  - platform: statistics
+    name: "Statistiche Camera Grande Calibrazione Umidità Offset 1h"
+    unique_id: statistics_fancoil_camera_grande_cal_hum_offset_1h
+    entity_id: sensor.camera_grande_calibrazione_umidita_offset_instantaneo
+    state_characteristic: mean
+    max_age:
+      hours: 1
+    sampling_size: 120
+
+  - platform: statistics
+    name: "Statistiche Camera Grande Calibrazione Umidità Offset 24h"
+    unique_id: statistics_fancoil_camera_grande_cal_hum_offset_24h
+    entity_id: sensor.camera_grande_calibrazione_umidita_offset_instantaneo
+    state_characteristic: mean
+    max_age:
+      hours: 24
+    sampling_size: 288
+
+  - platform: statistics
+    name: "Statistiche Camera Grande Calibrazione Umidità Offset 7d"
+    unique_id: statistics_fancoil_camera_grande_cal_hum_offset_7d
+    entity_id: sensor.camera_grande_calibrazione_umidita_offset_instantaneo
+    state_characteristic: mean
+    max_age:
+      days: 7
+    sampling_size: 2016
+
+  # ---------------------------------------------------------------------------
+  # Additional Quality Metrics (count, change only - stdev/min/max not supported)
+  # ---------------------------------------------------------------------------
+  - platform: statistics
+    name: "Statistiche Camera Grande Calibrazione Temp Count 24h"
+    unique_id: statistics_fancoil_camera_grande_cal_temp_count_24h
+    entity_id: sensor.camera_grande_calibrazione_temp_offset_instantaneo
+    state_characteristic: count
+    max_age:
+      hours: 24
+    sampling_size: 288
+
+  - platform: statistics
+    name: "Statistiche Camera Grande Calibrazione Temp Change 24h"
+    unique_id: statistics_fancoil_camera_grande_cal_temp_change_24h
+    entity_id: sensor.camera_grande_calibrazione_temp_offset_instantaneo
+    state_characteristic: change
+    max_age:
+      hours: 24
+    sampling_size: 288
+
+  - platform: statistics
+    name: "Statistiche Camera Grande Calibrazione Umidità Count 24h"
+    unique_id: statistics_fancoil_camera_grande_cal_hum_count_24h
+    entity_id: sensor.camera_grande_calibrazione_umidita_offset_instantaneo
+    state_characteristic: count
+    max_age:
+      hours: 24
+    sampling_size: 288
+
+  - platform: statistics
+    name: "Statistiche Camera Grande Calibrazione Umidità Change 24h"
+    unique_id: statistics_fancoil_camera_grande_cal_hum_change_24h
+    entity_id: sensor.camera_grande_calibrazione_umidita_offset_instantaneo
+    state_characteristic: change
+    max_age:
+      hours: 24
+    sampling_size: 288

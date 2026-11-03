@@ -18,7 +18,7 @@ fancoil_%%id%%_logging_enabled:
 fancoil_%%id%%_logging_follow_master:
   name: "%%friendly_name%%: segue logging Master"
   initial: true
-{% if not window_contact_sensor %}
+{% if (has_window | default(true)) and '%%id%%' != 'cucina' %}
 finestra_%%id%%_aperta:
   name: "%%friendly_name%%: finestra aperta"
   icon: mdi:window-open

@@ -310,11 +310,27 @@ automation:
                 entity_id: sensor.usb_tether_status
                 state: "idle"
             sequence:
-              - action: input_text.set_value
-                target:
-                  entity_id: input_text.usb_tether_status_message
-                data:
-                  value: ""
+              - choose:
+                  - conditions:
+                      - condition: template
+                        value_template: "{{ 'in corso' in states('input_text.usb_tether_status_message') }}"
+                    sequence:
+                      - action: input_text.set_value
+                        target:
+                          entity_id: input_text.usb_tether_status_message
+                        data:
+                          value: ""
+              # Se il sensore e' idle e la modalita' e' diversa da Normale (e non c'e' operazione in corso), risincronizza subito
+              - choose:
+                  - conditions:
+                      - condition: template
+                        value_template: "{{ states('input_select.usb_tether_mode') != 'Normale' and 'in corso' not in states('input_text.usb_tether_status_message') }}"
+                    sequence:
+                      - action: input_select.select_option
+                        target:
+                          entity_id: input_select.usb_tether_mode
+                        data:
+                          option: "Normale"
           - conditions:
               - condition: state
                 entity_id: sensor.usb_tether_status
@@ -325,12 +341,10 @@ automation:
                   entity_id: input_text.usb_tether_status_message
                 data:
                   value: ""
-          # ERRORE resta visibile (cosi' l'utente vede cosa e' andato storto),
-          # ma solo se lo stato NON e' idle/active (es. durante una transizione
-          # andata in errore). Se lo stato e' idle, ha gia' pulito sopra.
+          # ERRORE resta visibile (cosi' l'utente vede cosa e' andato storto)
           - conditions:
               - condition: template
-                value_template: "{{ 'ERRORE' in states('input_text.usb_tether_status_message') }}"
+                value_template: "{{ 'ERRORE' in states('input_text.usb_tether_status_message') or 'Pre-flight' in states('input_text.usb_tether_status_message') }}"
             sequence: []
           - conditions: []
             sequence: []
@@ -364,7 +378,7 @@ automation:
           message: "AUTO-RESTORE: Tethering scaduto, routing normale ripristinato"
   - alias: "USB Tether - salva modalità attivata"
     id: usb_tether_salva_modalita
-    description: "Aggiorna input_select.usb_tether_mode quando uno script attiva Server/Intranet"
+    description: "Aggiorna input_select.usb_tether_mode quando uno script attiva Server/Intranet o ripristina Normale"
     trigger:
       - platform: event
         event_type: halog2026_write_event
@@ -372,7 +386,14 @@ automation:
           subsystem: usb_tether
     condition:
       - condition: template
-        value_template: "{{ trigger.event.data.level in ['INFO'] and ('AVVIO: Attivazione modalità Server' in trigger.event.data.message or 'AVVIO: Attivazione modalità Intranet' in trigger.event.data.message) }}"
+        value_template: >-
+          {{ trigger.event.data.level in ['INFO', 'WARN', 'ERROR'] and (
+            'AVVIO: Attivazione modalità Server' in trigger.event.data.message or
+            'AVVIO: Attivazione modalità Intranet' in trigger.event.data.message or
+            'Ripristino routing normale' in trigger.event.data.message or
+            'PRE-FLIGHT FALLITO' in trigger.event.data.message or
+            'Ripristinata modalità Normale' in trigger.event.data.message
+          ) }}
     action:
       - choose:
           - conditions:
@@ -393,6 +414,18 @@ automation:
                   entity_id: input_select.usb_tether_mode
                 data:
                   option: "Intranet"
+          - conditions:
+              - condition: template
+                value_template: >-
+                  {{ 'Ripristino routing normale' in trigger.event.data.message or
+                     'PRE-FLIGHT FALLITO' in trigger.event.data.message or
+                     'Ripristinata modalità Normale' in trigger.event.data.message }}
+            sequence:
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.usb_tether_mode
+                data:
+                  option: "Normale"
   - alias: "USB Tether - salva host selezionato"
     id: usb_tether_salva_host
     description: "Aggiorna input_select.usb_tether_host quando cambia (già fatto dall'UI, ma qui per completezza)"
@@ -539,3 +572,34 @@ automation:
           subsystem: usb_tether
           level: INFO
           message: "STARTUP: Stato letto da file JSON (Note 11: {{ router_status.stdout | default('N/A') }}, Android: {{ debian_status.stdout | default('N/A') }})"
+
+  - alias: "USB Tether - auto-ripristino Normale se Intranet fallisce"
+    id: usb_tether_auto_restore_su_errore_intranet
+    description: "Se la connessione reale è ISOLATA o usb_tether_status è in errore per 45s in modalità Intranet, ripristina Normale"
+    trigger:
+      - platform: state
+        entity_id: sensor.usb_tether_status
+        to: "error"
+        for:
+          seconds: 45
+      - platform: state
+        entity_id: sensor.connessione_attiva_reale
+        to: "ISOLATA"
+        for:
+          seconds: 45
+    condition:
+      - condition: template
+        value_template: "{{ states('input_select.usb_tether_mode') == 'Intranet' }}"
+    action:
+      - action: script.usb_tether_normale
+      - action: persistent_notification.create
+        data:
+          title: "⚠️ Tethering Intranet Fallito - Ripristino Normale"
+          message: >-
+            Il tethering USB su Debian non è più attivo. La modalità Normale (WAN Note 11 sul router)
+            è stata ripristinata automaticamente per evitare l'isolamento della rete.
+      - event: halog2026_write_event
+        event_data:
+          subsystem: usb_tether
+          level: WARN
+          message: "AUTO-RESTORE: Intranet fallita per oltre 45 secondi, ripristinata modalità Normale"

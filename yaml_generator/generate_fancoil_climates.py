@@ -411,7 +411,17 @@ def generate_from_template(template_path, output_dir, vars_map, suffix):
         local_ctx["TH_HUMIDITY_SENSOR"] = local_ctx.get("th_humidity_sensor", "")
         local_ctx["EXTERNAL_HUMIDITY_SENSOR"] = local_ctx.get("external_humidity_sensor", "sensor.meteo_castionetto_umidita")
         # Window contact sensor for stop_condition and window-related logic
-        local_ctx["WINDOW_CONTACT_SENSOR"] = local_ctx.get("window_contact_sensor", "")
+        has_win = local_ctx.get("has_window", True)
+        local_ctx["has_window"] = has_win
+        local_ctx["HAS_WINDOW"] = "true" if has_win else "false"
+        window_contact = local_ctx.get("window_contact_sensor", "")
+        local_ctx["WINDOW_CONTACT_SENSOR"] = window_contact
+        if not has_win:
+            local_ctx["WINDOW_STOP_CONDITION_EXPR"] = "false"
+        elif window_contact:
+            local_ctx["WINDOW_STOP_CONDITION_EXPR"] = f"(is_state('input_boolean.finestra_{room_id}_aperta', 'on') or is_state('{window_contact}', 'on'))"
+        else:
+            local_ctx["WINDOW_STOP_CONDITION_EXPR"] = f"is_state('input_boolean.finestra_{room_id}_aperta', 'on')"
         
         # Render
         final_ctx = {**local_ctx, **common_ctx}
@@ -933,8 +943,7 @@ def main():
         if has_win:
             if local_ctx.get("window_contact_sensor"):
                 triggers.append({"platform": "state", "entity_id": local_ctx["window_contact_sensor"], "id": "window_changed"})
-            else:
-                triggers.append({"platform": "state", "entity_id": f"input_boolean.finestra_{room_id}_aperta", "id": "window_changed"})
+            triggers.append({"platform": "state", "entity_id": f"input_boolean.finestra_{room_id}_aperta", "id": "window_changed"})
         triggers.append({"platform": "time_pattern", "minutes": "/1", "id": "time_tick"})
         
         # Convert triggers to YAML string
@@ -997,12 +1006,58 @@ def main():
         "_manual_advice",
     )
 
-    # Window-Fancoil control: stop fan on window open, resume on close (only for rooms with window contact sensor)
-    window_control_vars = {k: v for k, v in vars_map.items() if v.get("has_window", True) and v.get("window_contact_sensor")}
+    # Window-Fancoil control: stop fan on window open, resume on close (for all rooms with windows)
+    window_control_vars = {k: v for k, v in vars_map.items() if v.get("has_window", True)}
     for key, context in window_control_vars.items():
         local_ctx = dict(context)
         room_id = local_ctx.get("id", key)
-        local_ctx["WINDOW_CONTACT_SENSOR"] = local_ctx.get("window_contact_sensor", "")
+        window_contact = local_ctx.get("window_contact_sensor", "")
+        local_ctx["WINDOW_CONTACT_SENSOR"] = window_contact
+
+        if window_contact:
+            local_ctx["WINDOW_OPEN_TRIGGERS"] = f"""    - trigger: state
+      entity_id: {window_contact}
+      to: "on"
+      for: "00:00:10"
+    - trigger: state
+      entity_id: input_boolean.finestra_{room_id}_aperta
+      to: "on"
+      for: "00:00:05" """
+            local_ctx["WINDOW_CLOSE_TRIGGERS"] = f"""    - trigger: state
+      entity_id: {window_contact}
+      to: "off"
+      for: "00:00:05"
+    - trigger: state
+      entity_id: {window_contact}
+      to: "unavailable"
+      for: "00:05:00"
+    - trigger: state
+      entity_id: input_boolean.finestra_{room_id}_aperta
+      to: "off"
+      for: "00:00:05" """
+            local_ctx["WINDOW_CLOSED_CHECK"] = f"""(states('input_boolean.finestra_{room_id}_aperta') != 'on' and states('{window_contact}') != 'on')"""
+            local_ctx["WINDOW_CONTACT_STATE_VAR"] = f"""states('{window_contact}')"""
+            local_ctx["SYNC_TO_INPUT_BOOLEAN"] = f"""    # Sincronizza input_boolean su ON se aperto da sensore fisico
+    - if:
+        - condition: template
+          value_template: "{{{{ is_state('input_boolean.finestra_{room_id}_aperta', 'off') and is_state('{window_contact}', 'on') }}}}"
+      then:
+        - action: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.finestra_{room_id}_aperta"""
+        else:
+            local_ctx["WINDOW_OPEN_TRIGGERS"] = f"""    - trigger: state
+      entity_id: input_boolean.finestra_{room_id}_aperta
+      to: "on"
+      for: "00:00:05" """
+            local_ctx["WINDOW_CLOSE_TRIGGERS"] = f"""    - trigger: state
+      entity_id: input_boolean.finestra_{room_id}_aperta
+      to: "off"
+      for: "00:00:05" """
+            local_ctx["WINDOW_CLOSED_CHECK"] = f"""(states('input_boolean.finestra_{room_id}_aperta') != 'on')"""
+            local_ctx["WINDOW_CONTACT_STATE_VAR"] = "'off'"
+            local_ctx["SYNC_TO_INPUT_BOOLEAN"] = ""
+
         generate_from_template(
             WINDOW_FANCOIL_CONTROL_TEMPLATE_PATH,
             AUTOMATION_OUTPUT_DIR,
@@ -1087,19 +1142,19 @@ def main():
     generate_from_template(
         "yaml_generator/templates/fancoil_window_fancoil_helpers_input_text.j2",
         "yaml_generator/input_text",
-        {k: v for k, v in vars_map.items() if v.get("has_window", True) and v.get("window_contact_sensor")},
+        {k: v for k, v in vars_map.items() if v.get("has_window", True)},
         "_window_fancoil_helpers",
     )
     generate_from_template(
         "yaml_generator/templates/fancoil_window_fancoil_helpers_input_datetime.j2",
         "yaml_generator/input_datetime",
-        {k: v for k, v in vars_map.items() if v.get("has_window", True) and v.get("window_contact_sensor")},
+        {k: v for k, v in vars_map.items() if v.get("has_window", True)},
         "_window_fancoil_helpers",
     )
     generate_from_template(
         "yaml_generator/templates/fancoil_window_fancoil_helpers_input_boolean.j2",
         "yaml_generator/input_boolean",
-        {k: v for k, v in vars_map.items() if v.get("has_window", True) and v.get("window_contact_sensor")},
+        {k: v for k, v in vars_map.items() if v.get("has_window", True)},
         "_window_fancoil_helpers",
     )
     # Master climate (single file)

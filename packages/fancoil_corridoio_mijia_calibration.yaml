@@ -92,7 +92,7 @@ template:
             {% endif %}
 
       # ---------------------------------------------------------------------------
-      # Sensori Calibrati (Template) - Valori Corretti
+      # Sensori Calibrati (Template) - Valori Corretti (Formula + Offset 24h)
       # ---------------------------------------------------------------------------
       - name: "Corridoio Temperatura Calibrata"
         unique_id: fancoil_corridoio_temp_calibrated
@@ -104,12 +104,15 @@ template:
           {% set Tf = states('sensor.fancoil_corridoio_temperature') | float(none) %}
           {% if Tf is none %}
             unknown
-          {% elif Tf <= 24.5 %}
-            {{ Tf | round(1) }}
           {% else %}
-            {% set delta = Tf - 24.5 %}
-            {% set corr = 0.042 * delta * delta - 0.15 * delta %}
-            {{ (Tf + corr) | round(1) }}
+            {% set offset = states('sensor.statistiche_corridoio_calibrazione_temp_offset_24h') | float(0) %}
+            {% if Tf <= 24.5 %}
+              {{ (Tf + offset) | round(1) }}
+            {% else %}
+              {% set delta = Tf - 24.5 %}
+              {% set corr = 0.042 * delta * delta - 0.15 * delta %}
+              {{ (Tf + corr + offset) | round(1) }}
+            {% endif %}
           {% endif %}
         availability: >-
           {{ states('sensor.fancoil_corridoio_temperature') not in ['unavailable', 'unknown', 'none', ''] }}
@@ -125,12 +128,15 @@ template:
           {% set Tf = states('sensor.fancoil_corridoio_temperature') | float(none) %}
           {% if RHf is none or Tf is none %}
             unknown
-          {% elif RHf >= 60 %}
-            {{ RHf | round(0) }}
           {% else %}
-            {% set corr = 0.45 * (60 - RHf) %}
-            {% set temp_factor = 1 + 0.02 * [0, Tf - 24] | max %}
-            {{ (RHf + corr * temp_factor) | round(0) }}
+            {% set offset = states('sensor.statistiche_corridoio_calibrazione_umidita_offset_24h') | float(0) %}
+            {% if RHf >= 60 %}
+              {{ (RHf + offset) | round(0) }}
+            {% else %}
+              {% set corr = 0.45 * (60 - RHf) %}
+              {% set temp_factor = 1 + 0.02 * [0, Tf - 24] | max %}
+              {{ (RHf + corr * temp_factor + offset) | round(0) }}
+            {% endif %}
           {% endif %}
         availability: >-
           {{ states('sensor.fancoil_corridoio_humidity') not in ['unavailable', 'unknown', 'none', ''] and

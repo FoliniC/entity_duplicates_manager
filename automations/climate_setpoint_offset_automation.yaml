@@ -20,13 +20,33 @@
 
   condition:
     - condition: template
-      value_template: "{{ (trigger.id == 'climate_temp_change' and trigger.to_state.attributes.temperature is defined) or (trigger.id == 'offset_slider_change' and states('input_number.climate_setpoint_offset') is defined) }}"
+      value_template: >
+        {{ trigger is not defined
+           or (trigger.id == 'climate_temp_change' and trigger.to_state is not none and trigger.to_state.attributes.temperature is defined)
+           or (trigger.id == 'offset_slider_change' and states('input_number.climate_setpoint_offset') not in ['unknown', 'unavailable']) }}
 
     - condition: template
       value_template: >
-        {% set climate_entity_id = trigger.entity_id if trigger.id == 'climate_temp_change' else none %}
-        {% if climate_entity_id is none and trigger.id == 'offset_slider_change' %}
-          {% set climate_entities = [
+        {% if trigger is not defined or trigger.id != 'climate_temp_change' %}
+          true
+        {% else %}
+          {% if trigger.from_state is not none and trigger.to_state is not none %}
+            {% set old_target = trigger.from_state.attributes.temperature | float(0) if trigger.from_state.attributes.temperature is defined else 0 %}
+            {% set new_target = trigger.to_state.attributes.temperature | float(0) %}
+            {% set current_offset = states('input_number.climate_setpoint_offset') | float(0) %}
+            {% set expected_current_target = (old_target + current_offset) | round(1) %}
+            {% set actual_current_target = new_target | round(1) %}
+            {{ actual_current_target != expected_current_target }}
+          {% else %}
+            true
+          {% endif %}
+        {% endif %}
+
+  action:
+    - variables:
+        entity_ids_to_update: >-
+          {{ [trigger.entity_id] if (trigger is defined and trigger.id is defined and trigger.id == 'climate_temp_change' and trigger.entity_id is defined)
+             else [
               'climate.climatizzazione_appartamento',
               'climate.controllo_temperatura_cucina',
               'climate.controllo_temperatura_camera_grande',
@@ -34,66 +54,33 @@
               'climate.controllo_temperatura_corridoio',
               'climate.controllo_temperatura_bagno',
               'climate.controllo_temperatura_sala'
-            ] %}
-          {% for entity_id in climate_entities %}
-            {% if states(entity_id) is not none and states(entity_id).attributes.temperature is defined %}
-              {% set original_setpoint = states(entity_id).attributes.temperature | float(0) %}
-              {% set current_offset = states('input_number.climate_setpoint_offset') | float(0) %}
-              {% set expected_setpoint = original_setpoint + current_offset %}
-              {% if (states(entity_id).attributes.temperature | float(0)) != expected_setpoint %}
-                {{ true }}
-              {% endif %}
-            {% endif %}
-          {% endfor %}
-          {{ false }}
-        {% else %}
-        {% set old_target = trigger.from_state.attributes.temperature | float(0) %}
-        {% set new_target = trigger.to_state.attributes.temperature | float(0) %}
-        {% set current_offset = states('input_number.climate_setpoint_offset') | float(0) %}
-        {% set expected_current_target = old_target + current_offset %}
-        {% set actual_current_target = new_target %}
-        {{ actual_current_target != expected_current_target }}
-        {% endif %}
-
-  action:
-    - variables:
-        entity_ids_to_update: >
-          {% if trigger.id == 'offset_slider_change' %}
-            {% set climate_entities = [
-                'climate.climatizzazione_appartamento',
-                'climate.controllo_temperatura_cucina',
-                'climate.controllo_temperatura_camera_grande',
-                'climate.controllo_temperatura_camera',
-                'climate.controllo_temperatura_corridoio',
-                'climate.controllo_temperatura_bagno',
-                'climate.controllo_temperatura_sala'
-              ] %}
-            {{ climate_entities }}
-          {% else %}
-            {{ [trigger.entity_id] }}
-          {% endif %}
+            ] }}
         current_offset: "{{ states('input_number.climate_setpoint_offset') | float(0) }}"
 
     - repeat:
         for_each: "{{ entity_ids_to_update }}"
         sequence:
-          - variables:
-              climate_entity_id: "{{ repeat.item }}"
-              original_setpoint: "{{ states(repeat.item).attributes.temperature | float(0) }}"
-              new_target_setpoint: "{{ original_setpoint + current_offset }}"
+          - if:
+              - condition: template
+                value_template: "{{ state_attr(repeat.item, 'temperature') is not none }}"
+            then:
+              - variables:
+                  climate_entity_id: "{{ repeat.item }}"
+                  original_setpoint: "{{ state_attr(repeat.item, 'temperature') | float(0) }}"
+                  new_target_setpoint: "{{ (original_setpoint + current_offset) | round(1) }}"
 
-          - service: climate.set_temperature
-            data:
-              temperature: "{{ new_target_setpoint }}"
-            target:
-              entity_id: "{{ climate_entity_id }}"
+              - action: climate.set_temperature
+                target:
+                  entity_id: "{{ climate_entity_id }}"
+                data:
+                  temperature: "{{ new_target_setpoint }}"
 
-          - service: system_log.write
-            data:
-              message: >
-                Climate Setpoint Offset Automation:
-                Entity: {{ climate_entity_id }}
-                Original Setpoint: {{ original_setpoint }}
-                Offset: {{ current_offset }}
-                New Target Setpoint: {{ new_target_setpoint }}
-              level: debug
+              - action: system_log.write
+                data:
+                  message: >
+                    Climate Setpoint Offset Automation:
+                    Entity: {{ climate_entity_id }}
+                    Original Setpoint: {{ original_setpoint }}
+                    Offset: {{ current_offset }}
+                    New Target Setpoint: {{ new_target_setpoint }}
+                  level: debug
