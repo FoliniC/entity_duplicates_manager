@@ -11,7 +11,6 @@
   unique_id: omega_esterno
   unit_of_measurement: "g/kg"
   state_class: measurement
-  device_class: humidity
   state: >-
     {% set temp = states('sensor.meteo_castionetto_temperatura') | float(none) %}
     {% set rh = states('sensor.meteo_castionetto_umidita') | float(none) %}

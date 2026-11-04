@@ -157,7 +157,7 @@
 
         # Variabili di trigger sicure contro UndefinedError
         trig_plat: "{{ trigger.platform if trigger is defined else 'manual' }}"
-        trig_ent: "{{ trigger.entity_id if (trigger is defined and trigger.platform == 'state') else '' }}"
+        trig_ent: "{{ trigger.get('entity_id', '') if (trigger is defined and trigger.platform == 'state') else '' }}"
         is_boot: "{{ trigger is defined and trigger.platform == 'homeassistant' }}"
         is_time: "{{ trigger is defined and trigger.platform == 'time_pattern' }}"
         mode_helper_changed: "{{ trig_ent == 'input_select.ev_charge_2025_mode' }}"

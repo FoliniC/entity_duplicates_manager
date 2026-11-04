@@ -25,9 +25,9 @@
     - variables:
         to_state: "{{ trigger.to_state.state }}"
         from_state: "{{ trigger.from_state.state }}"
-        debug_entity: "{{ trigger.entity_id }}"
+        debug_entity: "{{ trigger.get('entity_id', '') }}"
         friendly_name: >-
-          {% set eid = trigger.entity_id %}
+          {% set eid = trigger.get('entity_id', '') %}
           {% if 'luci_cucina' in eid and 'switch_' not in eid %}luce 1
           {% elif 'bancone_cucina' in eid %}luce bancone
           {% elif 'tavolo_cucina' in eid %}luce tavolo

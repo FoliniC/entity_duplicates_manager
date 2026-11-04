@@ -101,7 +101,7 @@
                 name: "Rugiada Esterna"
 
           # === DELTA TEMPERATURA (se disponibile) ===
-          {% if th_id %}
+          {% if ref_sensor and "sensor.th" in ref_sensor %}
           - type: markdown
             content: "## 📈 Delta Temperatura (Tuya vs Fancoil)"
           - type: history-graph
@@ -135,7 +135,7 @@
           {% endif %}
 
           # === DELTA UMIDITÀ (se disponibile) ===
-          {% if th_id %}
+          {% if ref_sensor and "sensor.th" in ref_sensor %}
           - type: markdown
             content: "## 📈 Delta Umidità (Tuya vs Fancoil)"
           - type: history-graph

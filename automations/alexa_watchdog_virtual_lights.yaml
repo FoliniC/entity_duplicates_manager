@@ -15,13 +15,13 @@
     - service: system_log.write
       data:
         level: warning
-        message: "Alexa Watchdog: auto-reset {{ trigger.entity_id | default('sconosciuto') }} dopo 30s (automazione non completata?)"
+        message: "Alexa Watchdog: auto-reset {{ trigger.get('entity_id', 'sconosciuto') }} dopo 30s (automazione non completata?)"
     - service: input_boolean.turn_off
       target:
-        entity_id: "{{ trigger.entity_id | default('') }}"
+        entity_id: "{{ trigger.get('entity_id', '') }}"
     - service: system_log.write
       data:
         level: info
-        message: "Alexa Watchdog: reset completato per {{ trigger.entity_id | default('sconosciuto') }}"
+        message: "Alexa Watchdog: reset completato per {{ trigger.get('entity_id', 'sconosciuto') }}"
   mode: parallel
   max: 10

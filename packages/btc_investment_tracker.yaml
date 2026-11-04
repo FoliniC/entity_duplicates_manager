@@ -79,12 +79,7 @@ template:
         state: >
           {% set current = states('sensor.btc_current_value') | float(0) %}
           {% set invested = states('sensor.btc_investment_eur') | float(0) %}
-          {% set profit = (current - invested) | round(2) %}
-          {% if profit > 0 %}
-            {{ profit }}
-          {% else %}
-            unknown
-          {% endif %}
+          {{ (current - invested) | round(2) }}
 
       - name: "BTC Profit Loss Pct"
         unique_id: btc_profit_loss_pct
@@ -181,12 +176,7 @@ template:
         state: >
           {% set profit = states('sensor.btc_profit_loss') | float(0) %}
           {% set tax = states('sensor.btc_tax_amount') | float(0) %}
-          {% set net = (profit - tax) | round(2) %}
-          {% if net > 0 %}
-            {{ net }}
-          {% else %}
-            unknown
-          {% endif %}
+          {{ (profit - tax) | round(2) }}
 
       - name: "BTC ROI Pct Net"
         unique_id: btc_roi_pct_net

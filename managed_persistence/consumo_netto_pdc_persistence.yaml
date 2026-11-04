@@ -1,0 +1,24 @@
+# Trigger-based sensors for PDC Persistence
+trigger:
+  - platform: state
+    entity_id: sensor.smart_meter_2026_a_pdc_power_a
+  - platform: homeassistant
+    event: start
+  - platform: time_pattern
+    minutes: "/1"
+
+sensor:
+  - name: "Consumo netto PDC"
+    unique_id: sensor.smart_meter_2026_a_pdc_power_a
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    state: >-
+      {% set source = states('sensor.smart_meter_2026_a_pdc_power_a') %}
+      {% if is_number(source) %}
+        {{ source | float(0) }}
+      {% elif this.state not in ['unknown', 'unavailable', 'none', None] %}
+        {{ this.state | float(0) }}
+      {% else %}
+        0
+      {% endif %}

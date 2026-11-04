@@ -13,6 +13,6 @@
       data:
         title: "Batteria Bassa!"
         message: >
-          La batteria del sensore {{ state_attr(trigger.entity_id | default(''), 'friendly_name') | default(trigger.entity_id | default('sconosciuto')) }} è scarica.
+          La batteria del sensore {{ state_attr(trigger.get('entity_id', ''), 'friendly_name') | default(trigger.get('entity_id', 'sconosciuto')) }} è scarica.
           Si prega di sostituirla al più presto.
         notification_id: "battery_low_{{ trigger.to_state.object_id }}"

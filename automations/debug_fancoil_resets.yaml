@@ -23,7 +23,7 @@
         {{ trigger.from_state is not none and trigger.to_state is not none and trigger.from_state.state != trigger.to_state.state }}
   action:
     - variables:
-        debug_entity: "{{ trigger.entity_id }}"
+        debug_entity: "{{ trigger.get('entity_id', '') }}"
         from_state: "{{ trigger.from_state.state if trigger.from_state is not none else 'None' }}"
         to_state: "{{ trigger.to_state.state if trigger.to_state is not none else 'None' }}"
         context_id: "{{ trigger.to_state.context.id if trigger.to_state is not none else 'None' }}"
@@ -78,7 +78,7 @@
         {{ trigger.from_state is not none and trigger.to_state is not none and trigger.from_state.state != trigger.to_state.state }}
   action:
     - variables:
-        debug_entity: "{{ trigger.entity_id }}"
+        debug_entity: "{{ trigger.get('entity_id', '') }}"
         from_state: "{{ trigger.from_state.state if trigger.from_state is not none else 'None' }}"
         to_state: "{{ trigger.to_state.state if trigger.to_state is not none else 'None' }}"
         context_id: "{{ trigger.to_state.context.id if trigger.to_state is not none else 'None' }}"

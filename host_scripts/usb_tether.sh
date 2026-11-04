@@ -566,8 +566,16 @@ cmd_activate() {
     case "$max_min" in
         ''|*[!0-9]*) max_min=30 ;;
     esac
-    [ "$max_min" -lt 1 ] 2>/dev/null && max_min=1
-    [ "$max_min" -gt 480 ] 2>/dev/null && max_min=480
+    # max_min <= 0 = niente auto-expire (modalità persistente)
+    if [ "$max_min" -le 0 ] 2>/dev/null; then
+        max_min=0
+        expire=0
+    else
+        [ "$max_min" -gt 480 ] 2>/dev/null && max_min=480
+        local now_ts
+        now_ts=$(now_epoch)
+        expire=$((now_ts + max_min * 60))
+    fi
 
     # Gia' attivo? In modalita' intranet NON rifiutiamo: il bottone 🌐 Intranet
     # deve essere CORRETTIVO/idempotente (es. la WAN router usb0 e' rimasta
@@ -603,7 +611,12 @@ cmd_activate() {
                 cur_gw=$(ip route get 8.8.8.8 2>/dev/null | awk '{for(i=1;i<=NF;i++){if($i=="via"){print $(i+1); exit}}}')
                 [ -z "$cur_gw" ] && cur_gw="$gw"
                 cur_lan_gw=$(get_default_gw); [ -z "$cur_lan_gw" ] && cur_lan_gw="192.168.0.11"
-                now_ts=$(now_epoch); exp_ts=$((now_ts + max_min * 60))
+                now_ts=$(now_epoch)
+                if [ "$max_min" -gt 0 ] 2>/dev/null; then
+                    exp_ts=$((now_ts + max_min * 60))
+                else
+                    exp_ts=0
+                fi
                 {
                     echo "state=active"
                     echo "mode=$mode"
@@ -611,8 +624,25 @@ cmd_activate() {
                     echo "phone_gw=$cur_gw"
                     echo "lan_gw=$cur_lan_gw"
                     echo "activated_at=$now_ts"
-                    echo "expire_at=$exp_ts"
+                    if [ "$max_min" -gt 0 ] 2>/dev/null; then
+                        echo "expire_at=$exp_ts"
+                    fi
                 } > "$STATE_FILE"
+                # Gestisci watcher: se max_min <= 0, kill watcher esistente; se > 0, (ri)avvia con nuovo expire
+                if [ "$max_min" -le 0 ] 2>/dev/null; then
+                    if [ -f "$PID_FILE" ]; then
+                        kill "$(cat "$PID_FILE" 2>/dev/null)" 2>/dev/null || true
+                        rm -f "$PID_FILE"
+                    fi
+                else
+                    # max_min > 0: (ri)avvia watcher
+                    if [ -f "$PID_FILE" ]; then
+                        kill "$(cat "$PID_FILE" 2>/dev/null)" 2>/dev/null || true
+                        rm -f "$PID_FILE"
+                    fi
+                    setsid bash "$0" _watch "$exp_ts" >/dev/null 2>&1 < /dev/null &
+                    echo $! > "$PID_FILE"
+                fi
                 echo "Modalita' INTRANET (correttiva): WAN router down, anchor + NAT + stato ripristinati."
                 return 0
             else
@@ -716,6 +746,7 @@ cmd_activate() {
     fi
 
     # Salva stato (include la modalita' per ripristino corretto).
+    # Se max_min <= 0 (persistente), non scrivere expire_at e non avviare watcher.
     {
         echo "state=active"
         echo "mode=$mode"
@@ -723,17 +754,23 @@ cmd_activate() {
         echo "phone_gw=$gw"
         echo "lan_gw=$lan_gw"
         echo "activated_at=$now"
-        echo "expire_at=$expire"
+        if [ "$max_min" -gt 0 ] 2>/dev/null; then
+            echo "expire_at=$expire"
+        fi
     } > "$STATE_FILE"
 
-    # Lancia il watcher detached: fa da safety net indipendente da HA.
-    # Il watcher dorme e poi chiama restore; viene killato se si fa restore manuale.
-    if [ -f "$PID_FILE" ]; then
-        kill "$(cat "$PID_FILE" 2>/dev/null)" 2>/dev/null || true
-        rm -f "$PID_FILE"
+    # Lancia il watcher detached solo se max_min > 0 (auto-expire abilitato).
+    if [ "$max_min" -gt 0 ] 2>/dev/null; then
+        if [ -f "$PID_FILE" ]; then
+            kill "$(cat "$PID_FILE" 2>/dev/null)" 2>/dev/null || true
+            rm -f "$PID_FILE"
+        fi
+        setsid bash "$0" _watch "$expire" >/dev/null 2>&1 < /dev/null &
+        echo $! > "$PID_FILE"
+    else
+        # Modalità persistente: rimuovi PID file se presente (vecchio watcher)
+        rm -f "$PID_FILE" 2>/dev/null || true
     fi
-    setsid bash "$0" _watch "$expire" >/dev/null 2>&1 < /dev/null &
-    echo $! > "$PID_FILE"
 
     echo "OK attivato: $iface via $gw per ${max_min} min (modalita $mode)."
     return 0
@@ -750,8 +787,12 @@ cmd_rndis_activate() {
     case "$max_min_valid" in
         ''|*[!0-9]*) max_min_valid=30 ;;
     esac
-    [ "$max_min_valid" -lt 1 ] 2>/dev/null && max_min_valid=1
-    [ "$max_min_valid" -gt 480 ] 2>/dev/null && max_min_valid=480
+    # max_min <= 0 = niente auto-expire (modalità persistente)
+    if [ "$max_min_valid" -le 0 ] 2>/dev/null; then
+        max_min_valid=0
+    else
+        [ "$max_min_valid" -gt 480 ] 2>/dev/null && max_min_valid=480
+    fi
 
     # Trova dinamicamente l'interfaccia RNDIS Xiaomi (VID 2717).
     local iface=""
@@ -832,7 +873,11 @@ cmd_rndis_activate() {
 
     local now expire
     now=$(now_epoch)
-    expire=$((now + max_min_valid * 60))
+    if [ "$max_min_valid" -gt 0 ] 2>/dev/null; then
+        expire=$((now + max_min_valid * 60))
+    else
+        expire=0
+    fi
 
     {
         echo "state=active"
@@ -841,15 +886,23 @@ cmd_rndis_activate() {
         echo "phone_gw=$gw"
         echo "lan_gw=$lan_gw"
         echo "activated_at=$now"
-        echo "expire_at=$expire"
+        if [ "$max_min_valid" -gt 0 ] 2>/dev/null; then
+            echo "expire_at=$expire"
+        fi
     } > "$STATE_FILE"
 
-    if [ -f "$PID_FILE" ]; then
-        kill "$(cat "$PID_FILE" 2>/dev/null)" 2>/dev/null || true
-        rm -f "$PID_FILE"
+    # Lancia il watcher detached solo se max_min_valid > 0 (auto-expire abilitato).
+    if [ "$max_min_valid" -gt 0 ] 2>/dev/null; then
+        if [ -f "$PID_FILE" ]; then
+            kill "$(cat "$PID_FILE" 2>/dev/null)" 2>/dev/null || true
+            rm -f "$PID_FILE"
+        fi
+        setsid bash "$0" _watch "$expire" >/dev/null 2>&1 < /dev/null &
+        echo $! > "$PID_FILE"
+    else
+        # Modalità persistente: rimuovi PID file se presente (vecchio watcher)
+        rm -f "$PID_FILE" 2>/dev/null || true
     fi
-    setsid bash "$0" _watch "$expire" >/dev/null 2>&1 < /dev/null &
-    echo $! > "$PID_FILE"
 
     echo "OK attivato: $iface via $gw per ${max_min_valid} min (modalita $mode_valid)."
     return 0
@@ -1126,24 +1179,13 @@ cmd_status() {
                 rm -f "/run/usb_tether_intranet_stale_since" 2>/dev/null || true
             else
                 # Anchor Intranet presente ma telefono su Debian ASSENTE: STALE.
-                # Realtà: il tethering è morto. Segnala errore ma usa dati diretti.
-                state="error"; mode="intranet"
-                message="Anchor Intranet presente ma telefono su Debian assente: eseguire restore o riattivare il tethering USB."
-
-                # AUTO-HEAL: se questa condizione persiste da oltre 45s,
-                # avvia restore automatico a Normale per sbloccare la rete locale
-                local stale_file="/run/usb_tether_intranet_stale_since"
-                if [ ! -f "$stale_file" ]; then
-                    echo "$now" > "$stale_file"
-                else
-                    local stale_since
-                    stale_since=$(cat "$stale_file" 2>/dev/null)
-                    if [ -n "$stale_since" ] && [ $((now - stale_since)) -ge 45 ]; then
-                        echo "$(date '+%Y-%m-%d %H:%M:%S') [AUTO-HEAL] Anchor Intranet orfano rilevato da oltre 45s: avvio restore automatico a Normale" >> /home/carlo/docker/homeassistant/config/logs/usb_tether/usb_tether_events.log 2>/dev/null
-                        rm -f "$stale_file"
-                        setsid bash "$0" restore >/dev/null 2>&1 < /dev/null &
-                    fi
-                fi
+                # Realtà: il tethering è morto. Avvia restore immediato a Normale.
+                echo "$(date '+%Y-%m-%d %H:%M:%S') [AUTO-HEAL] Anchor Intranet orfano rilevato: avvio restore immediato a Normale" >> /home/carlo/docker/homeassistant/config/logs/usb_tether/usb_tether_events.log 2>/dev/null
+                rm -f "/run/usb_tether_intranet_stale_since" 2>/dev/null || true
+                setsid bash "$0" restore >/dev/null 2>&1 < /dev/null &
+                # Restituisce stato di transizione per non bloccare la dashboard
+                state="restoring"; mode="intranet"
+                message="Anchor Intranet orfano: ripristino Normale in corso..."
             fi
         elif [[ -z "$router_route" ]]; then
             # Router senza default route: potrebbe essere in transizione intranet (wan down, anchor non ancora aggiunto).
@@ -1177,10 +1219,14 @@ cmd_status() {
             active_since=$(grep -E '^activated_at=' "$STATE_FILE" | cut -d= -f2-)
             local expire
             expire=$(grep -E '^expire_at=' "$STATE_FILE" | cut -d= -f2-)
-            if [ -n "$expire" ] && [ -n "$active_since" ]; then
+            # auto_expire solo se expire_at esiste ed è nel futuro
+            if [ -n "$expire" ] && [ "$expire" -gt "$now" ] 2>/dev/null; then
                 remaining_min=$(( (expire - now) / 60 ))
                 [ "$remaining_min" -lt 0 ] && remaining_min=0
                 auto_expire="true"
+            else
+                remaining_min=0
+                auto_expire="false"
             fi
             message="Router non raggiungibile: stato da STATE_FILE (fallback)"
         else
@@ -1201,10 +1247,14 @@ cmd_status() {
         sf_activated=$(grep -E '^activated_at=' "$STATE_FILE" | cut -d= -f2-)
         if [[ "$state" == "$sf_state" ]] && [[ "$mode" == "$sf_mode" ]]; then
             [ -n "$sf_activated" ] && active_since="$sf_activated"
-            if [ -n "$sf_expire" ]; then
+            # auto_expire solo se expire_at esiste ed è nel futuro
+            if [ -n "$sf_expire" ] && [ "$sf_expire" -gt "$now" ] 2>/dev/null; then
                 remaining_min=$(( (sf_expire - now) / 60 ))
                 [ "$remaining_min" -lt 0 ] && remaining_min=0
                 auto_expire="true"
+            else
+                remaining_min=0
+                auto_expire="false"
             fi
             [[ -z "$phone_if" ]] && [[ -n "$sf_phone_if" ]] && phone_if="$sf_phone_if"
         fi

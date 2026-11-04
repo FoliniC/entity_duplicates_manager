@@ -1,6 +1,6 @@
 {
   "status": "ok",
-  "timestamp": "2026-11-03T03:03:32+01:00",
+  "timestamp": "2026-11-04T02:59:07+01:00",
   "router": {"rndis":"active","ip":"10.11.68.19","gateway":"unknown","message":"OK - RNDIS attivo, gateway reachable"},
   "debian": {"status":"unknown","message":"Non verificato - nessun tethering USB attivo su Debian (enx* non trovato o senza IP)"}
 }

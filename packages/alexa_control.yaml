@@ -78,18 +78,12 @@ script:
         data:
           level: info
           message: "Alexa Stop: interrompi riproduzione"
-      - action: media_player.play_media
+      - action: media_player.media_stop
         target:
-          entity_id: media_player.2o_echo_dot_di_carlo
-        data:
-          media_content_id: "ferma"
-          media_content_type: "custom"
-      - action: media_player.play_media
+          entity_id: media_player.cucina
+      - action: media_player.media_stop
         target:
-          entity_id: media_player.echo_dot_di_carlo
-        data:
-          media_content_id: "ferma"
-          media_content_type: "custom"
+          entity_id: media_player.sistema_audio
       - action: media_player.media_stop
         target:
           entity_id: media_player.2o_echo_dot_di_carlo

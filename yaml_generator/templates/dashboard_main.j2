@@ -578,6 +578,190 @@ views:
                     name: Delta C.Grande
                   - entity: sensor.fancoil_camera_hum_delta_th_internal
                     name: Delta Camera
+
+          - type: vertical-stack
+            cards:
+              - type: markdown
+                content: "### Confronto Temperatura Pilota (Fancoil vs TH vs KNX)"
+              - type: history-graph
+                hours_to_show: 24
+                title: "Temperatura Pilota - 24h"
+                entities:
+                  - entity: sensor.temperatura_cucina_pilota
+                    name: Cucina (Pilota)
+                  - entity: sensor.fancoil_cucina_temperature
+                    name: Cucina (Fancoil)
+                  - entity: sensor.th1a_temperature
+                    name: Cucina (Tuya TH)
+                  - entity: sensor.temperatura_camera_grande_pilota
+                    name: C.Grande (Pilota)
+                  - entity: sensor.fancoil_camera_grande_temperature
+                    name: C.Grande (Fancoil)
+                  - entity: sensor.th2b_temperature
+                    name: C.Grande (Tuya TH)
+                  - entity: sensor.temperatura_camera_grande
+                    name: C.Grande (KNX)
+                  - entity: sensor.temperatura_camera_pilota
+                    name: Camera (Pilota)
+                  - entity: sensor.fancoil_camera_temperature
+                    name: Camera (Fancoil)
+                  - entity: sensor.th3c_temperature
+                    name: Camera (Tuya TH)
+                  - entity: sensor.temperatura_camera
+                    name: Camera (KNX)
+                  - entity: sensor.temperatura_bagno_pilota
+                    name: Bagno (Pilota)
+                  - entity: sensor.fancoil_bagno_temperature
+                    name: Bagno (Fancoil)
+                  - entity: sensor.temperatura_bagno
+                    name: Bagno (KNX)
+                  - entity: sensor.temperatura_sala_pilota
+                    name: Sala (Pilota)
+                  - entity: sensor.fancoil_sala_temperature
+                    name: Sala (Fancoil)
+                  - entity: sensor.temperatura_sala
+                    name: Sala (KNX)
+              - type: history-graph
+                hours_to_show: 168
+                title: "Temperatura Pilota - 7 giorni"
+                entities:
+                  - entity: sensor.temperatura_cucina_pilota
+                    name: Cucina (Pilota)
+                  - entity: sensor.fancoil_cucina_temperature
+                    name: Cucina (Fancoil)
+                  - entity: sensor.th1a_temperature
+                    name: Cucina (Tuya TH)
+                  - entity: sensor.temperatura_camera_grande_pilota
+                    name: C.Grande (Pilota)
+                  - entity: sensor.fancoil_camera_grande_temperature
+                    name: C.Grande (Fancoil)
+                  - entity: sensor.th2b_temperature
+                    name: C.Grande (Tuya TH)
+                  - entity: sensor.temperatura_camera_grande
+                    name: C.Grande (KNX)
+                  - entity: sensor.temperatura_camera_pilota
+                    name: Camera (Pilota)
+                  - entity: sensor.fancoil_camera_temperature
+                    name: Camera (Fancoil)
+                  - entity: sensor.th3c_temperature
+                    name: Camera (Tuya TH)
+                  - entity: sensor.temperatura_camera
+                    name: Camera (KNX)
+                  - entity: sensor.temperatura_bagno_pilota
+                    name: Bagno (Pilota)
+                  - entity: sensor.fancoil_bagno_temperature
+                    name: Bagno (Fancoil)
+                  - entity: sensor.temperatura_bagno
+                    name: Bagno (KNX)
+                  - entity: sensor.temperatura_sala_pilota
+                    name: Sala (Pilota)
+                  - entity: sensor.fancoil_sala_temperature
+                    name: Sala (Fancoil)
+                  - entity: sensor.temperatura_sala
+                    name: Sala (KNX)
+
+          - type: vertical-stack
+            cards:
+              - type: markdown
+                content: "### Confronto Umidità Relativa Pilota (Fancoil vs TH vs KNX)"
+              - type: history-graph
+                hours_to_show: 24
+                title: "Umidità Relativa Pilota - 24h"
+                entities:
+                  - entity: sensor.umidita_cucina_pilota
+                    name: Cucina (Pilota)
+                  - entity: sensor.fancoil_cucina_humidity
+                    name: Cucina (Fancoil)
+                  - entity: sensor.th1a_humidity
+                    name: Cucina (Tuya TH)
+                  - entity: sensor.umidita_camera_grande_pilota
+                    name: C.Grande (Pilota)
+                  - entity: sensor.fancoil_camera_grande_humidity
+                    name: C.Grande (Fancoil)
+                  - entity: sensor.th2b_humidity
+                    name: C.Grande (Tuya TH)
+                  - entity: sensor.umidita_camera_pilota
+                    name: Camera (Pilota)
+                  - entity: sensor.fancoil_camera_humidity
+                    name: Camera (Fancoil)
+                  - entity: sensor.th3c_humidity
+                    name: Camera (Tuya TH)
+                  - entity: sensor.umidita_bagno_pilota
+                    name: Bagno (Pilota)
+                  - entity: sensor.fancoil_bagno_humidity
+                    name: Bagno (Fancoil)
+                  - entity: sensor.umidita_sala_pilota
+                    name: Sala (Pilota)
+                  - entity: sensor.fancoil_sala_humidity
+                    name: Sala (Fancoil)
+              - type: history-graph
+                hours_to_show: 168
+                title: "Umidità Relativa Pilota - 7 giorni"
+                entities:
+                  - entity: sensor.umidita_cucina_pilota
+                    name: Cucina (Pilota)
+                  - entity: sensor.fancoil_cucina_humidity
+                    name: Cucina (Fancoil)
+                  - entity: sensor.th1a_humidity
+                    name: Cucina (Tuya TH)
+                  - entity: sensor.umidita_camera_grande_pilota
+                    name: C.Grande (Pilota)
+                  - entity: sensor.fancoil_camera_grande_humidity
+                    name: C.Grande (Fancoil)
+                  - entity: sensor.th2b_humidity
+                    name: C.Grande (Tuya TH)
+                  - entity: sensor.umidita_camera_pilota
+                    name: Camera (Pilota)
+                  - entity: sensor.fancoil_camera_humidity
+                    name: Camera (Fancoil)
+                  - entity: sensor.th3c_humidity
+                    name: Camera (Tuya TH)
+                  - entity: sensor.umidita_bagno_pilota
+                    name: Bagno (Pilota)
+                  - entity: sensor.fancoil_bagno_humidity
+                    name: Bagno (Fancoil)
+                  - entity: sensor.umidita_sala_pilota
+                    name: Sala (Pilota)
+                  - entity: sensor.fancoil_sala_humidity
+                    name: Sala (Fancoil)
+
+          - type: vertical-stack
+            cards:
+              - type: markdown
+                content: "### Confronto Umidità Assoluta (ω) Pilota"
+              - type: history-graph
+                hours_to_show: 24
+                title: "Umidità Assoluta (ω) Pilota - 24h"
+                entities:
+                  - entity: sensor.omega_cucina
+                    name: Cucina (ω)
+                  - entity: sensor.omega_camera_grande
+                    name: C.Grande (ω)
+                  - entity: sensor.omega_camera
+                    name: Camera (ω)
+                  - entity: sensor.omega_bagno
+                    name: Bagno (ω)
+                  - entity: sensor.omega_sala
+                    name: Sala (ω)
+                  - entity: sensor.omega_esterno
+                    name: Esterna (ω)
+              - type: history-graph
+                hours_to_show: 168
+                title: "Umidità Assoluta (ω) Pilota - 7 giorni"
+                entities:
+                  - entity: sensor.omega_cucina
+                    name: Cucina (ω)
+                  - entity: sensor.omega_camera_grande
+                    name: C.Grande (ω)
+                  - entity: sensor.omega_camera
+                    name: Camera (ω)
+                  - entity: sensor.omega_bagno
+                    name: Bagno (ω)
+                  - entity: sensor.omega_sala
+                    name: Sala (ω)
+                  - entity: sensor.omega_esterno
+                    name: Esterna (ω)
+
   - title: Climatizzazione
     path: climatizzazione
     icon: mdi:air-filter
@@ -596,8 +780,8 @@ views:
               {% set soglia_circ = states('input_number.circuit_temp_threshold_heat') | float(30) %}
               {% set circ_ok = t_circ >= soglia_circ %}
               {% set win_rooms = [] %}
-              {% if is_state('input_boolean.finestra_cucina_aperta','on') or is_state('binary_sensor.contact_cucina_contact_cucina','on') %}{% set win_rooms = win_rooms + ['Cucina'] %}{% endif %}
-              {% if is_state('input_boolean.finestra_camera_grande_aperta','on') or is_state('binary_sensor.finestra_camera_grande_finestra_camera_grande','on') %}{% set win_rooms = win_rooms + ['Camera grande'] %}{% endif %}
+              {% if is_state('binary_sensor.contact_cucina_contact_cucina','on') %}{% set win_rooms = win_rooms + ['Cucina'] %}{% endif %}
+              {% if is_state('binary_sensor.finestra_camera_grande_finestra_camera_grande','on') %}{% set win_rooms = win_rooms + ['Camera grande'] %}{% endif %}
               {% if is_state('input_boolean.finestra_camera_aperta','on') %}{% set win_rooms = win_rooms + ['Camera'] %}{% endif %}
               {% if is_state('input_boolean.finestra_bagno_aperta','on') %}{% set win_rooms = win_rooms + ['Bagno'] %}{% endif %}
               {% if is_state('input_boolean.finestra_sala_aperta','on') %}{% set win_rooms = win_rooms + ['Sala'] %}{% endif %}
@@ -628,8 +812,8 @@ views:
               {% set soglia_circ = states('input_number.circuit_temp_threshold_heat') | float(30) %}
               {% set circ_ok = t_circ >= soglia_circ %}
               {% set win_rooms = [] %}
-              {% if is_state('input_boolean.finestra_cucina_aperta','on') or is_state('binary_sensor.contact_cucina_contact_cucina','on') %}{% set win_rooms = win_rooms + ['Cucina'] %}{% endif %}
-              {% if is_state('input_boolean.finestra_camera_grande_aperta','on') or is_state('binary_sensor.finestra_camera_grande_finestra_camera_grande','on') %}{% set win_rooms = win_rooms + ['Camera grande'] %}{% endif %}
+              {% if is_state('binary_sensor.contact_cucina_contact_cucina','on') %}{% set win_rooms = win_rooms + ['Cucina'] %}{% endif %}
+              {% if is_state('binary_sensor.finestra_camera_grande_finestra_camera_grande','on') %}{% set win_rooms = win_rooms + ['Camera grande'] %}{% endif %}
               {% if is_state('input_boolean.finestra_camera_aperta','on') %}{% set win_rooms = win_rooms + ['Camera'] %}{% endif %}
               {% if is_state('input_boolean.finestra_bagno_aperta','on') %}{% set win_rooms = win_rooms + ['Bagno'] %}{% endif %}
               {% if is_state('input_boolean.finestra_sala_aperta','on') %}{% set win_rooms = win_rooms + ['Sala'] %}{% endif %}

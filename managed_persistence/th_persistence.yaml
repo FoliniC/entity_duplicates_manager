@@ -1,0 +1,245 @@
+trigger:
+  - platform: state
+    entity_id:
+      - sensor.th1a_temperature
+      - sensor.th1a_humidity
+      - sensor.th1a_battery
+      - sensor.th2b_temperature
+      - sensor.th2b_humidity
+      - sensor.th2b_battery
+      - sensor.th3c_temperature
+      - sensor.th3c_humidity
+      - sensor.th3c_battery
+      - sensor.th4d_temperature
+      - sensor.th4d_humidity
+      - sensor.th4d_battery
+    to: ~
+  - platform: homeassistant
+    event: start
+  - platform: time_pattern
+    minutes: "/1"
+
+sensor:
+  - name: "th1a Temperature"
+    unique_id: "th1a_temperature"
+    state_class: "measurement"
+    device_class: "temperature"
+    unit_of_measurement: "°C"
+    attributes:
+      persistence: trigger_based
+      managed_by: generate_sensors.py
+      area: cucina
+    state: >
+      {% set sensor_id = 'sensor.th1a_temperature' %}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number and val | float > -100 %}
+        {{ val | float }}
+      {% else %}
+        {{ this.state | float(default=21.0) }}
+      {% endif %}
+
+  - name: "th1a Humidity"
+    unique_id: "th1a_humidity"
+    state_class: "measurement"
+    device_class: "humidity"
+    unit_of_measurement: "%"
+    attributes:
+      persistence: trigger_based
+      managed_by: generate_sensors.py
+      area: cucina
+    state: >
+      {% set sensor_id = 'sensor.th1a_humidity' %}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number and val | float > -100 %}
+        {{ val | float }}
+      {% else %}
+        {{ this.state | float(default=50.0) }}
+      {% endif %}
+
+  - name: "th1a Battery"
+    unique_id: "th1a_battery"
+    device_class: "battery"
+    unit_of_measurement: "%"
+    attributes:
+      persistence: trigger_based
+      managed_by: generate_sensors.py
+      area: cucina
+    state: >
+      {% set sensor_id = 'sensor.th1a_battery' %}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number %}
+        {{ val | float }}
+      {% else %}
+        {{ this.state | float(default=100.0) }}
+      {% endif %}
+
+  - name: "th2b Temperature"
+    unique_id: "th2b_temperature"
+    state_class: "measurement"
+    device_class: "temperature"
+    unit_of_measurement: "°C"
+    attributes:
+      persistence: trigger_based
+      managed_by: generate_sensors.py
+      area: camera_grande
+    state: >
+      {% set sensor_id = 'sensor.th2b_temperature' %}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number and val | float > -100 %}
+        {{ val | float }}
+      {% else %}
+        {{ this.state | float(default=21.0) }}
+      {% endif %}
+
+  - name: "th2b Humidity"
+    unique_id: "th2b_humidity"
+    state_class: "measurement"
+    device_class: "humidity"
+    unit_of_measurement: "%"
+    attributes:
+      persistence: trigger_based
+      managed_by: generate_sensors.py
+      area: camera_grande
+    state: >
+      {% set sensor_id = 'sensor.th2b_humidity' %}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number and val | float > -100 %}
+        {{ val | float }}
+      {% else %}
+        {{ this.state | float(default=50.0) }}
+      {% endif %}
+
+  - name: "th2b Battery"
+    unique_id: "th2b_battery"
+    device_class: "battery"
+    unit_of_measurement: "%"
+    attributes:
+      persistence: trigger_based
+      managed_by: generate_sensors.py
+      area: camera_grande
+    state: >
+      {% set sensor_id = 'sensor.th2b_battery' %}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number %}
+        {{ val | float }}
+      {% else %}
+        {{ this.state | float(default=100.0) }}
+      {% endif %}
+
+  - name: "th3c Temperature"
+    unique_id: "th3c_temperature"
+    state_class: "measurement"
+    device_class: "temperature"
+    unit_of_measurement: "°C"
+    attributes:
+      persistence: trigger_based
+      managed_by: generate_sensors.py
+      area: camera
+    state: >
+      {% set sensor_id = 'sensor.th3c_temperature' %}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number and val | float > -100 %}
+        {{ val | float }}
+      {% else %}
+        {{ this.state | float(default=21.0) }}
+      {% endif %}
+
+  - name: "th3c Humidity"
+    unique_id: "th3c_humidity"
+    state_class: "measurement"
+    device_class: "humidity"
+    unit_of_measurement: "%"
+    attributes:
+      persistence: trigger_based
+      managed_by: generate_sensors.py
+      area: camera
+    state: >
+      {% set sensor_id = 'sensor.th3c_humidity' %}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number and val | float > -100 %}
+        {{ val | float }}
+      {% else %}
+        {{ this.state | float(default=50.0) }}
+      {% endif %}
+
+  - name: "th3c Battery"
+    unique_id: "th3c_battery"
+    device_class: "battery"
+    unit_of_measurement: "%"
+    attributes:
+      persistence: trigger_based
+      managed_by: generate_sensors.py
+      area: camera
+    state: >
+      {% set sensor_id = 'sensor.th3c_battery' %}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number %}
+        {{ val | float }}
+      {% elif val == 'high' %}
+        100
+      {% elif val == 'middle' %}
+        50
+      {% elif val == 'low' %}
+        20
+      {% else %}
+        {{ this.state | float(default=100.0) }}
+      {% endif %}
+
+  - name: "th4d Temperature"
+    unique_id: "th4d_temperature"
+    state_class: "measurement"
+    device_class: "temperature"
+    unit_of_measurement: "°C"
+    attributes:
+      persistence: trigger_based
+      managed_by: generate_sensors.py
+      area: balcone
+    state: >
+      {% set sensor_id = 'sensor.th4d_temperature' %}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number and val | float > -100 %}
+        {{ val | float }}
+      {% else %}
+        {{ this.state | float(default=21.0) }}
+      {% endif %}
+
+  - name: "th4d Humidity"
+    unique_id: "th4d_humidity"
+    state_class: "measurement"
+    device_class: "humidity"
+    unit_of_measurement: "%"
+    attributes:
+      persistence: trigger_based
+      managed_by: generate_sensors.py
+      area: balcone
+    state: >
+      {% set sensor_id = 'sensor.th4d_humidity' %}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number and val | float > -100 %}
+        {{ val | float }}
+      {% else %}
+        {{ this.state | float(default=50.0) }}
+      {% endif %}
+
+  - name: "th4d Battery"
+    unique_id: "th4d_battery"
+    device_class: "battery"
+    unit_of_measurement: "%"
+    attributes:
+      persistence: trigger_based
+      managed_by: generate_sensors.py
+      area: balcone
+    state: >
+      {% set sensor_id = 'sensor.th4d_battery' %}
+      {% set val = states(sensor_id) %}
+      {% if val | is_number %}
+        {{ val | float }}
+      {% elif val == 'high' %}
+        100
+      {% elif val == 'middle' %}
+        50
+      {% elif val == 'low' %}
+        20
+      {% else %}
+        {{ this.state | float(default=100.0) }}
+      {% endif %}

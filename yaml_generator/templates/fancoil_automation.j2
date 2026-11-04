@@ -201,7 +201,7 @@
                 entity_id: input_text.fancoil_%%id%%_trigger_prev
               data:
                 value: >-
-                  {{ {'e': trigger.entity_id, 'f': trigger.from_state.state, 't': trigger.to_state.state} | to_json }}
+                  {{ {'e': trigger.get('entity_id', ''), 'f': trigger.from_state.state, 't': trigger.to_state.state} | to_json }}
     # Log di debug (solo verbose) esclusi quando climate è OFF o main è OFF o climate non disponibile
     - if:
         - condition: template

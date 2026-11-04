@@ -27,16 +27,16 @@
               data:
                 level: warning
                 message: "Alexa Uscita: modalità tethering NON è Normale (attuale: {{ states('input_select.usb_tether_mode') }})"
-            - service: notify.send_message
+            - service: media_player.play_media
               target:
-                entity_id: notify.cucina_speak
+                entity_id: media_player.2o_echo_dot_di_carlo
               data:
-                message: "Attenzione: la connessione non è in modalità Normale. Attualmente è {{ states('input_select.usb_tether_mode') }}. Cambiala in Normale prima di uscire."
-    # 2. Spegni tutte le luci (tranne light.uscita che è il trigger)
+                media_content_id: "Attenzione: la connessione non è in modalità Normale. Attualmente è {{ states('input_select.usb_tether_mode') }}. Cambiala in Normale prima di uscire."
+                media_content_type: "custom"
+    # 3. Spegni luci (tranne light.luce_scale che serve per uscita)
     - service: light.turn_off
       target:
         entity_id:
-          - light.luce_scale
           - light.verifica
     - service: switch.turn_off
       target:
@@ -45,13 +45,29 @@
           - switch.bancone_cucina
           - switch.tavolo_cucina
           - switch.cucina_luci_cucina_switch_4
-    # 3. Spegni radio/sistema audio se in riproduzione
+    # 4. Spegni radio/sistema audio se in riproduzione
     - service: system_log.write
       data:
         level: info
-        message: "Alexa Uscita - Invio comando FERMA a tutti i device Alexa (stati: cucina={{ states('media_player.cucina') }}, sistema_audio={{ states('media_player.sistema_audio') }}, 2o_echo={{ states('media_player.2o_echo_dot_di_carlo') }})"
+        message: "Alexa Uscita - Invio media_stop a cucina e sistema_audio (stati: cucina={{ states('media_player.cucina') }}, sistema_audio={{ states('media_player.sistema_audio') }}, 2o_echo={{ states('media_player.2o_echo_dot_di_carlo') }})"
     - choose:
-        # alexa_media (supporta media_stop) - Ora abilitato!
+        # media_stop su alexa_media (ora disponibili!)
+        - conditions:
+            - condition: state
+              entity_id: media_player.cucina
+              state: "playing"
+          sequence:
+            - service: media_player.media_stop
+              target:
+                entity_id: media_player.cucina
+        - conditions:
+            - condition: state
+              entity_id: media_player.sistema_audio
+              state: "playing"
+          sequence:
+            - service: media_player.media_stop
+              target:
+                entity_id: media_player.sistema_audio
         - conditions:
             - condition: state
               entity_id: media_player.2o_echo_dot_di_carlo
@@ -68,32 +84,18 @@
             - service: media_player.media_stop
               target:
                 entity_id: media_player.echo_dot_di_carlo
-        # alexa_media per cucina (ex alexa_devices) - usa play_media custom
-        - conditions: []
-          sequence:
-            - service: media_player.play_media
-              target:
-                entity_id: media_player.2o_echo_dot_di_carlo
-              data:
-                media_content_id: "ferma"
-                media_content_type: "custom"
-            - service: media_player.play_media
-              target:
-                entity_id: media_player.echo_dot_di_carlo
-              data:
-                media_content_id: "ferma"
-                media_content_type: "custom"
-    # 4. Accendi luci scale (per percorso uscita)
+    # 5. Accendi luci scale (per percorso uscita)
     - service: light.turn_on
       target:
         entity_id: light.luce_scale
-    # 5. Saluto finale
-    - service: notify.send_message
+    # 6. Saluto finale via alexa_media
+    - service: media_player.play_media
       target:
-        entity_id: notify.cucina_speak
+        entity_id: media_player.2o_echo_dot_di_carlo
       data:
-        message: "Arrivederci Carlo!"
-    # 6. Auto-reset input_boolean Alexa dopo 3 secondi
+        media_content_id: "Arrivederci Carlo!"
+        media_content_type: "custom"
+    # 7. Auto-reset input_boolean Alexa dopo 3 secondi
     - delay: "00:00:03"
     - service: input_boolean.turn_off
       target:

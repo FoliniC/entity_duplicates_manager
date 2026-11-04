@@ -26,7 +26,7 @@
           sequence:
             - event: scale_log_event
               event_data:
-                message: "Switch {{ trigger.entity_id }} cambiato a {{ trigger.to_state.state }} (Origine: HA - {{ source }})"
+                message: "Switch {{ trigger.get('entity_id', '') }} cambiato a {{ trigger.to_state.state }} (Origine: HA - {{ source }})"
                 level: INFO
                 action: "attuatore"
                 wait: 3
@@ -38,7 +38,7 @@
           sequence:
             - event: scale_log_event
               event_data:
-                message: "Switch {{ trigger.entity_id }} cambiato a {{ trigger.to_state.state }} (Origine: Interfaccia - {{ user_name }})"
+                message: "Switch {{ trigger.get('entity_id', '') }} cambiato a {{ trigger.to_state.state }} (Origine: Interfaccia - {{ user_name }})"
                 level: INFO
                 action: "attuatore"
                 wait: 3
@@ -50,7 +50,7 @@
           sequence:
             - event: scale_log_event
               event_data:
-                message: "Switch {{ trigger.entity_id }} cambiato a {{ trigger.to_state.state }} (Origine: Interruttore Fisico)"
+                message: "Switch {{ trigger.get('entity_id', '') }} cambiato a {{ trigger.to_state.state }} (Origine: Interruttore Fisico)"
                 level: INFO
                 action: "attuatore"
                 wait: 3
