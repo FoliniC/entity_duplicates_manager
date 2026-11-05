@@ -8,11 +8,11 @@
     # 1. Apri porta ingresso
     - service: cover.open_cover
       target:
-        entity_id: cover.wifi_garage_door_module_door
+        entity_id: cover.wifi_garage_door_module_garage_door
     - service: system_log.write
       data:
         level: info
-        message: "Alexa Ritorno a Casa: apertura porta ingresso (cover.wifi_garage_door_module_door)"
+        message: "Alexa Ritorno a Casa: apertura porta ingresso (cover.wifi_garage_door_module_garage_door)"
     # 2. Attiva blocco per evitare che l'apertura porta interferisca con luce scale
     - service: input_boolean.turn_on
       target:

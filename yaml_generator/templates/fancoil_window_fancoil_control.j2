@@ -7,7 +7,7 @@
 # - Salva velocità fan in input_text (JSON) persistente per sopravvivere a riavvio
 # - Non salva se fan già spento (evita sovrascrivere con "spento")
 # - Ripristina dopo timeout massimo (30 min) o chiusura finestra
-- id: "fancoil_%%id%%_window_open_stop_fan"
+- id: "%%WCFS_OPEN_ID%%"
   alias: "Fancoil %%friendly_name%%: Stop fan when window opens"
   initial_state: true
   mode: single
@@ -75,7 +75,7 @@
             level: info
             message: "[%%friendly_name%%] FINESTRA APERTA: fancoil già spento, nessun intervento (velocità NON salvate)"
 
-- id: "fancoil_%%id%%_window_close_resume_fan"
+- id: "%%WCFS_CLOSE_ID%%"
   alias: "Fancoil %%friendly_name%%: Resume fan when window closes"
   initial_state: true
   mode: single
@@ -112,7 +112,7 @@
         contact_state: "{{ %%WINDOW_CONTACT_STATE_VAR%% }}"
         window_opened_at: "{{ state_attr('input_datetime.fancoil_%%id%%_window_opened_at', 'timestamp') | float(0) }}"
         max_duration_exceeded: "{{ (now().timestamp() - window_opened_at) > 1800 if window_opened_at > 0 else false }}"
-        force_resume: >-
+        force_resume: >
           {{ contact_state == 'unavailable' or max_duration_exceeded }}
         fan_was_on: "{{ is_state('input_boolean.fancoil_%%id%%_fan_was_on', 'on') }}"
         saved_speeds: "{{ states('input_text.fancoil_%%id%%_saved_fan_speeds') | from_json({}) }}"

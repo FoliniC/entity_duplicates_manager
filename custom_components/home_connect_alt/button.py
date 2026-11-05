@@ -8,8 +8,8 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType
 
-from .common import Configuration, EntityBase, EntityManager
-from .const import DOMAIN, HOME_CONNECT_DEVICE
+from .common import Configuration, EntityBase, EntityManager, find_delayed_operation_option
+from .const import CONF_DELAYED_OPS, CONF_DELAYED_OPS_ABSOLUTE_TIME, DOMAIN, HOME_CONNECT_DEVICE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,6 +26,14 @@ async def async_setup_entry(hass:HomeAssistant , config_entry:ConfigType, async_
         if appliance.available_programs:
             entity_manager.add(StartButton(appliance, None, conf))
             entity_manager.add(StopButton(appliance, None, conf))
+
+        # In absolute-time mode the delayed start/finish is set on a time entity which, being a
+        # standard HA time picker, has no "off" position. This button lets the user cancel a
+        # scheduled delay (there's no need for it in default mode where the select has "0:00").
+        delayed_option = find_delayed_operation_option(appliance, conf)
+        if delayed_option and entry_conf[CONF_DELAYED_OPS] == CONF_DELAYED_OPS_ABSOLUTE_TIME:
+            entity_manager.add(DelayedOperationCancelButton(appliance, delayed_option.key, conf, delayed_option))
+
         if appliance.commands:
             for command in appliance.commands.values():
                 # The "BSH.Common.Command.AcknowledgeEvent" command is used to acknowledge the ProgramFinished state
@@ -213,6 +221,39 @@ class StopButton(EntityBase, ButtonEntity):
                    "BSH.Common.Setting.PowerState"
         ]
         self._appliance.deregister_callback(self.async_on_update, events)
+
+    async def async_on_update(self, appliance:Appliance, key:str, value) -> None:
+        self.async_write_ha_state()
+
+
+class DelayedOperationCancelButton(EntityBase, ButtonEntity):
+    """ Button to cancel a delayed start/finish scheduled via the absolute-time entity """
+
+    @property
+    def unique_id(self) -> str:
+        return f'{self.safe_haId}_{self._key.lower().replace(".","_")}_cancel'
+
+    @property
+    def name_ext(self) -> str:
+        return "Cancel delayed start"
+
+    @property
+    def icon(self) -> str:
+        return self.get_entity_setting('icon', "mdi:clock-remove-outline")
+
+    @property
+    def available(self) -> bool:
+        # Only actionable when a delay is actually armed, otherwise there's nothing to cancel
+        return super().available \
+            and bool(self._appliance.startonly_options) \
+            and self._key in self._appliance.startonly_options
+
+    async def async_press(self) -> None:
+        """ Handle button press """
+        self._appliance.clear_startonly_option(self._key)
+        # Refresh the related time entity (and this button) so the cleared state shows immediately
+        await self._appliance._callbacks.async_broadcast_event(self._appliance, Events.DATA_CHANGED)
+        self.async_write_ha_state()
 
     async def async_on_update(self, appliance:Appliance, key:str, value) -> None:
         self.async_write_ha_state()

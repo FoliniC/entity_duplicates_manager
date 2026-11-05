@@ -41,20 +41,17 @@ SRC2="${BASE_DIR}/generated_climates/cucina.yaml"
 
 # File aggiuntivi per il controllo completo dei fancoil
 SRC3="${BASE_DIR}/input_boolean/generated_input_booleans.yaml"
-SRC4="${BASE_DIR}/input_select/generated_input_selects.yaml"
-SRC5="${BASE_DIR}/input_number/generated_input_numbers.yaml"
-SRC6="${BASE_DIR}/generated_climates/generated_master_climate.yaml"
+SRC4="${BASE_DIR}/input_number/generated_input_numbers.yaml"
+SRC5="${BASE_DIR}/generated_climates/generated_master_climate.yaml"
 
 # File di configurazione e template
-SRC7="${BASE_DIR}/fancoil_vars.yaml"
-SRC8="${BASE_DIR}/templates/fancoil_climate.j2"
-SRC9="${BASE_DIR}/templates/fancoil_automation.j2"
-SRC10="${BASE_DIR}/templates/fancoil_room_input_booleans.j2"
-SRC11="${BASE_DIR}/templates/fancoil_room_input_selects.j2"
-SRC12="${BASE_DIR}/templates/fancoil_room_input_numbers.j2"
-SRC13="${BASE_DIR}/templates/fancoil_master_input_selects.j2"
-SRC14="${BASE_DIR}/templates/fancoil_master_input_numbers.j2"
-SRC15="${BASE_DIR}/templates/fancoil_master_climate.j2"
+SRC6="${BASE_DIR}/fancoil_vars.yaml"
+SRC7="${BASE_DIR}/templates/fancoil_climate.j2"
+SRC8="${BASE_DIR}/templates/fancoil_automation.j2"
+SRC9="${BASE_DIR}/templates/fancoil_room_input_booleans.j2"
+SRC10="${BASE_DIR}/templates/fancoil_room_input_numbers.j2"
+SRC11="${BASE_DIR}/templates/fancoil_master_input_numbers.j2"
+SRC12="${BASE_DIR}/templates/fancoil_master_climate.j2"
 
 # File di logging e script Python
 SRC16="${BASE_DIR}/generator.log"

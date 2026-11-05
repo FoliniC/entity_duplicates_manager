@@ -1001,7 +1001,7 @@
 #   triggers:
 #     - trigger: state
 #       entity_id:
-#         - cover.wifi_garage_door_module_door
+#         - cover.wifi_garage_door_module_garage_door
 #       to: open
 #   conditions: []
 #   actions:

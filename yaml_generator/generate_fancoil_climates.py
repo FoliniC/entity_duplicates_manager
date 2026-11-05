@@ -39,14 +39,8 @@ ROOM_INPUT_BOOLEAN_TEMPLATE_PATH = (
 MASTER_INPUT_BOOLEAN_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "fancoil_master_input_booleans.j2")
 )
-ROOM_INPUT_SELECT_TEMPLATE_PATH = (
-    os.path.join(SCRIPT_DIR, "templates", "fancoil_room_input_selects.j2")
-)
 ROOM_INPUT_NUMBER_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "fancoil_room_input_numbers.j2")
-)
-MASTER_INPUT_SELECT_TEMPLATE_PATH = (
-    os.path.join(SCRIPT_DIR, "templates", "fancoil_master_input_selects.j2")
 )
 MASTER_INPUT_NUMBER_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "fancoil_master_input_numbers.j2")
@@ -138,6 +132,16 @@ EXTERNAL_CLIMATE_SENSORS_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "external_climate_sensors.j2")
 )
 
+# Template Select per sorgente temperatura (opzioni dinamiche)
+TEMPLATE_SELECT_TEMP_SOURCE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_template_select_temp_source.j2")
+)
+
+# Input text per template select temp_source (persistenza scelta)
+ROOM_INPUT_TEXT_TEMP_SOURCE_TEMPLATE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_room_input_text_temp_source.j2")
+)
+
 # Outputs (generated)
 CLIMATE_OUTPUT_DIR = "yaml_generator/generated_climates"
 AUTOMATION_OUTPUT_DIR = "automations"
@@ -149,7 +153,6 @@ CLIMATE_COMFORT_PER_ROOM_OUTPUT_FILE = os.path.join(
 BINARY_SENSORS_OUTPUT_DIR = "yaml_generator/managed_binary_sensors"
 PERSISTENCE_OUTPUT_DIR = "yaml_generator/managed_persistence"
 INPUT_BOOLEAN_OUTPUT_FILE = "yaml_generator/input_boolean/generated_input_booleans.yaml"
-INPUT_SELECT_OUTPUT_FILE = "yaml_generator/input_select/generated_input_selects.yaml"
 INPUT_NUMBER_OUTPUT_FILE = "yaml_generator/input_number/generated_input_numbers.yaml"
 INPUT_DATETIME_OUTPUT_FILE = "yaml_generator/input_datetime/generated_input_datetime.yaml"
 INPUT_TEXT_OUTPUT_FILE = "yaml_generator/input_text/generated_input_texts.yaml"
@@ -348,7 +351,7 @@ def generate_from_template(template_path, output_dir, vars_map, suffix):
         opts = [
             f"sensor.fancoil_{room_id}_temperature",
             local_ctx.get("ref_sensor", ""),
-            f"sensor.stox_fancoil_{room_id}_temperature"
+            local_ctx.get("knx_temp_sensor", ""),
         ]
         unique_opts = []
         for o in opts:
@@ -526,18 +529,22 @@ def build_master_context(vars_map):
     }
 
 def generate_master_and_rooms(
-    master_template_path, room_template_path, output_file, vars_map, extra_context=None
+    master_template_path, room_template_path, output_file, vars_map, extra_context=None, append_mode=False
 ):
     """Write master block then append every room block."""
     logger.info(f"Generating combined master+rooms -> {output_file}")
     master_text = read_template(master_template_path)
     common_master_ctx = get_common_context(master_template_path)
-    
+
     if extra_context:
         master_rendered = substitute_tags(master_text, {**extra_context, **common_master_ctx}).strip()
     else:
         master_rendered = substitute_tags(master_text, common_master_ctx).strip()
-    write_text_file(output_file, master_rendered + "\n")
+
+    if append_mode:
+        append_text_file(output_file, master_rendered + "\n")
+    else:
+        write_text_file(output_file, master_rendered + "\n")
 
     room_text = read_template(room_template_path)
     common_room_ctx = get_common_context(room_template_path)
@@ -552,7 +559,7 @@ def generate_master_and_rooms(
         opts = [
             f"sensor.fancoil_{room_id}_temperature",
             local_room_ctx.get("ref_sensor", ""),
-            f"sensor.stox_fancoil_{room_id}_temperature"
+            local_room_ctx.get("knx_temp_sensor", ""),
         ]
         unique_opts = []
         for o in opts:
@@ -966,13 +973,13 @@ def main():
         "_window_efficiency",
     )
 
-    # Per-room restore automations
-    generate_from_template(
-        RESTORE_TEMPLATE_PATH,
-        AUTOMATION_OUTPUT_DIR,
-        vars_map,
-        "_restore",
-    )
+    # Per-room restore automations (REMOVED - template select handles dynamic options natively)
+    # generate_from_template(
+    #     RESTORE_TEMPLATE_PATH,
+    #     AUTOMATION_OUTPUT_DIR,
+    #     vars_map,
+    #     "_restore",
+    # )
 
     # Fase 13 - Per-room verification mode logging automations (only for rooms with windows)
     for key, context in vars_map.items():
@@ -1007,12 +1014,20 @@ def main():
     )
 
     # Window-Fancoil control: stop fan on window open, resume on close (for all rooms with windows)
+    import uuid as uuid_module
     window_control_vars = {k: v for k, v in vars_map.items() if v.get("has_window", True)}
     for key, context in window_control_vars.items():
         local_ctx = dict(context)
         room_id = local_ctx.get("id", key)
         window_contact = local_ctx.get("window_contact_sensor", "")
         local_ctx["WINDOW_CONTACT_SENSOR"] = window_contact
+
+        # Generate deterministic UUIDs for this room's automations (consistent across runs)
+        uuid_seed = f"wcfs_{room_id}".encode()
+        uuid_hash = uuid_module.uuid5(uuid_module.NAMESPACE_DNS, uuid_seed.hex())
+        short_uuid = uuid_hash.hex[:8]
+        local_ctx["WCFS_OPEN_ID"] = f"wcfs_{room_id}_open_{short_uuid}"
+        local_ctx["WCFS_CLOSE_ID"] = f"wcfs_{room_id}_close_{short_uuid}"
 
         if window_contact:
             local_ctx["WINDOW_OPEN_TRIGGERS"] = f"""    - trigger: state
@@ -1110,12 +1125,34 @@ def main():
         vars_map,
         extra_context=None,
     )
-    generate_master_and_rooms(
-        MASTER_INPUT_SELECT_TEMPLATE_PATH,
-        ROOM_INPUT_SELECT_TEMPLATE_PATH,
-        INPUT_SELECT_OUTPUT_FILE,
+    # Template Select per sorgente temperatura (opzioni dinamiche - sostituisce input_select)
+    # Pre-compute static options list for each room (evaluated at generation time)
+    for key, context in vars_map.items():
+        local_ctx = dict(context)
+        room_id = local_ctx.get("id", key)
+        ref_sensor = local_ctx.get("ref_sensor", "")
+        knx_temp_sensor = local_ctx.get("knx_temp_sensor", "")
+        candidates = [
+            f"sensor.fancoil_{room_id}_temperature",
+            ref_sensor,
+            knx_temp_sensor,
+        ]
+        unique_opts = []
+        for o in candidates:
+            if o and o not in unique_opts:
+                unique_opts.append(o)
+        # Format as YAML list string with quoted elements (for legacy template compatibility)
+        context["TEMP_SOURCE_OPTIONS"] = "[" + ", ".join([f'"{o}"' for o in unique_opts]) + "]"
+        # Jinja2-formatted list string for template select options (required to be a template string)
+        context["TEMP_SOURCE_OPTIONS_JINJA"] = "[" + ", ".join([f"'{o}'" for o in unique_opts]) + "]"
+        # First option for default state
+        context["TEMP_SOURCE_FIRST_OPTION"] = unique_opts[0] if unique_opts else f"sensor.fancoil_{room_id}_temperature"
+
+    generate_from_template(
+        TEMPLATE_SELECT_TEMP_SOURCE_PATH,
+        "yaml_generator/managed_selects",
         vars_map,
-        extra_context=None,
+        "_template_select_temp_source",
     )
     generate_master_and_rooms(
         MASTER_INPUT_NUMBER_TEMPLATE_PATH,
@@ -1137,6 +1174,15 @@ def main():
         INPUT_TEXT_OUTPUT_FILE,
         vars_map,
         extra_context=None,
+    )
+    # Input text per template select temp_source (persistenza scelta per stanza)
+    generate_master_and_rooms(
+        MASTER_INPUT_TEXT_TEMPLATE_PATH,
+        ROOM_INPUT_TEXT_TEMP_SOURCE_TEMPLATE_PATH,
+        INPUT_TEXT_OUTPUT_FILE,
+        vars_map,
+        extra_context=None,
+        append_mode=True,
     )
     # Window-Fancoil control helpers (input_text per saved speeds + input_datetime per timestamp + input_boolean per flag)
     generate_from_template(
@@ -1242,7 +1288,11 @@ def main():
     # Manual advice sensors (one file per room)
     for key in vars_map.keys():
         master_lines.append(f"- !include managed_trigger_sensors/{key}_manual_advice.yaml")
-    
+
+    # Template Select per sorgente temperatura (one file per room)
+    for key in vars_map.keys():
+        master_lines.append(f"- !include managed_selects/{key}_template_select_temp_source.yaml")
+
     # Debounced advice sensors are in managed_binary_sensors/ (legacy format)
     # Already included via binary_sensor: !include_dir_merge_list managed_binary_sensors/
 

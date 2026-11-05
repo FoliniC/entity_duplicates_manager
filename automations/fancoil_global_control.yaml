@@ -25,7 +25,10 @@
         - condition: template
           value_template: "{{ trigger.platform == 'homeassistant' and trigger.event == 'start' }}"
       then:
-        - delay: "00:00:30"
+        - delay: "00:03:00"
+        - wait_template: >-
+            {{ states('input_select.fancoil_system_hvac_mode') not in ['unknown', 'unavailable', None] }}
+          timeout: "00:01:00"
 
     - variables:
         hvac_mode_attuale: "{{ states('input_select.fancoil_system_hvac_mode') }}"
@@ -77,6 +80,8 @@
     - if:
         - condition: template
           value_template: "{{ target_mode != hvac_mode_attuale }}"
+        - condition: template
+          value_template: "{{ states('input_select.fancoil_system_hvac_mode') not in ['unknown', 'unavailable', None] }}"
       then:
         - action: input_select.select_option
           target:

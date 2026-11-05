@@ -1,6 +1,0 @@
-fancoil_cucina_temp_source:
-  name: "Cucina: Sorgente Temperatura"
-  options:
-    - "sensor.fancoil_cucina_temperature"
-    - "sensor.th1a_temperature"
-  icon: mdi:thermometer-lines

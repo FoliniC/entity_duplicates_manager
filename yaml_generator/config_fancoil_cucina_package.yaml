@@ -15,8 +15,6 @@ files:
     process_yaml: true
   - path: ./input_boolean/generated_input_booleans.yaml
     process_yaml: true
-  - path: ./input_select/generated_input_selects.yaml
-    process_yaml: true
   - path: ./managed_persistence/cucina_persistence.yaml
     process_yaml: true
   - path: ./managed_binary_sensors/cucina_binary_sensors.yaml

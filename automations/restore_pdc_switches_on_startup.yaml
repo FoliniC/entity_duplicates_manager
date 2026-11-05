@@ -16,6 +16,10 @@
         {{ is_state('binary_sensor.pdc_heating', 'on')
            or is_state('schedule.riscaldamento', 'on') }}
   action:
+    - delay: "00:03:00"
+    - wait_template: >-
+        {{ states('input_select.fancoil_system_hvac_mode') not in ['unknown', 'unavailable', None] }}
+      timeout: "00:01:00"
     - service: switch.turn_on
       target:
         entity_id: switch.attiva_pdc

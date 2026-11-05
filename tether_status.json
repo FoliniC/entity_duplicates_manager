@@ -1,6 +1,6 @@
 {
   "status": "ok",
-  "timestamp": "2026-11-04T02:59:07+01:00",
-  "router": {"rndis":"active","ip":"10.11.68.19","gateway":"unknown","message":"OK - RNDIS attivo, gateway reachable"},
+  "timestamp": "2026-11-05T03:00:36+01:00",
+  "router": {"rndis":"inactive","ip":"none","gateway":"unreachable","message":"PROBLEMA - Connection timed out during banner exchange"},
   "debian": {"status":"unknown","message":"Non verificato - nessun tethering USB attivo su Debian (enx* non trovato o senza IP)"}
 }

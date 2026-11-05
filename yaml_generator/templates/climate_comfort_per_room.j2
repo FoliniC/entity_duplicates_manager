@@ -52,7 +52,7 @@
       {{ rh_primary if rh_primary is not none and rh_primary > 0 else rh_fallback }}
     # Device FISICO effettivamente in uso dietro le entita intermedie
     temperature_device_id: >
-      {% set source = states('input_select.fancoil_%%id%%_temp_source') %}
+      {% set source = states('select.fancoil_%%id%%_temp_source_select') %}
       {% set internal = 'sensor.fancoil_%%id%%_temperature' %}
       {% set internal_val = states(internal) | float(-99) %}
       {% set ns = namespace(dev='') %}
@@ -64,7 +64,7 @@
       {% endif %}
       {{ ns.dev }}
     temperature_device_value: >
-      {% set source = states('input_select.fancoil_%%id%%_temp_source') %}
+      {% set source = states('select.fancoil_%%id%%_temp_source_select') %}
       {% set internal = 'sensor.fancoil_%%id%%_temperature' %}
       {% set internal_val = states(internal) | float(-99) %}
       {% if source in [internal, 'Fancoil Internal'] %}

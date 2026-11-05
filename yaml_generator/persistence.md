@@ -104,10 +104,8 @@ yaml_generator/
 │   └── generated_input_booleans.yaml
 ├── input_number/
 │   └── generated_input_numbers.yaml
-├── input_select/
-│   └── generated_input_selects.yaml
-└── input_datetime/
-    └── generated_input_datetime.yaml
+├── input_datetime/
+│   └── generated_input_datetime.yaml
 ````
 
 ## KNX Write-Only Switch State Recovery

@@ -1,7 +1,7 @@
               - type: custom:mushroom-template-card
                 primary: "%%friendly_name%%: {{ states('sensor.fancoil_%%id%%_sensors_coherence_status') }}"
                 secondary: >
-                  {% if ref_sensor %}
+                  {% if '%%ref_sensor%%' != '' %}
                     {% set h_th_id = 'sensor.fancoil_%%id%%_hum_delta_th_vs_internal' %}
                     {% set h_th = states(h_th_id) %}
                     {% set h_change = state_attr(h_th_id, 'delta_change') %}

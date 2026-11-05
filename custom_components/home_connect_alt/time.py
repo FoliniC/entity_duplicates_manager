@@ -1,7 +1,8 @@
 from __future__ import annotations
 import logging
 import datetime
-from  homeassistant.components.time import TimeEntity, time, timedelta
+from datetime import time, timedelta
+from  homeassistant.components.time import TimeEntity
 from home_connect_async import Appliance, HomeConnect, HomeConnectError, Events, ConditionalLogger as CL
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
@@ -26,8 +27,7 @@ async def async_setup_entry(hass:HomeAssistant , config_entry:ConfigType, async_
 
         delayed_option = find_delayed_operation_option(appliance, conf)
         if delayed_option \
-            and entry_conf[CONF_DELAYED_OPS]==CONF_DELAYED_OPS_ABSOLUTE_TIME \
-            and DelayedOperationTime.has_program_run_time(appliance):
+            and entry_conf[CONF_DELAYED_OPS]==CONF_DELAYED_OPS_ABSOLUTE_TIME:
             device = DelayedOperationTime(appliance, delayed_option.key, conf, delayed_option)
             # remove the SELECT delayed operation entity if it exists
             reg = async_get(hass)
@@ -48,7 +48,12 @@ async def async_setup_entry(hass:HomeAssistant , config_entry:ConfigType, async_
 
 
 class DelayedOperationTime(InteractiveEntityBase, TimeEntity):
-    """ Class for setting delayed start by the program end time """
+    """ Class for setting a delayed start by an absolute time.
+
+    The time is interpreted using the appliance's native delay option: the program start
+    time for appliances that accept a start delay and the program finish time for those that
+    accept a finish delay.
+    """
     should_poll = True
 
     def __init__(self, appliance: Appliance, key: str = None, conf: dict = None, hc_obj = None) -> None:
@@ -56,7 +61,12 @@ class DelayedOperationTime(InteractiveEntityBase, TimeEntity):
         self._current:time = None
     @property
     def name_ext(self) -> str|None:
-        return self._hc_obj.name if self._hc_obj.name else "Delayed operation"
+        # Name the control after what the user actually sets, so it stays consistent with its
+        # operation regardless of the (possibly missing or inconsistent) name the API returns:
+        # appliances with a finish delay set the program end time, all others set the start time.
+        if self._key and "FinishInRelative" in self._key:
+            return "End time"
+        return "Start time"
 
     @property
     def icon(self) -> str:
@@ -66,8 +76,7 @@ class DelayedOperationTime(InteractiveEntityBase, TimeEntity):
     @property
     def available(self) -> bool:
 
-        # We must have the program run time for this entity to work
-        available = super().program_option_available and self.get_program_run_time(self._appliance) is not None
+        available = super().program_option_available
 
         if not available:
             self._appliance.clear_startonly_option(self._key)
@@ -76,59 +85,61 @@ class DelayedOperationTime(InteractiveEntityBase, TimeEntity):
     async def async_set_value(self, value: time) -> None:
         """Update the current value."""
         self._current = self.adjust_time(value, True)
-
-        #self.async_write_ha_state()
+        # Notify related entities (e.g. the "Cancel delayed start" button) that a delay is now armed
+        await self._appliance._callbacks.async_broadcast_event(self._appliance, Events.DATA_CHANGED)
+        self.async_write_ha_state()
 
     @property
-    def native_value(self) -> time:
-        """Return the entity value to represent the entity state."""
-        if self._current is None:
-            self._current = self.init_time()
+    def native_value(self) -> time|None:
+        """Return the entity value to represent the entity state.
 
+        No delay is scheduled unless the user has armed one. While a delay is armed the value
+        is kept in sync with the wall clock; when nothing is armed the entity has no value and
+        is shown as "unknown", so it's clear that no delayed start/finish is set.
+        """
         if self._appliance.startonly_options and self._key in self._appliance.startonly_options:
+            if self._current is None:
+                self._current = self.init_time()
             self._current = self.adjust_time(self._current, True)
-        else:
-            self._current = self.adjust_time(self._current, False)
-        return self._current
+            return self._current
+
+        self._current = None
+        return None
 
 
     def adjust_time(self, t:time, set_option:bool) -> time|None:
-        """ Adjust the time state when required """
+        """ Adjust the time state and set the delay option when required.
+
+        The time represents the appliance's native delayed-operation moment: the start time
+        for appliances that accept a start delay and the finish time for appliances that
+        accept a finish delay. The delay sent to the appliance is simply the number of
+        seconds from now until that time, so no program run time estimate is needed.
+        """
 
         now = datetime.datetime.now()
-        endtime = datetime.datetime(year=now.year, month=now.month, day=now.day, hour=t.hour, minute=t.minute)
+        target = datetime.datetime(year=now.year, month=now.month, day=now.day, hour=t.hour, minute=t.minute)
 
-        if (now.hour > endtime.hour) or (now.hour == endtime.hour and now.minute > endtime.minute):
-            # if the specified time is smaller than now then it means tomorrow
-            endtime += datetime.timedelta(days=1)
+        if target <= now:
+            # a time earlier than now is interpreted as tomorrow
+            target += datetime.timedelta(days=1)
 
-        program_run_time = self.get_program_run_time(self._appliance)
+        if set_option:
+            delay = (target - now).total_seconds()
 
-        if not program_run_time:
-            return None
-
-        if endtime < now + timedelta(seconds=program_run_time):
-            # the set end time is closer then the program run time so change it to the expected end of the program
-            # and cancel the set delay option
-            endtime = now + timedelta(seconds=program_run_time)
-            #self._current = time(hour=endtime.hour, minute=endtime.minute)
-            if self._appliance.startonly_options and self._key in self._appliance.startonly_options:
-                _LOGGER.debug("Clearing startonly option %s", self._key)
-            self._appliance.clear_startonly_option(self._key)
-        elif set_option:
-            delay = (endtime-now).total_seconds()
-            if "StartInRelative" in self._key:
-                delay -= program_run_time
-
-            # round the delay to the stepsize
-            stepsize_option = self._appliance.get_applied_program_available_option(self._key)
-            stepsize = stepsize_option.stepsize if stepsize_option and stepsize_option.stepsize and stepsize_option.stepsize != 0 else 60
+            # round the delay to the stepsize and clamp it to the option's allowed range
+            option = self._appliance.get_applied_program_available_option(self._key)
+            stepsize = option.stepsize if option and option.stepsize and option.stepsize != 0 else 60
             delay = int(delay/stepsize)*stepsize
+            if option:
+                if option.min is not None and delay < option.min:
+                    delay = option.min
+                if option.max is not None and delay > option.max:
+                    delay = option.max
 
             _LOGGER.debug("Setting startonly option %s to: %i", self._key, delay)
             self._appliance.set_startonly_option(self._key, delay)
 
-        return time(hour=endtime.hour, minute=endtime.minute)
+        return time(hour=target.hour, minute=target.minute)
 
     def init_time(self) -> time:
         """ Initialize the time state """
@@ -136,30 +147,8 @@ class DelayedOperationTime(InteractiveEntityBase, TimeEntity):
         t = time(hour=inittime.hour, minute=inittime.minute)
         return self.adjust_time(t, False)
 
-    @classmethod
-    def get_program_run_time(cls, appliance:Appliance) -> int|None:
-        """ Try to get the expected run time of the selected program or the remaining time of the running program """
-        time_option_keys = [
-            "BSH.Common.Option.RemainingProgramTime",
-            "BSH.Common.Option.FinishInRelative",
-            "BSH.Common.Option.EstimatedTotalProgramTime",
-        ]
-
-        for key in time_option_keys:
-            o = appliance.get_applied_program_option(key)
-            if o:
-                return o.value
-
-        return None
-
-    @classmethod
-    def has_program_run_time(cls, appliance:Appliance) ->bool:
-        """ Check if it's possible to get a program run time estimate """
-        return cls.get_program_run_time(appliance) is not None
-
 
     async def async_on_update(self, appliance:Appliance, key:str, value) -> None:
-        # reset the end time clock when a different program is selected
-        if key == Events.PROGRAM_SELECTED or "RemoteControlStartAllowed" in key:
-            self._current = self.init_time()
+        # An armed delay is kept as-is across program changes (it applies to whatever program is
+        # started next); when nothing is armed native_value reports "unknown". So just refresh.
         self.async_write_ha_state()

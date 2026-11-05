@@ -89,6 +89,11 @@ class MultiscrapeEntity(CoordinatorEntity[MultiscrapeDataUpdateCoordinator], Res
     async def async_added_to_hass(self) -> None:
         """When entity is added to hass."""
         await super().async_added_to_hass()
+        self.async_on_remove(
+            self.scraper.register_selectors(
+                [self._sensor_selector, *self._attribute_selectors.values()]
+            )
+        )
         _LOGGER.debug(
             "%s # %s # Added sensor to HA",
             self.scraper.name,
@@ -99,7 +104,7 @@ class MultiscrapeEntity(CoordinatorEntity[MultiscrapeDataUpdateCoordinator], Res
             return
         _LOGGER.debug("%s # %s # Restoring previous state: %s", self.scraper.name, self._name, state.state)
         if state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
-            self._attr_native_value = state.state
+            self._restore_value(state.state)
 
         for name in self._attribute_selectors:
             if state.attributes.get(name) is not None:
@@ -133,6 +138,14 @@ class MultiscrapeEntity(CoordinatorEntity[MultiscrapeDataUpdateCoordinator], Res
             self.scraper.name,
             self._name,
         )
+
+    @abstractmethod
+    def _restore_value(self, value: str) -> None:
+        """Set the entity state from a restored state string.
+
+        Restored states are always strings, so each platform converts to
+        whatever its state attribute expects (#623).
+        """
 
     @abstractmethod
     def _update_sensor(self):

@@ -52,3 +52,9 @@
 - !include managed_trigger_sensors/corridoio_manual_advice.yaml
 - !include managed_trigger_sensors/bagno_manual_advice.yaml
 - !include managed_trigger_sensors/sala_manual_advice.yaml
+- !include managed_selects/cucina_template_select_temp_source.yaml
+- !include managed_selects/camera_grande_template_select_temp_source.yaml
+- !include managed_selects/camera_template_select_temp_source.yaml
+- !include managed_selects/corridoio_template_select_temp_source.yaml
+- !include managed_selects/bagno_template_select_temp_source.yaml
+- !include managed_selects/sala_template_select_temp_source.yaml

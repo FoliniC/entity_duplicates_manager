@@ -9,8 +9,6 @@ files:
     process_yaml: true
   - path: "./input_boolean/generated_input_booleans.yaml"
     process_yaml: true
-  - path: "./input_select/generated_input_selects.yaml"
-    process_yaml: true
   - path: "./input_number/generated_input_numbers.yaml"
     process_yaml: true
   - path: "./generated_climates/generated_master_climate.yaml"
@@ -20,9 +18,7 @@ files:
   - path: "./templates/fancoil_climate.j2"
   - path: "./templates/fancoil_automation.j2"
   - path: "./templates/fancoil_room_input_booleans.j2"
-  - path: "./templates/fancoil_room_input_selects.j2"
   - path: "./templates/fancoil_room_input_numbers.j2"
-  - path: "./templates/fancoil_master_input_selects.j2"
   - path: "./templates/fancoil_master_input_numbers.j2"
   - path: "./templates/fancoil_master_climate.j2"
   - path: "./generator.log"
