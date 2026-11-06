@@ -392,7 +392,24 @@ activate_debian() {
   detect_iface=$(echo "$detect_out" | cut -d'|' -f1)
   detect_gw=$(echo "$detect_out" | cut -d'|' -f2)
 
-  # PRE-FLIGHT INTERNET: Verifica connettività internet REALE sull'interfaccia rilevata
+  # PRE-FLIGHT INTERNET: prima rende la USB il default upstream di Debian,
+  # poi verifica connettività REALE vincolata all'interfaccia.
+  # Questo è necessario per Intranet: una connessione NM con never-default=yes
+  # ha lease e gateway ma non può instradare la LAN via NAT.
+  if [[ "$MODE" == "intranet" ]]; then
+    local route_setup
+    route_setup="$(ssh_debian "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh ensure_usb_default $detect_iface" 2>&1)"
+    if [[ $? -ne 0 ]]; then
+      log_line ERROR "PRE-FLIGHT FALLITO: impossibile configurare $detect_iface come upstream USB Debian: $route_setup"
+      pkill -f failsafe_watchdog.sh >/dev/null 2>&1 || true
+      rm -f /config/.usb_tether_mode 2>/dev/null || true
+      json_error "Impossibile preparare il routing USB Debian su $detect_iface"
+      return 0
+    fi
+    detect_gw=$(printf '%s' "$route_setup" | tail -1 | cut -d'|' -f2)
+    log_line INFO "PRE-FLIGHT ROUTING: $detect_iface configurata come default upstream Debian (GW=$detect_gw)"
+  fi
+
   log_line INFO "PRE-FLIGHT INTERNET: verifica connettività via $detect_iface (GW=$detect_gw)..."
   local inet_test
   inet_test="$(ssh_debian "ping -c 2 -W 3 -I $detect_iface 8.8.8.8 >/dev/null 2>&1 || ping -c 2 -W 3 -I $detect_iface 1.1.1.1 >/dev/null 2>&1; echo \$?" 2>&1)"

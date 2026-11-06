@@ -776,6 +776,38 @@ cmd_activate() {
     return 0
 }
 
+# --- ensure_usb_default ----------------------------------------------------
+# Prepara l'interfaccia USB rilevata come upstream del server per Intranet.
+# NetworkManager puo' marcare la connessione USB come never-default=yes: in tal
+# caso il gateway è raggiungibile ma non viene installata alcuna default route,
+# e il server non può fare NAT per la LAN. Questa azione è intenzionalmente
+# limitata alla connessione attiva dell'interfaccia USB passata come argomento.
+cmd_ensure_usb_default() {
+    local iface="${1:-}" conn gw
+    [ -n "$iface" ] || { echo "ERRORE: interfaccia USB mancante" >&2; return 2; }
+    ip link show "$iface" >/dev/null 2>&1 || { echo "ERRORE: interfaccia $iface non presente" >&2; return 2; }
+
+    conn=$(nmcli -g GENERAL.CONNECTION device show "$iface" 2>/dev/null | head -1)
+    [ -n "$conn" ] && [ "$conn" != "--" ] || { echo "ERRORE: nessuna connessione NetworkManager attiva su $iface" >&2; return 2; }
+
+    # Metrica 50: USB è l'upstream del server; la LAN enp2s0 resta raggiungibile
+    # grazie alla sua route direttamente connessa 192.168.0.0/24.
+    nmcli connection modify "$conn" ipv4.never-default no ipv4.route-metric 50 || return 1
+    nmcli device reapply "$iface" >/dev/null 2>&1 || true
+    nmcli connection up "$conn" ifname "$iface" >/dev/null 2>&1 || return 1
+
+    # Attendi la default route DHCP del telefono; non inventarla manualmente.
+    local n=0
+    while [ "$n" -lt 10 ]; do
+        gw=$(ip route show default dev "$iface" 2>/dev/null | awk '/^default via / {print $3; exit}')
+        [ -n "$gw" ] && { echo "$iface|$gw|$conn"; return 0; }
+        sleep 1
+        n=$((n + 1))
+    done
+    echo "ERRORE: default route USB non installata su $iface dopo riconnessione NM" >&2
+    return 1
+}
+
 # --- rndis_activate -------------------------------------------------------
 # Attivazione tethering USB Xiaomi RNDIS bypassando cmd_detect.
 # Usa quando l'interfaccia RNDIS Xiaomi esiste ma cmd_detect non la rileva
@@ -1474,6 +1506,7 @@ case "${1:-status}" in
     activate)    shift; cmd_activate "$@" ;;
     rndis_activate) shift; cmd_rndis_activate "$@" ;;
     setup_alias) shift; cmd_setup_alias "$@" ;;
+    ensure_usb_default) shift; cmd_ensure_usb_default "$@" ;;
     restore)     cmd_restore ;;
     status)      cmd_status ;;
     renat)       cmd_renat ;;

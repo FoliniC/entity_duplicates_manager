@@ -10,7 +10,7 @@
     "iot_class": "cloud_polling",
     "issue_tracker": "https://github.com/drc38/Fronius_solarweb/issues",
     "requirements": [
-        "fronius-solarweb>=0.3.0"
+        "fronius-solarweb>=0.4.0"
     ],
-    "version": "0.3.2"
+    "version": "0.4.11"
 }

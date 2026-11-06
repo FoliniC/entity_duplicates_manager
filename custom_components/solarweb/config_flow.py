@@ -8,7 +8,18 @@ from fronius_solarweb import Fronius_Solarweb
 from fronius_solarweb.errors import NotAuthorizedException, NotFoundException
 from homeassistant import config_entries
 
-from .const import CONF_ACCESSKEY_ID, CONF_ACCESSKEY_VALUE, CONF_PV_ID, DOMAIN
+from . import save_token
+
+from .const import (
+    CONF_ACCESSKEY_ID,
+    CONF_ACCESSKEY_VALUE,
+    CONF_LOGIN_NAME,
+    CONF_LOGIN_PASSWORD,
+    CONF_PV_ID,
+    DEFAULT_ACCESSKEY_ID,
+    DEFAULT_ACCESSKEY_VALUE,
+    DOMAIN,
+)
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
@@ -17,7 +28,6 @@ class SolarWebFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for solarweb."""
 
     VERSION = 1
-    CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
 
     def __init__(self) -> None:
         """Initialize."""
@@ -37,21 +47,54 @@ class SolarWebFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(title=info["title"], data=user_input)
             self._errors["base"] = "auth"
 
-            return await self._show_config_form(user_input)
-        return await self._show_config_form(user_input)
+            return await self._show_config_form()
+        return await self._show_config_form()
 
-    async def _show_config_form(self, user_input, id="user"):
+    async def _show_config_form(self, id="user"):
         """Show the configuration form to edit data."""
         return self.async_show_form(
             step_id=id,
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_PV_ID): str,
-                    vol.Required(CONF_ACCESSKEY_ID): str,
-                    vol.Required(CONF_ACCESSKEY_VALUE): str,
+                    vol.Required(CONF_ACCESSKEY_ID, default=DEFAULT_ACCESSKEY_ID): str,
+                    vol.Required(
+                        CONF_ACCESSKEY_VALUE, default=DEFAULT_ACCESSKEY_VALUE
+                    ): str,
+                    vol.Optional(CONF_LOGIN_NAME, None): str,
+                    vol.Optional(CONF_LOGIN_PASSWORD, None): str,
                 }
             ),
             errors=self._errors,
+            description_placeholders={
+                "docs_url": "https://github.com/drc38/Fronius_solarweb"
+            },
+        )
+
+    async def _show_reconfig_form(self, entry, id="reconfigure"):
+        """Show the configuration form to edit data."""
+        return self.async_show_form(
+            step_id=id,
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_PV_ID, default=entry.data.get(CONF_PV_ID)): str,
+                    vol.Required(
+                        CONF_ACCESSKEY_ID, default=entry.data.get(CONF_ACCESSKEY_ID)
+                    ): str,
+                    vol.Required(
+                        CONF_ACCESSKEY_VALUE,
+                        default=entry.data.get(CONF_ACCESSKEY_VALUE),
+                    ): str,
+                    vol.Optional(CONF_LOGIN_NAME, entry.data.get(CONF_LOGIN_NAME)): str,
+                    vol.Optional(
+                        CONF_LOGIN_PASSWORD, entry.data.get(CONF_LOGIN_PASSWORD)
+                    ): str,
+                }
+            ),
+            errors=self._errors,
+            description_placeholders={
+                "docs_url": "https://github.com/drc38/Fronius_solarweb"
+            },
         )
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None):
@@ -66,8 +109,9 @@ class SolarWebFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     entry, data=user_input, reason="reconfigure_successful"
                 )
             self._errors["base"] = "auth"
+            return await self._show_reconfig_form(entry)
 
-        return await self._show_config_form(user_input)
+        return await self._show_reconfig_form(entry)
 
     async def _validate_input(self, data: dict[str, Any]) -> dict[str, Any]:
         """Validate the user input allows us to connect.
@@ -77,11 +121,23 @@ class SolarWebFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         try:
             client = Fronius_Solarweb(
-                data[CONF_ACCESSKEY_ID], data[CONF_ACCESSKEY_VALUE], data[CONF_PV_ID]
+                access_key_id=data[CONF_ACCESSKEY_ID],
+                access_key_value=data[CONF_ACCESSKEY_VALUE],
+                pv_system_id=data[CONF_PV_ID],
+                login_name=data.get(CONF_LOGIN_NAME),
+                login_password=data.get(CONF_LOGIN_PASSWORD),
             )
+
+            if data.get(CONF_LOGIN_PASSWORD):
+                await client.login()
 
             system_data = await client.get_pvsystem_meta_data()
             _LOGGER.info("Retrieved PV system data from cloud API")
+
+            if data.get(CONF_LOGIN_PASSWORD):
+                await self.hass.async_add_executor_job(
+                    save_token, self.hass, system_data.name, client.jwt_data
+                )
 
             # Return extra info that you want to store in the config entry.
             return {

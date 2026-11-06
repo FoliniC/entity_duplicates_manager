@@ -97,7 +97,7 @@ def safe_notify(message, title=None, target=None, data=None):
     girano sull'event loop di HA: se il servizio notify (es. mobile_app verso
     l'app non raggiungibile) si blocca/impiega molto, INCHIODA l'intero event
     loop di Home Assistant (stall del frontend, freeze totale). Lanciando il
-    notify come task separato via async_create_task, anche un notify lento o
+    notify come task separato via async_call(blocking=False), anche un notify lento o
     bloccato non può più fermare HA.
     """
     try:
@@ -108,14 +108,13 @@ def safe_notify(message, title=None, target=None, data=None):
                 svc_data["title"] = title
             name = t.split(".")[-1] if "." in t else t
             if data:
-                # Le opzioni extra (tag/importance/notification_icon) sono accettate
+                # Le opzioni extra (tag/importance/icon) sono accettate
                 # SOLO dai servizi legacy per-device (notify.mobile_app_<nome>):
                 # notify.send_message ammette unicamente message + title.
                 svc_data["data"] = data
                 svc = name if name.startswith("mobile_app_") else "mobile_app_" + name
-                hass.async_create_task(
-                    hass.services.async_call("notify", svc, svc_data, blocking=False)
-                )
+                # async_call con blocking=False restituisce già un Task, non serve async_create_task
+                hass.services.async_call("notify", svc, svc_data, blocking=False)
             else:
                 # notify.send_message accetta solo message/title: il target va
                 # indicato come entity_id. I target passati sono nomi di servizio
@@ -125,9 +124,8 @@ def safe_notify(message, title=None, target=None, data=None):
                 if name.startswith("mobile_app_"):
                     entity = "notify." + name[len("mobile_app_"):]
                 svc_data["entity_id"] = [entity]
-                hass.async_create_task(
-                    hass.services.async_call("notify", "send_message", svc_data, blocking=False)
-                )
+                # async_call con blocking=False restituisce già un Task
+                hass.services.async_call("notify", "send_message", svc_data, blocking=False)
     except Exception as e:
         log.warning(f"BTC Tracker: safe_notify fallita: {e}")
 
@@ -316,10 +314,10 @@ def check_milestones():
                 title=f"₿ BTC Tracker: {label}",
                 target=['notify.mobile_app_redmi_note_13_pro_5g'],
                 data={
-                    'tag': f'btc_milestone_{int(threshold)}',
-                    'importance': 'high' if threshold >= 90 else 'default',
-                    'notification_icon': 'mdi:bitcoin'
-                }
+                                'tag': f'btc_milestone_{int(threshold)}',
+                                'importance': 'high' if threshold >= 90 else 'default',
+                                'icon': 'mdi:bitcoin'
+                            }
             )
             triggered.append(threshold)
             data['last_milestone'] = threshold
@@ -498,7 +496,7 @@ async def daily_report_pyscript():
         data={
             'tag': 'btc_daily_report_pyscript',
             'importance': 'default',
-            'notification_icon': 'mdi:chart-line'
+            'icon': 'mdi:chart-line'
         }
     )
 

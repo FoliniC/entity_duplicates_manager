@@ -81,6 +81,13 @@
       to:
         - "efficace"
         - "inefficace"
+      from:
+        - "unknown"
+        - "unavailable"
+        - ""
+  condition:
+    - condition: template
+      value_template: "{{ trigger.from_state.state not in ['unknown', 'unavailable', None, ''] }}"
   action:
     - action: persistent_notification.create
       data:

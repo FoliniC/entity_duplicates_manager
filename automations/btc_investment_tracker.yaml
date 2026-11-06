@@ -47,7 +47,7 @@
         data:
           tag: btc_phone_goal
           importance: high
-          notification_icon: "mdi:bitcoin"
+          icon: "mdi:bitcoin"
           color: "#F7931A"
   mode: single
 
@@ -79,7 +79,7 @@
         data:
           tag: btc_milestone_50
           importance: default
-          notification_icon: "mdi:chart-line"
+          icon: "mdi:chart-line"
   mode: single
 
 - id: btc_tracker_milestone_75
@@ -111,7 +111,7 @@
         data:
           tag: btc_milestone_75
           importance: high
-          notification_icon: "mdi:rocket-launch"
+          icon: "mdi:rocket-launch"
   mode: single
 
 - id: btc_tracker_milestone_90
@@ -142,7 +142,7 @@
         data:
           tag: btc_milestone_90
           importance: high
-          notification_icon: "mdi:target"
+          icon: "mdi:target"
   mode: single
 
 - id: btc_tracker_significant_loss
@@ -175,7 +175,7 @@
         data:
           tag: btc_loss_alert
           importance: high
-          notification_icon: "mdi:alert-circle"
+          icon: "mdi:alert-circle"
           color: "#E53935"
   mode: single
 
@@ -219,5 +219,5 @@
         data:
           tag: btc_daily_report
           importance: default
-          notification_icon: "mdi:chart-line"
+          icon: "mdi:chart-line"
   mode: single

@@ -1,9 +1,10 @@
 # Report diagnostico clima (v1.3)
 
-Periodo: da 2026-10-29 07:53 a 2026-10-29 08:53 (Europe/Rome); righe lette: 3219; stanze: cucina, camera_grande, camera, corridoio, bagno, sala
+Periodo: da 2026-11-05 14:57 a 2026-11-05 15:57 (Europe/Rome); righe lette: 2447; stanze: cucina, camera_grande, camera, corridoio, bagno, sala
 
 ## 0. Segnali automatici
 
+- camera_grande: il consiglio cambia stato ogni 52s (mediana): glitch da trigger multipli, serve debounce
 - cucina [esito]: sensore sensor.esito_ultimo_consiglio_finestra_cucina_con_validazione e' quasi sempre unavailable (100% del tempo)
 - camera_grande [esito]: sensore sensor.esito_ultimo_consiglio_finestra_camera_grande_con_validazione e' quasi sempre unavailable (100% del tempo)
 - camera [esito]: sensore sensor.esito_ultimo_consiglio_finestra_camera_con_validazione e' quasi sempre unavailable (100% del tempo)
@@ -32,66 +33,65 @@ Periodo: da 2026-10-29 07:53 a 2026-10-29 08:53 (Europe/Rome); righe lette: 3219
 
 | entita | righe | on | off | unavailable |
 |---|---|---|---|---|
-| binary_sensor.contact_cucina_contact_cucina | 0 | 0 | 0 | - |
-| binary_sensor.contact_cucina_not_used | 0 | 0 | 0 | - |
-| binary_sensor.contact_sensor_doorcontact_state | 0 | 0 | 0 | - |
-| binary_sensor.finestra_camera_grande_finestra_camera_grande | 0 | 0 | 0 | - |
-| binary_sensor.finestra_camera_grande_not_used | 0 | 0 | 0 | - |
-| binary_sensor.finestracucina_alert | 0 | 0 | 0 | - |
-| binary_sensor.finestracucina_connected | 0 | 0 | 0 | - |
-| binary_sensor.finestracucina_motion | 0 | 0 | 0 | - |
-| binary_sensor.finestracucina_recording | 0 | 0 | 0 | - |
-| binary_sensor.garage_door_contact_filtered | 0 | 0 | 0 | - |
+| binary_sensor.contact_cucina_contact_cucina | 16 | 0 | 0.99 | 0.01 |
+| binary_sensor.contact_cucina_not_used | 16 | 0 | 0.99 | 0.01 |
+| binary_sensor.finestra_camera_grande_finestra_camera_grande | 16 | 0 | 0.99 | 0.01 |
+| binary_sensor.finestra_camera_grande_not_used | 16 | 0 | 0.99 | 0.01 |
+| binary_sensor.finestracucina_alert | 16 | 0 | 0 | 1 |
+| binary_sensor.finestracucina_connected | 24 | 0 | 1.00 | 0.00 |
+| binary_sensor.finestracucina_motion | 16 | 0 | 0 | 1 |
+| binary_sensor.finestracucina_recording | 24 | 0 | 1.00 | 0.00 |
+| binary_sensor.garage_door_contact_filtered | 16 | 0 | 1.00 | 0.00 |
 | binary_sensor.garage_door_garage_contact_sensor | 0 | 0 | 0 | - |
-| binary_sensor.piazzale_mg_mg4_electric_window_front_left | 0 | 0 | 0 | - |
-| binary_sensor.piazzale_mg_mg4_electric_window_front_right | 0 | 0 | 0 | - |
-| binary_sensor.piazzale_mg_mg4_electric_window_rear_left | 0 | 0 | 0 | - |
-| binary_sensor.piazzale_mg_mg4_electric_window_rear_right | 0 | 0 | 0 | - |
-| binary_sensor.wifi_garage_door_module_garage_contact | 0 | 0 | 0 | - |
-| input_boolean.finestra_bagno_aperta | 0 | 0 | 0 | - |
-| input_boolean.finestra_camera_aperta | 0 | 0 | 0 | - |
-| input_boolean.finestra_camera_grande_aperta | 0 | 0 | 0 | - |
+| binary_sensor.piazzale_mg_mg4_electric_window_front_left | 8 | 0 | 1 | 0 |
+| binary_sensor.piazzale_mg_mg4_electric_window_front_right | 8 | 0 | 1 | 0 |
+| binary_sensor.piazzale_mg_mg4_electric_window_rear_left | 8 | 0 | 1.00 | 0 |
+| binary_sensor.piazzale_mg_mg4_electric_window_rear_right | 8 | 0 | 1 | 0 |
+| binary_sensor.wifi_garage_door_module_garage_contact | 26 | 0.01 | 0.98 | 0.02 |
+| input_boolean.finestra_bagno_aperta | 8 | 0 | 1 | 0 |
+| input_boolean.finestra_camera_aperta | 8 | 0 | 1 | 0 |
+| input_boolean.finestra_camera_grande_aperta | 8 | 1 | 0 | 0 |
 | input_boolean.finestra_corridoio_aperta | 0 | 0 | 0 | - |
-| input_boolean.finestra_cucina_aperta | 0 | 0 | 0 | - |
-| input_boolean.finestra_sala_aperta | 0 | 0 | 0 | - |
+| input_boolean.finestra_cucina_aperta | 8 | 1 | 0 | 0 |
+| input_boolean.finestra_sala_aperta | 8 | 0 | 1.00 | 0 |
 
 ## 2. Qualita' dei sensori
 
 | stanza | sensore | righe | unavail_pct | upd_med_s | p1 | p50 | p99 | fuori_range | fuori_pct | zeri | costante | step_p50 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| cucina | rh_pilota | 4 | 0 | 1217.55 | 50.03 | 51.50 | 52.97 | 0 | 0 | 0 | False | 1 |
-| cucina | rh_fancoil | 4 | 0 | 1217.55 | 50.03 | 51.50 | 52.97 | 0 | 0 | 0 | False | 1 |
-| cucina | rh_th | 2 | 0 | 1552.83 | 50.04 | 52 | 53.96 | 0 | 0 | 0 | False | 4 |
-| cucina | t_reale | 1 | 0 | - | 19.40 | 19.40 | 19.40 | 0 | 0 | 0 | False | - |
-| cucina | t_fancoil | 1 | 0 | - | 19.40 | 19.40 | 19.40 | 0 | 0 | 0 | False | - |
-| cucina | omega | 8 | 0 | 87.02 | 7.38 | 7.61 | 7.83 | 0 | 0 | 0 | False | 0.15 |
-| camera_grande | rh_pilota | 3 | 0 | 916.67 | 52.02 | 53 | 53.98 | 0 | 0 | 0 | False | 1 |
-| camera_grande | rh_fancoil | 3 | 0 | 916.67 | 52.02 | 53 | 53.98 | 0 | 0 | 0 | False | 1 |
-| camera_grande | rh_th | 1 | 0 | - | 50 | 50 | 50 | 0 | 0 | 0 | False | - |
-| camera_grande | t_reale | 16 | 0 | 3.89 | 19 | 19.20 | 19.40 | 0 | 0 | 0 | False | 0.20 |
-| camera_grande | t_fancoil | 16 | 0 | 3.89 | 19 | 19.20 | 19.40 | 0 | 0 | 0 | False | 0.20 |
-| camera_grande | omega | 19 | 0 | 4.58 | 7.49 | 7.73 | 7.97 | 0 | 0 | 0 | False | 0.10 |
-| camera | rh_pilota | 1 | 0 | - | 55 | 55 | 55 | 0 | 0 | 0 | False | - |
-| camera | rh_fancoil | 1 | 0 | - | 55 | 55 | 55 | 0 | 0 | 0 | False | - |
-| camera | rh_th | 1 | 0 | - | 64 | 64 | 64 | 0 | 0 | 0 | False | - |
-| camera | t_reale | 1 | 0 | - | 20.20 | 20.20 | 20.20 | 0 | 0 | 0 | False | - |
-| camera | t_fancoil | 1 | 0 | - | 20.20 | 20.20 | 20.20 | 0 | 0 | 0 | False | - |
-| camera | omega | 1 | 0 | - | 8.54 | 8.54 | 8.54 | 0 | 0 | 0 | False | - |
-| corridoio | rh_pilota | 2 | 0 | 1769.39 | 49.01 | 49.50 | 49.99 | 0 | 0 | 0 | False | 1 |
-| corridoio | rh_fancoil | 2 | 0 | 1769.39 | 49.01 | 49.50 | 49.99 | 0 | 0 | 0 | False | 1 |
-| corridoio | t_reale | 1 | 0 | - | 20.80 | 20.80 | 20.80 | 0 | 0 | 0 | False | - |
-| corridoio | t_fancoil | 1 | 0 | - | 20.80 | 20.80 | 20.80 | 0 | 0 | 0 | False | - |
-| corridoio | omega | 3 | 0 | 884.70 | 7.89 | 7.89 | 8.05 | 0 | 0 | 0 | False | 0.16 |
-| bagno | rh_pilota | 3 | 0 | 1135.51 | 52.02 | 53 | 53.98 | 0 | 0 | 0 | False | 1 |
-| bagno | rh_fancoil | 3 | 0 | 1135.51 | 52.02 | 53 | 53.98 | 0 | 0 | 0 | False | 1 |
-| bagno | t_reale | 3 | 0 | 1369.08 | 19.60 | 19.60 | 19.80 | 0 | 0 | 0 | False | 0.20 |
-| bagno | t_fancoil | 3 | 0 | 1369.08 | 19.60 | 19.60 | 19.80 | 0 | 0 | 0 | False | 0.20 |
-| bagno | omega | 7 | 0 | 602.69 | 7.78 | 8.07 | 8.17 | 0 | 0 | 0 | False | 0.10 |
-| sala | rh_pilota | 1 | 0 | - | 56 | 56 | 56 | 0 | 0 | 0 | False | - |
-| sala | rh_fancoil | 1 | 0 | - | 56 | 56 | 56 | 0 | 0 | 0 | False | - |
-| sala | t_reale | 1 | 0 | - | 20.20 | 20.20 | 20.20 | 0 | 0 | 0 | False | - |
-| sala | t_fancoil | 1 | 0 | - | 20.20 | 20.20 | 20.20 | 0 | 0 | 0 | False | - |
-| sala | omega | 1 | 0 | - | 8.70 | 8.70 | 8.70 | 0 | 0 | 0 | False | - |
+| cucina | rh_pilota | 17 | 0.04 | 266.12 | 53 | 53 | 53 | 0 | 0 | 0 | False | - |
+| cucina | rh_fancoil | 17 | 1.53 | 42.25 | 53 | 53 | 53 | 0 | 0 | 0 | False | - |
+| cucina | rh_th | 17 | 0.09 | 266.13 | 50 | 50 | 50 | 0 | 0 | 0 | False | - |
+| cucina | t_reale | 23 | 0.04 | 169.32 | 18.40 | 18.80 | 19.20 | 0 | 0 | 0 | False | 0.40 |
+| cucina | t_fancoil | 22 | 1.53 | 9.49 | 18.40 | 18.80 | 19.20 | 0 | 0 | 0 | False | 0.40 |
+| cucina | omega | 30 | 0.03 | 21.96 | 7.32 | 7.51 | 7.71 | 0 | 0 | 0 | False | 0.19 |
+| camera_grande | rh_pilota | 19 | 0.03 | 249.81 | 53 | 53 | 54 | 0 | 0 | 0 | False | 1 |
+| camera_grande | rh_fancoil | 19 | 1.70 | 43.64 | 53 | 53 | 54 | 0 | 0 | 0 | False | 1 |
+| camera_grande | rh_th | 17 | 0.10 | 266.13 | 50 | 50 | 50 | 0 | 0 | 0 | False | - |
+| camera_grande | t_reale | 59 | 0.03 | 9.41 | 18 | 18.40 | 19.20 | 0 | 0 | 0 | False | 0.40 |
+| camera_grande | t_fancoil | 60 | 1.70 | 8.28 | 18 | 18.40 | 19.20 | 0 | 0 | 0 | False | 0.40 |
+| camera_grande | omega | 65 | 0.04 | 9.13 | 7.14 | 7.46 | 7.71 | 0 | 0 | 0 | False | 0.18 |
+| camera | rh_pilota | 17 | 0.03 | 266.11 | 48 | 48 | 48 | 0 | 0 | 0 | False | - |
+| camera | rh_fancoil | 17 | 1.55 | 42.24 | 48 | 48 | 48 | 0 | 0 | 0 | False | - |
+| camera | rh_th | 17 | 0.10 | 266.13 | 50 | 50 | 50 | 0 | 0 | 0 | False | - |
+| camera | t_reale | 17 | 0.03 | 266.11 | 18.80 | 18.80 | 18.80 | 0 | 0 | 0 | False | - |
+| camera | t_fancoil | 17 | 1.55 | 42.24 | 18.80 | 18.80 | 18.80 | 0 | 0 | 0 | False | - |
+| camera | omega | 22 | 0.04 | 226.75 | 6.79 | 6.79 | 6.80 | 0 | 0 | 0 | False | 0.01 |
+| corridoio | rh_pilota | 23 | 0.04 | 157.43 | 49 | 49 | 50 | 0 | 0 | 0 | False | 1 |
+| corridoio | rh_fancoil | 23 | 1.70 | 88.57 | 49 | 49 | 50 | 0 | 0 | 0 | False | 1 |
+| corridoio | t_reale | 22 | 0.04 | 127.89 | 19.60 | 19.60 | 20 | 0 | 0 | 0 | False | 0.40 |
+| corridoio | t_fancoil | 22 | 1.70 | 10.33 | 19.60 | 19.60 | 20 | 0 | 0 | 0 | False | 0.40 |
+| corridoio | omega | 40 | 0.04 | 4.04 | 7.30 | 7.45 | 7.64 | 0 | 0 | 0 | False | 0.16 |
+| bagno | rh_pilota | 20 | 0.03 | 255.82 | 53 | 53 | 54 | 0 | 0 | 0 | False | 1 |
+| bagno | rh_fancoil | 20 | 1.72 | 74.99 | 53 | 53.50 | 54 | 0 | 0 | 0 | False | 1 |
+| bagno | t_reale | 52 | 0.03 | 10.52 | 18.40 | 18.60 | 19.80 | 0 | 0 | 0 | False | 0.20 |
+| bagno | t_fancoil | 51 | 1.72 | 7.87 | 18.40 | 18.60 | 19.80 | 0 | 0 | 0 | False | 0.20 |
+| bagno | omega | 59 | 0.04 | 9.93 | 7.32 | 7.42 | 8 | 0 | 0 | 0 | False | 0.10 |
+| sala | rh_pilota | 17 | 0.04 | 266.12 | 50 | 50 | 50 | 0 | 0 | 0 | False | - |
+| sala | rh_fancoil | 17 | 1.56 | 42.22 | 50 | 50 | 50 | 0 | 0 | 0 | False | - |
+| sala | t_reale | 17 | 0.05 | 266.13 | 19.20 | 19.20 | 19.20 | 0 | 0 | 0 | False | - |
+| sala | t_fancoil | 17 | 1.56 | 42.22 | 19.20 | 19.20 | 19.20 | 0 | 0 | 0 | False | - |
+| sala | omega | 21 | 0.04 | 241.29 | 7.26 | 7.26 | 7.26 | 0 | 0 | 0 | False | - |
 
 _fuori_range: T 10-35 C, RH 10-95%, omega 1-20 g/kg; costante = un solo valore per tutto il periodo; p1/p99 = percentili._
 
@@ -99,8 +99,8 @@ _fuori_range: T 10-35 C, RH 10-95%, omega 1-20 g/kg; costante = un solo valore p
 
 | stanza | fonte | aperture | durata_med_min | durata_p90_min | tempo_aperta_pct | unavail_pct |
 |---|---|---|---|---|---|---|
-| cucina | binary_sensor.contact_cucina_contact_cucina | 0 | - | - | 0 | 0 |
-| camera_grande | binary_sensor.finestra_camera_grande_finestra_camera_grande | 0 | - | - | 0 | 0 |
+| cucina | binary_sensor.contact_cucina_contact_cucina | 0 | - | - | 0 | 1.45 |
+| camera_grande | binary_sensor.finestra_camera_grande_finestra_camera_grande | 0 | - | - | 0 | 1.40 |
 | camera | input_boolean.finestra_camera_aperta | 0 | - | - | 0 | 0 |
 | corridoio | (nessuna finestra) | 0 | - | - | - | - |
 | bagno | input_boolean.finestra_bagno_aperta | 0 | - | - | 0 | 0 |
@@ -110,29 +110,35 @@ _fuori_range: T 10-35 C, RH 10-95%, omega 1-20 g/kg; costante = un solo valore p
 
 | stanza | cambi_al_giorno | episodi_lt60s_pct | rientri_ABA_lt60s | dwell_med_s | stati_tempo |
 |---|---|---|---|---|---|
-| cucina | 0 | 0 | 0 | 3600.16 | nessuna_azione 100% |
-| camera_grande | 0 | 0 | 0 | 3600.13 | nessuna_azione 100% |
-| camera | 0 | 0 | 0 | 3600.49 | nessuna_azione 100% |
-| corridoio | 0 | 0 | 0 | 3600.19 | nessuna_azione 100% |
-| bagno | 0 | 0 | 0 | 3600.51 | nessuna_azione 100% |
-| sala | 0 | 0 | 0 | 3600.37 | nessuna_azione 100% |
+| cucina | 0.90 | 50 | 4 | 124.03 | apri 100%, unavailable 0%, nessuna_azione 0% |
+| camera_grande | 1 | 54.55 | 4 | 52.11 | apri 92%, nessuna_azione 8%, unavailable 0% |
+| camera | 0.80 | 44.44 | 4 | 247.01 | nessuna_azione 100%, unavailable 0% |
+| corridoio | 0.80 | 44.44 | 4 | 247.01 | nessuna_azione 100%, unavailable 0% |
+| bagno | 0.90 | 40 | 4 | 239.64 | nessuna_azione 87%, apri 13%, unavailable 0% |
+| sala | 0.80 | 44.44 | 4 | 247.00 | nessuna_azione 100%, unavailable 0% |
 
 
 **Cambi al giorno se si ignorano gli stati piu' brevi di N secondi** (debounce):
 
 | stanza | grezzi | min30s | min60s | min120s | min300s |
 |---|---|---|---|---|---|
-| cucina | 0 | 0 | 0 | 0 | 0 |
-| camera_grande | 0 | 0 | 0 | 0 | 0 |
-| camera | 0 | 0 | 0 | 0 | 0 |
-| corridoio | 0 | 0 | 0 | 0 | 0 |
-| bagno | 0 | 0 | 0 | 0 | 0 |
-| sala | 0 | 0 | 0 | 0 | 0 |
+| cucina | 0.90 | 0 | 0 | 0 | 0 |
+| camera_grande | 1 | 0.10 | 0.10 | 0.10 | 0 |
+| camera | 0.80 | 0 | 0 | 0 | 0 |
+| corridoio | 0.80 | 0 | 0 | 0 | 0 |
+| bagno | 0.90 | 0.10 | 0.10 | 0.10 | 0 |
+| sala | 0.80 | 0 | 0 | 0 | 0 |
 
 
 **Soglie effettive quando consiglia 'apri/apri_se_riparata'** (pesate sul tempo; 'stabile' = righe che durano >= 30 s):
 
-_nessun dato_
+| stanza | impianto | ore_apri | dw_min_grezzo | dw_min_stabile30s | dw_p10_t | dw_p50_t | calo_min_stab | calo_p50_t |
+|---|---|---|---|---|---|---|---|---|
+| cucina | False | 0.41 | 2.34 | 2.34 | 2.34 | 2.47 | 14.30 | 15.50 |
+| cucina | True | 0.59 | 2.34 | 2.34 | 2.34 | 2.49 | 13.50 | 14.30 |
+| camera_grande | False | 0.47 | 2.34 | 2.34 | 2.34 | 2.47 | 5.20 | 7.70 |
+| camera_grande | True | 0.45 | 2.29 | 2.29 | 2.29 | 2.43 | 4.90 | 5.60 |
+| bagno | True | 0.13 | 2.44 | 2.44 | 2.44 | 2.58 | 14.10 | 14.40 |
 
 ## 5. Esito ultimo consiglio, sensore '_con_validazione' (Layer 2)
 
@@ -163,12 +169,12 @@ _Nessuna stanza ha un sensore `esito_ultimo_consiglio_finestra_<stanza>` attivo 
 
 | stanza | analytics_righe | attr_distinti | override_rate | accuracy | pred_count | f_rh | attributi_variabili | log_stati | prev_h_p50 | prev_h_8min_pct |
 |---|---|---|---|---|---|---|---|---|---|---|
-| cucina | 1 | 1 | 0 | 0 | 0 | 1.0 | - | idle 1 | 8 | 100 |
-| camera_grande | 1 | 1 | 0 | 0 | 0 | 1.0 | - | idle 1 | 8 | 100 |
-| camera | 1 | 1 | 0 | 0 | 0 | 1.0 | - | idle 1 | 8 | 100 |
-| corridoio | 1 | 1 | 0 | 0 | 0 | 1.0 | - | idle 1 | 8 | 100 |
-| bagno | 1 | 1 | 0 | 0 | 0 | 1.0 | - | idle 1 | 8 | 100 |
-| sala | 1 | 1 | 0 | 0 | 0 | 1.0 | - | idle 1 | 8 | 100 |
+| cucina | 17 | 2 | 0 | 0 | 0 | 1.0 | - | idle 13, unavailable 4 | 5 | 34.62 |
+| camera_grande | 17 | 2 | 0 | 0 | 0 | 1.0 | - | idle 13, unavailable 4 | 5 | 33.33 |
+| camera | 17 | 2 | 0 | 0 | 0 | 1.0 | - | idle 13, unavailable 4 | 5 | 0 |
+| corridoio | 17 | 2 | 0 | 0 | 0 | 1.0 | - | idle 13, unavailable 4 | 5 | 0 |
+| bagno | 17 | 2 | 0 | 0 | 0 | 1.0 | - | idle 13, unavailable 4 | 5 | 0 |
+| sala | 17 | 2 | 0 | 0 | 0 | 1.0 | - | idle 13, unavailable 4 | 5 | 0 |
 
 _attributi_variabili = attributi di analytics_tuning che assumono piu' valori nel periodo (n valori distinti: esempi)._
 
@@ -182,10 +188,10 @@ _Nessuna apertura finestra nel periodo: impossibile valutare efficacia._
 
 | stanza | episodi_apri_tot | episodi_ge60s | durata_med_min | seguiti | seguiti_pct | tempo_in_apri_pct |
 |---|---|---|---|---|---|---|
-| cucina | 0 | 0 | - | 0 | - | 0 |
-| camera_grande | 0 | 0 | - | 0 | - | 0 |
+| cucina | 5 | 5 | 11.17 | 0 | 0 | 99.90 |
+| camera_grande | 4 | 4 | 11.12 | 0 | 0 | 91.60 |
 | camera | 0 | 0 | - | 0 | - | 0 |
-| bagno | 0 | 0 | - | 0 | - | 0 |
+| bagno | 2 | 2 | 3.99 | 0 | 0 | 13.31 |
 | sala | 0 | 0 | - | 0 | - | 0 |
 
 _Confronta seguiti_pct con tempo_in_apri_pct: se sono simili, l'apertura non e' correlata al consiglio. Nelle stanze con finestra manuale una mancata registrazione appare come consiglio ignorato._
@@ -194,63 +200,84 @@ _Confronta seguiti_pct con tempo_in_apri_pct: se sono simili, l'apertura non e' 
 
 | stanza | pilota_vs_th_n | pilota_vs_th_p50 | pilota_vs_th_p95 | oltre15_pct | omega_n | omega_bias_med | omega_abs_p95 |
 |---|---|---|---|---|---|---|---|
-| cucina | 12 | 2 | 3 | 0 | 12 | 0.17 | 0.17 |
-| camera_grande | 12 | 3.50 | 4 | 0 | 12 | 0.17 | 0.18 |
-| camera | 12 | 9 | 9 | 0 | 12 | 0.19 | 0.19 |
-| corridoio | - | - | - | - | 12 | 0.17 | 0.17 |
-| bagno | - | - | - | - | 12 | 0.18 | 0.18 |
-| sala | - | - | - | - | 12 | 0.19 | 0.19 |
+| cucina | 12 | 3 | 3 | 0 | 12 | 0.14 | 0.15 |
+| camera_grande | 12 | 3 | 4 | 0 | 12 | 0.14 | 0.15 |
+| camera | 12 | 2 | 2 | 0 | 12 | 0.12 | 0.13 |
+| corridoio | - | - | - | - | 12 | 0.14 | 0.14 |
+| bagno | - | - | - | - | 12 | 0.14 | 0.15 |
+| sala | - | - | - | - | 12 | 0.14 | 0.14 |
 
 
 _omega_bias = omega del sensore meno omega ricalcolata (Magnus, 980 hPa) da T_reale e RH_pilota, in g/kg._
 
 
-**Esterno (sensor.omega_esterno):** T_ext min=9.6, p10=9.7, p50=9.9, p90=13.6, max=14.3; RH_ext min=55, p10=58, p50=67, p90=67, max=67; omega_ext min=5.18, p10=5.26, p50=5.34, p90=5.86, max=5.97; fonti: clima_locale 233
+**Esterno (sensor.omega_esterno):** T_ext min=11.3, p10=11.3, p50=11.5, p90=11.7, max=11.7; RH_ext min=57, p10=57, p50=60, p90=63, max=63; omega_ext min=4.85, p10=4.85, p50=5.03, p90=5.22, max=5.22; fonti: meteo_castionetto 19, (vuota) 4
 
 
-**Pioggia:** 0.0% dei campioni > 0 (n=1).
+**Pioggia:** 0.0% dei campioni > 0 (n=9).
 
 
 ## 9a. Dati esterni: valori impossibili per fonte
 
 | source | righe | anomale | t_max | omega_max | h_max |
 |---|---|---|---|---|---|
-| clima_locale | 233 | 0 | 14.30 | 5.97 | 67 |
+| meteo_castionetto | 19 | 0 | 11.70 | 5.22 | 63 |
+| (vuota) | 4 | 0 | - | - | - |
 
 
 ## 9b. Episodi di indisponibilita' (unavailable/unknown)
 
-_nessun dato_
+| entita | episodi | lt30s | med_min | max_min | max_inizio | min_in_episodi_gt10min | ore_inizio_top |
+|---|---|---|---|---|---|---|---|
+| binary_sensor.contact_cucina_contact_cucina | 8 | 8 | 0.11 | 0.15 | 11-05 15:48 | 0 | 15h:7, 14h:1 |
+| sensor.fancoil_cucina_humidity | 8 | 8 | 0.11 | 0.16 | 11-05 15:48 | 0 | 15h:7, 14h:1 |
+| sensor.umidita_cucina_pilota | 4 | 4 | 0.01 | 0.01 | 11-05 15:31 | 0 | 15h:4 |
+| binary_sensor.finestra_camera_grande_finestra_camera_grande | 8 | 8 | 0.10 | 0.15 | 11-05 15:48 | 0 | 15h:7, 14h:1 |
+| sensor.fancoil_camera_grande_humidity | 8 | 8 | 0.13 | 0.17 | 11-05 15:48 | 0 | 15h:7, 14h:1 |
+| sensor.umidita_camera_grande_pilota | 4 | 4 | 0.01 | 0.01 | 11-05 15:40 | 0 | 15h:4 |
+| sensor.fancoil_camera_humidity | 8 | 8 | 0.12 | 0.16 | 11-05 15:48 | 0 | 15h:7, 14h:1 |
+| sensor.umidita_camera_pilota | 4 | 4 | 0.01 | 0.01 | 11-05 15:40 | 0 | 15h:4 |
+| sensor.fancoil_corridoio_humidity | 8 | 8 | 0.13 | 0.17 | 11-05 15:48 | 0 | 15h:7, 14h:1 |
+| sensor.umidita_corridoio_pilota | 4 | 4 | 0.01 | 0.01 | 11-05 15:31 | 0 | 15h:4 |
+| sensor.fancoil_bagno_humidity | 8 | 8 | 0.13 | 0.17 | 11-05 15:48 | 0 | 15h:7, 14h:1 |
+| sensor.umidita_bagno_pilota | 4 | 4 | 0.00 | 0.01 | 11-05 15:31 | 0 | 15h:4 |
+| sensor.fancoil_sala_humidity | 8 | 8 | 0.12 | 0.16 | 11-05 15:48 | 0 | 15h:7, 14h:1 |
+| sensor.umidita_sala_pilota | 4 | 4 | 0.01 | 0.01 | 11-05 15:31 | 0 | 15h:4 |
+| binary_sensor.contact_cucina_not_used | 8 | 8 | 0.11 | 0.15 | 11-05 15:48 | 0 | 15h:7, 14h:1 |
+| binary_sensor.finestra_camera_grande_not_used | 8 | 8 | 0.10 | 0.15 | 11-05 15:48 | 0 | 15h:7, 14h:1 |
 
 ## 9c. Contatto principale vs secondo ingresso ('not_used')
 
-_nessun dato_
+| principale | secondaria | on_min_princ | on_min_sec | sovrapposti_min | eventi_on_princ | eventi_on_sec |
+|---|---|---|---|---|---|---|
+| contact_cucina_contact_cucina | contact_cucina_not_used | 0 | 0 | 0 | 0 | 0 |
+| finestra_camera_grande_finestra_ | finestra_camera_grande_not_used | 0 | 0 | 0 | 0 | 0 |
 
 _Se i minuti sovrapposti sono pochi e la secondaria ha eventi propri, il secondo ingresso e' cablato a un'altra apertura._
 
 ## 10. Impronta sul recorder
 
-- Righe totali nel periodo: 24537; entita' del sistema clima (nome contiene stanza e sensore tipo): 6730 (27.4%)
+- Righe totali nel periodo: 56303; entita' del sistema clima (nome contiene stanza e sensore tipo): 5214 (9.3%)
 
 | entita | righe |
 |---|---|
-| sensor.statistics_temperatura_camera_variance | 732 |
-| sensor.statistics_temperatura_sala_variance | 732 |
-| sensor.statistics_temperatura_camera_grande_variance | 731 |
-| sensor.statistics_temperatura_bagno_variance | 730 |
-| sensor.consumo_impianto_nuovo | 632 |
-| sensor.previsione_finestra_camera_grande | 461 |
-| sensor.previsione_finestra_corridoio | 418 |
-| sensor.previsione_finestra_bagno | 407 |
-| sensor.previsione_finestra_sala | 398 |
-| sensor.previsione_finestra_camera | 396 |
-| sensor.previsione_finestra_cucina | 385 |
-| automation.ev_listener_eventi_log | 366 |
-| sensor.knx_interface_telegrams | 365 |
-| sensor.locale_tecnico_wifi_dual_meter_b_new_a_old_total_power | 337 |
-| sensor.locale_tecnico_wifi_dual_meter_b_new_a_old_power_a | 336 |
-| sensor.locale_tecnico_wifi_dual_meter_b_new_a_old_power_b | 335 |
-| sensor.locale_tecnico_wifi_dual_meter_b_new_a_old_current_a | 335 |
-| sensor.smart_meter_2026_a_pdc_voltage_a | 325 |
-| sensor.smart_meter_2026_a_pdc_total_power | 322 |
-| sensor.locale_tecnico_wifi_dual_meter_b_new_a_old_voltage_a | 318 |
+| sensor.potenza_carichi_non_misurati | 1720 |
+| sensor.consumo_casa_rapido | 1313 |
+| sensor.net_grid_power | 984 |
+| sensor.prism_potenza | 727 |
+| sensor.locale_tecnico_prism_power_provided_to_car | 719 |
+| sensor.prism_potenza_kw | 684 |
+| sensor.ev_charge_2025_power_from_solar | 684 |
+| sensor.consumo_impianto_nuovo | 647 |
+| sensor.prism_tensione_attuale | 584 |
+| sensor.locale_tecnico_prism_power_grid_voltage | 576 |
+| sensor.potenza_totale_bilancio | 431 |
+| sensor.potenza_consumo_casa_reale | 424 |
+| sensor.potenza_totale_entrante | 417 |
+| sensor.ev_charging_status_markdown | 392 |
+| automation.log_ev_charging_reason_changes | 356 |
+| sensor.knx_interface_telegrams | 349 |
+| sensor.locale_tecnico_solarnet_power_battery_discharge | 339 |
+| sensor.potenza_scarica_batteria | 339 |
+| sensor.locale_tecnico_solarnet_power_load_consumed | 339 |
+| sensor.ev_charging_estimated_current | 337 |

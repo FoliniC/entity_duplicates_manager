@@ -358,6 +358,73 @@ Le chiamate `hass.services.call('notify', ...)` in `pyscript/modules/btc_tracker
 
 > **Nota comportamento "Normale"**: in Normale la WAN del router (usb0 via `10.203.33.201`) non ha Internet se il Redmi Note 11 non è collegato al router (il Note 13 Pro 5G è su Debian/Windows). La LAN resta quindi isolata in Normale finché non si ricollega il telefono al router o non si passa a Intranet. Se si vuole fail-open verso Debian in Normale, implementare su richiesta.
 
+### Fix Debian USB Tethering Preflight Intranet — Novembre 2026
+
+**Sintomo**: premendo 🌐 **Intranet** (host Debian), il preflight falliva con:
+```text
+PRE-FLIGHT FALLITO: Internet non raggiungibile via enxaace41ec2548 (GW=10.175.18.69).
+Tethering attivo ma NAT mobile non instrada verso internet.
+```
+Nonostante il telefono (Redmi Note 13 Pro 5G su Debian) avesse tethering USB attivo e Internet funzionante (ping 0% loss da Android), Debian non poteva usarlo come upstream.
+
+**Causa root**: la connessione NetworkManager **Wired connection 11** (l'interfaccia USB `enxaace41ec2548`) era configurata con:
+```text
+ipv4.never-default: yes
+ipv4.route-metric: -1
+```
+Questo fa sì che NetworkManager ottenga lease DHCP + gateway dal telefono, ma **non installi alcuna default route**. Di conseguenza:
+- Debian raggiunge il gateway USB (`10.175.18.69`) ma non ha una rotta `default via ... dev enxaace41ec2548`.
+- Il ping vincolato all'interfaccia (`ping -I enxaace41ec2548 1.1.1.1`) torna `Destination Host Unreachable`.
+- Il preflight Intranet blocca l'attivazione (correttamente: senza default route il server non può fare NAT per la LAN).
+
+**Soluzione implementata** (2 file modificati):
+
+1. **`/home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh`** — nuovo comando `ensure_usb_default`:
+   ```bash
+   cmd_ensure_usb_default() {
+       local iface="${1:-}" conn gw
+       # 1) Trova la connessione NM attiva sull'interfaccia USB
+       conn=$(nmcli -g GENERAL.CONNECTION device show "$iface" | head -1)
+       # 2) Rimuove never-default e imposta metrica 50 (USB vince su LAN metric 100)
+       nmcli connection modify "$conn" ipv4.never-default no ipv4.route-metric 50
+       # 3) Riattiva la connessione per applicare le modifiche
+       nmcli device reapply "$iface" >/dev/null 2>&1 || true
+       nmcli connection up "$conn" ifname "$iface"
+       # 4) Attende la default route DHCP del telefono (metric 50)
+       while [ "$n" -lt 10 ]; do
+           gw=$(ip route show default dev "$iface" | awk '/^default via / {print $3; exit}')
+           [ -n "$gw" ] && { echo "$iface|$gw|$conn"; return 0; }
+           sleep 1; n=$((n+1))
+       done
+   }
+   ```
+   Registrato nel `case` come `ensure_usb_default) shift; cmd_ensure_usb_default "$@" ;;`.
+
+2. **`/home/carlo/docker/homeassistant/config/helpers/usb_tether_ha.sh`** — preflight Intranet modificato:
+   ```bash
+   if [[ "$MODE" == "intranet" ]]; then
+       local route_setup
+       route_setup="$(ssh_debian "sudo /home/carlo/docker/homeassistant/config/host_scripts/usb_tether.sh ensure_usb_default $detect_iface" 2>&1)"
+       if [[ $? -ne 0 ]]; then
+           log_line ERROR "PRE-FLIGHT FALLITO: impossibile configurare $detect_iface come upstream USB Debian: $route_setup"
+           # cleanup + return error JSON
+       fi
+       detect_gw=$(printf '%s' "$route_setup" | tail -1 | cut -d'|' -f2)
+       log_line INFO "PRE-FLIGHT ROUTING: $detect_iface configurata come default upstream Debian (GW=$detect_gw)"
+   fi
+   # ... segue il ping vincolato all'interfaccia (ora OK)
+   ```
+
+**Risultato dopo il fix**:
+- Connessione NM aggiornata: `ipv4.never-default: no`, `ipv4.route-metric: 50`.
+- Default route installata: `default via 10.175.18.69 dev enxaace41ec2548 metric 50` (più bassa della LAN `metric 100`).
+- Ping Debian → Internet via USB: **0% packet loss**.
+- Preflight Intranet: **OK** → modalità attivata correttamente.
+- Router: `default via 192.168.0.3 dev br-lan metric 9` (anchor Intranet).
+- Ping router → `1.1.1.1`: **0% packet loss** (LAN naviga via Debian → telefono).
+
+**Nota**: la metrica 50 è scelta per far vincere la route USB su quella LAN (`enp2s0` metric 100) solo quando Intranet è attiva; in modalità **Server** la route USB resta a metric 50 per far uscire il server stesso via telefono, mentre la LAN continua a usare il router.
+
 ### Sensore Diagnostica Router (Status Apparati - Agosto 2026)
 
 Per rendere visibile il problema sulla dashboard è stato aggiunto un sensore di diagnosi che **pinga dal router stesso** (non da Debian/HA), rilevando il caso in cui la LAN perde internet pur apparendo "attiva":

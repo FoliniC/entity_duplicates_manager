@@ -1,4 +1,5 @@
-- alias: "Reload Templates After Startup"
+- id: template_reload_after_startup
+  alias: "Reload Templates After Startup"
   description: "Reload template sensors 4 minutes after Home Assistant starts to ensure LocalTuya entities are loaded"
   trigger:
     - platform: homeassistant

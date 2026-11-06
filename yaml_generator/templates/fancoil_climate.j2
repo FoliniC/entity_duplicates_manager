@@ -56,13 +56,22 @@
       {{ local | float | clamp(5, 35) | round(1) }}
     {% endif %}
 
-  # Modalità HVAC con gestione follow master
-  hvac_mode_template: "{{ states('sensor.fancoil_%%id%%_hvac_temp_mode') }}"
+  # Modalità HVAC con gestione follow master (ottimistica, gestita via automazioni)
+  hvac_mode_template: "{{ 'heat' }}"
 
   # Stato operativo (heating, cooling, idle, off)
   hvac_action_template: >-
+    {% set follow_master = is_state('input_boolean.fancoil_%%id%%_hvac_mode_follow_master','on') %}
+    {% set master_hvac_mode = states('input_select.fancoil_system_hvac_mode') %}
+    {% set local_mode = states('input_select.fancoil_%%id%%_hvac_mode_local') %}
+    {% if follow_master and master_hvac_mode not in ['unavailable', 'unknown', None, ''] %}
+        {% set mode = master_hvac_mode %}
+    {% elif not follow_master and local_mode not in ['unavailable', 'unknown', None, ''] %}
+        {% set mode = local_mode %}
+    {% else %}
+        {% set mode = 'off' %}
+    {% endif %}
     {% set vlv = is_state('switch.fancoil_%%id%%_switch_4', 'on') %}
-    {% set mode = states('sensor.fancoil_%%id%%_hvac_temp_mode') %}
     {% if mode == 'off' %} off
     {% elif not vlv %} idle
     {% elif mode == 'heat' %} heating

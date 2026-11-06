@@ -45,6 +45,9 @@ ROOM_INPUT_NUMBER_TEMPLATE_PATH = (
 MASTER_INPUT_NUMBER_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "fancoil_master_input_numbers.j2")
 )
+MASTER_INPUT_SELECT_TEMPLATE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_master_input_selects.j2")
+)
 MASTER_CLIMATE_TEMPLATE_PATH = os.path.join(SCRIPT_DIR, "templates", "fancoil_master_climate.j2")
 ROOM_INPUT_DATETIME_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "fancoil_room_input_datetime.j2")
@@ -422,7 +425,7 @@ def generate_from_template(template_path, output_dir, vars_map, suffix):
         if not has_win:
             local_ctx["WINDOW_STOP_CONDITION_EXPR"] = "false"
         elif window_contact:
-            local_ctx["WINDOW_STOP_CONDITION_EXPR"] = f"(is_state('input_boolean.finestra_{room_id}_aperta', 'on') or is_state('{window_contact}', 'on'))"
+            local_ctx["WINDOW_STOP_CONDITION_EXPR"] = f"is_state('{window_contact}', 'on')"
         else:
             local_ctx["WINDOW_STOP_CONDITION_EXPR"] = f"is_state('input_boolean.finestra_{room_id}_aperta', 'on')"
         
@@ -545,6 +548,9 @@ def generate_master_and_rooms(
         append_text_file(output_file, master_rendered + "\n")
     else:
         write_text_file(output_file, master_rendered + "\n")
+
+    if room_template_path is None:
+        return
 
     room_text = read_template(room_template_path)
     common_room_ctx = get_common_context(room_template_path)
@@ -779,6 +785,14 @@ def main():
 
     # Per-room climate
     generate_from_template(CLIMATE_TEMPLATE_PATH, CLIMATE_OUTPUT_DIR, vars_map, "")
+
+    # Per-room HVAC mode sync automation
+    generate_from_template(
+        "yaml_generator/templates/fancoil_hvac_mode_sync.j2",
+        AUTOMATION_OUTPUT_DIR,
+        vars_map,
+        "_hvac_mode_sync",
+    )
 
     # Per-room automations
     generate_from_template(
@@ -1159,6 +1173,14 @@ def main():
         ROOM_INPUT_NUMBER_TEMPLATE_PATH,
         INPUT_NUMBER_OUTPUT_FILE,
         vars_map,
+        extra_context=None,
+    )
+    # Master operating mode and thermal profile.
+    generate_master_and_rooms(
+        MASTER_INPUT_SELECT_TEMPLATE_PATH,
+        None,
+        "yaml_generator/input_select/generated_master_input_selects.yaml",
+        {},
         extra_context=None,
     )
     generate_master_and_rooms(
