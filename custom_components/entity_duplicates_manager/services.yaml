@@ -1,6 +1,21 @@
 scan_duplicates:
-  name: Scan for duplicates
+  name: Scan Duplicates
   description: Scans all entities to find potential duplicates based on naming patterns.
+  fields:
+    max_suffix:
+      name: Maximum Suffix
+      default: 9
+      selector:
+        number:
+          min: 1
+          max: 99
+          mode: box
+    exclusion_patterns:
+      name: Exclusion Patterns
+      description: "Use * as wildcard. Example: sensor.test_*"
+      selector:
+        text:
+          multiline: true
 
 fix_entity:
   name: Fix Entity ID
@@ -27,8 +42,47 @@ delete_entity:
       selector:
         entity:
 
+delete_entities:
+  name: Delete Entities (Secure)
+  description: Securely delete entities from the last scan. Admin only. Supports dry-run and force for active entities.
+  fields:
+    entity_ids:
+      name: Entities
+      description: List of entity IDs to delete (must be from last scan).
+      required: true
+      selector:
+        entity:
+          multiple: true
+    dry_run:
+      name: Dry Run
+      description: Show what would be deleted without making changes.
+      default: false
+      selector:
+        boolean:
+    force:
+      name: Force Active Entities
+      description: Allow deletion of active (non-stale) entities.
+      default: false
+      selector:
+        boolean:
+
+get_entities:
+  name: Get All Entities
+  description: Get all entities for the entity manager tab with optional filtering.
+  fields:
+    domain:
+      name: Domain Filter
+      description: Filter by domain (e.g., sensor, switch).
+      selector:
+        text:
+    search:
+      name: Search
+      description: Search term to filter entity IDs.
+      selector:
+        text:
+
 rename_entities_to_base:
-  name: Rename entities to base
+  name: Rename Entities to Base
   description: Renames selected entities back to their base names by removing numeric suffixes (e.g., _2, _3).
   fields:
     entity_ids:

@@ -1,24 +1,174 @@
 {
-    "config": {
-        "step": {
-            "user": {
-                "title": "Entity Duplicates Manager",
-                "description": "Configura Entity Duplicates Manager per pulire la tua istanza di Home Assistant."
-            }
-        },
-        "abort": {
-            "single_instance_allowed": "È consentita una sola istanza di Entity Duplicates Manager."
-        }
+  "config": {
+    "step": {
+      "user": {
+        "title": "Entity Duplicates Manager",
+        "description": "Configura Entity Duplicates Manager per trovare e gestire le entità duplicate nella tua istanza Home Assistant.",
+        "data": {}
+      }
     },
-    "options": {
-        "step": {
-            "init": {
-                "title": "Opzioni",
-                "data": {
-                    "suffix_max": "Profondità Massima Suffisso",
-                    "exclude_pattern": "Pattern di Esclusione (separati da virgola)"
-                }
-            }
-        }
+    "error": {
+      "single_instance_allowed": "È consentita una sola istanza di Entity Duplicates Manager."
+    },
+    "abort": {
+      "single_instance_allowed": "Entity Duplicates Manager è già configurato."
     }
+  },
+  "entity": {
+    "sensor": {
+      "duplicates_found": {
+        "name": "Duplicati Trovati",
+        "state_attributes": {
+          "total_duplicates": "Totale duplicati trovati",
+          "stored_duplicates": "Duplicati nella vista corrente",
+          "exclusion_patterns": "Pattern di esclusione attivi",
+          "max_suffix": "Profondità massima suffisso",
+          "truncated": "Risultati troncati"
+        }
+      }
+    },
+    "switch": {
+      "confirm_deletion": {
+        "name": "Conferma Eliminazione"
+      }
+    },
+    "number": {
+      "suffix_filter_max": {
+        "name": "Filtro Suffix Max"
+      }
+    },
+    "text": {
+      "exclude_patterns": {
+        "name": "Pattern di Esclusione"
+      }
+    }
+  },
+  "services": {
+    "scan_duplicates": {
+      "name": "Scansiona duplicati",
+      "description": "Scansiona tutte le entità per trovare potenziali duplicati basati sui pattern di nomenclatura.",
+      "fields": {
+        "max_suffix": {
+          "name": "Suffisso massimo",
+          "description": "Numero massimo di suffisso da scansionare (opzionale, usa valore configurato se non fornito)"
+        },
+        "exclusion_patterns": {
+          "name": "Pattern di esclusione",
+          "description": "Pattern wildcard separati da virgola da escludere (opzionale, usa valore configurato se non fornito)"
+        }
+      }
+    },
+    "fix_entity": {
+      "name": "Correggi Entity ID",
+      "description": "Rinomina un'entità a un entity ID target.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity ID",
+          "description": "L'entity ID corrente da rinominare"
+        },
+        "new_entity_id": {
+          "name": "Nuovo Entity ID",
+          "description": "Il nuovo entity ID desiderato"
+        }
+      }
+    },
+    "delete_entity": {
+      "name": "Elimina Entità",
+      "description": "Rimuove un'entità dal registro.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity ID",
+          "description": "L'entity ID da rimuovere"
+        }
+      }
+    },
+    "rename_entities_to_base": {
+      "name": "Rinomina entità ai nomi base",
+      "description": "Rinomina le entità selezionate ai loro nomi base rimuovendo i suffissi numerici.",
+      "fields": {
+        "entity_ids": {
+          "name": "Entity IDs",
+          "description": "Lista di entity ID da rinominare ai nomi base"
+        }
+      }
+    },
+    "save_settings": {
+      "name": "Salva Impostazioni",
+      "description": "Salva le impostazioni di scansione senza avviare una scansione.",
+      "fields": {
+        "max_suffix": {
+          "name": "Suffisso massimo",
+          "description": "Numero massimo di suffisso da scansionare"
+        },
+        "exclusion_patterns": {
+          "name": "Pattern di esclusione",
+          "description": "Pattern wildcard separati da virgola da escludere"
+        }
+      }
+    },
+    "exclude_entities": {
+      "name": "Escludi Entità",
+      "description": "Aggiungi entità alla lista di esclusione.",
+      "fields": {
+        "entity_ids": {
+          "name": "Entity IDs",
+          "description": "Lista di entity ID da aggiungere alle esclusioni"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opzioni Entity Duplicates Manager",
+        "description": "Configura le opzioni dell'integrazione.",
+        "data": {
+          "max_suffix": "Profondità massima suffisso da scansionare",
+          "exclusion_patterns": "Pattern di esclusione (separati da virgola)",
+          "confirm_deletion": "Richiedi conferma prima dell'eliminazione"
+        }
+      }
+    }
+  },
+  "frontend": {
+    "card": {
+      "title": "Entity Duplicates Manager",
+      "scan_button": "Scansiona Duplicati",
+      "settings_button": "Impostazioni",
+      "refresh_button": "Aggiorna",
+      "fix_button": "Correggi",
+      "delete_button": "Elimina",
+      "rename_button": "Rinomina a Base",
+      "select_all": "Seleziona Tutto",
+      "deselect_all": "Deseleziona Tutto",
+      "selected_count": "{count} selezionati",
+      "no_duplicates": "Nessun duplicato trovato",
+      "scanning": "Scansione in corso...",
+      "scan_complete": "Scansione completata - {count} duplicati trovati",
+      "error": "Errore: {message}",
+      "confirm_delete": "Sei sicuro di voler eliminare {entity}?",
+      "confirm_fix": "Rinominare {entity} in {new_entity}?",
+      "suffix_filter_label": "Suffisso Max",
+      "exclude_patterns_label": "Pattern Esclusione",
+      "confirm_deletion_label": "Conferma Eliminazione",
+      "entity_id": "Entity ID",
+      "base_entity": "Entità Base",
+      "friendly_name": "Nome Amichevole",
+      "integration": "Integrazione",
+      "unique_id": "ID Univoco",
+      "source": "Origine",
+      "registry": "Registro",
+      "states": "Solo Stati",
+      "can_rename": "Può Rinominare",
+      "cannot_rename": "Non può rinominare (non nel registro)",
+      "actions": "Azioni",
+      "status": "Stato",
+      "last_scan": "Ultima scansione: {time}",
+      "configuration": "Configurazione",
+      "save_settings": "Salva Impostazioni",
+      "settings_saved": "Impostazioni salvate con successo",
+      "operation_success": "Operazione completata con successo",
+      "operation_failed": "Operazione fallita: {error}"
+    }
+  }
 }

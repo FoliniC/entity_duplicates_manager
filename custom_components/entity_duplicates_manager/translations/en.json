@@ -1,24 +1,174 @@
 {
-    "config": {
-        "step": {
-            "user": {
-                "title": "Entity Duplicates Manager",
-                "description": "Set up the Entity Duplicates Manager to clean up your Home Assistant instance."
-            }
-        },
-        "abort": {
-            "single_instance_allowed": "Only one instance of Entity Duplicates Manager is allowed."
-        }
+  "config": {
+    "step": {
+      "user": {
+        "title": "Entity Duplicates Manager",
+        "description": "Set up Entity Duplicates Manager to find and manage duplicate entities in your Home Assistant instance.",
+        "data": {}
+      }
     },
-    "options": {
-        "step": {
-            "init": {
-                "title": "Options",
-                "data": {
-                    "suffix_max": "Max Suffix Depth",
-                    "exclude_pattern": "Exclude Patterns (comma separated)"
-                }
-            }
-        }
+    "error": {
+      "single_instance_allowed": "Only one instance of Entity Duplicates Manager is allowed."
+    },
+    "abort": {
+      "single_instance_allowed": "Entity Duplicates Manager is already configured."
     }
+  },
+  "entity": {
+    "sensor": {
+      "duplicates_found": {
+        "name": "Duplicates Found",
+        "state_attributes": {
+          "total_duplicates": "Total duplicates found",
+          "stored_duplicates": "Duplicates in current view",
+          "exclusion_patterns": "Active exclusion patterns",
+          "max_suffix": "Maximum suffix depth",
+          "truncated": "Results truncated"
+        }
+      }
+    },
+    "switch": {
+      "confirm_deletion": {
+        "name": "Confirm Deletion"
+      }
+    },
+    "number": {
+      "suffix_filter_max": {
+        "name": "Suffix Filter Max"
+      }
+    },
+    "text": {
+      "exclude_patterns": {
+        "name": "Exclude Patterns"
+      }
+    }
+  },
+  "services": {
+    "scan_duplicates": {
+      "name": "Scan for duplicates",
+      "description": "Scans all entities to find potential duplicates based on naming patterns.",
+      "fields": {
+        "max_suffix": {
+          "name": "Max suffix",
+          "description": "Maximum suffix number to scan for (optional, uses configured value if not provided)"
+        },
+        "exclusion_patterns": {
+          "name": "Exclusion patterns",
+          "description": "Comma-separated wildcard patterns to exclude (optional, uses configured value if not provided)"
+        }
+      }
+    },
+    "fix_entity": {
+      "name": "Fix Entity ID",
+      "description": "Renames an entity to a target entity ID.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity ID",
+          "description": "The current entity ID to rename"
+        },
+        "new_entity_id": {
+          "name": "New Entity ID",
+          "description": "The desired new entity ID"
+        }
+      }
+    },
+    "delete_entity": {
+      "name": "Delete Entity",
+      "description": "Removes an entity from the registry.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity ID",
+          "description": "The entity ID to remove"
+        }
+      }
+    },
+    "rename_entities_to_base": {
+      "name": "Rename entities to base",
+      "description": "Renames selected entities back to their base names by removing numeric suffixes.",
+      "fields": {
+        "entity_ids": {
+          "name": "Entity IDs",
+          "description": "List of entity IDs to rename back to base names"
+        }
+      }
+    },
+    "save_settings": {
+      "name": "Save Settings",
+      "description": "Save scan settings without triggering a scan.",
+      "fields": {
+        "max_suffix": {
+          "name": "Max suffix",
+          "description": "Maximum suffix number to scan for"
+        },
+        "exclusion_patterns": {
+          "name": "Exclusion patterns",
+          "description": "Comma-separated wildcard patterns to exclude"
+        }
+      }
+    },
+    "exclude_entities": {
+      "name": "Exclude Entities",
+      "description": "Add entities to the exclusion list.",
+      "fields": {
+        "entity_ids": {
+          "name": "Entity IDs",
+          "description": "List of entity IDs to add to exclusions"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Entity Duplicates Manager Options",
+        "description": "Configure the integration options.",
+        "data": {
+          "max_suffix": "Maximum suffix depth to scan",
+          "exclusion_patterns": "Exclusion patterns (comma-separated)",
+          "confirm_deletion": "Require confirmation before deletion"
+        }
+      }
+    }
+  },
+  "frontend": {
+    "card": {
+      "title": "Entity Duplicates Manager",
+      "scan_button": "Scan for Duplicates",
+      "settings_button": "Settings",
+      "refresh_button": "Refresh",
+      "fix_button": "Fix",
+      "delete_button": "Delete",
+      "rename_button": "Rename to Base",
+      "select_all": "Select All",
+      "deselect_all": "Deselect All",
+      "selected_count": "{count} selected",
+      "no_duplicates": "No duplicates found",
+      "scanning": "Scanning...",
+      "scan_complete": "Scan complete - {count} duplicates found",
+      "error": "Error: {message}",
+      "confirm_delete": "Are you sure you want to delete {entity}?",
+      "confirm_fix": "Rename {entity} to {new_entity}?",
+      "suffix_filter_label": "Max Suffix",
+      "exclude_patterns_label": "Exclude Patterns",
+      "confirm_deletion_label": "Confirm Deletion",
+      "entity_id": "Entity ID",
+      "base_entity": "Base Entity",
+      "friendly_name": "Friendly Name",
+      "integration": "Integration",
+      "unique_id": "Unique ID",
+      "source": "Source",
+      "registry": "Registry",
+      "states": "States Only",
+      "can_rename": "Can Rename",
+      "cannot_rename": "Cannot Rename (not in registry)",
+      "actions": "Actions",
+      "status": "Status",
+      "last_scan": "Last scan: {time}",
+      "configuration": "Configuration",
+      "save_settings": "Save Settings",
+      "settings_saved": "Settings saved successfully",
+      "operation_success": "Operation completed successfully",
+      "operation_failed": "Operation failed: {error}"
+    }
+  }
 }

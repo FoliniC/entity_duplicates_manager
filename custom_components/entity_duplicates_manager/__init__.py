@@ -4,8 +4,10 @@ import logging
 from pathlib import Path
 
 import homeassistant.helpers.config_validation as cv
+import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
+from homeassistant.exceptions import Unauthorized
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
 from homeassistant.components.frontend import add_extra_js_url
@@ -16,7 +18,19 @@ try:
 except ImportError:
     HAS_STATIC_PATH_CONFIG = False
 
-from .const import DOMAIN, SERVICE_SCAN, SERVICE_FIX, SERVICE_DELETE, SERVICE_RENAME, EVENT_SCAN_COMPLETE, EVENT_DELETE_COMPLETE
+from .const import (
+    DOMAIN,
+    SERVICE_SCAN,
+    SERVICE_FIX,
+    SERVICE_DELETE,
+    SERVICE_RENAME,
+    SERVICE_DELETE_ENTITIES,
+    SERVICE_GET_ENTITIES,
+    EVENT_SCAN_COMPLETE,
+    EVENT_DELETE_COMPLETE,
+    EVENT_ENTITIES,
+    DEFAULT_SUFFIX_MAX,
+)
 from .scanner import DuplicatesScanner
 from .storage import StorageManager
 
@@ -25,9 +39,46 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS: list[str] = ["number", "text", "switch", "sensor"]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+SCAN_SCHEMA = vol.Schema(
+    {
+        vol.Optional("max_suffix", default=DEFAULT_SUFFIX_MAX): vol.All(
+            cv.positive_int, vol.Range(min=1, max=99)
+        ),
+        vol.Optional("exclusion_patterns", default=[]): vol.All(
+            cv.ensure_list, [cv.string]
+        ),
+    }
+)
+
+DELETE_ENTITIES_SCHEMA = vol.Schema(
+    {
+        vol.Required("entity_ids"): vol.All(
+            cv.ensure_list, [cv.entity_id], vol.Length(max=500)
+        ),
+        vol.Optional("dry_run", default=False): cv.boolean,
+        vol.Optional("force", default=False): cv.boolean,
+    }
+)
+
+GET_ENTITIES_SCHEMA = vol.Schema(
+    {
+        vol.Optional("domain"): cv.string,
+        vol.Optional("search"): cv.string,
+    }
+)
+
+async def _require_admin(hass: HomeAssistant, call: ServiceCall) -> None:
+    """Accept only calls from an admin user (e.g., from UI)."""
+    user_id = call.context.user_id
+    user = await hass.auth.async_get_user(user_id) if user_id else None
+    if user is None or not user.is_admin:
+        raise Unauthorized(context=call.context)
+
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the integration via YAML."""
     return True
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Entity Duplicates Manager from a config entry."""
 
@@ -47,7 +98,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def handle_scan(call: ServiceCall):
         """Handle the scan service."""
-        # limit can be None (from empty textbox) or an int
         limit = call.data.get("max_suffix")
         exclude_str = call.data.get("exclusion_patterns")
         
@@ -110,10 +160,26 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await scanner.async_delete_entity(entity_id)
 
     async def handle_delete_entities(call: ServiceCall):
-        entity_ids = call.data.get("entity_ids", [])
-        for eid in entity_ids:
-            await scanner.async_delete_entity(eid)
-        hass.bus.async_fire(EVENT_DELETE_COMPLETE, {})
+        """Secure delete with admin check, dry_run, force, and re-validation."""
+        await _require_admin(hass, call)
+
+        dry_run = call.data["dry_run"]
+        results = await scanner.delete_entities(
+            call.data["entity_ids"],
+            dry_run=dry_run,
+            force=call.data["force"],
+        )
+        hass.bus.async_fire(EVENT_DELETE_COMPLETE, {**results, "dry_run": dry_run})
+        return results
+
+    async def handle_get_entities(call: ServiceCall):
+        """Get all entities for the entity manager tab."""
+        results = scanner.get_all_entities(
+            domain_filter=call.data.get("domain"),
+            search=call.data.get("search"),
+        )
+        hass.bus.async_fire(EVENT_ENTITIES, {"entities": results})
+        return {"entities": results}
 
     async def handle_rename_entities(call: ServiceCall):
         entity_ids = call.data.get("entity_ids", [])
@@ -143,13 +209,38 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
         scanner.fire_scan_complete(scanner._duplicates, storage.config)
 
-    hass.services.async_register(DOMAIN, SERVICE_SCAN, handle_scan)
-    hass.services.async_register(DOMAIN, SERVICE_FIX, handle_fix)
-    hass.services.async_register(DOMAIN, SERVICE_DELETE, handle_delete)
-    hass.services.async_register(DOMAIN, "delete_entities", handle_delete_entities)
-    hass.services.async_register(DOMAIN, SERVICE_RENAME, handle_rename_entities)
-    hass.services.async_register(DOMAIN, "save_settings", handle_save_settings)
-    hass.services.async_register(DOMAIN, "exclude_entities", handle_exclude_entities)
+    hass.services.async_register(
+        DOMAIN, SERVICE_SCAN, handle_scan,
+        schema=SCAN_SCHEMA, supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_FIX, handle_fix,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_DELETE, handle_delete,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_DELETE_ENTITIES, handle_delete_entities,
+        schema=DELETE_ENTITIES_SCHEMA, supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_GET_ENTITIES, handle_get_entities,
+        schema=GET_ENTITIES_SCHEMA, supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_RENAME, handle_rename_entities,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN, "save_settings", handle_save_settings,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN, "exclude_entities", handle_exclude_entities,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
 
     return True
 async def _setup_static_resources(hass: HomeAssistant) -> None:

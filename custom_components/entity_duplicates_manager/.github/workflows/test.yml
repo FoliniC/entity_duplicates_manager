@@ -1,0 +1,186 @@
+name: Test
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install pytest pytest-asyncio pyyaml homeassistant==2023.1.0
+      
+      - name: Run unit tests
+        run: |
+          # Create test directory if it exists
+          if [ -d "tests" ]; then
+            python -m pytest tests/ -v
+          else
+            echo "No tests directory found, skipping unit tests"
+          fi
+      
+      - name: Test integration loading
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, 'custom_components')
+          
+          # Test importing all modules
+          from entity_duplicates_manager import (
+              async_setup,
+              async_setup_entry,
+              async_unload_entry
+          )
+          from entity_duplicates_manager.const import DOMAIN
+          from entity_duplicates_manager.config_flow import ConfigFlow
+          from entity_duplicates_manager.scanner import DuplicatesScanner
+          from entity_duplicates_manager.storage import StorageManager
+          from entity_duplicates_manager.sensor import DuplicatesCountSensor
+          from entity_duplicates_manager.switch import ConfirmDeletionSwitch
+          from entity_duplicates_manager.number import DuplicateSuffixFilter
+          from entity_duplicates_manager.text import DuplicateExcludePattern
+          
+          print('All modules imported successfully')
+          print(f'Domain: {DOMAIN}')
+          "
+      
+      - name: Test manifest consistency
+        run: |
+          python -c "
+          import json
+          
+          with open('custom_components/entity_duplicates_manager/manifest.json') as f:
+              manifest = json.load(f)
+          
+          # Verify required fields
+          assert manifest['domain'] == 'entity_duplicates_manager'
+          assert manifest['name'] == 'Entity Duplicates Manager'
+          assert manifest['config_flow'] == True
+          assert 'http' in manifest['after_dependencies']
+          assert 'frontend' in manifest['after_dependencies']
+          
+          print('Manifest consistency test passed')
+          "
+      
+      - name: Test services.yaml structure
+        run: |
+          python -c "
+          import yaml
+          
+          with open('custom_components/entity_duplicates_manager/services.yaml') as f:
+              services = yaml.safe_load(f)
+          
+          required_services = [
+              'scan_duplicates',
+              'fix_entity',
+              'delete_entity',
+              'rename_entities_to_base'
+          ]
+          
+          for service in required_services:
+              assert service in services, f'Missing service: {service}'
+              assert 'name' in services[service], f'Service {service} missing name'
+              assert 'description' in services[service], f'Service {service} missing description'
+          
+          print('Services structure test passed')
+          "
+      
+      - name: Test configuration flow
+        run: |
+          python -c "
+          from entity_duplicates_manager.config_flow import ConfigFlow
+          
+          flow = ConfigFlow()
+          assert flow.VERSION == 1
+          assert hasattr(flow, 'async_step_user')
+          
+          print('Config flow test passed')
+          "
+      
+      - name: Test scanner initialization
+        run: |
+          python -c "
+          from entity_duplicates_manager.scanner import DuplicatesScanner
+          from unittest.mock import MagicMock
+          
+          hass = MagicMock()
+          scanner = DuplicatesScanner(hass)
+          
+          assert hasattr(scanner, 'scan')
+          assert hasattr(scanner, 'async_fix_entity_id')
+          assert hasattr(scanner, 'async_delete_entity')
+          assert hasattr(scanner, 'fire_scan_complete')
+          
+          print('Scanner initialization test passed')
+          "
+      
+      - name: Test storage initialization
+        run: |
+          python -c "
+          from entity_duplicates_manager.storage import StorageManager
+          from unittest.mock import MagicMock
+          
+          hass = MagicMock()
+          hass.config.path.return_value = '/tmp/test'
+          
+          storage = StorageManager(hass)
+          
+          assert hasattr(storage, 'async_load')
+          assert hasattr(storage, 'async_save')
+          assert hasattr(storage, 'config')
+          assert 'max_suffix' in storage.config
+          assert 'exclusion_patterns' in storage.config
+          assert 'excluded_entities' in storage.config
+          
+          print('Storage initialization test passed')
+          "
+      
+      - name: Test platform entities
+        run: |
+          python -c "
+          from entity_duplicates_manager.sensor import DuplicatesCountSensor
+          from entity_duplicates_manager.switch import ConfirmDeletionSwitch
+          from entity_duplicates_manager.number import DuplicateSuffixFilter
+          from entity_duplicates_manager.text import DuplicateExcludePattern
+          from unittest.mock import MagicMock
+          
+          hass = MagicMock()
+          
+          # Test sensor
+          sensor = DuplicatesCountSensor(hass)
+          assert sensor._attr_unique_id == 'duplicate_count_sensor'
+          assert sensor._attr_name == 'Duplicates Found'
+          
+          # Test switch
+          switch = ConfirmDeletionSwitch(hass)
+          assert switch._attr_unique_id == 'duplicate_confirm_deletion'
+          assert switch._attr_name == 'Confirm Deletion'
+          
+          # Test number
+          number = DuplicateSuffixFilter(hass)
+          assert number._attr_unique_id == 'duplicate_suffix_filter'
+          assert number._attr_name == 'Suffix Filter Max'
+          assert number._attr_native_min_value == 1
+          assert number._attr_native_max_value == 10
+          
+          # Test text
+          text = DuplicateExcludePattern(hass)
+          assert text._attr_unique_id == 'duplicate_exclude_pattern'
+          assert text._attr_name == 'Exclude Patterns'
+          
+          print('Platform entities test passed')
+          "

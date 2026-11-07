@@ -1,0 +1,151 @@
+name: Validate
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  validate:
+    name: Validate Code & Structure
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Validate Python syntax
+        run: |
+          find custom_components -name "*.py" -exec python -m py_compile {} \;
+      
+      - name: Validate manifest.json
+        run: |
+          python -c "
+          import json
+          with open('custom_components/entity_duplicates_manager/manifest.json') as f:
+              manifest = json.load(f)
+          required = ['domain', 'name', 'version', 'documentation', 'issue_tracker']
+          for field in required:
+              assert field in manifest, f'Missing required field: {field}'
+          print('Manifest validation passed')
+          "
+      
+      - name: Validate hacs.json
+        run: |
+          python -c "
+          import json
+          with open('hacs.json') as f:
+              hacs = json.load(f)
+          required = ['name', 'version', 'author', 'description', 'homeassistant']
+          for field in required:
+              assert field in hacs, f'Missing required field: {field}'
+          print('HACS validation passed')
+          "
+      
+      - name: Validate services.yaml
+        run: |
+          python -c "
+          import yaml
+          with open('custom_components/entity_duplicates_manager/services.yaml') as f:
+              services = yaml.safe_load(f)
+          assert services, 'Services file is empty'
+          print('Services validation passed')
+          "
+      
+      - name: Check component structure
+        run: |
+          required_files = [
+              '__init__.py',
+              'config_flow.py',
+              'const.py',
+              'manifest.json',
+              'services.yaml',
+              'scanner.py',
+              'storage.py',
+              'sensor.py',
+              'switch.py',
+              'number.py',
+              'text.py'
+          ]
+          for file in required_files:
+              path = f'custom_components/entity_duplicates_manager/{file}'
+              assert open(path).readable(), f'Missing required file: {file}'
+          print('Component structure validation passed')
+      
+      - name: Validate translations
+        run: |
+          if [ -d "custom_components/entity_duplicates_manager/translations" ]; then
+            for file in custom_components/entity_duplicates_manager/translations/*.json; do
+              python -c "import json; json.load(open('$file'))"
+              echo "Validated $file"
+            done
+          else
+            echo "No translations directory found"
+          fi
+      
+      - name: Check version consistency
+        run: |
+          import json
+          import yaml
+          
+          # Check manifest version
+          with open('custom_components/entity_duplicates_manager/manifest.json') as f:
+              manifest = json.load(f)
+          manifest_version = manifest['version']
+          
+          # Check hacs.json version
+          with open('hacs.json') as f:
+              hacs = json.load(f)
+          hacs_version = hacs['version']
+          
+          # Check changelog has version
+          with open('changelog.md') as f:
+              changelog = f.read()
+          assert f'[{manifest_version}]' in changelog or f'v{manifest_version}' in changelog, 'Version not found in changelog'
+          
+          assert manifest_version == hacs_version, f'Version mismatch: manifest={manifest_version}, hacs={hacs_version}'
+          print(f'Version consistency check passed: {manifest_version}')
+
+  frontend:
+    name: Validate Frontend
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Check frontend files exist
+        run: |
+          frontend_dir="custom_components/entity_duplicates_manager/www/entity_duplicates_manager_card"
+          required = [
+              "entity-duplicates-manager-card.js",
+              "card-picker-metadata.js"
+          ]
+          for file in required:
+              path = f'{frontend_dir}/{file}'
+              assert open(path).readable(), f'Missing frontend file: {file}'
+          print('Frontend files validation passed')
+      
+      - name: Validate JavaScript syntax
+        run: |
+          # Basic syntax check for JS files
+          for file in custom_components/entity_duplicates_manager/www/entity_duplicates_manager_card/*.js; do
+            echo "Checking $file..."
+            # Check for basic syntax issues
+            python -c "
+            import re
+            with open('$file') as f:
+                content = f.read()
+            # Check for balanced braces
+            assert content.count('{') == content.count('}'), 'Unbalanced braces'
+            assert content.count('[') == content.count(']'), 'Unbalanced brackets'
+            assert content.count('(') == content.count(')'), 'Unbalanced parentheses'
+            print(f'$file: Syntax check passed')
+            "
+          done

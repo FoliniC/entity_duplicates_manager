@@ -1,0 +1,138 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v1.2.0)'
+        required: true
+        type: string
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Extract version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${{ github.ref_name }}"
+          fi
+          echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
+          echo "tag=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Validate version consistency
+        run: |
+          python -c "
+          import json
+          import yaml
+          
+          version = '${{ steps.version.outputs.version }}'
+          
+          # Check manifest
+          with open('custom_components/entity_duplicates_manager/manifest.json') as f:
+              manifest = json.load(f)
+          assert manifest['version'] == version, f'Manifest version mismatch: {manifest[\"version\"]} != {version}'
+          
+          # Check hacs.json
+          with open('hacs.json') as f:
+              hacs = json.load(f)
+          assert hacs['version'] == version, f'HACS version mismatch: {hacs[\"version\"]} != {version}'
+          
+          # Check changelog
+          with open('changelog.md') as f:
+              changelog = f.read()
+          assert f'[{version}]' in changelog or f'v{version}' in changelog, f'Version {version} not found in changelog'
+          
+          print(f'Version {version} consistency validated')
+          "
+      
+      - name: Create release package
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          PACKAGE_NAME="entity_duplicates_manager-${VERSION}.zip"
+          
+          # Create clean package directory
+          mkdir -p "package/entity_duplicates_manager"
+          
+          # Copy component files
+          cp -r custom_components/entity_duplicates_manager/* "package/entity_duplicates_manager/"
+          
+          # Remove __pycache__ and backup files
+          find package -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+          find package -name "*.backup" -type f -delete 2>/dev/null || true
+          find package -name "*.pyc" -type f -delete 2>/dev/null || true
+          
+          # Create zip
+          cd package
+          zip -r "../${PACKAGE_NAME}" entity_duplicates_manager/
+          cd ..
+          
+          echo "package=${PACKAGE_NAME}" >> $GITHUB_OUTPUT
+          echo "Package created: ${PACKAGE_NAME}"
+      
+      - name: Generate changelog
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          
+          # Extract changelog for this version
+          python -c "
+          with open('changelog.md') as f:
+              content = f.read()
+          
+          # Find version section
+          import re
+          pattern = rf'(## \[{re.escape(VERSION)}\] .*?)(?=## \[|\Z)'
+          match = re.search(pattern, content, re.DOTALL)
+          
+          if match:
+              changelog = match.group(1).strip()
+              print(f'changelog={changelog}')
+              with open('RELEASE_NOTES.md', 'w') as f:
+                  f.write(changelog)
+          else:
+              print('changelog=Release version ' + VERSION)
+              with open('RELEASE_NOTES.md', 'w') as f:
+                  f.write(f'Release version {VERSION}')
+          " >> $GITHUB_OUTPUT
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Entity Duplicates Manager ${{ steps.version.outputs.version }}
+          body_path: RELEASE_NOTES.md
+          files: |
+            ${{ steps.package.outputs.package }}
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+      
+      - name: Update HACS repository
+        if: false  # Enable when HACS repository is configured
+        run: |
+          echo "HACS repository update would happen here"
+          # This would typically update a separate HACS repository
+          # or trigger a webhook to notify HACS of new version
+      
+      - name: Notify completion
+        run: |
+          echo "Release ${{ steps.version.outputs.version }} created successfully!"
+          echo "Package: ${{ steps.package.outputs.package }}"
+          echo "Tag: ${{ steps.version.outputs.tag }}"
