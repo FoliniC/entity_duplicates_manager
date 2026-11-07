@@ -48,6 +48,9 @@ MASTER_INPUT_NUMBER_TEMPLATE_PATH = (
 MASTER_INPUT_SELECT_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "fancoil_master_input_selects.j2")
 )
+ROOM_INPUT_SELECT_TEMPLATE_PATH = (
+    os.path.join(SCRIPT_DIR, "templates", "fancoil_room_input_selects.j2")
+)
 MASTER_CLIMATE_TEMPLATE_PATH = os.path.join(SCRIPT_DIR, "templates", "fancoil_master_climate.j2")
 ROOM_INPUT_DATETIME_TEMPLATE_PATH = (
     os.path.join(SCRIPT_DIR, "templates", "fancoil_room_input_datetime.j2")
@@ -1182,6 +1185,12 @@ def main():
         "yaml_generator/input_select/generated_master_input_selects.yaml",
         {},
         extra_context=None,
+    )
+    # Room HVAC mode local (follow_master off)
+    generate_aggregated(
+        ROOM_INPUT_SELECT_TEMPLATE_PATH,
+        "yaml_generator/input_select/generated_room_input_selects.yaml",
+        vars_map,
     )
     generate_master_and_rooms(
         MASTER_INPUT_DATETIME_TEMPLATE_PATH,

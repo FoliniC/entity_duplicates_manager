@@ -23,7 +23,7 @@
         {% set local_mode = states('input_select.fancoil_camera_hvac_mode_local') %}
         {{ (follow_master and master_hvac_mode not in ['unavailable', 'unknown', None, '']) or (not follow_master and local_mode not in ['unavailable', 'unknown', None, '']) }}
       timeout: "00:02:00"
-      continue_on_timeout: false
+      continue_on_timeout: true
     - choose:
         - conditions:
             - condition: template

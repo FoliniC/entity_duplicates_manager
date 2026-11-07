@@ -41,7 +41,8 @@ sensor:
         {% elif trigger.get('entity_id') == 'input_text.fancoil_corridoio_add_temp_entity' and states('input_text.fancoil_corridoio_add_temp_entity') != "" %}
           {{ states('input_text.fancoil_corridoio_add_temp_entity') }}
         {% else %}
-          {{ this.state | default('sensor.fancoil_corridoio_temperature') }}
+          {% set prev = this.state %}
+          {{ prev if prev not in ['unknown', 'unavailable', 'none', 'None', ''] else 'sensor.fancoil_corridoio_temperature' }}
         {% endif %}
 
     - name: "Fancoil Corridoio Temp Sources History"
@@ -85,10 +86,28 @@ sensor:
       unique_id: fancoil_corridoio_temperature_difference
       unit_of_measurement: "°C"
       state: >-
+        {% set follow_master = is_state('input_boolean.fancoil_corridoio_hvac_mode_follow_master','on') %}
+        {% set master_hvac_mode = states('input_select.fancoil_system_hvac_mode') %}
+        {% set local_mode = states('input_select.fancoil_corridoio_hvac_mode_local') %}
+        {% if follow_master and master_hvac_mode not in ['unavailable', 'unknown', None, ''] %}
+            {% set hvac_mode = master_hvac_mode %}
+        {% elif not follow_master and local_mode not in ['unavailable', 'unknown', None, ''] %}
+            {% set hvac_mode = local_mode %}
+        {% else %}
+            {% set hvac_mode = 'off' %}
+        {% endif %}
+
         {% set t_curr = state_attr('climate.controllo_temperatura_corridoio', 'current_temperature') %}
         {% set target_sp = state_attr('climate.controllo_temperatura_corridoio', 'temperature') %}
+
         {% if t_curr is not none and target_sp is not none %}
-          {{ (target_sp | float - t_curr | float) | round(1) }}
+          {% if hvac_mode == 'heat' %}
+            {{ (target_sp - t_curr) | round(1) }}
+          {% elif hvac_mode == 'cool' %}
+            {{ (t_curr - target_sp) | round(1) }}
+          {% else %}
+            unavailable
+          {% endif %}
         {% else %}
           unavailable
         {% endif %}
