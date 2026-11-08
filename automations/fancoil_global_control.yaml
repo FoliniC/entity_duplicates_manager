@@ -29,6 +29,7 @@
         - wait_template: >-
             {{ states('input_select.fancoil_system_hvac_mode') not in ['unknown', 'unavailable', None] }}
           timeout: "00:01:00"
+          continue_on_timeout: true
 
     - variables:
         hvac_mode_attuale: "{{ states('input_select.fancoil_system_hvac_mode') }}"

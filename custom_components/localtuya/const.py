@@ -17,7 +17,7 @@ DOMAIN = "localtuya"
 DATA_DISCOVERY = "discovery"
 
 # Order on priority
-SUPPORTED_PROTOCOL_VERSIONS = ["3.3", "3.1", "3.2", "3.4", "3.5"]
+SUPPORTED_PROTOCOL_VERSIONS = ["3.3", "3.1", "3.2", "3.4", "3.5", "3.22", "3.42", "3.52"]
 
 
 # Platforms in this list must support config flows

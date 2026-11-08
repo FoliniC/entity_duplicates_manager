@@ -63,9 +63,9 @@ from .const import (
     MessagesFormat,
 )
 
-version_tuple = (2025, 7, 0)
+version_tuple = (1, 20, 0)
 version = version_string = __version__ = "%d.%d.%d" % version_tuple
-__author__ = "rospogrigio, xZetsubou"
+__author__ = "rospogrigio, xZetsubou (tinytuya 1.20.0)"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -487,7 +487,7 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
         self.heartbeater: asyncio.Task | None = None
         self._sub_devs_query_task: asyncio.Task | None = None
         self.dps_cache = {}
-        self.local_nonce = b"0123456789abcdef"  # not-so-random random key
+        self.local_nonce = os.urandom(16)
         self.remote_nonce = b""
         self.dps_whitelist = UPDATE_DPS_WHITELIST
         self.dispatched_dps = {}  # Store payload so we can trigger an event in HA.
@@ -1027,6 +1027,11 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
         return json_payload
 
     async def _negotiate_session_key(self):
+        # Fresh random client nonce per negotiation. A hardcoded nonce means the
+        # session key is a deterministic function of the device nonce alone (and,
+        # for 3.5, reuses the same GCM IV every session); the device accepts any
+        # nonce, so this is wire-compatible.
+        self.local_nonce = os.urandom(16)
         self.remote_nonce = b""
         self.local_key = self.real_local_key
         self.dispatcher.local_key = self.real_local_key
@@ -1035,15 +1040,16 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
             rkey = await self.exchange_quick(
                 MessagePayload(CMDType.SESS_KEY_NEG_START, self.local_nonce), 2
             )
-        except:
-            # Device may instantly disconnect if we sent send wrong localkey.
+        except Exception:
+            # Device may instantly disconnect if we sent wrong localkey.
             if not self.is_connected:
-                raise ConnectionAbortedError("Session key negotiation failed on step 1")
+                self.debug("session key negotiation failed on step 1")
+                return False
+            raise
 
         if not rkey or not isinstance(rkey, TuyaMessage) or len(rkey.payload) < 48:
             # error
             self.debug("session key negotiation failed on step 1")
-
             return False
 
         if rkey.cmd != CMDType.SESS_KEY_NEG_RESP:
@@ -1055,7 +1061,6 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
         payload = rkey.payload
         if self.version == 3.4:
             try:
-                # self.debug("decrypting %r using %r", payload, self.real_local_key)
                 cipher = AESCipher(self.real_local_key)
                 payload = cipher.decrypt(payload, False, decode_text=False)
             except Exception as ex:
@@ -1082,6 +1087,7 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
                 binascii.hexlify(hmac_check),
                 binascii.hexlify(payload[16:48]),
             )
+            return False
 
         # self.debug("session local nonce: %r remote nonce: %r", self.local_nonce, self.remote_nonce)
         rkey_hmac = hmac.new(self.local_key, self.remote_nonce, sha256).digest()

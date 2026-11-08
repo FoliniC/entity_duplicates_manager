@@ -1,0 +1,1052 @@
+# Automazioni Fancoil Semplificate - Usano Template Sensors
+# Generato per sostituire le automazioni monolitiche con logica separata
+
+automation:
+  # ============================================================
+  # BAGNO - Fanmode Dinamica (Semplificata)
+  # ============================================================
+  - id: "fancoil_bagno_fanmode_dinamica_v3"
+    alias: "Fancoil Bagno fanmode dinamica"
+    initial_state: true
+    mode: single
+    description: "Regola velocità ventola basandosi su sensor.fancoil_bagno_fan_target"
+    triggers:
+      - trigger: state
+        entity_id: sensor.fancoil_bagno_fan_target
+        for: "00:00:10"  # Debounce breve per evitare flapping
+      - trigger: event
+        event_type: fancoil_start_initialization
+        event_data:
+          fancoil_id: "bagno"
+    conditions:
+      - condition: state
+        entity_id: input_boolean.fancoil_bagno_enabled
+        state: "on"
+    actions:
+      - choose:
+          # INIZIALIZZAZIONE
+          - conditions:
+              - condition: template
+                value_template: "{{ trigger.platform == 'event' and trigger.event.event_type == 'fancoil_start_initialization' }}"
+            sequence:
+              - wait_template: >
+                  {{ states('sensor.fancoil_bagno_hvac_temp_mode') not in ['unknown', 'unavailable', None] and
+                     is_state('switch.attiva_fancoil', 'on') and
+                     is_state('switch.attiva_pdc', 'on') and
+                     is_state('switch.attiva_pompa_circolazione', 'on') }}
+                timeout: "00:02:00"
+                continue_on_timeout: true
+              # Forza accensione main
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.stox_fancoil_bagno_switch
+              - delay: "00:00:02"
+              # Imposta HVAC mode
+              - action: climate.set_hvac_mode
+                target:
+                  entity_id: climate.controllo_temperatura_bagno
+                data:
+                  hvac_mode: "{{ states('sensor.fancoil_bagno_hvac_temp_mode') if states('sensor.fancoil_bagno_hvac_temp_mode') != 'off' else 'heat' }}"
+              - delay: "00:00:02"
+              # Trigger fan update
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: "[Bagno] INIT: hvac_mode={{ states('sensor.fancoil_bagno_hvac_temp_mode') }}, fan_target={{ states('sensor.fancoil_bagno_fan_target') }}"
+
+          # STOP (fan_target = off/idle con stop_condition)
+          - conditions:
+              - condition: template
+                value_template: >
+                  {{ states('sensor.fancoil_bagno_fan_target') in ['off', 'idle'] and
+                     (is_state('binary_sensor.fancoil_bagno_stop_condition', 'on') or
+                      states('sensor.fancoil_bagno_hvac_temp_mode') == 'off') }}
+            sequence:
+              - condition: template
+                value_template: >
+                  {{ is_state('switch.fancoil_bagno_switch_1','on') or
+                     is_state('switch.fancoil_bagno_switch_2','on') or
+                     is_state('switch.fancoil_bagno_switch_3','on') or
+                     is_state('switch.fancoil_bagno_switch_4','on') }}
+              - action: switch.turn_off
+                target:
+                  entity_id:
+                    - switch.fancoil_bagno_switch_1
+                    - switch.fancoil_bagno_switch_2
+                    - switch.fancoil_bagno_switch_3
+                    - switch.fancoil_bagno_switch_4
+              - delay: "00:00:02"
+              - action: input_datetime.set_datetime
+                target:
+                  entity_id: input_datetime.fancoil_bagno_last_main_off
+                data:
+                  datetime: "{{ now().isoformat() }}"
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: >
+                    {% if states('sensor.fancoil_bagno_hvac_temp_mode') == 'off' %}
+                    [Bagno] STOP: modalità OFF
+                    {% else %}
+                    [Bagno] STOP: diff={{ states('sensor.fancoil_bagno_diff') | float | round(2) }}°C ≤ {{ states('sensor.fancoil_bagno_soglia_stop') | float }}, mode={{ states('sensor.fancoil_bagno_hvac_temp_mode') }}
+                    {% endif %}
+
+          # RESUME (fan_target != off/idle, main_available, resume_allowed)
+          - conditions:
+              - condition: template
+                value_template: >
+                  {{ states('sensor.fancoil_bagno_fan_target') not in ['off', 'idle', 'unknown'] and
+                     is_state('sensor.fancoil_bagno_main_available', 'True') and
+                     is_state('sensor.fancoil_bagno_resume_allowed', 'True') and
+                     is_state('switch.stox_fancoil_bagno_switch', 'off') }}
+            sequence:
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.stox_fancoil_bagno_switch
+              - delay: "00:00:07"
+              - action: input_datetime.set_datetime
+                target:
+                  entity_id: input_datetime.fancoil_bagno_last_main_on
+                data:
+                  datetime: "{{ now().isoformat() }}"
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: "[Bagno] RESUME: diff={{ states('sensor.fancoil_bagno_diff') | float | round(2) }}°C ≥ {{ states('sensor.fancoil_bagno_soglia_resume') | float }}"
+
+          # CAMBIO VELOCITÀ (fan_target != fan_attuale_hw, main_on, main_available)
+          - conditions:
+              - condition: template
+                value_template: >
+                  {{ states('sensor.fancoil_bagno_fan_target') != states('sensor.fancoil_bagno_fan_attuale_hw') and
+                     states('sensor.fancoil_bagno_fan_target') not in ['off', 'idle', 'unknown'] and
+                     is_state('switch.stox_fancoil_bagno_switch', 'on') and
+                     is_state('sensor.fancoil_bagno_main_available', 'True') and
+                     states('sensor.fancoil_bagno_hvac_temp_mode') != 'off' }}
+            sequence:
+              - delay: "{{ '%02d' % (states('input_number.fancoil_debounce_seconds') | int(30) % 60) }}"
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: "[Bagno] Velocità: {{ states('sensor.fancoil_bagno_fan_attuale_hw') }} -> {{ states('sensor.fancoil_bagno_fan_target') }} (Delta: {{ states('sensor.fancoil_bagno_diff') | float | round(2) }}°C)"
+              - action: climate.set_fan_mode
+                target:
+                  entity_id: climate.controllo_temperatura_bagno
+                data:
+                  fan_mode: "{{ states('sensor.fancoil_bagno_fan_target') }}"
+
+  # ============================================================
+  # BAGNO - Master OFF Handler
+  # ============================================================
+  - id: "fancoil_bagno_master_off_handler_v3"
+    alias: "Fancoil Bagno: spegnimento quando master OFF"
+    initial_state: true
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: input_select.fancoil_system_hvac_mode
+        to: "off"
+    conditions:
+      - condition: state
+        entity_id: input_boolean.fancoil_bagno_hvac_mode_follow_master
+        state: "on"
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: climate.controllo_temperatura_bagno
+            state: "unavailable"
+    actions:
+      - action: climate.turn_off
+        target:
+          entity_id: climate.controllo_temperatura_bagno
+      - delay: "00:00:01"
+
+  # ============================================================
+  # BAGNO - Unfollow su setpoint manuale
+  # ============================================================
+  - id: "fancoil_bagno_unfollow_setpoint_v3"
+    alias: "Fancoil Bagno: disattiva Follow su setpoint manuale"
+    initial_state: true
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: input_number.fancoil_bagno_setpoint
+    conditions:
+      - condition: state
+        entity_id: input_boolean.fancoil_bagno_sp_follow_master
+        state: "on"
+      - condition: template
+        value_template: "{{ trigger.to_state.context.user_id is not none }}"
+    actions:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.fancoil_bagno_sp_follow_master
+
+  # ============================================================
+  # BAGNO - Main Power Sync
+  # ============================================================
+  - id: "fancoil_bagno_main_power_sync_v3"
+    alias: "Fancoil Bagno: sincronizza switch principale"
+    initial_state: true
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id:
+          - switch.fancoil_bagno_switch_1
+          - switch.fancoil_bagno_switch_2
+          - switch.fancoil_bagno_switch_3
+          - switch.fancoil_bagno_switch_4
+      - trigger: time_pattern
+        minutes: "/30"
+    actions:
+      - variables:
+          stop_condition: "{{ is_state('binary_sensor.fancoil_bagno_stop_condition', 'on') }}"
+          any_speed_on: >
+            {{ is_state('switch.fancoil_bagno_switch_1','on') or
+               is_state('switch.fancoil_bagno_switch_2','on') or
+               is_state('switch.fancoil_bagno_switch_3','on') or
+               is_state('switch.fancoil_bagno_switch_4','on') }}
+          main_on: "{{ is_state('switch.stox_fancoil_bagno_switch', 'on') }}"
+          main_available: "{{ states('switch.stox_fancoil_bagno_switch') not in ['unavailable','unknown'] }}"
+          system_enabled: >
+            {{ is_state('switch.attiva_fancoil', 'on') and
+               is_state('switch.attiva_pdc', 'on') and
+               is_state('switch.attiva_pompa_circolazione', 'on') }}
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ not main_on and main_available }}"
+            sequence:
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.stox_fancoil_bagno_switch
+              - delay: "00:00:02"
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: "[Bagno] FORCE MAIN ON: Stox alimentato per lettura temperatura. System={{ system_enabled }}"
+
+          - conditions:
+              - condition: template
+                value_template: "{{ system_enabled and any_speed_on and not main_on and not stop_condition and main_available }}"
+            sequence:
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.stox_fancoil_bagno_switch
+              - delay: "00:00:02"
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: "[Bagno] MAIN ON (sync): speed_on={{ any_speed_on }}, diff={{ states('sensor.fancoil_bagno_diff') | float | round(2) }}°C"
+
+          - conditions:
+              - condition: template
+                value_template: "{{ not any_speed_on and not stop_condition and main_on and main_available }}"
+            sequence:
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: "[Bagno] (sync): velocità OFF, main resta ON. diff={{ states('sensor.fancoil_bagno_diff') | float | round(2) }}°C"
+
+  # ============================================================
+  # BAGNO - Entity Monitor
+  # ============================================================
+  - id: "fancoil_bagno_entity_monitor_v3"
+    alias: "Fancoil Bagno: Monitor disponibilità entità"
+    initial_state: true
+    mode: single
+    triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: time_pattern
+        hours: "/12"
+    actions:
+      - if:
+          - condition: template
+            value_template: "{{ trigger.platform == 'homeassistant' }}"
+        then:
+          - wait_template: >
+              {{ states('switch.stox_fancoil_bagno_switch') not in ['unavailable', 'unknown'] and
+                 states('climate.controllo_temperatura_bagno') not in ['unavailable', 'unknown'] and
+                 states('input_number.fan_distance_stop') not in ['unavailable', 'unknown'] and
+                 states('input_select.fancoil_system_hvac_mode') not in ['unavailable', 'unknown'] }}
+            timeout: "00:02:00"
+            continue_on_timeout: true
+      - variables:
+          critical_entities:
+            - switch.stox_fancoil_bagno_switch
+            - climate.controllo_temperatura_bagno
+            - input_number.fan_distance_stop
+          unavailable: >
+            {% set ns = namespace(items=[]) %}
+            {% for entity in critical_entities %}
+              {% if states(entity) in ['unavailable','unknown'] %}
+                {% set ns.items = ns.items + [entity] %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.items }}
+      - if:
+          - condition: template
+            value_template: "{{ unavailable | length > 0 }}"
+        then:
+          - action: persistent_notification.create
+            data:
+              title: "Fancoil Bagno: Problema Entità"
+              message: >
+                Entità non disponibili:
+                {% for entity in unavailable %}
+                - {{ entity }}
+                {% endfor %}
+          - event: fancoil_log_event
+            event_data:
+              level: warning
+              message: "[Bagno] Entità UNAVAILABLE: {{ unavailable }}"
+        else:
+          - if:
+              - condition: template
+                value_template: "{{ trigger.platform == 'homeassistant' }}"
+            then:
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: "[Bagno] Tutte le entità disponibili. Avvio inizializzazione."
+              - event: fancoil_start_initialization
+                event_data:
+                  fancoil_id: "bagno"
+
+  # ============================================================
+  # BAGNO - Recovery Stuck/Unavailable (Periodic Check)
+  # ============================================================
+  - id: "fancoil_bagno_recovery_v3"
+    alias: "Fancoil Bagno: Ripristino anomalie"
+    initial_state: true
+    mode: single
+    triggers:
+      - trigger: time_pattern
+        minutes: "/15"
+    conditions:
+      - condition: state
+        entity_id: input_boolean.fancoil_bagno_enabled
+        state: "on"
+    actions:
+      - variables:
+          diff_raw: "{{ states('sensor.fancoil_bagno_temperature_difference') }}"
+          diff_valid: "{{ diff_raw not in ['unavailable', 'unknown', 'none', ''] }}"
+          diff: "{{ diff_raw | float(0) }}"
+          stop_condition: "{{ is_state('binary_sensor.fancoil_bagno_stop_condition', 'on') }}"
+          hvac_mode: "{{ states('sensor.fancoil_bagno_hvac_temp_mode') }}"
+          deumidificazione: "{{ is_state('input_boolean.fancoil_deumidificazione', 'on') }}"
+          system_enabled: >
+            {{ is_state('switch.attiva_fancoil', 'on') and
+               is_state('switch.attiva_pdc', 'on') and
+               is_state('switch.attiva_pompa_circolazione', 'on') }}
+          fan_target: "{{ states('sensor.fancoil_bagno_fan_target') }}"
+          fan_attuale_hw: "{{ states('sensor.fancoil_bagno_fan_attuale_hw') }}"
+          # Sensor stuck detection
+          t_age: >
+            {% set t_obj = state_obj('sensor.fancoil_bagno_temperature') %}
+            {% if t_obj and t_obj.last_updated %}
+              {{ (as_timestamp(now()) - as_timestamp(t_obj.last_updated)) | int }}
+            {% else %} 99999 {% endif %}
+          h_age: >
+            {% set h_obj = state_obj('sensor.fancoil_bagno_humidity') %}
+            {% if h_obj and h_obj.last_updated %}
+              {{ (as_timestamp(now()) - as_timestamp(h_obj.last_updated)) | int }}
+            {% else %} 99999 {% endif %}
+          sensor_stuck: "{{ (t_age | int > 5400 and h_age | int > 5400) and hvac_mode not in ['off','unknown'] and (not stop_condition or deumidificazione or hvac_mode == 'dry') and fan_attuale_hw in ['low','medium','high'] }}"
+          # Speed mismatch
+          speed_mismatch: >
+            {% set last_ch = state_attr('climate.controllo_temperatura_bagno', 'last_changed') %}
+            {% set wait_passed = (as_timestamp(now()) - as_timestamp(last_ch)) > 900 if last_ch else false %}
+            {{ hvac_mode not in ['off','unknown'] and (not stop_condition or deumidificazione or hvac_mode == 'dry') and fan_target != fan_attuale_hw and fan_target != 'off' and fan_attuale_hw != 'unknown' and wait_passed }}
+          # Global disabled HW stuck
+          global_disabled_hw_stuck: "{{ not system_enabled and fan_attuale_hw not in ['off','unknown'] }}"
+      - if:
+          - condition: template
+            value_template: "{{ sensor_stuck or speed_mismatch or global_disabled_hw_stuck }}"
+        then:
+          - event: fancoil_log_event
+            event_data:
+              level: warning
+              message: >
+                [Bagno] Ripristino anomalia ({{ 'Global Disabled HW Stuck' if global_disabled_hw_stuck else ('Sensor Stuck (>90m)' if sensor_stuck else 'Speed Mismatch') }}):
+                Temp={{ states('sensor.fancoil_bagno_temperature') }}°C, Hum={{ states('sensor.fancoil_bagno_humidity') }}%,
+                Target={{ fan_target }}, Attuale={{ fan_attuale_hw }}. Avvio Power Cycle Stox.
+          - action: switch.turn_off
+            target:
+              entity_id: switch.stox_fancoil_bagno_switch
+          - delay: "00:00:10"
+          - action: switch.turn_on
+            target:
+              entity_id: switch.stox_fancoil_bagno_switch
+          - delay: "00:00:05"
+          - event: fancoil_log_event
+            event_data:
+              level: info
+              message: "[Bagno] Power Cycle completato. Ripristino stato ventola: {{ fan_attuale_hw if fan_attuale_hw not in ['off', 'unknown'] else fan_target }}."
+          - if:
+              - condition: template
+                value_template: "{{ fan_attuale_hw not in ['off', 'unknown'] }}"
+            then:
+              - action: climate.set_fan_mode
+                target:
+                  entity_id: climate.controllo_temperatura_bagno
+                data:
+                  fan_mode: "{{ fan_attuale_hw }}"
+          - event: fancoil_start_initialization
+            event_data:
+              fancoil_id: "bagno"
+
+  # ============================================================
+  # CAMERA GRANDE - Fanmode Dinamica (Semplificata)
+  # ============================================================
+  - id: "fancoil_camera_grande_fanmode_dinamica_v3"
+    alias: "Fancoil Camera grande fanmode dinamica"
+    initial_state: true
+    mode: single
+    description: "Regola velocità ventola basandosi su sensor.fancoil_camera_grande_fan_target"
+    triggers:
+      - trigger: state
+        entity_id: sensor.fancoil_camera_grande_fan_target
+        for: "00:00:10"
+      - trigger: event
+        event_type: fancoil_start_initialization
+        event_data:
+          fancoil_id: "camera_grande"
+    conditions:
+      - condition: state
+        entity_id: input_boolean.fancoil_camera_grande_enabled
+        state: "on"
+    actions:
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ trigger.platform == 'event' and trigger.event.event_type == 'fancoil_start_initialization' }}"
+            sequence:
+              - wait_template: >
+                  {{ states('sensor.fancoil_camera_grande_hvac_temp_mode') not in ['unknown', 'unavailable', None] and
+                     is_state('switch.attiva_fancoil', 'on') and
+                     is_state('switch.attiva_pdc', 'on') and
+                     is_state('switch.attiva_pompa_circolazione', 'on') }}
+                timeout: "00:02:00"
+                continue_on_timeout: true
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.stox_fancoil_camera_grande_switch
+              - delay: "00:00:02"
+              - action: climate.set_hvac_mode
+                target:
+                  entity_id: climate.controllo_temperatura_camera_grande
+                data:
+                  hvac_mode: "{{ states('sensor.fancoil_camera_grande_hvac_temp_mode') if states('sensor.fancoil_camera_grande_hvac_temp_mode') != 'off' else 'heat' }}"
+              - delay: "00:00:02"
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: "[Camera Grande] INIT: hvac_mode={{ states('sensor.fancoil_camera_grande_hvac_temp_mode') }}, fan_target={{ states('sensor.fancoil_camera_grande_fan_target') }}"
+
+          - conditions:
+              - condition: template
+                value_template: >
+                  {{ states('sensor.fancoil_camera_grande_fan_target') in ['off', 'idle'] and
+                     (is_state('binary_sensor.fancoil_camera_grande_stop_condition', 'on') or
+                      states('sensor.fancoil_camera_grande_hvac_temp_mode') == 'off') }}
+            sequence:
+              - condition: template
+                value_template: >
+                  {{ is_state('switch.fancoil_camera_grande_switch_1','on') or
+                     is_state('switch.fancoil_camera_grande_switch_2','on') or
+                     is_state('switch.fancoil_camera_grande_switch_3','on') or
+                     is_state('switch.fancoil_camera_grande_switch_4','on') }}
+              - action: switch.turn_off
+                target:
+                  entity_id:
+                    - switch.fancoil_camera_grande_switch_1
+                    - switch.fancoil_camera_grande_switch_2
+                    - switch.fancoil_camera_grande_switch_3
+                    - switch.fancoil_camera_grande_switch_4
+              - delay: "00:00:02"
+              - action: input_datetime.set_datetime
+                target:
+                  entity_id: input_datetime.fancoil_camera_grande_last_main_off
+                data:
+                  datetime: "{{ now().isoformat() }}"
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: >
+                    {% if states('sensor.fancoil_camera_grande_hvac_temp_mode') == 'off' %}
+                    [Camera Grande] STOP: modalità OFF
+                    {% else %}
+                    [Camera Grande] STOP: diff={{ states('sensor.fancoil_camera_grande_diff') | float | round(2) }}°C ≤ {{ states('sensor.fancoil_camera_grande_soglia_stop') | float }}, mode={{ states('sensor.fancoil_camera_grande_hvac_temp_mode') }}
+                    {% endif %}
+
+          - conditions:
+              - condition: template
+                value_template: >
+                  {{ states('sensor.fancoil_camera_grande_fan_target') not in ['off', 'idle', 'unknown'] and
+                     is_state('sensor.fancoil_camera_grande_main_available', 'True') and
+                     is_state('sensor.fancoil_camera_grande_resume_allowed', 'True') and
+                     is_state('switch.stox_fancoil_camera_grande_switch', 'off') }}
+            sequence:
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.stox_fancoil_camera_grande_switch
+              - delay: "00:00:07"
+              - action: input_datetime.set_datetime
+                target:
+                  entity_id: input_datetime.fancoil_camera_grande_last_main_on
+                data:
+                  datetime: "{{ now().isoformat() }}"
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: "[Camera Grande] RESUME: diff={{ states('sensor.fancoil_camera_grande_diff') | float | round(2) }}°C ≥ {{ states('sensor.fancoil_camera_grande_soglia_resume') | float }}"
+
+          - conditions:
+              - condition: template
+                value_template: >
+                  {{ states('sensor.fancoil_camera_grande_fan_target') != states('sensor.fancoil_camera_grande_fan_attuale_hw') and
+                     states('sensor.fancoil_camera_grande_fan_target') not in ['off', 'idle', 'unknown'] and
+                     is_state('switch.stox_fancoil_camera_grande_switch', 'on') and
+                     is_state('sensor.fancoil_camera_grande_main_available', 'True') and
+                     states('sensor.fancoil_camera_grande_hvac_temp_mode') != 'off' }}
+            sequence:
+              - delay: "{{ '%02d' % (states('input_number.fancoil_debounce_seconds') | int(30) % 60) }}"
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: "[Camera Grande] Velocità: {{ states('sensor.fancoil_camera_grande_fan_attuale_hw') }} -> {{ states('sensor.fancoil_camera_grande_fan_target') }} (Delta: {{ states('sensor.fancoil_camera_grande_diff') | float | round(2) }}°C)"
+              - action: climate.set_fan_mode
+                target:
+                  entity_id: climate.controllo_temperatura_camera_grande
+                data:
+                  fan_mode: "{{ states('sensor.fancoil_camera_grande_fan_target') }}"
+
+  # ============================================================
+  # CAMERA GRANDE - Master OFF Handler
+  # ============================================================
+  - id: "fancoil_camera_grande_master_off_v3"
+    alias: "Fancoil Camera Grande: spegnimento quando master OFF"
+    initial_state: true
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: input_select.fancoil_system_hvac_mode
+        to: "off"
+    conditions:
+      - condition: state
+        entity_id: input_boolean.fancoil_camera_grande_hvac_mode_follow_master
+        state: "on"
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: climate.controllo_temperatura_camera_grande
+            state: "unavailable"
+    actions:
+      - action: climate.turn_off
+        target:
+          entity_id: climate.controllo_temperatura_camera_grande
+      - delay: "00:00:01"
+
+  # ============================================================
+  # CAMERA GRANDE - Entity Monitor
+  # ============================================================
+  - id: "fancoil_camera_grande_entity_monitor_v3"
+    alias: "Fancoil Camera Grande: Monitor disponibilità entità"
+    initial_state: true
+    mode: single
+    triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: time_pattern
+        hours: "/12"
+    actions:
+      - if:
+          - condition: template
+            value_template: "{{ trigger.platform == 'homeassistant' }}"
+        then:
+          - wait_template: >
+              {{ states('switch.stox_fancoil_camera_grande_switch') not in ['unavailable', 'unknown'] and
+                 states('climate.controllo_temperatura_camera_grande') not in ['unavailable', 'unknown'] and
+                 states('input_number.fan_distance_stop') not in ['unavailable', 'unknown'] and
+                 states('input_select.fancoil_system_hvac_mode') not in ['unavailable', 'unknown'] }}
+            timeout: "00:02:00"
+            continue_on_timeout: true
+      - variables:
+          critical_entities:
+            - switch.stox_fancoil_camera_grande_switch
+            - climate.controllo_temperatura_camera_grande
+            - input_number.fan_distance_stop
+          unavailable: >
+            {% set ns = namespace(items=[]) %}
+            {% for entity in critical_entities %}
+              {% if states(entity) in ['unavailable','unknown'] %}
+                {% set ns.items = ns.items + [entity] %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.items }}
+      - if:
+          - condition: template
+            value_template: "{{ unavailable | length > 0 }}"
+        then:
+          - action: persistent_notification.create
+            data:
+              title: "Fancoil Camera Grande: Problema Entità"
+              message: >
+                Entità non disponibili:
+                {% for entity in unavailable %}
+                - {{ entity }}
+                {% endfor %}
+          - event: fancoil_log_event
+            event_data:
+              level: warning
+              message: "[Camera Grande] Entità UNAVAILABLE: {{ unavailable }}"
+        else:
+          - if:
+              - condition: template
+                value_template: "{{ trigger.platform == 'homeassistant' }}"
+            then:
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: "[Camera Grande] Tutte le entità disponibili. Avvio inizializzazione."
+              - event: fancoil_start_initialization
+                event_data:
+                  fancoil_id: "camera_grande"
+
+  # ============================================================
+  # CORRIDOIO - Fanmode Dinamica (Semplificata)
+  # ============================================================
+  - id: "fancoil_corridoio_fanmode_dinamica_v3"
+    alias: "Fancoil Corridoio fanmode dinamica"
+    initial_state: true
+    mode: single
+    description: "Regola velocità ventola basandosi su sensor.fancoil_corridoio_fan_target"
+    triggers:
+      - trigger: state
+        entity_id: sensor.fancoil_corridoio_fan_target
+        for: "00:00:10"
+      - trigger: event
+        event_type: fancoil_start_initialization
+        event_data:
+          fancoil_id: "corridoio"
+    conditions:
+      - condition: state
+        entity_id: input_boolean.fancoil_corridoio_enabled
+        state: "on"
+    actions:
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ trigger.platform == 'event' and trigger.event.event_type == 'fancoil_start_initialization' }}"
+            sequence:
+              - wait_template: >
+                  {{ states('sensor.fancoil_corridoio_hvac_temp_mode') not in ['unknown', 'unavailable', None] and
+                     is_state('switch.attiva_fancoil', 'on') and
+                     is_state('switch.attiva_pdc', 'on') and
+                     is_state('switch.attiva_pompa_circolazione', 'on') }}
+                timeout: "00:02:00"
+                continue_on_timeout: true
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.stox_fancoil_corridoio_switch
+              - delay: "00:00:02"
+              - action: climate.set_hvac_mode
+                target:
+                  entity_id: climate.controllo_temperatura_corridoio
+                data:
+                  hvac_mode: "{{ states('sensor.fancoil_corridoio_hvac_temp_mode') if states('sensor.fancoil_corridoio_hvac_temp_mode') != 'off' else 'heat' }}"
+              - delay: "00:00:02"
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: "[Corridoio] INIT: hvac_mode={{ states('sensor.fancoil_corridoio_hvac_temp_mode') }}, fan_target={{ states('sensor.fancoil_corridoio_fan_target') }}"
+
+          - conditions:
+              - condition: template
+                value_template: >
+                  {{ states('sensor.fancoil_corridoio_fan_target') in ['off', 'idle'] and
+                     (is_state('binary_sensor.fancoil_corridoio_stop_condition', 'on') or
+                      states('sensor.fancoil_corridoio_hvac_temp_mode') == 'off') }}
+            sequence:
+              - condition: template
+                value_template: >
+                  {{ is_state('switch.fancoil_corridoio_switch_1','on') or
+                     is_state('switch.fancoil_corridoio_switch_2','on') or
+                     is_state('switch.fancoil_corridoio_switch_3','on') or
+                     is_state('switch.fancoil_corridoio_switch_4','on') }}
+              - action: switch.turn_off
+                target:
+                  entity_id:
+                    - switch.fancoil_corridoio_switch_1
+                    - switch.fancoil_corridoio_switch_2
+                    - switch.fancoil_corridoio_switch_3
+                    - switch.fancoil_corridoio_switch_4
+              - delay: "00:00:02"
+              - action: input_datetime.set_datetime
+                target:
+                  entity_id: input_datetime.fancoil_corridoio_last_main_off
+                data:
+                  datetime: "{{ now().isoformat() }}"
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: >
+                    {% if states('sensor.fancoil_corridoio_hvac_temp_mode') == 'off' %}
+                    [Corridoio] STOP: modalità OFF
+                    {% else %}
+                    [Corridoio] STOP: diff={{ states('sensor.fancoil_corridoio_diff') | float | round(2) }}°C ≤ {{ states('sensor.fancoil_corridoio_soglia_stop') | float }}, mode={{ states('sensor.fancoil_corridoio_hvac_temp_mode') }}
+                    {% endif %}
+
+          - conditions:
+              - condition: template
+                value_template: >
+                  {{ states('sensor.fancoil_corridoio_fan_target') not in ['off', 'idle', 'unknown'] and
+                     is_state('sensor.fancoil_corridoio_main_available', 'True') and
+                     is_state('sensor.fancoil_corridoio_resume_allowed', 'True') and
+                     is_state('switch.stox_fancoil_corridoio_switch', 'off') }}
+            sequence:
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.stox_fancoil_corridoio_switch
+              - delay: "00:00:07"
+              - action: input_datetime.set_datetime
+                target:
+                  entity_id: input_datetime.fancoil_corridoio_last_main_on
+                data:
+                  datetime: "{{ now().isoformat() }}"
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: "[Corridoio] RESUME: diff={{ states('sensor.fancoil_corridoio_diff') | float | round(2) }}°C ≥ {{ states('sensor.fancoil_corridoio_soglia_resume') | float }}"
+
+          - conditions:
+              - condition: template
+                value_template: >
+                  {{ states('sensor.fancoil_corridoio_fan_target') != states('sensor.fancoil_corridoio_fan_attuale_hw') and
+                     states('sensor.fancoil_corridoio_fan_target') not in ['off', 'idle', 'unknown'] and
+                     is_state('switch.stox_fancoil_corridoio_switch', 'on') and
+                     is_state('sensor.fancoil_corridoio_main_available', 'True') and
+                     states('sensor.fancoil_corridoio_hvac_temp_mode') != 'off' }}
+            sequence:
+              - delay: "{{ '%02d' % (states('input_number.fancoil_debounce_seconds') | int(30) % 60) }}"
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: "[Corridoio] Velocità: {{ states('sensor.fancoil_corridoio_fan_attuale_hw') }} -> {{ states('sensor.fancoil_corridoio_fan_target') }} (Delta: {{ states('sensor.fancoil_corridoio_diff') | float | round(2) }}°C)"
+              - action: climate.set_fan_mode
+                target:
+                  entity_id: climate.controllo_temperatura_corridoio
+                data:
+                  fan_mode: "{{ states('sensor.fancoil_corridoio_fan_target') }}"
+
+  # ============================================================
+  # CORRIDOIO - Master OFF Handler
+  # ============================================================
+  - id: "fancoil_corridoio_master_off_v3"
+    alias: "Fancoil Corridoio: spegnimento quando master OFF"
+    initial_state: true
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: input_select.fancoil_system_hvac_mode
+        to: "off"
+    conditions:
+      - condition: state
+        entity_id: input_boolean.fancoil_corridoio_hvac_mode_follow_master
+        state: "on"
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: climate.controllo_temperatura_corridoio
+            state: "unavailable"
+    actions:
+      - action: climate.turn_off
+        target:
+          entity_id: climate.controllo_temperatura_corridoio
+      - delay: "00:00:01"
+
+  # ============================================================
+  # CORRIDOIO - Entity Monitor
+  # ============================================================
+  - id: "fancoil_corridoio_entity_monitor_v3"
+    alias: "Fancoil Corridoio: Monitor disponibilità entità"
+    initial_state: true
+    mode: single
+    triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: time_pattern
+        hours: "/12"
+    actions:
+      - if:
+          - condition: template
+            value_template: "{{ trigger.platform == 'homeassistant' }}"
+        then:
+          - wait_template: >
+              {{ states('switch.stox_fancoil_corridoio_switch') not in ['unavailable', 'unknown'] and
+                 states('climate.controllo_temperatura_corridoio') not in ['unavailable', 'unknown'] and
+                 states('input_number.fan_distance_stop') not in ['unavailable', 'unknown'] and
+                 states('input_select.fancoil_system_hvac_mode') not in ['unavailable', 'unknown'] }}
+            timeout: "00:02:00"
+            continue_on_timeout: true
+      - variables:
+          critical_entities:
+            - switch.stox_fancoil_corridoio_switch
+            - climate.controllo_temperatura_corridoio
+            - input_number.fan_distance_stop
+          unavailable: >
+            {% set ns = namespace(items=[]) %}
+            {% for entity in critical_entities %}
+              {% if states(entity) in ['unavailable','unknown'] %}
+                {% set ns.items = ns.items + [entity] %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.items }}
+      - if:
+          - condition: template
+            value_template: "{{ unavailable | length > 0 }}"
+        then:
+          - action: persistent_notification.create
+            data:
+              title: "Fancoil Corridoio: Problema Entità"
+              message: >
+                Entità non disponibili:
+                {% for entity in unavailable %}
+                - {{ entity }}
+                {% endfor %}
+          - event: fancoil_log_event
+            event_data:
+              level: warning
+              message: "[Corridoio] Entità UNAVAILABLE: {{ unavailable }}"
+        else:
+          - if:
+              - condition: template
+                value_template: "{{ trigger.platform == 'homeassistant' }}"
+            then:
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: "[Corridoio] Tutte le entità disponibili. Avvio inizializzazione."
+              - event: fancoil_start_initialization
+                event_data:
+                  fancoil_id: "corridoio"
+
+  # ============================================================
+  # CUCINA - Fanmode Dinamica (Semplificata)
+  # ============================================================
+  - id: "fancoil_cucina_fanmode_dinamica_v3"
+    alias: "Fancoil Cucina fanmode dinamica"
+    initial_state: true
+    mode: single
+    description: "Regola velocità ventola basandosi su sensor.fancoil_cucina_fan_target"
+    triggers:
+      - trigger: state
+        entity_id: sensor.fancoil_cucina_fan_target
+        for: "00:00:10"
+      - trigger: event
+        event_type: fancoil_start_initialization
+        event_data:
+          fancoil_id: "cucina"
+    conditions:
+      - condition: state
+        entity_id: input_boolean.fancoil_cucina_enabled
+        state: "on"
+    actions:
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ trigger.platform == 'event' and trigger.event.event_type == 'fancoil_start_initialization' }}"
+            sequence:
+              - wait_template: >
+                  {{ states('sensor.fancoil_cucina_hvac_temp_mode') not in ['unknown', 'unavailable', None] and
+                     is_state('switch.attiva_fancoil', 'on') and
+                     is_state('switch.attiva_pdc', 'on') and
+                     is_state('switch.attiva_pompa_circolazione', 'on') }}
+                timeout: "00:02:00"
+                continue_on_timeout: true
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.stox_fancoil_cucina_switch
+              - delay: "00:00:02"
+              - action: climate.set_hvac_mode
+                target:
+                  entity_id: climate.controllo_temperatura_cucina
+                data:
+                  hvac_mode: "{{ states('sensor.fancoil_cucina_hvac_temp_mode') if states('sensor.fancoil_cucina_hvac_temp_mode') != 'off' else 'heat' }}"
+              - delay: "00:00:02"
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: "[Cucina] INIT: hvac_mode={{ states('sensor.fancoil_cucina_hvac_temp_mode') }}, fan_target={{ states('sensor.fancoil_cucina_fan_target') }}"
+
+          - conditions:
+              - condition: template
+                value_template: >
+                  {{ states('sensor.fancoil_cucina_fan_target') in ['off', 'idle'] and
+                     (is_state('binary_sensor.fancoil_cucina_stop_condition', 'on') or
+                      states('sensor.fancoil_cucina_hvac_temp_mode') == 'off') }}
+            sequence:
+              - condition: template
+                value_template: >
+                  {{ is_state('switch.fancoil_cucina_switch_1','on') or
+                     is_state('switch.fancoil_cucina_switch_2','on') or
+                     is_state('switch.fancoil_cucina_switch_3','on') or
+                     is_state('switch.fancoil_cucina_switch_4','on') }}
+              - action: switch.turn_off
+                target:
+                  entity_id:
+                    - switch.fancoil_cucina_switch_1
+                    - switch.fancoil_cucina_switch_2
+                    - switch.fancoil_cucina_switch_3
+                    - switch.fancoil_cucina_switch_4
+              - delay: "00:00:02"
+              - action: input_datetime.set_datetime
+                target:
+                  entity_id: input_datetime.fancoil_cucina_last_main_off
+                data:
+                  datetime: "{{ now().isoformat() }}"
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: >
+                    {% if states('sensor.fancoil_cucina_hvac_temp_mode') == 'off' %}
+                    [Cucina] STOP: modalità OFF
+                    {% else %}
+                    [Cucina] STOP: diff={{ states('sensor.fancoil_cucina_diff') | float | round(2) }}°C ≤ {{ states('sensor.fancoil_cucina_soglia_stop') | float }}, mode={{ states('sensor.fancoil_cucina_hvac_temp_mode') }}
+                    {% endif %}
+
+          - conditions:
+              - condition: template
+                value_template: >
+                  {{ states('sensor.fancoil_cucina_fan_target') not in ['off', 'idle', 'unknown'] and
+                     is_state('sensor.fancoil_cucina_main_available', 'True') and
+                     is_state('sensor.fancoil_cucina_resume_allowed', 'True') and
+                     is_state('switch.stox_fancoil_cucina_switch', 'off') }}
+            sequence:
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.stox_fancoil_cucina_switch
+              - delay: "00:00:07"
+              - action: input_datetime.set_datetime
+                target:
+                  entity_id: input_datetime.fancoil_cucina_last_main_on
+                data:
+                  datetime: "{{ now().isoformat() }}"
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: "[Cucina] RESUME: diff={{ states('sensor.fancoil_cucina_diff') | float | round(2) }}°C ≥ {{ states('sensor.fancoil_cucina_soglia_resume') | float }}"
+
+          - conditions:
+              - condition: template
+                value_template: >
+                  {{ states('sensor.fancoil_cucina_fan_target') != states('sensor.fancoil_cucina_fan_attuale_hw') and
+                     states('sensor.fancoil_cucina_fan_target') not in ['off', 'idle', 'unknown'] and
+                     is_state('switch.stox_fancoil_cucina_switch', 'on') and
+                     is_state('sensor.fancoil_cucina_main_available', 'True') and
+                     states('sensor.fancoil_cucina_hvac_temp_mode') != 'off' }}
+            sequence:
+              - delay: "{{ '%02d' % (states('input_number.fancoil_debounce_seconds') | int(30) % 60) }}"
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: "[Cucina] Velocità: {{ states('sensor.fancoil_cucina_fan_attuale_hw') }} -> {{ states('sensor.fancoil_cucina_fan_target') }} (Delta: {{ states('sensor.fancoil_cucina_diff') | float | round(2) }}°C)"
+              - action: climate.set_fan_mode
+                target:
+                  entity_id: climate.controllo_temperatura_cucina
+                data:
+                  fan_mode: "{{ states('sensor.fancoil_cucina_fan_target') }}"
+
+  # ============================================================
+  # CUCINA - Master OFF Handler
+  # ============================================================
+  - id: "fancoil_cucina_master_off_v3"
+    alias: "Fancoil Cucina: spegnimento quando master OFF"
+    initial_state: true
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: input_select.fancoil_system_hvac_mode
+        to: "off"
+    conditions:
+      - condition: state
+        entity_id: input_boolean.fancoil_cucina_hvac_mode_follow_master
+        state: "on"
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: climate.controllo_temperatura_cucina
+            state: "unavailable"
+    actions:
+      - action: climate.turn_off
+        target:
+          entity_id: climate.controllo_temperatura_cucina
+      - delay: "00:00:01"
+
+  # ============================================================
+  # CUCINA - Entity Monitor
+  # ============================================================
+  - id: "fancoil_cucina_entity_monitor_v3"
+    alias: "Fancoil Cucina: Monitor disponibilità entità"
+    initial_state: true
+    mode: single
+    triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: time_pattern
+        hours: "/12"
+    actions:
+      - if:
+          - condition: template
+            value_template: "{{ trigger.platform == 'homeassistant' }}"
+        then:
+          - wait_template: >
+              {{ states('switch.stox_fancoil_cucina_switch') not in ['unavailable', 'unknown'] and
+                 states('climate.controllo_temperatura_cucina') not in ['unavailable', 'unknown'] and
+                 states('input_number.fan_distance_stop') not in ['unavailable', 'unknown'] and
+                 states('input_select.fancoil_system_hvac_mode') not in ['unavailable', 'unknown'] }}
+            timeout: "00:02:00"
+            continue_on_timeout: true
+      - variables:
+          critical_entities:
+            - switch.stox_fancoil_cucina_switch
+            - climate.controllo_temperatura_cucina
+            - input_number.fan_distance_stop
+          unavailable: >
+            {% set ns = namespace(items=[]) %}
+            {% for entity in critical_entities %}
+              {% if states(entity) in ['unavailable','unknown'] %}
+                {% set ns.items = ns.items + [entity] %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.items }}
+      - if:
+          - condition: template
+            value_template: "{{ unavailable | length > 0 }}"
+        then:
+          - action: persistent_notification.create
+            data:
+              title: "Fancoil Cucina: Problema Entità"
+              message: >
+                Entità non disponibili:
+                {% for entity in unavailable %}
+                - {{ entity }}
+                {% endfor %}
+          - event: fancoil_log_event
+            event_data:
+              level: warning
+              message: "[Cucina] Entità UNAVAILABLE: {{ unavailable }}"
+        else:
+          - if:
+              - condition: template
+                value_template: "{{ trigger.platform == 'homeassistant' }}"
+            then:
+              - event: fancoil_log_event
+                event_data:
+                  level: info
+                  message: "[Cucina] Tutte le entità disponibili. Avvio inizializzazione."
+              - event: fancoil_start_initialization
+                event_data:
+                  fancoil_id: "cucina"

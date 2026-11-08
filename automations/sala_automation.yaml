@@ -45,6 +45,7 @@
            is_state('switch.attiva_pdc', 'on') and
            is_state('switch.attiva_pompa_circolazione', 'on') }}
       timeout: "00:03:00"
+      continue_on_timeout: true
     - if:
         - condition: template
           value_template: "{{ trigger.platform == 'event' and trigger.event.event_type == 'fancoil_start_initialization' }}"
@@ -57,6 +58,7 @@
                is_state('switch.attiva_pdc', 'on') and
                is_state('switch.attiva_pompa_circolazione', 'on') }}
           timeout: "00:02:00"
+          continue_on_timeout: true
     - variables:
         verbosity_level: "{{ states('input_select.fancoil_verbosity_level_master') | default('info') }}"
         hvac_temp_mode: >-
@@ -528,6 +530,7 @@
                states('input_number.fan_distance_stop') not in ['unavailable', 'unknown'] and
                states('input_select.fancoil_system_hvac_mode') not in ['unavailable', 'unknown'] }}
           timeout: "00:02:00"
+          continue_on_timeout: true
     - variables:
         critical_entities:
           - switch.stox_fancoil_sala_switch

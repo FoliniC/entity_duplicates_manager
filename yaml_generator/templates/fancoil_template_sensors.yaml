@@ -1,0 +1,654 @@
+# Trigger-based Template Sensors per Fancoil - Logica Computazionale
+# Generato per sostituire le variabili inline nelle automazioni
+# Usa trigger-based templates (HA 2023.4+) per ricalcolo efficiente
+# Tutte le 4 zone combinate in un unico trigger/sensor block
+
+trigger:
+  # BAGNO triggers
+  - trigger: state
+    entity_id:
+      - input_boolean.fancoil_bagno_hvac_mode_follow_master
+      - input_select.fancoil_system_hvac_mode
+      - input_select.fancoil_bagno_hvac_mode_local
+  - trigger: state
+    entity_id:
+      - sensor.fancoil_bagno_temperature_difference
+      - binary_sensor.fancoil_bagno_stop_condition
+      - input_boolean.fancoil_deumidificazione
+      - switch.attiva_fancoil
+      - switch.attiva_pdc
+      - switch.attiva_pompa_circolazione
+      - binary_sensor.pdc_acqua_calda
+      - input_number.fan_distance_stop
+      - input_number.fan_distance_idle
+      - input_number.fan_distance_low
+      - input_number.fan_distance_medium
+      - input_number.fan_distance_high
+      - input_number.fan_distance_resume
+      - input_number.fancoil_resume_delay_minutes
+  - trigger: state
+    entity_id:
+      - switch.fancoil_bagno_switch_1
+      - switch.fancoil_bagno_switch_2
+      - switch.fancoil_bagno_switch_3
+      - switch.fancoil_bagno_switch_4
+      - switch.stox_fancoil_bagno_switch
+  - trigger: state
+    entity_id:
+      - sensor.fancoil_bagno_temperature
+      - sensor.fancoil_bagno_humidity
+
+  # CAMERA GRANDE triggers
+  - trigger: state
+    entity_id:
+      - input_boolean.fancoil_camera_grande_hvac_mode_follow_master
+      - input_select.fancoil_system_hvac_mode
+      - input_select.fancoil_camera_grande_hvac_mode_local
+  - trigger: state
+    entity_id:
+      - sensor.fancoil_camera_grande_temperature_difference
+      - binary_sensor.fancoil_camera_grande_stop_condition
+      - input_boolean.fancoil_deumidificazione
+      - switch.attiva_fancoil
+      - switch.attiva_pdc
+      - switch.attiva_pompa_circolazione
+      - binary_sensor.pdc_acqua_calda
+      - input_number.fan_distance_stop
+      - input_number.fan_distance_idle
+      - input_number.fan_distance_low
+      - input_number.fan_distance_medium
+      - input_number.fan_distance_high
+      - input_number.fan_distance_resume
+      - input_number.fancoil_resume_delay_minutes
+  - trigger: state
+    entity_id:
+      - switch.fancoil_camera_grande_switch_1
+      - switch.fancoil_camera_grande_switch_2
+      - switch.fancoil_camera_grande_switch_3
+      - switch.fancoil_camera_grande_switch_4
+      - switch.stox_fancoil_camera_grande_switch
+  - trigger: state
+    entity_id:
+      - sensor.fancoil_camera_grande_temperature
+      - sensor.fancoil_camera_grande_humidity
+
+  # CORRIDOIO triggers
+  - trigger: state
+    entity_id:
+      - input_boolean.fancoil_corridoio_hvac_mode_follow_master
+      - input_select.fancoil_system_hvac_mode
+      - input_select.fancoil_corridoio_hvac_mode_local
+  - trigger: state
+    entity_id:
+      - sensor.fancoil_corridoio_temperature_difference
+      - binary_sensor.fancoil_corridoio_stop_condition
+      - input_boolean.fancoil_deumidificazione
+      - switch.attiva_fancoil
+      - switch.attiva_pdc
+      - switch.attiva_pompa_circolazione
+      - binary_sensor.pdc_acqua_calda
+      - input_number.fan_distance_stop
+      - input_number.fan_distance_idle
+      - input_number.fan_distance_low
+      - input_number.fan_distance_medium
+      - input_number.fan_distance_high
+      - input_number.fan_distance_resume
+      - input_number.fancoil_resume_delay_minutes
+  - trigger: state
+    entity_id:
+      - switch.fancoil_corridoio_switch_1
+      - switch.fancoil_corridoio_switch_2
+      - switch.fancoil_corridoio_switch_3
+      - switch.fancoil_corridoio_switch_4
+      - switch.stox_fancoil_corridoio_switch
+  - trigger: state
+    entity_id:
+      - sensor.fancoil_corridoio_temperature
+      - sensor.fancoil_corridoio_humidity
+
+  # CUCINA triggers
+  - trigger: state
+    entity_id:
+      - input_boolean.fancoil_cucina_hvac_mode_follow_master
+      - input_select.fancoil_system_hvac_mode
+      - input_select.fancoil_cucina_hvac_mode_local
+  - trigger: state
+    entity_id:
+      - sensor.fancoil_cucina_temperature_difference
+      - binary_sensor.fancoil_cucina_stop_condition
+      - input_boolean.fancoil_deumidificazione
+      - switch.attiva_fancoil
+      - switch.attiva_pdc
+      - switch.attiva_pompa_circolazione
+      - binary_sensor.pdc_acqua_calda
+      - input_number.fan_distance_stop
+      - input_number.fan_distance_idle
+      - input_number.fan_distance_low
+      - input_number.fan_distance_medium
+      - input_number.fan_distance_high
+      - input_number.fan_distance_resume
+      - input_number.fancoil_resume_delay_minutes
+  - trigger: state
+    entity_id:
+      - switch.fancoil_cucina_switch_1
+      - switch.fancoil_cucina_switch_2
+      - switch.fancoil_cucina_switch_3
+      - switch.fancoil_cucina_switch_4
+      - switch.stox_fancoil_cucina_switch
+  - trigger: state
+    entity_id:
+      - sensor.fancoil_cucina_temperature
+      - sensor.fancoil_cucina_humidity
+
+sensor:
+  # ============================================================
+  # BAGNO
+  # ============================================================
+  - name: "Fancoil Bagno HVAC Temp Mode"
+    unique_id: fancoil_bagno_hvac_temp_mode
+    state: >-
+      {% set follow_master = is_state('input_boolean.fancoil_bagno_hvac_mode_follow_master','on') %}
+      {% set master_hvac_mode = states('input_select.fancoil_system_hvac_mode') %}
+      {% set local_mode = states('input_select.fancoil_bagno_hvac_mode_local') %}
+      {% if follow_master and master_hvac_mode not in ['unavailable', 'unknown', None, ''] %}
+        {{ master_hvac_mode }}
+      {% elif not follow_master and local_mode not in ['unavailable', 'unknown', None, ''] %}
+        {{ local_mode }}
+      {% else %}
+        off
+      {% endif %}
+
+  - name: "Fancoil Bagno Diff"
+    unique_id: fancoil_bagno_diff
+    state: >-
+      {% set diff_raw = states('sensor.fancoil_bagno_temperature_difference') %}
+      {% if diff_raw not in ['unavailable', 'unknown', 'none', ''] %}
+        {{ diff_raw | float(0) | round(2) }}
+      {% else %}
+        unavailable
+      {% endif %}
+
+  - name: "Fancoil Bagno Soglia Stop"
+    unique_id: fancoil_bagno_soglia_stop
+    state: "{{ states('input_number.fan_distance_stop') | float(-0.3) }}"
+
+  - name: "Fancoil Bagno Soglia Resume"
+    unique_id: fancoil_bagno_soglia_resume
+    state: "{{ states('input_number.fan_distance_resume') | float(0.5) }}"
+
+  - name: "Fancoil Bagno Stop Condition"
+    unique_id: fancoil_bagno_stop_condition
+    state: >-
+      {% set diff = states('sensor.fancoil_bagno_diff') %}
+      {% set soglia = states('sensor.fancoil_bagno_soglia_stop') | float(-0.3) %}
+      {% if diff not in ['unavailable', 'unknown', 'none', ''] %}
+        {{ (diff | float(0) <= soglia) }}
+      {% else %}
+        false
+      {% endif %}
+
+  - name: "Fancoil Bagno Fan Attuale HW"
+    unique_id: fancoil_bagno_fan_attuale_hw
+    state: >-
+      {% set s1 = is_state('switch.fancoil_bagno_switch_1','on') %}
+      {% set s2 = is_state('switch.fancoil_bagno_switch_2','on') %}
+      {% set s3 = is_state('switch.fancoil_bagno_switch_3','on') %}
+      {% set s4 = is_state('switch.fancoil_bagno_switch_4','on') %}
+      {% if (not s1 and not s2 and not s3 and not s4) %} off
+      {% elif (not s1 and not s2 and not s3 and s4) %} idle
+      {% elif (s1 and not s2 and not s3 and s4) %} low
+      {% elif (not s1 and s2 and not s3 and s4) %} medium
+      {% elif (not s1 and not s2 and s3 and s4) %} high
+      {% else %} unknown
+      {% endif %}
+
+  - name: "Fancoil Bagno Fan Target"
+    unique_id: fancoil_bagno_fan_target
+    state: >-
+      {% set diff_raw = states('sensor.fancoil_bagno_temperature_difference') %}
+      {% set diff_valid = diff_raw not in ['unavailable', 'unknown', 'none', ''] %}
+      {% set system_enabled = is_state('switch.attiva_fancoil','on') and is_state('switch.attiva_pdc','on') and is_state('switch.attiva_pompa_circolazione','on') %}
+      {% set hvac_mode = states('sensor.fancoil_bagno_hvac_temp_mode') %}
+      {% set stop_condition = is_state('binary_sensor.fancoil_bagno_stop_condition','on') %}
+      {% set deumidificazione = is_state('input_boolean.fancoil_deumidificazione','on') %}
+      {% set soglia_high = states('input_number.fan_distance_high') | float(2.0) %}
+      {% set soglia_medium = states('input_number.fan_distance_medium') | float(1.2) %}
+      {% set soglia_low = states('input_number.fan_distance_low') | float(0.5) %}
+      {% set soglia_idle = states('input_number.fan_distance_idle') | float(0.3) %}
+      {% if not diff_valid %}
+        unknown
+      {% elif not system_enabled %}
+        off
+      {% elif hvac_mode == 'off' %}
+        off
+      {% elif hvac_mode == 'dry' %}
+        idle
+      {% elif stop_condition %}
+        {{ 'idle' if deumidificazione else 'off' }}
+      {% elif is_state('binary_sensor.pdc_acqua_calda', 'on') %}
+        idle
+      {% elif diff_raw | float(0) >= (soglia_high - 0.01) %}
+        high
+      {% elif diff_raw | float(0) >= (soglia_medium - 0.01) %}
+        medium
+      {% elif diff_raw | float(0) >= (soglia_low - 0.01) %}
+        low
+      {% elif diff_raw | float(0) >= (soglia_idle - 0.01) %}
+        idle
+      {% else %}
+        {{ 'idle' if deumidificazione else 'off' }}
+      {% endif %}
+
+  - name: "Fancoil Bagno Main Available"
+    unique_id: fancoil_bagno_main_available
+    state: >-
+      {% set stox = states('switch.stox_fancoil_bagno_switch') %}
+      {% set vlv = states('switch.fancoil_bagno_switch_4') %}
+      {{ stox not in ['unavailable','unknown'] and vlv not in ['unavailable','unknown'] }}
+
+  - name: "Fancoil Bagno Resume Allowed"
+    unique_id: fancoil_bagno_resume_allowed
+    state: >-
+      {% set diff_raw = states('sensor.fancoil_bagno_temperature_difference') %}
+      {% set diff_valid = diff_raw not in ['unavailable', 'unknown', 'none', ''] %}
+      {% set hvac_mode = states('sensor.fancoil_bagno_hvac_temp_mode') %}
+      {% set stop_condition = is_state('binary_sensor.fancoil_bagno_stop_condition','on') %}
+      {% set deumidificazione = is_state('input_boolean.fancoil_deumidificazione','on') %}
+      {% set soglia_resume = states('input_number.fan_distance_resume') | float(0.5) %}
+      {% set resume_delay = states('input_number.fancoil_resume_delay_minutes') | float(3) %}
+      {% set ts = states('input_datetime.fancoil_bagno_last_main_off') %}
+      {% set minutes_since_off = ((as_timestamp(now()) - as_timestamp(ts)) / 60) | default(9999) | float(9999) if ts not in ['unavailable', 'unknown', '', None] and as_timestamp(ts) > 0 else 9999 %}
+      {% set first_run = false %}
+      {{ hvac_mode == 'dry' or (deumidificazione and not stop_condition) or (diff_valid and not stop_condition and diff_raw | float(0) >= soglia_resume and (minutes_since_off >= resume_delay or first_run)) }}
+
+  - name: "Fancoil Bagno Temperature"
+    unique_id: fancoil_bagno_temperature
+    state: "{{ states('sensor.fancoil_bagno_temperature') }}"
+
+  - name: "Fancoil Bagno Humidity"
+    unique_id: fancoil_bagno_humidity
+    state: "{{ states('sensor.fancoil_bagno_humidity') }}"
+
+  # ============================================================
+  # CAMERA GRANDE
+  # ============================================================
+  - name: "Fancoil Camera Grande HVAC Temp Mode"
+    unique_id: fancoil_camera_grande_hvac_temp_mode
+    state: >-
+      {% set follow_master = is_state('input_boolean.fancoil_camera_grande_hvac_mode_follow_master','on') %}
+      {% set master_hvac_mode = states('input_select.fancoil_system_hvac_mode') %}
+      {% set local_mode = states('input_select.fancoil_camera_grande_hvac_mode_local') %}
+      {% if follow_master and master_hvac_mode not in ['unavailable', 'unknown', None, ''] %}
+        {{ master_hvac_mode }}
+      {% elif not follow_master and local_mode not in ['unavailable', 'unknown', None, ''] %}
+        {{ local_mode }}
+      {% else %}
+        off
+      {% endif %}
+
+  - name: "Fancoil Camera Grande Diff"
+    unique_id: fancoil_camera_grande_diff
+    state: >-
+      {% set diff_raw = states('sensor.fancoil_camera_grande_temperature_difference') %}
+      {% if diff_raw not in ['unavailable', 'unknown', 'none', ''] %}
+        {{ diff_raw | float(0) | round(2) }}
+      {% else %}
+        unavailable
+      {% endif %}
+
+  - name: "Fancoil Camera Grande Soglia Stop"
+    unique_id: fancoil_camera_grande_soglia_stop
+    state: "{{ states('input_number.fan_distance_stop') | float(-0.3) }}"
+
+  - name: "Fancoil Camera Grande Soglia Resume"
+    unique_id: fancoil_camera_grande_soglia_resume
+    state: "{{ states('input_number.fan_distance_resume') | float(0.5) }}"
+
+  - name: "Fancoil Camera Grande Stop Condition"
+    unique_id: fancoil_camera_grande_stop_condition
+    state: >-
+      {% set diff = states('sensor.fancoil_camera_grande_diff') %}
+      {% set soglia = states('sensor.fancoil_camera_grande_soglia_stop') | float(-0.3) %}
+      {% if diff not in ['unavailable', 'unknown', 'none', ''] %}
+        {{ (diff | float(0) <= soglia) }}
+      {% else %}
+        false
+      {% endif %}
+
+  - name: "Fancoil Camera Grande Fan Attuale HW"
+    unique_id: fancoil_camera_grande_fan_attuale_hw
+    state: >-
+      {% set s1 = is_state('switch.fancoil_camera_grande_switch_1','on') %}
+      {% set s2 = is_state('switch.fancoil_camera_grande_switch_2','on') %}
+      {% set s3 = is_state('switch.fancoil_camera_grande_switch_3','on') %}
+      {% set s4 = is_state('switch.fancoil_camera_grande_switch_4','on') %}
+      {% if (not s1 and not s2 and not s3 and not s4) %} off
+      {% elif (not s1 and not s2 and not s3 and s4) %} idle
+      {% elif (s1 and not s2 and not s3 and s4) %} low
+      {% elif (not s1 and s2 and not s3 and s4) %} medium
+      {% elif (not s1 and not s2 and s3 and s4) %} high
+      {% else %} unknown
+      {% endif %}
+
+  - name: "Fancoil Camera Grande Fan Target"
+    unique_id: fancoil_camera_grande_fan_target
+    state: >-
+      {% set diff_raw = states('sensor.fancoil_camera_grande_temperature_difference') %}
+      {% set diff_valid = diff_raw not in ['unavailable', 'unknown', 'none', ''] %}
+      {% set system_enabled = is_state('switch.attiva_fancoil','on') and is_state('switch.attiva_pdc','on') and is_state('switch.attiva_pompa_circolazione','on') %}
+      {% set hvac_mode = states('sensor.fancoil_camera_grande_hvac_temp_mode') %}
+      {% set stop_condition = is_state('binary_sensor.fancoil_camera_grande_stop_condition','on') %}
+      {% set deumidificazione = is_state('input_boolean.fancoil_deumidificazione','on') %}
+      {% set soglia_high = states('input_number.fan_distance_high') | float(2.0) %}
+      {% set soglia_medium = states('input_number.fan_distance_medium') | float(1.2) %}
+      {% set soglia_low = states('input_number.fan_distance_low') | float(0.5) %}
+      {% set soglia_idle = states('input_number.fan_distance_idle') | float(0.3) %}
+      {% if not diff_valid %}
+        unknown
+      {% elif not system_enabled %}
+        off
+      {% elif hvac_mode == 'off' %}
+        off
+      {% elif hvac_mode == 'dry' %}
+        idle
+      {% elif stop_condition %}
+        {{ 'idle' if deumidificazione else 'off' }}
+      {% elif is_state('binary_sensor.pdc_acqua_calda', 'on') %}
+        idle
+      {% elif diff_raw | float(0) >= (soglia_high - 0.01) %}
+        high
+      {% elif diff_raw | float(0) >= (soglia_medium - 0.01) %}
+        medium
+      {% elif diff_raw | float(0) >= (soglia_low - 0.01) %}
+        low
+      {% elif diff_raw | float(0) >= (soglia_idle - 0.01) %}
+        idle
+      {% else %}
+        {{ 'idle' if deumidificazione else 'off' }}
+      {% endif %}
+
+  - name: "Fancoil Camera Grande Main Available"
+    unique_id: fancoil_camera_grande_main_available
+    state: >-
+      {% set stox = states('switch.stox_fancoil_camera_grande_switch') %}
+      {% set vlv = states('switch.fancoil_camera_grande_switch_4') %}
+      {{ stox not in ['unavailable','unknown'] and vlv not in ['unavailable','unknown'] }}
+
+  - name: "Fancoil Camera Grande Resume Allowed"
+    unique_id: fancoil_camera_grande_resume_allowed
+    state: >-
+      {% set diff_raw = states('sensor.fancoil_camera_grande_temperature_difference') %}
+      {% set diff_valid = diff_raw not in ['unavailable', 'unknown', 'none', ''] %}
+      {% set hvac_mode = states('sensor.fancoil_camera_grande_hvac_temp_mode') %}
+      {% set stop_condition = is_state('binary_sensor.fancoil_camera_grande_stop_condition','on') %}
+      {% set deumidificazione = is_state('input_boolean.fancoil_deumidificazione','on') %}
+      {% set soglia_resume = states('input_number.fan_distance_resume') | float(0.5) %}
+      {% set resume_delay = states('input_number.fancoil_resume_delay_minutes') | float(3) %}
+      {% set ts = states('input_datetime.fancoil_camera_grande_last_main_off') %}
+      {% set minutes_since_off = ((as_timestamp(now()) - as_timestamp(ts)) / 60) | default(9999) | float(9999) if ts not in ['unavailable', 'unknown', '', None] and as_timestamp(ts) > 0 else 9999 %}
+      {% set first_run = false %}
+      {{ hvac_mode == 'dry' or (deumidificazione and not stop_condition) or (diff_valid and not stop_condition and diff_raw | float(0) >= soglia_resume and (minutes_since_off >= resume_delay or first_run)) }}
+
+  - name: "Fancoil Camera Grande Temperature"
+    unique_id: fancoil_camera_grande_temperature
+    state: "{{ states('sensor.fancoil_camera_grande_temperature') }}"
+
+  - name: "Fancoil Camera Grande Humidity"
+    unique_id: fancoil_camera_grande_humidity
+    state: "{{ states('sensor.fancoil_camera_grande_humidity') }}"
+
+  # ============================================================
+  # CORRIDOIO
+  # ============================================================
+  - name: "Fancoil Corridoio HVAC Temp Mode"
+    unique_id: fancoil_corridoio_hvac_temp_mode
+    state: >-
+      {% set follow_master = is_state('input_boolean.fancoil_corridoio_hvac_mode_follow_master','on') %}
+      {% set master_hvac_mode = states('input_select.fancoil_system_hvac_mode') %}
+      {% set local_mode = states('input_select.fancoil_corridoio_hvac_mode_local') %}
+      {% if follow_master and master_hvac_mode not in ['unavailable', 'unknown', None, ''] %}
+        {{ master_hvac_mode }}
+      {% elif not follow_master and local_mode not in ['unavailable', 'unknown', None, ''] %}
+        {{ local_mode }}
+      {% else %}
+        off
+      {% endif %}
+
+  - name: "Fancoil Corridoio Diff"
+    unique_id: fancoil_corridoio_diff
+    state: >-
+      {% set diff_raw = states('sensor.fancoil_corridoio_temperature_difference') %}
+      {% if diff_raw not in ['unavailable', 'unknown', 'none', ''] %}
+        {{ diff_raw | float(0) | round(2) }}
+      {% else %}
+        unavailable
+      {% endif %}
+
+  - name: "Fancoil Corridoio Soglia Stop"
+    unique_id: fancoil_corridoio_soglia_stop
+    state: "{{ states('input_number.fan_distance_stop') | float(-0.3) }}"
+
+  - name: "Fancoil Corridoio Soglia Resume"
+    unique_id: fancoil_corridoio_soglia_resume
+    state: "{{ states('input_number.fan_distance_resume') | float(0.5) }}"
+
+  - name: "Fancoil Corridoio Stop Condition"
+    unique_id: fancoil_corridoio_stop_condition
+    state: >-
+      {% set diff = states('sensor.fancoil_corridoio_diff') %}
+      {% set soglia = states('sensor.fancoil_corridoio_soglia_stop') | float(-0.3) %}
+      {% if diff not in ['unavailable', 'unknown', 'none', ''] %}
+        {{ (diff | float(0) <= soglia) }}
+      {% else %}
+        false
+      {% endif %}
+
+  - name: "Fancoil Corridoio Fan Attuale HW"
+    unique_id: fancoil_corridoio_fan_attuale_hw
+    state: >-
+      {% set s1 = is_state('switch.fancoil_corridoio_switch_1','on') %}
+      {% set s2 = is_state('switch.fancoil_corridoio_switch_2','on') %}
+      {% set s3 = is_state('switch.fancoil_corridoio_switch_3','on') %}
+      {% set s4 = is_state('switch.fancoil_corridoio_switch_4','on') %}
+      {% if (not s1 and not s2 and not s3 and not s4) %} off
+      {% elif (not s1 and not s2 and not s3 and s4) %} idle
+      {% elif (s1 and not s2 and not s3 and s4) %} low
+      {% elif (not s1 and s2 and not s3 and s4) %} medium
+      {% elif (not s1 and not s2 and s3 and s4) %} high
+      {% else %} unknown
+      {% endif %}
+
+  - name: "Fancoil Corridoio Fan Target"
+    unique_id: fancoil_corridoio_fan_target
+    state: >-
+      {% set diff_raw = states('sensor.fancoil_corridoio_temperature_difference') %}
+      {% set diff_valid = diff_raw not in ['unavailable', 'unknown', 'none', ''] %}
+      {% set system_enabled = is_state('switch.attiva_fancoil','on') and is_state('switch.attiva_pdc','on') and is_state('switch.attiva_pompa_circolazione','on') %}
+      {% set hvac_mode = states('sensor.fancoil_corridoio_hvac_temp_mode') %}
+      {% set stop_condition = is_state('binary_sensor.fancoil_corridoio_stop_condition','on') %}
+      {% set deumidificazione = is_state('input_boolean.fancoil_deumidificazione','on') %}
+      {% set soglia_high = states('input_number.fan_distance_high') | float(2.0) %}
+      {% set soglia_medium = states('input_number.fan_distance_medium') | float(1.2) %}
+      {% set soglia_low = states('input_number.fan_distance_low') | float(0.5) %}
+      {% set soglia_idle = states('input_number.fan_distance_idle') | float(0.3) %}
+      {% if not diff_valid %}
+        unknown
+      {% elif not system_enabled %}
+        off
+      {% elif hvac_mode == 'off' %}
+        off
+      {% elif hvac_mode == 'dry' %}
+        idle
+      {% elif stop_condition %}
+        {{ 'idle' if deumidificazione else 'off' }}
+      {% elif is_state('binary_sensor.pdc_acqua_calda', 'on') %}
+        idle
+      {% elif diff_raw | float(0) >= (soglia_high - 0.01) %}
+        high
+      {% elif diff_raw | float(0) >= (soglia_medium - 0.01) %}
+        medium
+      {% elif diff_raw | float(0) >= (soglia_low - 0.01) %}
+        low
+      {% elif diff_raw | float(0) >= (soglia_idle - 0.01) %}
+        idle
+      {% else %}
+        {{ 'idle' if deumidificazione else 'off' }}
+      {% endif %}
+
+  - name: "Fancoil Corridoio Main Available"
+    unique_id: fancoil_corridoio_main_available
+    state: >-
+      {% set stox = states('switch.stox_fancoil_corridoio_switch') %}
+      {% set vlv = states('switch.fancoil_corridoio_switch_4') %}
+      {{ stox not in ['unavailable','unknown'] and vlv not in ['unavailable','unknown'] }}
+
+  - name: "Fancoil Corridoio Resume Allowed"
+    unique_id: fancoil_corridoio_resume_allowed
+    state: >-
+      {% set diff_raw = states('sensor.fancoil_corridoio_temperature_difference') %}
+      {% set diff_valid = diff_raw not in ['unavailable', 'unknown', 'none', ''] %}
+      {% set hvac_mode = states('sensor.fancoil_corridoio_hvac_temp_mode') %}
+      {% set stop_condition = is_state('binary_sensor.fancoil_corridoio_stop_condition','on') %}
+      {% set deumidificazione = is_state('input_boolean.fancoil_deumidificazione','on') %}
+      {% set soglia_resume = states('input_number.fan_distance_resume') | float(0.5) %}
+      {% set resume_delay = states('input_number.fancoil_resume_delay_minutes') | float(3) %}
+      {% set ts = states('input_datetime.fancoil_corridoio_last_main_off') %}
+      {% set minutes_since_off = ((as_timestamp(now()) - as_timestamp(ts)) / 60) | default(9999) | float(9999) if ts not in ['unavailable', 'unknown', '', None] and as_timestamp(ts) > 0 else 9999 %}
+      {% set first_run = false %}
+      {{ hvac_mode == 'dry' or (deumidificazione and not stop_condition) or (diff_valid and not stop_condition and diff_raw | float(0) >= soglia_resume and (minutes_since_off >= resume_delay or first_run)) }}
+
+  - name: "Fancoil Corridoio Temperature"
+    unique_id: fancoil_corridoio_temperature
+    state: "{{ states('sensor.fancoil_corridoio_temperature') }}"
+
+  - name: "Fancoil Corridoio Humidity"
+    unique_id: fancoil_corridoio_humidity
+    state: "{{ states('sensor.fancoil_corridoio_humidity') }}"
+
+  # ============================================================
+  # CUCINA
+  # ============================================================
+  - name: "Fancoil Cucina HVAC Temp Mode"
+    unique_id: fancoil_cucina_hvac_temp_mode
+    state: >-
+      {% set follow_master = is_state('input_boolean.fancoil_cucina_hvac_mode_follow_master','on') %}
+      {% set master_hvac_mode = states('input_select.fancoil_system_hvac_mode') %}
+      {% set local_mode = states('input_select.fancoil_cucina_hvac_mode_local') %}
+      {% if follow_master and master_hvac_mode not in ['unavailable', 'unknown', None, ''] %}
+        {{ master_hvac_mode }}
+      {% elif not follow_master and local_mode not in ['unavailable', 'unknown', None, ''] %}
+        {{ local_mode }}
+      {% else %}
+        off
+      {% endif %}
+
+  - name: "Fancoil Cucina Diff"
+    unique_id: fancoil_cucina_diff
+    state: >-
+      {% set diff_raw = states('sensor.fancoil_cucina_temperature_difference') %}
+      {% if diff_raw not in ['unavailable', 'unknown', 'none', ''] %}
+        {{ diff_raw | float(0) | round(2) }}
+      {% else %}
+        unavailable
+      {% endif %}
+
+  - name: "Fancoil Cucina Soglia Stop"
+    unique_id: fancoil_cucina_soglia_stop
+    state: "{{ states('input_number.fan_distance_stop') | float(-0.3) }}"
+
+  - name: "Fancoil Cucina Soglia Resume"
+    unique_id: fancoil_cucina_soglia_resume
+    state: "{{ states('input_number.fan_distance_resume') | float(0.5) }}"
+
+  - name: "Fancoil Cucina Stop Condition"
+    unique_id: fancoil_cucina_stop_condition
+    state: >-
+      {% set diff = states('sensor.fancoil_cucina_diff') %}
+      {% set soglia = states('sensor.fancoil_cucina_soglia_stop') | float(-0.3) %}
+      {% if diff not in ['unavailable', 'unknown', 'none', ''] %}
+        {{ (diff | float(0) <= soglia) }}
+      {% else %}
+        false
+      {% endif %}
+
+  - name: "Fancoil Cucina Fan Attuale HW"
+    unique_id: fancoil_cucina_fan_attuale_hw
+    state: >-
+      {% set s1 = is_state('switch.fancoil_cucina_switch_1','on') %}
+      {% set s2 = is_state('switch.fancoil_cucina_switch_2','on') %}
+      {% set s3 = is_state('switch.fancoil_cucina_switch_3','on') %}
+      {% set s4 = is_state('switch.fancoil_cucina_switch_4','on') %}
+      {% if (not s1 and not s2 and not s3 and not s4) %} off
+      {% elif (not s1 and not s2 and not s3 and s4) %} idle
+      {% elif (s1 and not s2 and not s3 and s4) %} low
+      {% elif (not s1 and s2 and not s3 and s4) %} medium
+      {% elif (not s1 and not s2 and s3 and s4) %} high
+      {% else %} unknown
+      {% endif %}
+
+  - name: "Fancoil Cucina Fan Target"
+    unique_id: fancoil_cucina_fan_target
+    state: >-
+      {% set diff_raw = states('sensor.fancoil_cucina_temperature_difference') %}
+      {% set diff_valid = diff_raw not in ['unavailable', 'unknown', 'none', ''] %}
+      {% set system_enabled = is_state('switch.attiva_fancoil','on') and is_state('switch.attiva_pdc','on') and is_state('switch.attiva_pompa_circolazione','on') %}
+      {% set hvac_mode = states('sensor.fancoil_cucina_hvac_temp_mode') %}
+      {% set stop_condition = is_state('binary_sensor.fancoil_cucina_stop_condition','on') %}
+      {% set deumidificazione = is_state('input_boolean.fancoil_deumidificazione','on') %}
+      {% set soglia_high = states('input_number.fan_distance_high') | float(2.0) %}
+      {% set soglia_medium = states('input_number.fan_distance_medium') | float(1.2) %}
+      {% set soglia_low = states('input_number.fan_distance_low') | float(0.5) %}
+      {% set soglia_idle = states('input_number.fan_distance_idle') | float(0.3) %}
+      {% if not diff_valid %}
+        unknown
+      {% elif not system_enabled %}
+        off
+      {% elif hvac_mode == 'off' %}
+        off
+      {% elif hvac_mode == 'dry' %}
+        idle
+      {% elif stop_condition %}
+        {{ 'idle' if deumidificazione else 'off' }}
+      {% elif is_state('binary_sensor.pdc_acqua_calda', 'on') %}
+        idle
+      {% elif diff_raw | float(0) >= (soglia_high - 0.01) %}
+        high
+      {% elif diff_raw | float(0) >= (soglia_medium - 0.01) %}
+        medium
+      {% elif diff_raw | float(0) >= (soglia_low - 0.01) %}
+        low
+      {% elif diff_raw | float(0) >= (soglia_idle - 0.01) %}
+        idle
+      {% else %}
+        {{ 'idle' if deumidificazione else 'off' }}
+      {% endif %}
+
+  - name: "Fancoil Cucina Main Available"
+    unique_id: fancoil_cucina_main_available
+    state: >-
+      {% set stox = states('switch.stox_fancoil_cucina_switch') %}
+      {% set vlv = states('switch.fancoil_cucina_switch_4') %}
+      {{ stox not in ['unavailable','unknown'] and vlv not in ['unavailable','unknown'] }}
+
+  - name: "Fancoil Cucina Resume Allowed"
+    unique_id: fancoil_cucina_resume_allowed
+    state: >-
+      {% set diff_raw = states('sensor.fancoil_cucina_temperature_difference') %}
+      {% set diff_valid = diff_raw not in ['unavailable', 'unknown', 'none', ''] %}
+      {% set hvac_mode = states('sensor.fancoil_cucina_hvac_temp_mode') %}
+      {% set stop_condition = is_state('binary_sensor.fancoil_cucina_stop_condition','on') %}
+      {% set deumidificazione = is_state('input_boolean.fancoil_deumidificazione','on') %}
+      {% set soglia_resume = states('input_number.fan_distance_resume') | float(0.5) %}
+      {% set resume_delay = states('input_number.fancoil_resume_delay_minutes') | float(3) %}
+      {% set ts = states('input_datetime.fancoil_cucina_last_main_off') %}
+      {% set minutes_since_off = ((as_timestamp(now()) - as_timestamp(ts)) / 60) | default(9999) | float(9999) if ts not in ['unavailable', 'unknown', '', None] and as_timestamp(ts) > 0 else 9999 %}
+      {% set first_run = false %}
+      {{ hvac_mode == 'dry' or (deumidificazione and not stop_condition) or (diff_valid and not stop_condition and diff_raw | float(0) >= soglia_resume and (minutes_since_off >= resume_delay or first_run)) }}
+
+  - name: "Fancoil Cucina Temperature"
+    unique_id: fancoil_cucina_temperature
+    state: "{{ states('sensor.fancoil_cucina_temperature') }}"
+
+  - name: "Fancoil Cucina Humidity"
+    unique_id: fancoil_cucina_humidity
+    state: "{{ states('sensor.fancoil_cucina_humidity') }}"

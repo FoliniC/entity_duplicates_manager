@@ -20,6 +20,16 @@
         "require_admin": false,
         "mode": "storage",
         "url_path": "dashboard-panoramica"
+      },
+      {
+        "id": "cronostar-admin",
+        "show_in_sidebar": true,
+        "icon": "mdi:calendar-star",
+        "title": "CronoStar",
+        "require_admin": true,
+        "mode": "yaml",
+        "url_path": "cronostar-admin",
+        "filename": "cronostar_dashboard_v600.yaml"
       }
     ]
   }

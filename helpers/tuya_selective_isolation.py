@@ -72,6 +72,11 @@ class TuyaDevice:
             or "t & h" in text
             or "temperature & humidity" in text
             or "temperature humidity" in text
+            or "contact" in text           # Door/window contact sensors
+            or "door" in text              # Door sensors
+            or "window" in text            # Window sensors
+            or "finestra" in text          # Italian: window
+            or "porta" in text             # Italian: door
         )
 
 

@@ -98,7 +98,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # 2. Identify Entry Type
     if entry.data.get("component_installed"):
-        _LOGGER.info("ℹ️ [ENTRY_SETUP] Entry is the global component. Setup finished.")
+        _LOGGER.info("ℹ️ [ENTRY_SETUP] Entry is the global component. Setup finished. entry_id=%s", entry.entry_id)
         # Auto-update global component title
         expected_title = "CronoStar"
         if entry.title != expected_title:

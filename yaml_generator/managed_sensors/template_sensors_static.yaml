@@ -3,9 +3,9 @@
   device_class: power
   state_class: measurement
   unit_of_measurement: "W"
-  state: >
-    {% set p = states('sensor.wifi_dual_meter_b_new_a_old_power_a') %}
-    {{ (p | float(0)) | round(2) if p not in ['unavailable', 'unknown', 'none'] else 0 }}
+  state: >-
+    {% set p = states('sensor.locale_tecnico_wifi_dual_meter_b_new_a_old_power_a') %}
+    {{ (p | float(0)) | round(2) if p not in ['unavailable', 'unknown', 'none', ''] else 0 }}
 - name: Potenza prelevata attuale
   unique_id: potenza_prelevata_attuale
   device_class: power
@@ -86,10 +86,10 @@
   device_class: power
   state_class: measurement
   unit_of_measurement: "W"
-  state: >
+  state: >-
     {# Priorità 1: Misuratore Totale Impianto Nuovo (Canale B del Dual Meter) #}
-    {% set p_tot = states('sensor.wifi_dual_meter_b_new_a_old_power_b') %}
-    {% if p_tot not in ['unavailable', 'unknown', 'none'] %}
+    {% set p_tot = states('sensor.locale_tecnico_wifi_dual_meter_b_new_a_old_power_b') %}
+    {% if p_tot not in ['unavailable', 'unknown', 'none', ''] %}
       {{ (p_tot | float(0)) | round(2) }}
     {% else %}
       {# Fallback: Somma dei carichi noti #}

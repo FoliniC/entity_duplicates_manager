@@ -1,5 +1,6 @@
 - sensor: !include_dir_merge_list managed_sensors/
 - binary_sensor: !include_dir_merge_list managed_binary_sensors/
+- !include templates/fancoil_template_sensors.yaml
 - !include ev_charge_2025_triggers.yaml
 - !include luce_scale_template.yaml
 - !include managed_trigger_sensors/cucina_climate_advice.yaml

@@ -14,7 +14,7 @@ faulthandler_watch:
 frontend:
   themes: !include_dir_merge_named themes
   extra_module_url:
-    - /hacsfiles/lovelace-card-mod/card-mod.js
+    - /local/community/lovelace-card-mod/card-mod.js
 # Automation & Scripts
 automation: !include_dir_merge_list automations
 script: !include yaml_generator/scripts/scripts.yaml
@@ -494,8 +494,8 @@ logger:
     homeassistant.components.template: warning
     homeassistant.components.light: warning
     homeassistant.components.homeassistant: warning
-    custom_components.localtuya: debug
-    custom_components.entity_duplicates_manager: info
+    custom_components.localtuya: warning
+    custom_components.entity_duplicates_manager: warning
     fancoil_system: error
     homeassistant.components.shell_command: error
     homeassistant.components.script: warning
@@ -546,25 +546,25 @@ lovelace:
       type: module
     - url: /local/power-wheel-card.js?v=2
       type: module
-    - url: /hacsfiles/mini-graph-card/mini-graph-card-bundle.js
+    - url: /local/community/mini-graph-card/mini-graph-card-bundle.js
       type: module
     - url: /local/uptime-card.ko.js
       type: module
-    - url: /hacsfiles/apexcharts-card/apexcharts-card.js
+    - url: /local/community/apexcharts-card/apexcharts-card.js
       type: module
-    - url: /hacsfiles/power-flow-card-plus/power-flow-card-plus.js
+    - url: /local/community/power-flow-card-plus/power-flow-card-plus.js
       type: module
-    - url: /hacsfiles/scheduler-card/scheduler-card.js
+    - url: /local/community/scheduler-card/scheduler-card.js
       type: module
-    - url: /hacsfiles/ha-sankey-chart/ha-sankey-chart.js
+    - url: /local/community/ha-sankey-chart/ha-sankey-chart.js
       type: module
-    - url: /hacsfiles/charger-card/charger-card.js
+    - url: /local/community/charger-card/charger-card.js
       type: module
-    - url: /hacsfiles/lovelace-mushroom/mushroom.js
+    - url: /local/community/lovelace-mushroom/mushroom.js
       type: module
-    - url: /hacsfiles/numberbox-card/numberbox-card.js
+    - url: /local/community/numberbox-card/numberbox-card.js
       type: module
-    - url: /hacsfiles/lovelace-auto-entities/auto-entities.js?v=1
+    - url: /local/community/lovelace-auto-entities/auto-entities.js?v=1
       type: module
     - url: /local/flex-table-card.js
       type: module
