@@ -1,0 +1,19 @@
+{
+  "name": "Entity Duplicates Manager",
+  "render_readme": true,
+  "content_in_root": false,
+  "version": "1.2.0",
+  "author": "FoliniC",
+  "description": "Home Assistant integration to identify, manage, and clean up duplicate entities with interactive dashboard",
+  "homeassistant": "2024.1.0",
+  "has_entities": true,
+  "has_services": true,
+  "categories": ["utility", "configuration"],
+  "documentation": "https://github.com/FoliniC/entity_duplicates_manager",
+  "issue_tracker": "https://github.com/FoliniC/entity_duplicates_manager/issues",
+  "changelog": "https://github.com/FoliniC/entity_duplicates_manager/blob/master/changelog.md",
+  "download": "https://github.com/FoliniC/entity_duplicates_manager/archive/main.zip",
+  "requirements": [],
+  "dependencies": [],
+  "tags": ["entities", "duplicates", "cleanup", "registry", "management", "dashboard"]
+}
